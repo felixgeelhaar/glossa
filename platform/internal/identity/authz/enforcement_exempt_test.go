@@ -139,6 +139,7 @@ var notProjectAddressed = map[string]string{
 	"release.Service.ManifestBytes":     pure,
 	"release.Service.RewriteKeyIndexes": background,
 	"release.Service.Subscribe":         wiring,
+	"release.Service.UseApprovals":      wiring,
 	"release.Service.SyncDeliveryKey":   runtime,
 	"release.Service.SyncEnvironment":   runtime,
 

@@ -133,6 +133,11 @@ func (s *scenario) reportFixture(b *bytes.Buffer) {
 		w("- The platform could not make the vendor's translator a vendor member (§12.2), so they were invited as an\n")
 		w("  ordinary `de` translator: the sweep shows what such a member can read today.\n")
 	}
+	w("- **Something to address in each project** (§12.2), made through the API as the owner: an application,\n")
+	w("  a check policy, a staging release and one of its artifacts, an import job, a Git connection (one\n")
+	w("  repository of a fake GitHub, under a path per project), a branch push, a capture upload, a check run,\n")
+	w("  a linguistic job, and an AI fill of `%s` / `%s` with its job and suggestion, drafted by a fake\n", unitKey("a", sweepUnit), unitKey("b", sweepUnit))
+	w("  provider on loopback. Project B's are the sweep's ids inside the assignment, project A's outside it.\n")
 	w("- **Canaries**, words that exist only in this fixture's text, in source and translation text of both projects:\n")
 	w("  `%s`. §12.5 fails if any of them reaches the audit export.\n", strings.Join(canaries, "`, `"))
 	w("- **A v0.3 server built from `apps/api`** (§12.6), migrated with its own migrations, seeded through its own API.\n\n")

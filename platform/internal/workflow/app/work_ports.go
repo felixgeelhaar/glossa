@@ -29,8 +29,11 @@ var (
 	// member, group or vendor this tenant does not have.
 	ErrUnknownParty = errors.New("workflow: no such member, group or vendor")
 	// ErrNotAssignee is acting on an assignment that is not given to
-	// the caller. It is a refusal for permission.
-	ErrNotAssignee = fmt.Errorf("%w: the assignment is not given to you", authz.ErrForbidden)
+	// the caller. It is not found, not forbidden: reading someone else's
+	// assignment is not found (WorkService.Assignment), and answering
+	// acting on it differently — 403 where reading says 404 — would tell
+	// the caller the assignment exists after all.
+	ErrNotAssignee = fmt.Errorf("%w: no such assignment among yours", ErrNotFound)
 	// ErrSuperseded is a decision on an approval a newer request for the
 	// same subject has replaced.
 	ErrSuperseded = errors.New("workflow: a newer approval request replaced this one")
@@ -38,6 +41,9 @@ var (
 	// not a translation unit: assignments are batches of translation
 	// units (§3.1).
 	ErrUnsupportedSubject = errors.New("workflow: assignments cover translation units only")
+	// ErrIdempotencyReuse is an Idempotency-Key used before for a
+	// different request.
+	ErrIdempotencyReuse = errors.New("workflow: this Idempotency-Key was used for a different request")
 )
 
 // WorkTransactor runs fn in the tenant transaction ctx is already in
@@ -55,12 +61,31 @@ type AssignmentFilter struct {
 	// Assignees are stored spellings (domain.Assignee.String()); an
 	// assignment matches any of them.
 	Assignees []string
+	// Message and Locale keep only assignments covering a unit of that
+	// message, in that locale, or both.
+	Message uuid.UUID
+	Locale  string
 	// Within, when set, keeps only assignments in these projects: the
 	// caller's project scope, set by the service, never by a caller.
 	Within *[]uuid.UUID
 	// After is the last id of the previous page.
 	After uuid.UUID
 	Limit int
+}
+
+// ApprovalFilter narrows a list of approvals. Zero fields don't filter.
+type ApprovalFilter struct {
+	Project uuid.UUID
+	Kind    domain.SubjectKind
+	// SubjectID is a translation unit's message or a release request.
+	SubjectID uuid.UUID
+	// Locale is a canonical BCP 47 tag.
+	Locale string
+	States []domain.ApprovalState
+	// Within is the caller's project scope, set by the service.
+	Within *[]uuid.UUID
+	After  uuid.UUID
+	Limit  int
 }
 
 // CoverageQuery asks which units assignments to any of Assignees cover
@@ -94,6 +119,9 @@ type WorkStore interface {
 	// LatestApproval is the newest approval requested for subject in
 	// project (ErrNotFound when there is none).
 	LatestApproval(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (domain.Approval, error)
+	// ListApprovals lists approvals with their decisions, in id order
+	// after f.After.
+	ListApprovals(ctx context.Context, f ApprovalFilter) ([]domain.Approval, error)
 	// AppendDecision appends the approval's seq-th decision (1-based).
 	AppendDecision(ctx context.Context, approval uuid.UUID, seq int, d domain.Decision) error
 	// UpdateApproval saves state, version and closed_at, like
@@ -169,10 +197,11 @@ type Directory interface {
 }
 
 // Authors answers who wrote the text under approval: the actor of a
-// translation unit's latest content revision, or the requester of a
-// release request. Four-eyes is decided against it at the moment of
-// each decision, so a grant given before its granter rewrote the text
-// stops counting.
+// translation unit's latest content revision. Four-eyes is decided
+// against it at the moment of each decision, so a grant given before
+// its granter rewrote the text stops counting. A release request's
+// author is its requester, which WorkService asks Release for
+// (WithReleaseRequests).
 type Authors interface {
 	Author(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (string, error)
 }

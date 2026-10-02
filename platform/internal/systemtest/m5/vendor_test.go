@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,6 +41,20 @@ type operation struct {
 	ID        string
 	Path      string
 	Responses map[string]bool
+	// Query are the operation's required query parameters. A request
+	// without them is malformed and answered 400 before anything is
+	// authorized — identically inside and outside the assignment, which
+	// proves nothing — so the sweep fills them like path parameters.
+	Query []string
+}
+
+// specParam is a parameter as the spec writes it: inline, or a $ref
+// into components.parameters.
+type specParam struct {
+	Ref      string `yaml:"$ref"`
+	Name     string `yaml:"name"`
+	In       string `yaml:"in"`
+	Required bool   `yaml:"required"`
 }
 
 // getOperations reads every GET operation from the contract. The sweep
@@ -51,10 +66,25 @@ func getOperations() ([]operation, error) {
 		return nil, err
 	}
 	var doc struct {
-		Paths map[string]map[string]yaml.Node `yaml:"paths"`
+		Paths      map[string]map[string]yaml.Node `yaml:"paths"`
+		Components struct {
+			Parameters map[string]specParam `yaml:"parameters"`
+		} `yaml:"components"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, err
+	}
+	requiredQuery := func(ps []specParam) []string {
+		var out []string
+		for _, p := range ps {
+			if p.Ref != "" {
+				p = doc.Components.Parameters[p.Ref[strings.LastIndex(p.Ref, "/")+1:]]
+			}
+			if p.In == "query" && p.Required {
+				out = append(out, p.Name)
+			}
+		}
+		return out
 	}
 	var ops []operation
 	for path, methods := range doc.Paths {
@@ -65,15 +95,23 @@ func getOperations() ([]operation, error) {
 		var op struct {
 			OperationID string               `yaml:"operationId"`
 			Responses   map[string]yaml.Node `yaml:"responses"`
+			Parameters  []specParam          `yaml:"parameters"`
 		}
 		if err := node.Decode(&op); err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		var shared []specParam
+		if n, ok := methods["parameters"]; ok {
+			if err := n.Decode(&shared); err != nil {
+				return nil, fmt.Errorf("%s parameters: %w", path, err)
+			}
 		}
 		codes := map[string]bool{}
 		for c := range op.Responses {
 			codes[c] = true
 		}
-		ops = append(ops, operation{ID: op.OperationID, Path: path, Responses: codes})
+		ops = append(ops, operation{ID: op.OperationID, Path: path, Responses: codes,
+			Query: requiredQuery(append(shared, op.Parameters...))})
 	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i].Path < ops[j].Path })
 	return ops, nil
@@ -94,9 +132,11 @@ func (s *scenario) vendorVisibility() {
 	})
 	var assignment string
 	s.step(id, fmt.Sprintf("assign %d `de` units of project B to the vendor", assignedUnits), func() error {
+		// One assignment is one project's batch: the project once, the
+		// units by message key and locale.
 		units := make([]map[string]string, 0, len(s.assigned))
 		for _, k := range s.assigned {
-			units = append(units, map[string]string{"project": s.projectB, "message": k, "locale": "de"})
+			units = append(units, map[string]string{"message": k, "locale": "de"})
 		}
 		assignee := map[string]any{"vendor": s.vendorID}
 		if s.vendorID == "" {
@@ -106,7 +146,7 @@ func (s *scenario) vendorVisibility() {
 			ID string `json:"id"`
 		}
 		if _, err := s.owner.try(http.MethodPost, s.assignmentsPath(), map[string]any{
-			"units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
+			"project_id": s.projectB, "units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
 		}, http.StatusCreated, &a); err != nil {
 			return missing("creating an assignment (POST "+s.assignmentsPath()+")", err)
 		}
@@ -138,6 +178,30 @@ func (s *scenario) resolveSweepIDs() {
 	s.inside["project"], s.outside["project"] = s.projectB, s.projectA
 	s.inside["message"], s.outside["message"] = s.assigned[0], s.unassigned[0]
 	s.inside["locale"], s.outside["locale"] = "de", "de"
+	s.inside["environment"], s.outside["environment"] = "production", "production"
+	for k, v := range s.sweepInside {
+		s.inside[k] = v
+	}
+	for k, v := range s.sweepOutside {
+		s.outside[k] = v
+	}
+}
+
+// withQuery adds op's required query parameters from ids, or names the
+// first one the fixture has no value for.
+func withQuery(path string, op operation, ids map[string]string) (string, string) {
+	q := url.Values{}
+	for _, name := range op.Query {
+		v, ok := ids[name]
+		if !ok {
+			return path, name
+		}
+		q.Set(name, v)
+	}
+	if len(q) == 0 {
+		return path, ""
+	}
+	return path + "?" + q.Encode(), ""
 }
 
 // leakMarkers are strings only something outside the assignment holds:
@@ -208,7 +272,9 @@ func (s *scenario) lookupID(template, name, side string) string {
 	if err != nil || status != http.StatusOK {
 		return ""
 	}
-	for _, field := range []string{"id", "name", "key", "code", "digest", "number", "version"} {
+	// The parameter's own name first: {version} is a version's number,
+	// and the first "id" in a list of versions is not one.
+	for _, field := range []string{name, "id", "name", "key", "code", "digest", "number", "version"} {
 		re := regexp.MustCompile(`"` + field + `"\s*:\s*"?([^",}]+)"?`)
 		if m := re.FindSubmatch(body); m != nil {
 			return string(m[1])
@@ -235,6 +301,12 @@ func (s *scenario) generatedSweep() {
 			s.sweep = append(s.sweep, row)
 			continue
 		}
+		if inPath, param = withQuery(inPath, op, s.inside); param != "" {
+			row.OK, row.Unexercised = false, "no fixture value for the required query parameter `"+param+"`"
+			unexercised = append(unexercised, op.ID)
+			s.sweep = append(s.sweep, row)
+			continue
+		}
 		status, body, err := s.vendor.get(inPath)
 		switch {
 		case err != nil:
@@ -256,7 +328,10 @@ func (s *scenario) generatedSweep() {
 		var outs []string
 		for _, side := range s.outsideSides(op.Path) {
 			outPath, _, ok := s.resolve(op.Path, side, "outside")
-			if !ok || outPath == inPath {
+			if !ok {
+				continue
+			}
+			if outPath, param = withQuery(outPath, op, side); param != "" || outPath == inPath {
 				continue
 			}
 			st, ob, err := s.vendor.get(outPath)
@@ -291,11 +366,13 @@ func (s *scenario) generatedSweep() {
 }
 
 // outsideSides are the id sets an operation is called with outside the
-// assignment: project A for anything addressed by a project, and project
-// B with an unassigned unit for anything addressed by a message.
+// assignment: project A for anything addressed by a project, or by a
+// tenant-level id the fixture made in project A (an import job, an AI
+// fill, a Git connection); and project B with an unassigned unit for
+// anything addressed by a message.
 func (s *scenario) outsideSides(path string) []map[string]string {
 	var sides []map[string]string
-	if strings.Contains(path, "{project}") {
+	if strings.Contains(path, "{project}") || s.outsideByID(path) {
 		a := cloneIDs(s.outside)
 		a["message"] = unitKey("a", 1)
 		sides = append(sides, a)
@@ -306,6 +383,17 @@ func (s *scenario) outsideSides(path string) []map[string]string {
 		sides = append(sides, b)
 	}
 	return sides
+}
+
+// outsideByID says path is addressed by an id that has a value of its
+// own outside the assignment: one the fixture made in project A.
+func (s *scenario) outsideByID(path string) bool {
+	for _, m := range pathParam.FindAllStringSubmatch(path, -1) {
+		if out, ok := s.outside[m[1]]; ok && m[1] != "tenant" && out != s.inside[m[1]] {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneIDs(m map[string]string) map[string]string {

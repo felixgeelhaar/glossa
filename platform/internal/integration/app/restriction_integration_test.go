@@ -92,6 +92,11 @@ func TestIntegrationRestrictions(t *testing.T) {
 			return err
 		}, "denied"},
 		{"assigned: reads a job", func() error { _, err := h.svc.GetExport(vendor, ja.ID); return err }, "denied"},
+		// Another project's job, or the tenant's, is not there for them
+		// — the answer for an id that does not exist — rather than a
+		// refusal that says it is (§12.2's sweep found the 403).
+		{"assigned: reads another project's job", func() error { _, err := h.svc.GetExport(vendor, jb.ID); return err }, "not found"},
+		{"assigned: reads the tenant's TM export", func() error { _, err := h.svc.GetExport(vendor, tm.ID); return err }, "not found"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := outcome(tc.call()); got != tc.want {

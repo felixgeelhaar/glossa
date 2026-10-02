@@ -78,6 +78,7 @@ import (
 	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
+	releasemetrics "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/metrics"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/sources"
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
@@ -138,6 +139,9 @@ type contexts struct {
 	// so every replica may run it; nil when
 	// GLOSSA_BRANCH_PUBLISHER_ENABLED is off.
 	branchPublisher *releaseapp.Publisher
+	// rolloutSweeper aborts staged rollouts past their max_duration
+	// (RFC 0006 §5.2); the leased scheduler of newRolloutSweep runs it.
+	rolloutSweeper *releaseapp.RolloutSweeper
 	// githubInbox drains the GitHub webhook inbox (RFC 0004 §6.2); nil
 	// when this deployment configures no GitHub App, or when
 	// GLOSSA_GITHUB_INBOX_ENABLED is off. The install flow and the
@@ -382,12 +386,13 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	// store is what the API's instance reads query.
 	wf, err := newWorkflow(uow, events, workflow, workflowSources{
 		catalog: catalog, localization: localization, quality: quality, intelligence: intelligence, identity: deps.identity,
+		release: release,
 	}, deps.logger)
 	if err != nil {
 		return contexts{}, err
 	}
 	c := contexts{
-		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog), workflowRuntime: wf,
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog, wf.work), workflowRuntime: wf,
 		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
@@ -397,6 +402,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
+	c.rolloutSweeper = releaseapp.NewRolloutSweeper(release, scanner, releasemetrics.New(deps.registerer))
 	if deps.branches.PublisherEnabled {
 		c.branchPublisher = releaseapp.NewPublisher(release, scanner, deps.branches.PublishInterval)
 	}

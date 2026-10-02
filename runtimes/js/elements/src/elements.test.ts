@@ -54,11 +54,24 @@ const testOptions = (serve: () => TestRelease | undefined = () => r1): RuntimeOp
  * the update queued another one, which is exactly the signal to wait
  * again.
  */
-async function settle(): Promise<void> {
+async function settle(firstLoad = true): Promise<void> {
   const rendering = () =>
     Array.from(document.querySelectorAll("*")).filter(
       (e): e is Element & { updateComplete: Promise<boolean> } => "updateComplete" in e,
     );
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+  // Every provider's first load, too: what a text renders after it — a
+  // translation, or in strict mode the missing-key warning — comes from
+  // the provider publishing once its runtime is ready, which is a fetch
+  // from the test edge. Waiting only for the components to stop
+  // re-rendering returned early whenever their first render, still
+  // pending, finished before that fetch did; CI's "warns about missing
+  // keys in strict mode" failed that way while the same code passed the
+  // run before.
+  if (firstLoad) {
+    const providers = Array.from(document.querySelectorAll("glossa-provider")) as GlossaProvider[];
+    await Promise.all(providers.map((p) => p.runtime?.ready.catch(() => {})));
+  }
   for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
   for (let round = 0; round < 100; round++) {
     if ((await Promise.all(rendering().map((e) => e.updateComplete))).every(Boolean)) return;
@@ -70,13 +83,17 @@ async function settle(): Promise<void> {
 async function mount(
   markup: string,
   configure: (p: GlossaProvider) => void = (p) => (p.options = testOptions()),
+  // false for a test about the state before the first load settles,
+  // whose transport never answers: it says so rather than racing a
+  // timeout, which is how this suite became flaky in the first place.
+  firstLoad = true,
 ): Promise<GlossaProvider> {
   const container = document.createElement("div");
   container.innerHTML = markup;
   const provider = container.querySelector("glossa-provider")!;
   configure(provider);
   document.body.append(container);
-  await settle();
+  await settle(firstLoad);
   return provider;
 }
 
@@ -118,6 +135,7 @@ describe("<glossa-provider> + <glossa-text>", () => {
     const p = await mount(
       `<glossa-provider ${edgeAttrs} locale="de"><glossa-text key="cart.checkout">Zur Kasse</glossa-text></glossa-provider>`,
       (p) => (p.options = { ...testOptions(), transport: () => new Promise(() => {}) }),
+      false,
     );
     const el = p.querySelector("glossa-text")!;
     expect(el.getAttribute("data-glossa-pending")).toBe("");

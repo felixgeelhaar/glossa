@@ -93,3 +93,58 @@ func TestTheRunnerWithAssignmentsAndApprovals(t *testing.T) {
 		t.Errorf("approved by %+v, want the reviewer", revs)
 	}
 }
+
+// RFC 0006 §12.1's project A, on the real stack: the seeded default
+// bound, an approved translation, its source revised, one reviewer's
+// grant — and the translation approved, by that reviewer.
+func TestTheDefaultReReviewsOnTheRealStack(t *testing.T) {
+	h := newRunHarness(t)
+	w := newWorkHarness(t, h.tenant)
+	work := app.NewWorkService(postgres.NewWorkTransactor(w.uow), widentity.NewDirectory(w.ids),
+		sources.NewAuthors(h.catalog, h.localization))
+	h.useWork(t, work)
+
+	project, _ := h.project(t)
+	h.bindDefault(t, project)
+	translator, _ := h.as([]string{"translator"}, "de")
+	tr := h.translate(t, translator, project, "Willkommen")
+	reviewerMember := w.member("rita@example.com", []string{"reviewer"}, []string{"de"}, identity.VendorID{})
+	reviewer := w.as(reviewerMember)
+	rp, _ := authz.From(reviewer)
+	h.actors.principals[outbox.Actor(rp.Actor.String())] = rp
+	if _, err := h.localization.ReviewTranslation(reviewer, project, "home.title", "de", "approved", tr.Revision); err != nil {
+		t.Fatal(err)
+	}
+	h.drain(t)
+
+	h.source(t, project, "Welcome back")
+	v, _ := h.localization.GetTranslation(translator, project, "home.title", "de")
+	insts := h.list(t, project)
+	if v.State != "needs_review" {
+		t.Fatalf("after the source change the translation is %s; instances %+v", v.State, insts)
+	}
+	var active app.InstanceView
+	for _, i := range insts {
+		t.Logf("instance %s state=%s status=%s", i.ID, i.State, i.Status)
+		for _, r := range h.log(t, i.ID) {
+			t.Logf("  %s --%s--> %s %s actor=%s actions=%+v", r.From, r.Event, r.To, r.Outcome, r.Actor, r.Actions)
+		}
+		if i.Status == app.InstanceActive {
+			active = i
+		}
+	}
+	var approval uuid.UUID
+	if err := env.Super.QueryRow(context.Background(),
+		"SELECT id FROM workflow_approvals WHERE instance_id = $1", active.ID).Scan(&approval); err != nil {
+		t.Fatalf("no approval requested for %+v: %v (log %+v)", active, err, h.log(t, active.ID))
+	}
+	if _, err := work.Decide(reviewer, approval, domain.VerdictGranted, ""); err != nil {
+		t.Fatal(err)
+	}
+	h.drain(t)
+
+	v, err := h.localization.GetTranslation(translator, project, "home.title", "de")
+	if err != nil || v.State != "approved" {
+		t.Fatalf("after the grant: translation %s (%v); log %+v", v.State, err, h.log(t, active.ID))
+	}
+}

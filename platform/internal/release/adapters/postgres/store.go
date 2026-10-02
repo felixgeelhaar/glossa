@@ -58,9 +58,16 @@ func environment(r releasesql.ReleaseEnvironment) (domain.Environment, error) {
 	if err := json.Unmarshal(r.Policy, &p); err != nil {
 		return domain.Environment{}, fmt.Errorf("release: stored policy of %s: %w", r.Name, err)
 	}
+	var approval *domain.ApprovalPolicy
+	if len(r.Approval) > 0 {
+		approval = &domain.ApprovalPolicy{}
+		if err := json.Unmarshal(r.Approval, approval); err != nil {
+			return domain.Environment{}, fmt.Errorf("release: stored approval of %s: %w", r.Name, err)
+		}
+	}
 	return domain.Environment{
 		ProjectID: r.ProjectID, Name: r.Name, Kind: domain.EnvironmentKind(r.Kind), Branch: r.Branch.String,
-		Policy: p, Current: r.CurrentReleaseID.UUID,
+		Policy: p, Approval: approval, Current: r.CurrentReleaseID.UUID,
 		Version: int(r.Version), CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}, nil
 }
@@ -158,8 +165,14 @@ func (s *store) UpdateEnvironment(ctx context.Context, e domain.Environment, exp
 	if err != nil {
 		return err
 	}
+	var approval []byte
+	if e.Approval != nil {
+		if approval, err = json.Marshal(e.Approval); err != nil {
+			return err
+		}
+	}
 	n, err := s.q.UpdateEnvironment(ctx, releasesql.UpdateEnvironmentParams{
-		Policy: policy, CurrentReleaseID: nullID(e.Current), Version: int32Of(e.Version), UpdatedAt: e.UpdatedAt,
+		Policy: policy, Approval: approval, CurrentReleaseID: nullID(e.Current), Version: int32Of(e.Version), UpdatedAt: e.UpdatedAt,
 		ProjectID: e.ProjectID, Name: e.Name, ExpectedVersion: int32Of(expected),
 	})
 	if err != nil {

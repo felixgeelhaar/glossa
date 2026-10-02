@@ -31,14 +31,17 @@ import (
 type API struct {
 	svc       *app.Service
 	instances *app.Instances
+	work      *app.WorkService
+	catalog   app.Catalog
 }
 
 // New returns the API. instances is the instance runner's read side; nil
 // makes the instance operations answer `workflow_instances_unavailable`.
 // catalog checks projects and resolves message keys for the instance
-// reads (the service has its own, set with app.WithCatalog).
-func New(svc *app.Service, instances app.InstanceQueries, catalog app.Catalog) *API {
-	return &API{svc: svc, instances: app.NewInstances(instances, catalog)}
+// reads, assignments and approvals (the service has its own, set with
+// app.WithCatalog). work is assignments and approvals (RFC 0006 §3).
+func New(svc *app.Service, instances app.InstanceQueries, catalog app.Catalog, work *app.WorkService) *API {
+	return &API{svc: svc, instances: app.NewInstances(instances, catalog), work: work, catalog: catalog}
 }
 
 func tenantPath(ctx context.Context, sub string) string {

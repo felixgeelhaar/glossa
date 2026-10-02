@@ -16,13 +16,17 @@ import (
 // that amendment lands, and never by accident.
 func TestTheVocabularyIsClosed(t *testing.T) {
 	wantGuards := []string{
-		"actor_has_permission", "approvals_at_least", "confidence_at_least", "findings_at_least",
-		"locale_in", "namespace_in", "origin_in", "tm_match_at_least",
+		"actor_has_permission", "approvals_as_required", "approvals_at_least", "confidence_at_least", "findings_at_least",
+		"locale_in", "namespace_in", "origin_in", "review_state_in", "tm_match_at_least",
 	}
-	wantActions := []string{"assign", "notify", "request_approval", "request_fill", "run_check", "set_review_state"}
+	wantActions := []string{
+		"assign", "deny_release", "deploy_release", "notify", "request_approval", "request_approval_as_required",
+		"request_fill", "run_check", "set_review_state",
+	}
 	wantEvents := []domain.EventName{
 		"approval.denied", "approval.granted", "assignment.completed", "assignment.declined",
-		"check_run.recorded", "suggestion.created", "timer.due", "timer.overdue",
+		"check_run.recorded", "release_request.created", "release_request.deployed", "release_request.refused",
+		"release_request.withdrawn", "suggestion.created", "timer.due", "timer.overdue",
 		"translation.outdated", "translation.reviewed", "translation.revised",
 	}
 	if got := domain.GuardPrimitives(); !slices.Equal(got, wantGuards) {

@@ -171,3 +171,78 @@ func TestProjectsFilterTenantLevelLists(t *testing.T) {
 		t.Errorf("an assigned member's scope snapshot must grant nothing a job could act on later: %+v, %v", s, err)
 	}
 }
+
+// A row read by its own id (an AI fill, a Git connection, an import
+// job) is, for a caller limited to part of the tenant, answered as a
+// project-addressed read is: a row of a project they cannot see is not
+// there — the answer for an id that does not exist — and never a
+// refusal that says it is (RFC 0006 §3.3, §4.1, §12.2). A caller who
+// sees the whole tenant is refused before the row is read, so a missing
+// permission says nothing about which ids exist.
+func TestRequireRowHidesRowsOutsideWhatTheCallerSees(t *testing.T) {
+	tenant := tenancy.NewID()
+	bg := context.Background()
+	inScope, outOfScope, msg := uuid.New(), uuid.New(), uuid.New()
+	cov := &authztest.Coverage{}
+	vendor, member := authztest.Assigned(bg, tenant, cov, "de")
+	cov.Assign(member, inScope, msg, "de")
+	unwired, _ := authztest.Assigned(bg, tenant, nil, "de")
+	scoped := func(roles ...string) context.Context {
+		return authztest.ScopedMember(bg, tenant, []uuid.UUID{inScope}, roles)
+	}
+	missing := errors.New("no such row")
+
+	notVisible, denied, ok, absent := "not visible", "denied", "ok", "absent"
+	for _, tc := range []struct {
+		name    string
+		ctx     context.Context
+		perm    authz.Permission
+		project uuid.UUID
+		exists  bool
+		want    string
+		// loaded says the row was read: a caller who sees the whole
+		// tenant and lacks the permission is refused before.
+		loaded bool
+	}{
+		{"assigned: a row of a project they work in", vendor, authz.IntelligenceRead, inScope, true, denied, true},
+		{"assigned: a row of a project they don't", vendor, authz.IntelligenceRead, outOfScope, true, notVisible, true},
+		{"assigned: no such row", vendor, authz.IntelligenceRead, inScope, false, absent, true},
+		{"assigned, nothing wired: no row is visible", unwired, authz.IntegrationRead, inScope, true, notVisible, true},
+		{"scoped, lacking the permission: a row outside the scope", scoped("translator"), authz.CatalogWrite, outOfScope, true, notVisible, true},
+		{"scoped, lacking the permission: a row inside it", scoped("translator"), authz.CatalogWrite, inScope, true, denied, true},
+		{"scoped: a row inside the scope", scoped("developer"), authz.CatalogRead, inScope, true, ok, true},
+		{"scoped: a row outside it", scoped("developer"), authz.CatalogRead, outOfScope, true, notVisible, true},
+		{"unrestricted: any row", authztest.Member(bg, tenant, []string{"developer"}), authz.CatalogRead, outOfScope, true, ok, true},
+		{"unrestricted, lacking the permission: refused unread", authztest.Member(bg, tenant, []string{"translator"}), authz.CatalogWrite, outOfScope, true, denied, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			read := false
+			err := authz.RequireRow(tc.ctx, tc.perm, func() (uuid.UUID, error) {
+				read = true
+				if !tc.exists {
+					return uuid.Nil, missing
+				}
+				return tc.project, nil
+			})
+			var got string
+			switch {
+			case err == nil:
+				got = ok
+			case errors.Is(err, missing):
+				got = absent
+			case errors.Is(err, authz.ErrNotVisible):
+				got = notVisible
+			case errors.Is(err, authz.ErrForbidden):
+				got = denied
+			default:
+				t.Fatalf("unexpected error %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %s (%v), want %s", got, err, tc.want)
+			}
+			if read != tc.loaded {
+				t.Errorf("the row was read: %v, want %v", read, tc.loaded)
+			}
+		})
+	}
+}

@@ -14,6 +14,7 @@ import 'locale.dart';
 import 'manifest.dart';
 import 'model.dart';
 import 'parts.dart';
+import 'rollout.dart';
 
 /// Where the active release was loaded from (SPEC §6).
 enum Source {
@@ -87,6 +88,7 @@ class Explanation {
     required this.release,
     required this.source,
     required this.steps,
+    this.rollout,
   });
 
   /// The message id.
@@ -115,6 +117,10 @@ class Explanation {
   /// The chain walk, up to and including the locale that answered.
   final List<Step> steps;
 
+  /// The active manifest's staged rollout (SPEC §1.4), or null without a
+  /// valid one or with rollout support off.
+  final RolloutInfo? rollout;
+
   /// The SPEC §6 JSON document, verbatim.
   Map<String, Object?> toJson() => {
     'id': id,
@@ -127,6 +133,7 @@ class Explanation {
         : {'id': release!.id, 'version': release!.version},
     'source': source.toString(),
     'steps': [for (final s in steps) s.toJson()],
+    'rollout': rollout?.toJson(),
   };
 }
 
@@ -139,8 +146,9 @@ class Catalog {
     this._loaded,
     this.source,
     this._errors,
-    this._ownsErrors,
-  );
+    this._ownsErrors, [
+    this.rollout,
+  ]);
 
   /// The release's manifest.
   final Manifest manifest;
@@ -150,6 +158,11 @@ class Catalog {
   /// The loader lowers it to [Source.memory] when a later refresh brings
   /// nothing new, which is what SPEC §6 asks `explain().source` to report.
   Source source;
+
+  /// The staged rollout this release was activated under (SPEC §1.4), or
+  /// null. The catalog holds the view the loader activated, so its
+  /// [manifest] is the candidate view when [rollout]'s side is candidate.
+  final RolloutInfo? rollout;
 
   final Map<String, Map<String, Message>> _messages;
   final Set<String> _loaded;
@@ -250,6 +263,7 @@ class Catalog {
     required Map<String, Artifact> artifacts,
     required Source source,
     ErrorChannel? errors,
+    RolloutInfo? rollout,
   }) {
     final messages = <String, Map<String, Message>>{};
     final loaded = <String>{};
@@ -272,6 +286,7 @@ class Catalog {
       source,
       errors ?? ErrorChannel(),
       errors == null,
+      rollout,
     );
   }
 
@@ -408,6 +423,7 @@ class Localizer {
       release: _catalog.release,
       source: hit == null ? Source.inline : _catalog.source,
       steps: steps,
+      rollout: _catalog.rollout,
     );
   }
 

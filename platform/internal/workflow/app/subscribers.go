@@ -20,6 +20,12 @@ const (
 	localizationTranslationOutdated = "localization.translation.outdated"
 	qualityCheckRunRecorded         = "quality.check_run.recorded"
 	identityTenantCreated           = "identity.tenant.created"
+	// Release's release request events (RFC 0006 §5.1). Their payload
+	// names the request and its project (RequestPayload).
+	releaseRequestCreated   = "release.release_request.created"
+	releaseRequestDeployed  = "release.release_request.deployed"
+	releaseRequestRefused   = "release.release_request.refused"
+	releaseRequestWithdrawn = "release.release_request.withdrawn"
 	// IntelligenceSuggestionCreated is the event suggestion.created is
 	// read from. NOTHING PUBLISHES IT YET: Intelligence records a
 	// suggestion when its job completes but announces it on no event.
@@ -55,6 +61,10 @@ var vocabulary = func() map[string]domain.EventName {
 		qualityCheckRunRecorded:         domain.EventCheckRunRecorded,
 		EventInstanceTimerDue:           domain.EventTimerDue,
 		EventInstanceTimerOverdue:       domain.EventTimerOverdue,
+		releaseRequestCreated:           domain.EventReleaseRequestCreated,
+		releaseRequestDeployed:          domain.EventReleaseRequestDeployed,
+		releaseRequestRefused:           domain.EventReleaseRequestRefused,
+		releaseRequestWithdrawn:         domain.EventReleaseRequestWithdrawn,
 	}
 	for _, typ := range []string{
 		domain.EventTypeAssignmentCompleted, domain.EventTypeAssignmentDeclined,
@@ -104,6 +114,8 @@ func EventOf(d outbox.Delivery) (Event, error) {
 		err = readAssignment(d, &ev)
 	case domain.EventTypeApprovalGranted, domain.EventTypeApprovalDenied:
 		err = readApproval(d, &ev)
+	case releaseRequestCreated, releaseRequestDeployed, releaseRequestRefused, releaseRequestWithdrawn:
+		err = requestEvent(d, &ev)
 	default:
 		err = unitEvent(d, &ev)
 	}
@@ -184,6 +196,30 @@ func readApproval(d outbox.Delivery, ev *Event) error {
 	s, err := unitRef(p.ProjectID, p.SubjectID, p.Locale)
 	ev.Subjects = []SubjectRef{s}
 	return err
+}
+
+// RequestPayload is how Release's release request events name their
+// subject.
+type RequestPayload struct {
+	RequestID string `json:"request_id"`
+	ProjectID string `json:"project_id"`
+}
+
+func requestEvent(d outbox.Delivery, ev *Event) error {
+	var p RequestPayload
+	if err := d.Decode(&p); err != nil {
+		return err
+	}
+	project, err := uuid.Parse(p.ProjectID)
+	if err != nil {
+		return fmt.Errorf("project_id: %w", err)
+	}
+	id, err := uuid.Parse(p.RequestID)
+	if err != nil {
+		return fmt.Errorf("request_id: %w", err)
+	}
+	ev.Subjects = []SubjectRef{{Kind: domain.SubjectReleaseRequest, Project: project, ID: id}}
+	return nil
 }
 
 func unitEvent(d outbox.Delivery, ev *Event) error {

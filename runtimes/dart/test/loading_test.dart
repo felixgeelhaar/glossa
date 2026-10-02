@@ -12,10 +12,13 @@
 /// types emitted during the step, in order. A `304` step also asserts that
 /// the revalidation carried the previous `ETag` as `If-None-Match`.
 ///
-/// [_skips] below names the loading cases this runtime doesn't pass yet:
-/// only the staged-rollout sequences that put an installation on the
-/// candidate (SPEC §1.4), which the Dart runtime implements in RFC 0006
-/// wave 3. Any other entry would mean Dart disagrees with the contract, and
+/// A sequence's `installationId` and `rolloutSupport` configure staged
+/// rollout (SPEC §1.4), and a step's `expRollout`, when present, is
+/// asserted against `explain().rollout`.
+///
+/// [_skips] below names the loading cases this runtime doesn't pass, and
+/// it is empty: every shared sequence runs, the staged-rollout ones
+/// included. An entry would mean Dart disagrees with the contract, and
 /// that is a bug, not a configuration. The group `the skip list is honest`
 /// fails if an entry ever goes stale, so the list cannot quietly rot.
 library;
@@ -32,38 +35,10 @@ const String _deliveryKey = 'pk_test';
 
 /// Loading cases this runtime deliberately doesn't pass, keyed
 /// `<file>: <step index> <description>`, with the reason. A sequence's
-/// steps build on each other, so a sequence is skipped whole. Emptied by
-/// RFC 0006 wave 3, which implements SPEC §1.4 in this runtime.
-const String _rolloutWave3 =
-    'SPEC §1.4 staged rollout: the Dart runtime implements it in RFC 0006 '
-    'wave 3; the JS and Go runtimes pass this case';
-const Map<String, String> _skips = {
-  'rollout-candidate-fallback.json: 0 release 1, no rollout': _rolloutWave3,
-  'rollout-candidate-fallback.json: 1 rel_2 published with a rollout of '
-          "rel_3 at 10 %; rel_3's artifacts are corrupt":
-      _rolloutWave3,
-  'rollout-candidate-fallback.json: 2 the same manifest, rel_3 served '
-          'correctly':
-      _rolloutWave3,
-  'rollout-candidate-side.json: 0 cold start, a rollout of rel_2 at 10 %: '
-          'the installation is in the candidate':
-      _rolloutWave3,
-  'rollout-candidate-side.json: 1 revalidate, not modified': _rolloutWave3,
-  'rollout-candidate-side.json: 2 process restart, edge down: the persisted '
-          'manifest puts it on the candidate again':
-      _rolloutWave3,
-  'rollout-candidate-side.json: 3 advanced to 50 %: still in the candidate':
-      _rolloutWave3,
-  'rollout-candidate-side.json: 4 aborted: the manifest carries no rollout, '
-          'so the installation is back on stable':
-      _rolloutWave3,
-  'rollout-candidate-side.json: 5 a new rollout under another salt: the '
-          "installation's new cohort is outside it":
-      _rolloutWave3,
-  'rollout-invalid.json: 0 cold start, an invalid rollout of rel_2 at 100 %':
-      _rolloutWave3,
-  'rollout-invalid.json: 1 a valid rollout of rel_2 at 100 %': _rolloutWave3,
-};
+/// steps build on each other, so a sequence is skipped whole. Empty since
+/// RFC 0006 wave 3 implemented SPEC §1.4 here: like the JS and Go
+/// drivers, this one now runs every case.
+const Map<String, String> _skips = {};
 
 /// A fake `glossa-edge` (SPEC §2) behind the client's [Transport]: it
 /// answers the manifest and artifact paths from whatever it was last told
@@ -133,6 +108,9 @@ void main() {
         ),
     ];
 
+    final installationId = fixture['installationId'] as String?;
+    final rolloutSupport = fixture['rolloutSupport'] as bool? ?? true;
+
     test('runtimes/testdata/loading/$name', () async {
       final edge = _FakeEdge();
       // The store outlives a restart, exactly as a cache directory or
@@ -170,6 +148,8 @@ void main() {
             publicKeys: publicKeys,
             locales: requested,
             refreshInterval: Duration.zero,
+            installationId: installationId,
+            rollout: rolloutSupport,
           );
           client.errors.listen((e) => errors.add('${e.type}'));
           await client.ready;
@@ -188,9 +168,17 @@ void main() {
           );
         }
         final body = manifest?['body'] as Map<String, Object?>?;
+        // The manifest became active, on either side of a rollout it
+        // carries.
+        final candidate = switch (body?['rollout']) {
+          {'candidate': {'release': {'id': final String id}}} => id,
+          _ => null,
+        };
         if (body != null &&
-            client.release?.id ==
-                (body['release']! as Map<String, Object?>)['id']) {
+            [
+              (body['release']! as Map<String, Object?>)['id'],
+              candidate,
+            ].contains(client.release?.id)) {
           lastEtag = manifest!['etag'] as String?;
         }
 
@@ -215,6 +203,13 @@ void main() {
           step['expErrors'],
           reason: '$where: errors emitted during the step',
         );
+        if (step.containsKey('expRollout')) {
+          expect(
+            client.explain(read['id']! as String).rollout?.toJson(),
+            step['expRollout'],
+            reason: '$where: explain().rollout',
+          );
+        }
       }
       await client?.dispose();
     });

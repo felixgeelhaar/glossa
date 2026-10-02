@@ -52,8 +52,13 @@ type runHarness struct {
 	actors       *fakeActors
 	assignments  *fakeAssignments
 	findings     *sources.Findings
-	mu           sync.Mutex
-	clock        time.Time
+	// releases and subscribers are what a test wiring Release adds: the
+	// runner's port onto release requests, and Release's own outbox
+	// subscriptions on the same dispatcher.
+	releases    app.ReleaseRequests
+	subscribers []func(*outbox.Registry) error
+	mu          sync.Mutex
+	clock       time.Time
 }
 
 // wire builds the runner with assignments and subscribes it, with
@@ -65,13 +70,18 @@ func (h *runHarness) wire(t *testing.T, assignments app.AssignmentsPort) {
 		Tx: h.instances, Definitions: h.defs, Timers: h.instances,
 		Translations: sources.NewTranslations(h.catalog, h.localization),
 		Findings:     h.findings,
-		Assignments:  assignments, Actors: h.actors,
+		Assignments:  assignments, Actors: h.actors, Releases: h.releases,
 		Now: func() time.Time { h.mu.Lock(); defer h.mu.Unlock(); return h.clock },
 	}
 	h.runner = app.NewRunner(h.deps)
 	reg := outbox.NewRegistry()
 	if err := h.localization.Subscribe(reg); err != nil {
 		t.Fatal(err)
+	}
+	for _, sub := range h.subscribers {
+		if err := sub(reg); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := h.runner.Subscribe(reg); err != nil {
 		t.Fatal(err)

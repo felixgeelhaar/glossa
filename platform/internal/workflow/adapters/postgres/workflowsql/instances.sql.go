@@ -330,6 +330,30 @@ func (q *Queries) LiveDefinitionNamed(ctx context.Context, name string) (bool, e
 	return exists, err
 }
 
+const liveTenantDefinition = `-- name: LiveTenantDefinition :one
+SELECT id, tenant_id, project_id, name, subject, latest, created_by, created_at, deleted_at FROM workflow_definitions WHERE project_id IS NULL AND name = $1 AND deleted_at IS NULL
+`
+
+// The tenant-wide live definition of this name: the seeded release
+// approval definition a release request runs on when no binding names
+// another (RFC 0006 §5.1).
+func (q *Queries) LiveTenantDefinition(ctx context.Context, name string) (WorkflowDefinition, error) {
+	row := q.db.QueryRow(ctx, liveTenantDefinition, name)
+	var i WorkflowDefinition
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Subject,
+		&i.Latest,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const lockActiveInstancesOfProject = `-- name: LockActiveInstancesOfProject :many
 SELECT id, tenant_id, project_id, definition_id, version, subject_kind, subject_id, locale, state, snapshot, status, due_at, overdue_at, timer_state, created_at, updated_at, finished_at FROM workflow_instances
 WHERE project_id = $1 AND subject_kind = $2 AND status = 'active'

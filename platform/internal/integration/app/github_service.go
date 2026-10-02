@@ -473,19 +473,15 @@ func (s *GitHubService) PullRequestURLs(ctx context.Context, project uuid.UUID, 
 
 // Connection returns one Git connection.
 func (s *GitHubService) Connection(ctx context.Context, id uuid.UUID) (domain.GitConnection, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
-		return domain.GitConnection{}, err
-	}
 	var out domain.GitConnection
-	err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
-		var err error
-		out, err = st.GitConnection(ctx, id)
-		return err
-	})
-	if err == nil {
-		err = authz.InProject(ctx, out.ProjectID)
-	}
-	if err != nil {
+	if err := authz.RequireRow(ctx, authz.IntegrationRead, func() (uuid.UUID, error) {
+		err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+			var err error
+			out, err = st.GitConnection(ctx, id)
+			return err
+		})
+		return out.ProjectID, err
+	}); err != nil {
 		return domain.GitConnection{}, err
 	}
 	return out, nil

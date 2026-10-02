@@ -223,14 +223,14 @@ func (s *scenario) translationState(project string) (string, string, error) {
 // approvalOf finds the open approval on the shared `de` unit.
 func (s *scenario) approvalOf(as *client, project string) (string, error) {
 	items, err := list[struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+		ID    string `json:"id"`
+		State string `json:"state"`
 	}](as, s.approvalsPath(), url.Values{"project": {project}, "message": {sharedKey}, "locale": {"de"}})
 	if err != nil {
 		return "", missing("listing approvals", err)
 	}
 	for _, a := range items {
-		if a.Status == "" || a.Status == "pending" || a.Status == "open" {
+		if a.State == "pending" {
 			return a.ID, nil
 		}
 	}

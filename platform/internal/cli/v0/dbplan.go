@@ -34,9 +34,11 @@ type LocaleInfo struct {
 	Source  bool   `json:"source"`
 }
 
-// Invitation is a v0.3 user as an invitation Identity will send (wave
-// 3). Status is "planned", or "held" when sending it as v0.3 had it
-// would change what the person may do; Reason says why.
+// Invitation is a v0.3 user as an invitation Identity sends. Status is
+// "planned", or "held" when sending it as v0.3 had it would change what
+// the person may do; Reason says why. `glossa import --invite` sends
+// the planned ones and reports each as "invited", "exists" (the address
+// is already a member or invited: nothing is sent twice) or "failed".
 type Invitation struct {
 	V0UserID    string    `json:"v0_user_id"`
 	Email       string    `json:"email"`
@@ -47,7 +49,19 @@ type Invitation struct {
 	V0CreatedAt time.Time `json:"v0_created_at"`
 	Status      string    `json:"status"`
 	Reason      string    `json:"reason,omitempty"`
+	// MemberID is the platform's member or invitation, once sent or
+	// found.
+	MemberID string `json:"member_id,omitempty"`
 }
+
+// The statuses of an invitation.
+const (
+	InvitationPlanned = "planned"
+	InvitationHeld    = "held"
+	InvitationInvited = "invited"
+	InvitationExists  = "exists"
+	InvitationFailed  = "failed"
+)
 
 // AuditActionTranslationChanged is the action of an imported v0.3
 // history entry (RFC 0006 §7.2).

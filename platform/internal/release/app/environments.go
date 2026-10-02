@@ -166,7 +166,8 @@ func environmentEvent(typ string, e domain.Environment, by string) outbox.Event 
 		Type: typ, AggregateType: domain.AggregateEnvironment, AggregateID: e.ProjectID.String() + "/" + e.Name, Actor: outbox.Actor(by),
 		Payload: domain.EnvironmentChanged{
 			ProjectID: e.ProjectID.String(), Environment: e.Name, Kind: string(e.Kind), Branch: e.Branch,
-			States: e.Policy.States, IncludeOutdated: e.Policy.IncludeOutdated, Version: e.Version, By: by,
+			States: e.Policy.States, IncludeOutdated: e.Policy.IncludeOutdated, Approval: e.Approval,
+			Version: e.Version, By: by,
 		},
 	}
 }

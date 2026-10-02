@@ -28,8 +28,13 @@ type loaded struct {
 // reader.
 func (r *Runner) loadSubject(reader context.Context, s SubjectRef) (loaded, error) {
 	out := loaded{Subject: domain.Subject{Kind: s.Kind, Locale: s.Locale}}
-	if s.Kind == domain.SubjectTranslation {
+	switch s.Kind {
+	case domain.SubjectTranslation:
 		if err := r.loadUnit(reader, s, &out); err != nil {
+			return loaded{}, err
+		}
+	case domain.SubjectReleaseRequest:
+		if err := r.loadRequest(reader, s, &out); err != nil {
 			return loaded{}, err
 		}
 	}
@@ -41,6 +46,26 @@ func (r *Runner) loadSubject(reader context.Context, s SubjectRef) (loaded, erro
 		out.Subject.Approvers = approvers
 	}
 	return out, nil
+}
+
+// loadRequest reads a release request's facts: its requester is the
+// author four-eyes counts against, and its approval requirement is what
+// request_approval_as_required asks for and approvals_as_required
+// counts to.
+func (r *Runner) loadRequest(reader context.Context, s SubjectRef, out *loaded) error {
+	if r.d.Releases == nil {
+		return nil
+	}
+	f, err := r.d.Releases.Request(reader, s.Project, s.ID)
+	switch {
+	case errors.Is(err, ErrUnavailable):
+		return nil // the request is gone: guards see nothing
+	case err != nil:
+		return fmt.Errorf("workflow: release request %s: %w", s.ID, err)
+	}
+	sub := &out.Subject
+	sub.Author, sub.Required, sub.RequiredFrom = f.Requester, f.Required, f.From
+	return nil
 }
 
 func (r *Runner) loadUnit(reader context.Context, s SubjectRef, out *loaded) error {
@@ -98,11 +123,23 @@ func (r *Runner) run(
 ) (outcomes []ActionOutcome, timer *domain.Timer, refused bool, err error) {
 	for _, e := range effects {
 		o := ActionOutcome{Action: e.Name}
-		if !act.ok && e.Use != "notify" {
+		var (
+			detail string
+			due    domain.Duration
+			err    error
+		)
+		switch {
+		case !act.ok && e.Use != "notify" && decision(e):
 			o.Outcome, o.Detail = ActionRefused, act.why
 			return append(outcomes, o), nil, true, nil
+		case !act.ok && e.Use != "notify":
+			detail, due, err = r.asWorkflow(outer, txCtx, e, inst, subject, ev, act.why)
+		default:
+			detail, due, err = r.execute(act.in(outer), act.in(txCtx), e, inst, subject, ev)
+			if refusedForPermission(err) && !decision(e) {
+				detail, due, err = r.asWorkflow(outer, txCtx, e, inst, subject, ev, err.Error())
+			}
 		}
-		detail, due, err := r.execute(act.in(outer), act.in(txCtx), e, inst, subject, ev)
 		switch {
 		case err == nil:
 			o.Outcome, o.Detail = ActionDone, detail
@@ -179,6 +216,33 @@ func (r *Runner) execute(
 			return "", domain.Duration{}, err
 		}
 		return "approval " + a.ID.String(), p.Due, nil
+	case domain.RequestApprovalAsRequired:
+		if r.d.Assignments == nil {
+			return "", domain.Duration{}, unwired("approvals")
+		}
+		if subject.Subject.Required < 1 {
+			return "", domain.Duration{}, fmt.Errorf("%w: the subject requires no approval", ErrUnavailable)
+		}
+		a, err := r.d.Assignments.RequestApprovalForInstance(txCtx, WorkflowApproval{
+			InstanceID: inst.ID, ProjectID: s.Project,
+			Subject: domain.ApprovalSubject{Kind: s.Kind, ID: s.ID, Locale: s.Locale},
+			Params:  domain.RequestApproval{N: subject.Subject.Required, From: subject.Subject.RequiredFrom, Due: p.Due},
+		})
+		if err != nil {
+			return "", domain.Duration{}, err
+		}
+		return "approval " + a.ID.String(), p.Due, nil
+	case domain.DeployRelease:
+		if r.d.Releases == nil {
+			return "", domain.Duration{}, unwired("Release")
+		}
+		detail, err := r.d.Releases.Deploy(ctx, s.Project, s.ID)
+		return detail, domain.Duration{}, err
+	case domain.DenyRelease:
+		if r.d.Releases == nil {
+			return "", domain.Duration{}, unwired("Release")
+		}
+		return "", domain.Duration{}, r.d.Releases.Deny(ctx, s.Project, s.ID)
 	case domain.Notify:
 		// In-app notifications have no store yet and mail is not
 		// configured (§2.4: email only when mail is configured): the
@@ -190,4 +254,66 @@ func (r *Runner) execute(
 
 func unwired(what string) error {
 	return fmt.Errorf("%w: %s is not wired in this deployment", ErrUnavailable, what)
+}
+
+// decision reports whether e is a decision: approving or rejecting
+// text, or deploying or denying a release request (§5.1). Those run as
+// the actor and only as the actor (§2.5) — a workflow cannot create a
+// new way to approve text or to move production. Anything else decides
+// nothing and may fall back to Workflow's own principal.
+//
+// It lists the decisions rather than the actions that may fall back,
+// so a primitive added later is a decision until someone says it isn't
+// — TestEveryPrimitiveIsClassified makes them say.
+func decision(e domain.Effect) bool {
+	switch p := e.Params.(type) {
+	case domain.SetReviewState:
+		return p.State == "approved" || p.State == "rejected"
+	case domain.DeployRelease, domain.DenyRelease:
+		return true
+	}
+	return !mayFallBack[e.Use]
+}
+
+// mayFallBack are the action primitives that decide nothing.
+// set_review_state is here for needs_review and draft; decision()
+// catches approved and rejected before this is read.
+var mayFallBack = map[string]bool{
+	"set_review_state": true, "request_approval": true, "request_approval_as_required": true,
+	"assign": true, "run_check": true, "request_fill": true, "notify": true,
+}
+
+func refusedForPermission(err error) bool {
+	return errors.Is(err, ErrRefused) || errors.Is(err, authz.ErrForbidden) || errors.Is(err, authz.ErrUnauthenticated)
+}
+
+// asWorkflow runs an action that decides nothing — sending back to
+// review, asking for an approval, assigning work, running a check — as
+// Workflow's own principal, because the actor whose event moved the
+// instance cannot (RFC 0006 §2.5, amended in wave 3).
+//
+// It exists for the source change a CI token pushes: GitHub OIDC's push
+// path holds only catalog permissions and resolves to no principal, so
+// without it the default definition's re-review never happened and an
+// outdated translation shipped as approved. Workflow's principal holds
+// catalog.read, translations.read and translations.write and never
+// review, and decisions never come here, so nothing it does can approve
+// or reject text. The detail records that it ran and why.
+func (r *Runner) asWorkflow(
+	outer, txCtx context.Context, e domain.Effect, inst domain.Instance, subject loaded, ev Event, why string,
+) (string, domain.Duration, error) {
+	bg, err := authz.Background(outer, PrincipalRunner, runnerPermissions...)
+	if err != nil {
+		return "", domain.Duration{}, err
+	}
+	p, _ := authz.From(bg)
+	detail, due, err := r.execute(bg, authz.WithPrincipal(txCtx, p), e, inst, subject, ev)
+	if err != nil {
+		return detail, due, err
+	}
+	note := "as " + PrincipalRunner + " (" + why + ")"
+	if detail != "" {
+		note = detail + "; " + note
+	}
+	return note, due, nil
 }

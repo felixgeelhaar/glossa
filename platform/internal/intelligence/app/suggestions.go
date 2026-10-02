@@ -119,19 +119,15 @@ func (s *Service) ListSuggestions(ctx context.Context, f SuggestionFilter, page 
 
 // GetSuggestion returns one suggestion. Needs intelligence.read.
 func (s *Service) GetSuggestion(ctx context.Context, id uuid.UUID) (domain.SuggestionRecord, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
-		return domain.SuggestionRecord{}, err
-	}
 	var r domain.SuggestionRecord
-	err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		var err error
-		r, err = st.Suggestion(ctx, id, false)
-		return err
-	})
-	if err == nil {
-		err = authz.InProject(ctx, r.ProjectID)
-	}
-	if err != nil {
+	if err := authz.RequireRow(ctx, authz.IntelligenceRead, func() (uuid.UUID, error) {
+		err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			r, err = st.Suggestion(ctx, id, false)
+			return err
+		})
+		return r.ProjectID, err
+	}); err != nil {
 		return domain.SuggestionRecord{}, err
 	}
 	return r, nil

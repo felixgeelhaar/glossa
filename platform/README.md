@@ -1896,17 +1896,20 @@ project: a key only reaches its own project's objects.
 | Table | Scope | Why |
 |---|---|---|
 | `release_releases` | tenant | Immutable: `glossa_app` may SELECT and INSERT; a trigger refuses UPDATE and DELETE for every role except the cascade from erasing the tenant. |
-| `release_environments` | tenant | Policy, kind (and branch) and current release per environment. |
+| `release_environments` | tenant | Policy, approval requirement (RFC 0006 §5.1), kind (and branch) and current release per environment. |
 | `release_deployments` | tenant | Every pointer move, append-only by grant: what rollback walks. |
 | `release_delivery_keys` | tenant | Publishable keys, in the clear (they ship in bundles), with their scope; revoked ones stay listed. `glossa_system` reads IDs and `index_version` (system scope `release.key_index`). |
 | `release_publish_requests` | tenant | Pending debounced publishes of branch environments. `glossa_system` reads IDs and `not_before` (system scope `release.publisher`). |
+| `release_requests` | tenant | Release requests (RFC 0006 §5.1): a publish or promote into an environment that requires approval, held until approved. At most one pending per environment; closed once (deployed, denied, withdrawn or refused), never deleted. |
 
 Events: `release.published`, `release.promoted`, `release.rolled_back`
 (the Release aggregate shares the context's name, so they are
 `release.<verb>`, as SPEC §3 names them),
 `release.environment.{created,policy_changed,destroyed,publish_requested}`,
 `release.delivery_key.{created,scope_changed,revoked}` (never carrying
-the key). Subscribers: `release.sync_manifest` and
+the key),
+`release.release_request.{created,approved,denied,deployed,withdrawn,refused}`
+(RFC 0006 §5.1; never carrying the force or withdrawal reason). Subscribers: `release.sync_manifest` and
 `release.sync_delivery_key` (storage writes; `sync_manifest` also
 removes a destroyed environment's manifest),
 `release.branch_environments` on Catalog's branch events and

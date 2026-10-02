@@ -113,6 +113,31 @@ func RequireForIn(ctx context.Context, perm Permission, locale Locale, project u
 	return nil
 }
 
+// RequireInEnvironment is RequireIn for an environment-scoped
+// permission (RFC 0006 §4.2): perm for release environment in project.
+// It is how approvals.decide is checked on a release request. The
+// grant must hold perm at all — in any locale, because a release ships
+// every locale and a member's locale scope speaks about text, not about
+// environments — and the principal's environment scope must cover
+// environment. A project outside the principal's scope is
+// ErrNotVisible; an `assigned` member is refused.
+func RequireInEnvironment(ctx context.Context, perm Permission, project uuid.UUID, environment string) error {
+	p, err := inProject(ctx, project)
+	if err != nil {
+		return err
+	}
+	if p.Assigned() {
+		return assignedDenied(perm)
+	}
+	if !perm.EnvironmentScoped() {
+		return fmt.Errorf("authz: %s is not environment-scoped; check it with RequireIn", perm)
+	}
+	if !p.Grant.Holds(perm) || !p.Environments.Covers(environment) {
+		return &DeniedError{Permission: perm, Environment: environment}
+	}
+	return nil
+}
+
 // RequireUnit returns nil if the principal holds perm for one
 // translation unit — message in locale, in project. A project outside
 // its scope, or (for an `assigned` member) a unit no assignment of
@@ -343,4 +368,51 @@ func inProject(ctx context.Context, project uuid.UUID) (Principal, error) {
 		return Principal{}, ErrNotVisible
 	}
 	return p, nil
+}
+
+// RequireRow is the check for a project-owned row a use case reads by
+// its own id, under no project in the path — an AI fill, job or
+// suggestion, a Git connection, an import or export job — whose project
+// decides what the caller may know of it (RFC 0006 §3.3, §4.1). load
+// reads the row and returns its project.
+//
+// For a caller who sees the whole tenant it is Require before the load,
+// as it always was, so a caller without the permission learns nothing
+// about which ids exist. For one limited to part of the tenant — a
+// project scope, or visibility `assigned` — the row is read first, so
+// that a row of a project the caller cannot see is ErrNotVisible, the
+// answer for a row that does not exist, and not a refusal that says it
+// is there: the order every project-addressed check has (RequireIn).
+// An `assigned` member cannot see a project no assignment of theirs
+// covers a unit in, as with Visible; inside one, they are refused.
+func RequireRow(ctx context.Context, perm Permission, load func() (uuid.UUID, error)) error {
+	p, err := inTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !p.Assigned() && p.Projects.All() {
+		if err := Require(ctx, perm); err != nil {
+			return err
+		}
+	}
+	project, err := load()
+	if err != nil {
+		return err
+	}
+	if !p.InProject(project) {
+		return ErrNotVisible
+	}
+	if p.Assigned() {
+		if p.Coverage == nil {
+			return ErrNotVisible
+		}
+		set, err := p.Coverage.Covered(ctx, p.Member, project)
+		if err != nil {
+			return fmt.Errorf("authz: coverage: %w", err)
+		}
+		if set.Len() == 0 {
+			return ErrNotVisible
+		}
+	}
+	return RequireIn(ctx, perm, project)
 }

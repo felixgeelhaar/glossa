@@ -45,7 +45,7 @@ func TestAVendorMemberDoesTheWorkTheirAssignmentCovers(t *testing.T) {
 	w := newWorld(t)
 	admin := w.person([]string{"admin"}, nil, nil, uuid.Nil)
 	unit := domain.Unit{Message: uuid.New(), Locale: "de"}
-	a, err := w.svc.Assign(admin, app.AssignInput{
+	a, _, err := w.svc.Assign(admin, app.AssignInput{
 		ProjectID: w.project, Units: []domain.Unit{unit}, To: domain.Party{Vendor: "lingua-gmbh"},
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func TestAVendorMemberDoesTheWorkTheirAssignmentCovers(t *testing.T) {
 func TestAVendorMemberWithoutCoverageCannotDoTheWork(t *testing.T) {
 	w := newWorld(t)
 	admin := w.person([]string{"admin"}, nil, nil, uuid.Nil)
-	a, err := w.svc.Assign(admin, app.AssignInput{
+	a, _, err := w.svc.Assign(admin, app.AssignInput{
 		ProjectID: w.project, Units: []domain.Unit{{Message: uuid.New(), Locale: "de"}},
 		To: domain.Party{Vendor: "lingua-gmbh"},
 	})
@@ -100,13 +100,13 @@ func TestAProjectScopedManagerSeesOnlyTheirProjects(t *testing.T) {
 	w := newWorld(t)
 	admin := w.person([]string{"admin"}, nil, nil, uuid.Nil)
 	other := uuid.New()
-	theirs, err := w.svc.Assign(admin, app.AssignInput{
+	theirs, _, err := w.svc.Assign(admin, app.AssignInput{
 		ProjectID: other, Units: []domain.Unit{{Message: uuid.New(), Locale: "de"}}, To: domain.Party{Vendor: "lingua-gmbh"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	outside, err := w.svc.Assign(admin, app.AssignInput{
+	outside, _, err := w.svc.Assign(admin, app.AssignInput{
 		ProjectID: w.project, Units: []domain.Unit{{Message: uuid.New(), Locale: "de"}}, To: domain.Party{Vendor: "lingua-gmbh"},
 	})
 	if err != nil {
@@ -122,7 +122,7 @@ func TestAProjectScopedManagerSeesOnlyTheirProjects(t *testing.T) {
 		"read":    func() error { _, err := w.svc.Assignment(manager, outside.ID); return err },
 		"decline": func() error { _, err := w.svc.Decline(manager, outside.ID, "no"); return err },
 		"assign": func() error {
-			_, err := w.svc.Assign(manager, app.AssignInput{
+			_, _, err := w.svc.Assign(manager, app.AssignInput{
 				ProjectID: w.project, Units: []domain.Unit{{Message: uuid.New(), Locale: "de"}}, To: domain.Party{Vendor: "lingua-gmbh"},
 			})
 			return err

@@ -434,7 +434,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
-| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?, audit_entries?, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`) |
+| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`) |
 | `glossa.cli.import.job/v1` | `{format, mode (dry_run \| merge \| overwrite), dry_run, scope (project \| tenant), file: {path, size, sha256}, job: Job, waited, results: [Result], results_filter (problems \| all)}` (`import --format`, `tm import`, `terms import`) |
 | `glossa.cli.export/v1` | `{format, scope, job: Job, waited, file: {path?, name, size, sha256, content_type, verified} \| null, extracted: [{path, size}]}` (`export`, `tm export`, `terms export`) |
 | `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
@@ -691,11 +691,21 @@ PGPASSWORD=… glossa import --from v0 --v0-db postgres://postgres@localhost/glo
   import revision's `origin_detail` (`v0_updated_by` is `v0:<user id>`,
   `v0:ai:<provider>` for v0.3's AI translator, or `null` where v0.3
   recorded nobody).
-- Reported as plans, not acted on: `invitations` (v0.3 `admin` →
-  `admin`; `translator` → `translator` with its locales; a translator
-  with no locales is `held`, since the platform reads an empty scope as
-  every locale) for Identity to send, and `audit_entries` (each
-  `audit_log` row as `v0.translation.changed` with actor `v0:<user id>`,
+- v0.3's users become `invitations`: v0.3 `admin` → `admin`;
+  `translator` → `translator` with its locales; a translator with no
+  locales is `held`, since the platform reads an empty scope as every
+  locale. By default they are reported as plans (`planned`, `held`).
+  `--invite` sends the `planned` ones — never the `held` ones — through
+  the members API with those roles and locales, and reports each as
+  `invited`, `exists` (the address is already a member or invited:
+  nobody is invited twice, and every request carries an
+  `Idempotency-Key` derived from the address) or `failed` (exit 4), with
+  its `member_id`. It needs a token that may invite (the `admin` scope);
+  one that may not stops the run before anyone is invited. `--invite`
+  and `--dry-run` exclude each other. An invitation is accepted when the
+  person signs in with that address.
+- Reported as a plan, not acted on: `audit_entries` (each `audit_log`
+  row as `v0.translation.changed` with actor `v0:<user id>`,
   `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`) for Audit to
   import. Locale labels are reported; the platform names locales from
   CLDR.
