@@ -78,7 +78,12 @@ func newWorkflow(
 	// asks Workflow who approved, and checks the requirement itself
 	// before it moves a pointer; until UseApprovals it deploys nothing.
 	var requests *workflowrelease.Requests
-	workOpts := []workflowapp.WorkOption{workflowapp.WithWorkMetrics(metrics)}
+	workOpts := []workflowapp.WorkOption{
+		workflowapp.WithWorkMetrics(metrics),
+		// Per-vendor quality numbers (RFC 0006 §3.4), computed on read
+		// from Catalog, Localization and Quality as the caller.
+		workflowapp.WithQualityFacts(workflowsources.NewQualityFacts(src.catalog, src.localization, src.quality)),
+	}
 	if src.release != nil {
 		requests = workflowrelease.NewRequests(src.release)
 		workOpts = append(workOpts, workflowapp.WithReleaseRequests(requests))

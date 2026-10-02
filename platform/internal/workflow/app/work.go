@@ -35,7 +35,10 @@ type WorkService struct {
 	catalog  Catalog
 	// metrics counts recorded decisions; nil counts nothing.
 	metrics DecisionMetrics
-	now     func() time.Time
+	// facts reads the quality numbers of a delivered unit (§3.4); nil
+	// answers ErrReportUnavailable.
+	facts QualityFacts
+	now   func() time.Time
 }
 
 // WorkOption configures a WorkService.
