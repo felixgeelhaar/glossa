@@ -256,12 +256,31 @@ func unwired(what string) error {
 	return fmt.Errorf("%w: %s is not wired in this deployment", ErrUnavailable, what)
 }
 
-// decision reports whether e decides about text: approving or
-// rejecting it. Those run as the actor and only as the actor (§2.5), so
-// a workflow cannot create a new way to approve text.
+// decision reports whether e is a decision: approving or rejecting
+// text, or deploying or denying a release request (§5.1). Those run as
+// the actor and only as the actor (§2.5) — a workflow cannot create a
+// new way to approve text or to move production. Anything else decides
+// nothing and may fall back to Workflow's own principal.
+//
+// It lists the decisions rather than the actions that may fall back,
+// so a primitive added later is a decision until someone says it isn't
+// — TestEveryPrimitiveIsClassified makes them say.
 func decision(e domain.Effect) bool {
-	p, ok := e.Params.(domain.SetReviewState)
-	return ok && (p.State == "approved" || p.State == "rejected")
+	switch p := e.Params.(type) {
+	case domain.SetReviewState:
+		return p.State == "approved" || p.State == "rejected"
+	case domain.DeployRelease, domain.DenyRelease:
+		return true
+	}
+	return !mayFallBack[e.Use]
+}
+
+// mayFallBack are the action primitives that decide nothing.
+// set_review_state is here for needs_review and draft; decision()
+// catches approved and rejected before this is read.
+var mayFallBack = map[string]bool{
+	"set_review_state": true, "request_approval": true, "request_approval_as_required": true,
+	"assign": true, "run_check": true, "request_fill": true, "notify": true,
 }
 
 func refusedForPermission(err error) bool {
