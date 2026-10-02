@@ -70,6 +70,11 @@ func (s *scenario) auditEntriesPath() string        { return s.tenantPath("/audi
 func (s *scenario) auditExportJobsPath() string     { return s.tenantPath("/audit-export-jobs") }
 func (s *scenario) auditExportJob(id string) string { return s.tenantPath("/audit-export-jobs/" + id) }
 
+// auditKeysPath is where glossa-server publishes the audit key's public
+// half (RFC 0006 §6.2, amended in wave 4): deployment-wide, outside
+// /v1, readable without a token.
+const auditKeysPath = "/.well-known/glossa-audit-keys.json"
+
 // The member fields §3.3 and §4.1 add to an invitation.
 const (
 	visibilityAssigned = "assigned"
