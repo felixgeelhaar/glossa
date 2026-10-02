@@ -169,10 +169,11 @@ type Directory interface {
 }
 
 // Authors answers who wrote the text under approval: the actor of a
-// translation unit's latest content revision, or the requester of a
-// release request. Four-eyes is decided against it at the moment of
-// each decision, so a grant given before its granter rewrote the text
-// stops counting.
+// translation unit's latest content revision. Four-eyes is decided
+// against it at the moment of each decision, so a grant given before
+// its granter rewrote the text stops counting. A release request's
+// author is its requester, which WorkService asks Release for
+// (WithReleaseRequests).
 type Authors interface {
 	Author(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (string, error)
 }

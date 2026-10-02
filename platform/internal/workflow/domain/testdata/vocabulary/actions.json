@@ -1,5 +1,9 @@
 {
   "accepted": [
+    { "use": "request_approval_as_required", "params": {} },
+    { "use": "request_approval_as_required", "params": { "due": "P2D" } },
+    { "use": "deploy_release", "params": {} },
+    { "use": "deny_release", "params": {} },
     { "use": "assign", "params": { "to": { "vendor": "lingua-gmbh" }, "due": "P3D" } },
     { "use": "assign", "params": { "to": { "role": "translator" } } },
     { "use": "assign", "params": { "to": { "group": "de-reviewers" }, "due": "P1DT12H" } },
@@ -14,6 +18,9 @@
     { "use": "notify", "params": { "to": { "role": "admin" } } }
   ],
   "refused": [
+    { "use": "request_approval_as_required", "params": { "n": 1, "from": { "role": "reviewer" } } },
+    { "use": "deploy_release", "params": { "environment": "production" } },
+    { "use": "deny_release", "params": { "reason": "no" } },
     { "use": "assign", "params": {} },
     { "use": "assign", "params": { "to": { "role": "legal" } } },
     { "use": "assign", "params": { "to": { "vendor": "a", "group": "b" } } },

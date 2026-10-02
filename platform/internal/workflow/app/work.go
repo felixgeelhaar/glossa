@@ -27,7 +27,10 @@ type WorkService struct {
 	tx      WorkTransactor
 	dir     Directory
 	authors Authors
-	now     func() time.Time
+	// releases says where a release request is and who asked for it
+	// (RFC 0006 §5.1); nil refuses every decision on one.
+	releases ReleaseRequests
+	now      func() time.Time
 }
 
 // WorkOption configures a WorkService.
@@ -35,6 +38,14 @@ type WorkOption func(*WorkService)
 
 // WithWorkClock sets the time source.
 func WithWorkClock(now func() time.Time) WorkOption { return func(s *WorkService) { s.now = now } }
+
+// WithReleaseRequests lets the service decide approvals of release
+// requests: Release says which environment a request is for — where
+// approvals.decide is checked — and who requested it, whom four-eyes
+// is held against.
+func WithReleaseRequests(r ReleaseRequests) WorkOption {
+	return func(s *WorkService) { s.releases = r }
+}
 
 // NewWorkService returns a WorkService.
 func NewWorkService(tx WorkTransactor, dir Directory, authors Authors, opts ...WorkOption) *WorkService {
@@ -509,10 +520,7 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 	}); err != nil {
 		return domain.Approval{}, err
 	}
-	if err := requireDecide(ctx, subject.ProjectID, subject.Subject); err != nil {
-		return domain.Approval{}, err
-	}
-	author, err := s.authors.Author(ctx, subject.ProjectID, subject.Subject)
+	author, err := s.decidable(ctx, subject.ProjectID, subject.Subject)
 	if err != nil {
 		return domain.Approval{}, err
 	}
@@ -560,18 +568,39 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 	return out, err
 }
 
-// requireDecide checks approvals.decide where the subject is: in a
-// translation's locale. A release request's environment scope is the
-// release-approvals slice's (§5.1); until then it is tenant-wide.
-func requireDecide(ctx context.Context, project uuid.UUID, s domain.ApprovalSubject) error {
-	if s.Kind != domain.SubjectTranslation {
-		return authz.RequireIn(ctx, PermApprovalsDecide, project)
+// decidable checks that the caller may decide an approval of s, and
+// returns the author four-eyes is held against.
+//
+// approvals.decide is checked where the subject is (RFC 0006 §4.2): in
+// a translation's locale, and in a release request's environment —
+// environment-scoped, so a reviewer limited to de may decide a release
+// into production unless their environment scope leaves it out. The
+// author of a translation is the actor of its latest content revision;
+// of a release request, its requester. Both are another context's to
+// say, read before the decision's transaction so their ports run in
+// their own.
+func (s *WorkService) decidable(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (string, error) {
+	if subject.Kind == domain.SubjectReleaseRequest {
+		if s.releases == nil {
+			return "", fmt.Errorf("%w: release requests are not wired in this deployment", authz.ErrForbidden)
+		}
+		f, err := s.releases.Request(ctx, project, subject.ID)
+		if err != nil {
+			return "", err
+		}
+		if err := authz.RequireInEnvironment(ctx, PermApprovalsDecide, project, f.Environment); err != nil {
+			return "", err
+		}
+		return f.Requester, nil
 	}
-	locale, err := authz.ParseLocale(s.Locale)
+	locale, err := authz.ParseLocale(subject.Locale)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return authz.RequireForIn(ctx, PermApprovalsDecide, locale, project)
+	if err := authz.RequireForIn(ctx, PermApprovalsDecide, locale, project); err != nil {
+		return "", err
+	}
+	return s.authors.Author(ctx, project, subject)
 }
 
 // refusal makes the domain's refusals of who is deciding match

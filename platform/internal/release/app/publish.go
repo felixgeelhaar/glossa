@@ -39,6 +39,13 @@ type PublishInput struct {
 // (RFC 0005 §4.1): a release that does not meet what the environment
 // requires of it is refused with domain.ErrPolicyNotMet, and goes out
 // only when in.Force carries a reason the deployment records.
+//
+// An environment that requires approval (RFC 0006 §5.1) holds the
+// publish: the release is built, gated, stored and recorded as above,
+// a release request is made, and no pointer moves. The error is then a
+// *domain.HeldError (domain.ErrApprovalRequired) carrying the request,
+// beside the recorded release. A forced publish is held like any other:
+// force overrides the gate, never the approval.
 func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInput, idemKey string) (domain.Release, bool, error) {
 	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
 	if err != nil {
@@ -64,7 +71,11 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	env, first, err := s.prepare(ctx, project, name, id, keyed)
 	if err != nil || first != nil {
 		if first != nil {
-			return s.replay(*first, in)
+			rel, replayed, err := s.replay(*first, in)
+			if err == nil {
+				err = s.heldReplay(ctx, rel)
+			}
+			return rel, replayed, err
 		}
 		return domain.Release{}, false, err
 	}
@@ -74,21 +85,41 @@ func (s *Service) Publish(ctx context.Context, project uuid.UUID, in PublishInpu
 	}
 	// The gate before the upload: a publish the policy refuses writes no
 	// artifacts.
-	if override, err = s.gate(ctx, project, env, built, override); err != nil {
+	requested := override
+	verdict, override, err := s.gate(ctx, project, env, built, override)
+	if err != nil {
 		return domain.Release{}, false, err
 	}
 	if built.Stats.NewArtifacts, err = s.upload(ctx, project, built.Artifacts); err != nil {
 		return domain.Release{}, false, err
 	}
-	rel, replayed, err := s.record(ctx, id, project, env, built, in.Note, by, override)
+	rel, held, replayed, err := s.record(ctx, id, project, env, built, in.Note, by, gated{
+		verdict: verdict, override: override, requested: requested,
+	})
 	if err != nil || replayed {
 		if replayed {
-			return s.replay(rel, in)
+			rel, replayed, err := s.replay(rel, in)
+			if err == nil {
+				err = s.heldReplay(ctx, rel)
+			}
+			return rel, replayed, err
 		}
 		return domain.Release{}, false, err
 	}
+	if held != nil {
+		return rel, false, &domain.HeldError{Request: *held}
+	}
 	s.syncNow(ctx, project, name)
 	return rel, false, nil
+}
+
+// gated is what the publish gate said about a build: its verdict, the
+// override to record if the build deploys now, and the force the
+// publisher asked for, which a held request keeps for its deploy.
+type gated struct {
+	verdict   domain.GateVerdict
+	override  domain.Override
+	requested domain.Override
 }
 
 // policyGate resolves what the project's check policy asks of one
@@ -110,16 +141,18 @@ func (s *Service) policyGate(ctx context.Context, project uuid.UUID, environment
 }
 
 // gate holds the publish to the environment's check policy and returns
-// the override to record.
-func (s *Service) gate(ctx context.Context, project uuid.UUID, env domain.Environment, built domain.Built, override domain.Override) (domain.Override, error) {
+// its verdict and the override to record.
+func (s *Service) gate(ctx context.Context, project uuid.UUID, env domain.Environment, built domain.Built, override domain.Override) (domain.GateVerdict, domain.Override, error) {
 	g, err := s.policyGate(ctx, project, env.Name)
 	if err != nil {
-		return domain.Override{}, err
+		return domain.GateVerdict{}, domain.Override{}, err
 	}
 	// env.Policy is what the release is being built under, which is what
 	// a stored release records as its own: the gate sees the same pair
 	// of facts here as it does on promote.
-	return g.Enforce(env.Policy, built.Content, built.Stats, override)
+	verdict := domain.VerdictOf(g.Check(env.Policy, built.Content, built.Stats))
+	override, err = g.Enforce(env.Policy, built.Content, built.Stats, override)
+	return verdict, override, err
 }
 
 // prepare ensures the environments exist and returns the target one, or
@@ -207,10 +240,13 @@ func (s *Service) upload(ctx context.Context, project uuid.UUID, artifacts []dom
 	return len(missing), nil
 }
 
-// record commits the release and the pointer move in one transaction.
-func (s *Service) record(ctx context.Context, id, project uuid.UUID, target domain.Environment, built domain.Built, note, by string, override domain.Override) (domain.Release, bool, error) {
+// record commits the release and the pointer move in one transaction —
+// or, when the environment requires approval, the release and a request
+// to deploy it (held), moving nothing.
+func (s *Service) record(ctx context.Context, id, project uuid.UUID, target domain.Environment, built domain.Built, note, by string, g gated) (domain.Release, *domain.ReleaseRequest, bool, error) {
 	var (
 		rel      domain.Release
+		held     *domain.ReleaseRequest
 		replayed bool
 	)
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
@@ -241,7 +277,14 @@ func (s *Service) record(ctx context.Context, id, project uuid.UUID, target doma
 			replayed = true
 			return err
 		}
-		if err := s.move(ctx, st, &env, rel, domain.ActionPublish, by, override); err != nil {
+		// The approval requirement read under the lock decides: one set
+		// while this release was being built still holds it.
+		if env.Approval != nil {
+			req, err := s.hold(ctx, st, env, rel, domain.ActionPublish, by, g.verdict, g.requested)
+			held = &req
+			return err
+		}
+		if err := s.move(ctx, st, &env, rel, domain.ActionPublish, by, g.override); err != nil {
 			return err
 		}
 		return st.Publish(ctx, outbox.Event{
@@ -252,7 +295,7 @@ func (s *Service) record(ctx context.Context, id, project uuid.UUID, target doma
 			},
 		})
 	})
-	return rel, replayed, err
+	return rel, held, replayed, err
 }
 
 func findEnvironment(envs []domain.Environment, name string) (domain.Environment, bool) {

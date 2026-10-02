@@ -113,6 +113,31 @@ func RequireForIn(ctx context.Context, perm Permission, locale Locale, project u
 	return nil
 }
 
+// RequireInEnvironment is RequireIn for an environment-scoped
+// permission (RFC 0006 §4.2): perm for release environment in project.
+// It is how approvals.decide is checked on a release request. The
+// grant must hold perm at all — in any locale, because a release ships
+// every locale and a member's locale scope speaks about text, not about
+// environments — and the principal's environment scope must cover
+// environment. A project outside the principal's scope is
+// ErrNotVisible; an `assigned` member is refused.
+func RequireInEnvironment(ctx context.Context, perm Permission, project uuid.UUID, environment string) error {
+	p, err := inProject(ctx, project)
+	if err != nil {
+		return err
+	}
+	if p.Assigned() {
+		return assignedDenied(perm)
+	}
+	if !perm.EnvironmentScoped() {
+		return fmt.Errorf("authz: %s is not environment-scoped; check it with RequireIn", perm)
+	}
+	if !p.Grant.Holds(perm) || !p.Environments.Covers(environment) {
+		return &DeniedError{Permission: perm, Environment: environment}
+	}
+	return nil
+}
+
 // RequireUnit returns nil if the principal holds perm for one
 // translation unit — message in locale, in project. A project outside
 // its scope, or (for an `assigned` member) a unit no assignment of

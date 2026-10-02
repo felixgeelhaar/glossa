@@ -22,6 +22,9 @@ type Service struct {
 	signer  *domain.Signer
 	now     func() time.Time
 	logger  *slog.Logger
+	// approvals answers who approved a release request; nil refuses
+	// every deploy of one (UseApprovals).
+	approvals Approvals
 }
 
 // Option configures a Service.

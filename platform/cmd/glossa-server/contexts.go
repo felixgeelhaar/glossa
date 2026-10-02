@@ -386,6 +386,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	// store is what the API's instance reads query.
 	wf, err := newWorkflow(uow, events, workflow, workflowSources{
 		catalog: catalog, localization: localization, quality: quality, intelligence: intelligence, identity: deps.identity,
+		release: release,
 	}, deps.logger)
 	if err != nil {
 		return contexts{}, err

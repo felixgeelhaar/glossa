@@ -1,6 +1,17 @@
 {
   "accepted": [
     {
+      "use": "approvals_as_required",
+      "params": {},
+      "cases": [
+        { "name": "two distinct approvers of two required", "subject": { "author": "person:req", "required": 2, "approvers": ["person:a", "person:b"] }, "want": true },
+        { "name": "one approver of two required", "subject": { "author": "person:req", "required": 2, "approvers": ["person:a"] }, "want": false },
+        { "name": "the same approver twice", "subject": { "author": "person:req", "required": 2, "approvers": ["person:a", "person:a"] }, "want": false },
+        { "name": "the requester never counts", "subject": { "author": "person:req", "required": 2, "approvers": ["person:req", "person:a"] }, "want": false },
+        { "name": "a subject that requires nothing", "subject": { "author": "person:req", "required": 0, "approvers": ["person:a"] }, "want": false }
+      ]
+    },
+    {
       "use": "origin_in",
       "params": { "origins": ["ai", "machine_translation"] },
       "cases": [
@@ -93,6 +104,7 @@
     }
   ],
   "refused": [
+    { "use": "approvals_as_required", "params": { "n": 1 } },
     { "use": "origin_in", "params": { "origins": ["crowd"] } },
     { "use": "origin_in", "params": {} },
     { "use": "origin_in", "params": { "origins": ["ai"], "vendor": "x" } },

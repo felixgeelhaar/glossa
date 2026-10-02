@@ -104,6 +104,12 @@ SELECT EXISTS (
     SELECT 1 FROM workflow_definitions WHERE project_id IS NULL AND name = sqlc.arg(name) AND deleted_at IS NULL
 );
 
+-- name: LiveTenantDefinition :one
+-- The tenant-wide live definition of this name: the seeded release
+-- approval definition a release request runs on when no binding names
+-- another (RFC 0006 §5.1).
+SELECT * FROM workflow_definitions WHERE project_id IS NULL AND name = sqlc.arg(name) AND deleted_at IS NULL;
+
 -- name: ListTenantsWithDueTimers :many
 -- System scope workflow.timers (db.SystemTx): which tenants have a timer
 -- due. Reads only the columns migration 0043 grants glossa_system.

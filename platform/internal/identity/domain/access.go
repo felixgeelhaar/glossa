@@ -64,10 +64,10 @@ const (
 	// PermAssignmentsManage creates, reassigns and withdraws assignments.
 	PermAssignmentsManage Permission = "assignments.manage"
 	// PermApprovalsDecide grants or denies an approval. It is
-	// locale-scoped for translation subjects (environment-scoped for
-	// release subjects once release approvals exist) and human-only: no
-	// token scope, CI ceiling or background principal ever holds it
-	// (RFC 0006 §3.2, §9.3).
+	// locale-scoped for translation subjects and environment-scoped for
+	// release subjects (RFC 0006 §4.2, §5.1; see EnvironmentScoped), and
+	// human-only: no token scope, CI ceiling or background principal
+	// ever holds it (RFC 0006 §3.2, §9.3).
 	PermApprovalsDecide Permission = "approvals.decide"
 	// PermVendorsManage creates and changes vendors and who belongs to
 	// them.
@@ -105,6 +105,14 @@ func (p Permission) LocaleScoped() bool {
 	return p == PermTranslationsWrite || p == PermTranslationsReview || p == PermIntelligenceTranslate ||
 		p == PermIntegrationImport || p == PermApprovalsDecide
 }
+
+// EnvironmentScoped reports whether p, when it decides about a release
+// request, is limited by a principal's environment scope instead of its
+// locale scope (RFC 0006 §4.2): approvals.decide is locale-scoped for a
+// translation and environment-scoped for a release, which ships every
+// locale at once. Holding it in any locale is holding it; where it may
+// be used is the environment scope's to say (authz.RequireInEnvironment).
+func (p Permission) EnvironmentScoped() bool { return p == PermApprovalsDecide }
 
 // HumanOnly reports whether p is a human decision — reviewing or
 // approving text — that no API token scope grants (RFC 0006 §9.3).
@@ -369,6 +377,16 @@ func (g Grant) Allows(p Permission) bool {
 func (g Grant) AllowsFor(p Permission, l Locale) bool {
 	scope, ok := g.perms[p]
 	return ok && scope.Covers(l)
+}
+
+// Holds reports whether p is granted at all, for every locale or for
+// some. It is the grant's half of an environment-scoped check
+// (Permission.EnvironmentScoped): a reviewer limited to de holds
+// approvals.decide, and whether they may decide a release request is a
+// question of environments, not of locales.
+func (g Grant) Holds(p Permission) bool {
+	_, ok := g.perms[p]
+	return ok
 }
 
 // Locales returns the locales p is granted for; ok is false when p isn't

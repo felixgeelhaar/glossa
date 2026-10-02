@@ -155,6 +155,22 @@ func (s *instanceStore) HasTenantDefinition(ctx context.Context, name string) (b
 	return s.q.LiveDefinitionNamed(ctx, name)
 }
 
+func (s *instanceStore) TenantDefinition(ctx context.Context, name string) (domain.DefinitionRecord, error) {
+	r, err := s.q.LiveTenantDefinition(ctx, name)
+	if err != nil {
+		return domain.DefinitionRecord{}, storeError(err)
+	}
+	return definition(r), nil
+}
+
+func (s *instanceStore) InsertDefinition(ctx context.Context, rec domain.DefinitionRecord, v domain.Version) error {
+	ds := &store{q: s.q}
+	if err := ds.InsertDefinition(ctx, rec); err != nil {
+		return err
+	}
+	return ds.InsertVersion(ctx, v)
+}
+
 func (s *instanceStore) SeedDefault(ctx context.Context, rec *domain.DefinitionRecord, v *domain.Version, at time.Time) (bool, error) {
 	var definition uuid.NullUUID
 	if rec != nil && v != nil {

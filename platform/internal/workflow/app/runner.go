@@ -54,6 +54,7 @@ var runnerPermissions = []authz.Permission{authz.CatalogRead, authz.Translations
 // readerPermissions are PrincipalReader's.
 var readerPermissions = []authz.Permission{
 	authz.CatalogRead, authz.TranslationsRead, authz.IntelligenceRead, authz.WorkflowsRead, authz.AssignmentsRead,
+	authz.ReleasesRead,
 }
 
 // startEvents are the events that start an instance where a subject has
@@ -62,6 +63,7 @@ var readerPermissions = []authz.Permission{
 // a review on a unit nobody routed is M4's behaviour, not a workflow.
 var startEvents = []domain.EventName{
 	domain.EventTranslationRevised, domain.EventTranslationOutdated, domain.EventSuggestionCreated,
+	domain.EventReleaseRequestCreated,
 }
 
 // maxProjectFanOut bounds the instances one project-wide event steps.
@@ -108,10 +110,12 @@ type RunnerDeps struct {
 	Findings     Findings
 	Suggestions  Suggestions
 	Assignments  AssignmentsPort
-	Actors       Actors
-	Timers       TimerScanner
-	Logger       *slog.Logger
-	Now          func() time.Time
+	// Releases is Release's side of a release request (RFC 0006 §5.1).
+	Releases ReleaseRequests
+	Actors   Actors
+	Timers   TimerScanner
+	Logger   *slog.Logger
+	Now      func() time.Time
 }
 
 // Runner steps workflow instances.
@@ -244,11 +248,13 @@ func (r *Runner) actingAs(ctx context.Context, actor outbox.Actor) (acting, erro
 
 // handleSubject steps the subject's active instances, starting one
 // under the binding that applies when ev starts work and none of that
-// definition is active.
+// definition is active. A release request is always bound: when no
+// binding names a definition for it, it runs on the tenant's release
+// approval default (RFC 0006 §5.1).
 func (r *Runner) handleSubject(ctx, reader context.Context, act acting, ev Event, s SubjectRef) error {
 	start := slices.Contains(startEvents, ev.Name)
-	bound := false
-	if start {
+	bound := start && s.Kind == domain.SubjectReleaseRequest
+	if start && !bound {
 		bs, err := r.d.Definitions.Bindings(reader, s.Project)
 		if err != nil {
 			return err
@@ -290,6 +296,9 @@ func (r *Runner) startIfNeeded(
 	res, found, err := r.d.Definitions.Resolve(reader, domain.Target{
 		ProjectID: s.Project, Subject: s.Kind, Locale: s.Locale, Namespace: subject.Subject.Namespace,
 	})
+	if err == nil && !found && s.Kind == domain.SubjectReleaseRequest {
+		res.Version, found, err = r.releaseDefault(ctx, st)
+	}
 	if err != nil || !found {
 		return instances, err
 	}

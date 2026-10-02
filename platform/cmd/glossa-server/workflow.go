@@ -18,8 +18,10 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
+	workflowrelease "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/release"
 	workflowsources "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/sources"
 	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 )
@@ -43,6 +45,7 @@ type workflowSources struct {
 	quality      *qualityapp.Service
 	intelligence *intelligenceapp.Service
 	identity     *identityapp.Service
+	release      *releaseapp.Service
 }
 
 // newWorkflow builds Workflow and subscribes its instance runner to the
@@ -61,8 +64,24 @@ func newWorkflow(
 	// through Localization.
 	workTx := workflowpg.NewWorkTransactor(uow)
 	directory := workflowidentity.NewDirectory(identitypg.NewTransactor(uow, nil))
+	//
+	// Release requests (RFC 0006 §5.1) are a subject too: Release says
+	// where a request is and who asked (approvals.decide is checked in
+	// its environment, four-eyes against its requester), and the runner
+	// deploys or denies it through Release's service. Release in turn
+	// asks Workflow who approved, and checks the requirement itself
+	// before it moves a pointer; until UseApprovals it deploys nothing.
+	var requests *workflowrelease.Requests
+	var workOpts []workflowapp.WorkOption
+	if src.release != nil {
+		requests = workflowrelease.NewRequests(src.release)
+		workOpts = append(workOpts, workflowapp.WithReleaseRequests(requests))
+	}
 	work := workflowapp.NewWorkService(workTx, directory,
-		workflowsources.NewAuthors(src.catalog, src.localization))
+		workflowsources.NewAuthors(src.catalog, src.localization), workOpts...)
+	if src.release != nil {
+		src.release.UseApprovals(workflowrelease.NewLedger(work))
+	}
 	// The same assignments, read as coverage: which units a member with
 	// visibility `assigned` may see (RFC 0006 §3.3).
 	coverage := workflowapp.NewCoverage(workTx, directory, nil)
@@ -73,6 +92,9 @@ func newWorkflow(
 		Suggestions:  workflowsources.NewSuggestions(src.intelligence),
 		// assign and request_approval join the step's transaction.
 		Assignments: work,
+	}
+	if requests != nil {
+		deps.Releases = requests
 	}
 	if src.identity != nil {
 		deps.Actors = workflowidentity.NewActors(src.identity)

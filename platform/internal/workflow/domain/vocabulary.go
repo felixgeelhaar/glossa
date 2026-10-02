@@ -46,10 +46,21 @@ const (
 	// the chart (§2.3, "no delayed transitions").
 	EventTimerDue     EventName = "timer.due"
 	EventTimerOverdue EventName = "timer.overdue"
+
+	// Release's, for a release request (RFC 0006 §5.1; amended in wave
+	// 3). created starts the request's instance; deployed and refused
+	// are the outcome of a deploy_release action (the pointer moved, or
+	// the publish gate, run again, refused it); withdrawn is the
+	// requester's, or a newer request's into the same environment.
+	EventReleaseRequestCreated   EventName = "release_request.created"
+	EventReleaseRequestDeployed  EventName = "release_request.deployed"
+	EventReleaseRequestRefused   EventName = "release_request.refused"
+	EventReleaseRequestWithdrawn EventName = "release_request.withdrawn"
 )
 
 var (
 	translationOnly = []SubjectKind{SubjectTranslation}
+	releaseOnly     = []SubjectKind{SubjectReleaseRequest}
 	anySubject      = []SubjectKind{SubjectTranslation, SubjectReleaseRequest}
 )
 
@@ -66,6 +77,11 @@ var events = map[EventName][]SubjectKind{
 	EventApprovalDenied:      anySubject,
 	EventTimerDue:            anySubject,
 	EventTimerOverdue:        anySubject,
+
+	EventReleaseRequestCreated:   releaseOnly,
+	EventReleaseRequestDeployed:  releaseOnly,
+	EventReleaseRequestRefused:   releaseOnly,
+	EventReleaseRequestWithdrawn: releaseOnly,
 }
 
 // Events lists every event name, sorted.
@@ -184,6 +200,13 @@ type ApprovalsAtLeast struct {
 	DistinctFromAuthor bool `json:"distinct_from_author,omitempty"`
 }
 
+// ApprovalsAsRequired holds when the subject's own approval requirement
+// is met: as many distinct people as it requires have granted, never
+// counting its author (for a release request, the requester). It takes
+// no parameters — the environment says how many (RFC 0006 §5.1) — and a
+// subject that requires nothing never satisfies it.
+type ApprovalsAsRequired struct{}
+
 // ActorHasPermission holds when the actor who raised the event holds
 // Permission for the subject.
 type ActorHasPermission struct {
@@ -295,6 +318,24 @@ var guardPrimitives = map[string]guardPrimitive{
 			return len(seen) >= p.N
 		}, p, nil
 	}},
+	"approvals_as_required": {releaseOnly, func(raw []byte) (GuardFunc, any, error) {
+		var p ApprovalsAsRequired
+		if err := decodeStrict(raw, &p); err != nil {
+			return nil, nil, err
+		}
+		return func(s Step) bool {
+			if s.Subject.Required < 1 {
+				return false
+			}
+			seen := map[string]bool{}
+			for _, a := range s.Subject.Approvers {
+				if a != "" && a != s.Subject.Author {
+					seen[a] = true
+				}
+			}
+			return len(seen) >= s.Subject.Required
+		}, p, nil
+	}},
 	"actor_has_permission": {anySubject, func(raw []byte) (GuardFunc, any, error) {
 		var p ActorHasPermission
 		if err := decodeStrict(raw, &p); err != nil {
@@ -371,6 +412,24 @@ type RequestApproval struct {
 	Due  Duration `json:"due,omitzero"`
 }
 
+// RequestApprovalAsRequired asks for the approvals the subject itself
+// requires — for a release request, the environment's `approval`: n
+// people of its party (RFC 0006 §5.1). It takes an optional due period
+// and nothing else: who and how many are the environment's to say, so a
+// definition cannot ask for fewer.
+type RequestApprovalAsRequired struct {
+	Due Duration `json:"due,omitzero"`
+}
+
+// DeployRelease deploys the release request as the actor whose event
+// moved the instance — the last approver — through Release, which
+// checks the approvals and runs the publish gate again itself (§5.1).
+type DeployRelease struct{}
+
+// DenyRelease closes the release request as denied, as the actor whose
+// event moved the instance.
+type DenyRelease struct{}
+
 // SetReviewState moves the translation to one of the four review
 // states, through Localization's ReviewTranslation port as the
 // triggering actor: Localization's own checks decide (§2.5).
@@ -413,6 +472,18 @@ var actionPrimitives = map[string]actionPrimitive{
 		// own roles and groups (§9.3); a vendor delivers work, it does
 		// not sign it off.
 		return p, p.From.validate("from", "member", "role", "group")
+	}},
+	"request_approval_as_required": {releaseOnly, func(raw []byte) (any, error) {
+		var p RequestApprovalAsRequired
+		return p, decodeStrict(raw, &p)
+	}},
+	"deploy_release": {releaseOnly, func(raw []byte) (any, error) {
+		var p DeployRelease
+		return p, decodeStrict(raw, &p)
+	}},
+	"deny_release": {releaseOnly, func(raw []byte) (any, error) {
+		var p DenyRelease
+		return p, decodeStrict(raw, &p)
 	}},
 	"set_review_state": {translationOnly, func(raw []byte) (any, error) {
 		var p SetReviewState

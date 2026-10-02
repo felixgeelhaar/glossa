@@ -83,10 +83,30 @@ var (
 		Selectors: []string{"release_id", "project_id", "environment", "parent_id", "previous_release_id", "manifest_digest", "by"},
 		By:        "by",
 	}
+	// An environment's approval requirement keeps its count, its
+	// four-eyes flag and a role (a built-in name); a member or a group
+	// it names may be a name somebody wrote, so it is recorded as its
+	// shape.
 	releaseEnvironment = Projection{
-		Project:   "project_id",
-		Selectors: []string{"project_id", "environment", "kind", "branch", "states", "by"},
-		By:        "by",
+		Project: "project_id",
+		Selectors: []string{
+			"project_id", "environment", "kind", "branch", "states", "by",
+			"approval.n", "approval.from.role", "approval.distinct_from_requester",
+		},
+		By: "by",
+	}
+	// A release request (RFC 0006 §5.1) is identifiers, its state, the
+	// requirement's count and who: the requester, the approvers whose
+	// grants counted, and the actor. Who may approve (approval_from) can
+	// name a group by its name, so it is recorded as its shape; the force
+	// and withdrawal reasons are never in the payload.
+	releaseRequest = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"request_id", "project_id", "environment", "release_id", "action", "state", "requester",
+			"approvals_required", "gate_met", "forced", "approvers", "by",
+		},
+		By: "by",
 	}
 	// A rollout's events carry no text: ids, the share, the state and
 	// who changed it. The salt is not in them at all: it is in the
@@ -235,6 +255,9 @@ var Projections = map[string]Projection{
 		Selectors: []string{"project_id", "environment", "branch", "request_id", "not_before", "by"},
 		By:        "by",
 	},
+	"release.release_request.created": releaseRequest, "release.release_request.approved": releaseRequest,
+	"release.release_request.denied": releaseRequest, "release.release_request.deployed": releaseRequest,
+	"release.release_request.withdrawn": releaseRequest, "release.release_request.refused": releaseRequest,
 	"release.delivery_key.created": releaseDeliveryKey, "release.delivery_key.scope_changed": releaseDeliveryKey,
 	"release.delivery_key.revoked": releaseDeliveryKey,
 	"release.rollout.started":      releaseRollout, "release.rollout.advanced": releaseRollout,

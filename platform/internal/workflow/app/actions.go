@@ -28,8 +28,13 @@ type loaded struct {
 // reader.
 func (r *Runner) loadSubject(reader context.Context, s SubjectRef) (loaded, error) {
 	out := loaded{Subject: domain.Subject{Kind: s.Kind, Locale: s.Locale}}
-	if s.Kind == domain.SubjectTranslation {
+	switch s.Kind {
+	case domain.SubjectTranslation:
 		if err := r.loadUnit(reader, s, &out); err != nil {
+			return loaded{}, err
+		}
+	case domain.SubjectReleaseRequest:
+		if err := r.loadRequest(reader, s, &out); err != nil {
 			return loaded{}, err
 		}
 	}
@@ -41,6 +46,26 @@ func (r *Runner) loadSubject(reader context.Context, s SubjectRef) (loaded, erro
 		out.Subject.Approvers = approvers
 	}
 	return out, nil
+}
+
+// loadRequest reads a release request's facts: its requester is the
+// author four-eyes counts against, and its approval requirement is what
+// request_approval_as_required asks for and approvals_as_required
+// counts to.
+func (r *Runner) loadRequest(reader context.Context, s SubjectRef, out *loaded) error {
+	if r.d.Releases == nil {
+		return nil
+	}
+	f, err := r.d.Releases.Request(reader, s.Project, s.ID)
+	switch {
+	case errors.Is(err, ErrUnavailable):
+		return nil // the request is gone: guards see nothing
+	case err != nil:
+		return fmt.Errorf("workflow: release request %s: %w", s.ID, err)
+	}
+	sub := &out.Subject
+	sub.Author, sub.Required, sub.RequiredFrom = f.Requester, f.Required, f.From
+	return nil
 }
 
 func (r *Runner) loadUnit(reader context.Context, s SubjectRef, out *loaded) error {
@@ -191,6 +216,33 @@ func (r *Runner) execute(
 			return "", domain.Duration{}, err
 		}
 		return "approval " + a.ID.String(), p.Due, nil
+	case domain.RequestApprovalAsRequired:
+		if r.d.Assignments == nil {
+			return "", domain.Duration{}, unwired("approvals")
+		}
+		if subject.Subject.Required < 1 {
+			return "", domain.Duration{}, fmt.Errorf("%w: the subject requires no approval", ErrUnavailable)
+		}
+		a, err := r.d.Assignments.RequestApprovalForInstance(txCtx, WorkflowApproval{
+			InstanceID: inst.ID, ProjectID: s.Project,
+			Subject: domain.ApprovalSubject{Kind: s.Kind, ID: s.ID, Locale: s.Locale},
+			Params:  domain.RequestApproval{N: subject.Subject.Required, From: subject.Subject.RequiredFrom, Due: p.Due},
+		})
+		if err != nil {
+			return "", domain.Duration{}, err
+		}
+		return "approval " + a.ID.String(), p.Due, nil
+	case domain.DeployRelease:
+		if r.d.Releases == nil {
+			return "", domain.Duration{}, unwired("Release")
+		}
+		detail, err := r.d.Releases.Deploy(ctx, s.Project, s.ID)
+		return detail, domain.Duration{}, err
+	case domain.DenyRelease:
+		if r.d.Releases == nil {
+			return "", domain.Duration{}, unwired("Release")
+		}
+		return "", domain.Duration{}, r.d.Releases.Deny(ctx, s.Project, s.ID)
 	case domain.Notify:
 		// In-app notifications have no store yet and mail is not
 		// configured (§2.4: email only when mail is configured): the

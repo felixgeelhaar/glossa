@@ -475,13 +475,16 @@ type memStore struct {
 	snapshots   map[uuid.UUID][]byte
 	transitions map[uuid.UUID][]app.Transition
 	versions    map[uuid.UUID]domain.Version
+	// definitions are the tenant-wide definitions by name.
+	definitions map[string]domain.DefinitionRecord
 	published   []outbox.Event
 	seeded      bool
 }
 
 func newMemStore() *memStore {
 	return &memStore{instances: map[uuid.UUID]domain.Instance{}, snapshots: map[uuid.UUID][]byte{},
-		transitions: map[uuid.UUID][]app.Transition{}, versions: map[uuid.UUID]domain.Version{}}
+		transitions: map[uuid.UUID][]app.Transition{}, versions: map[uuid.UUID]domain.Version{},
+		definitions: map[string]domain.DefinitionRecord{}}
 }
 
 func (m *memStore) InTenant(ctx context.Context, fn func(context.Context, app.InstanceStore) error) error {
@@ -615,6 +618,22 @@ func (t *memTx) SeedDefault(context.Context, *domain.DefinitionRecord, *domain.V
 func (t *memTx) Seeded(context.Context) (bool, error) { return t.seeded, nil }
 
 func (t *memTx) HasTenantDefinition(context.Context, string) (bool, error) { return false, nil }
+
+func (t *memTx) TenantDefinition(_ context.Context, name string) (domain.DefinitionRecord, error) {
+	rec, ok := t.m.definitions[name]
+	if !ok {
+		return domain.DefinitionRecord{}, app.ErrNotFound
+	}
+	return rec, nil
+}
+
+func (t *memTx) InsertDefinition(_ context.Context, rec domain.DefinitionRecord, v domain.Version) error {
+	if _, ok := t.m.definitions[rec.Name]; ok {
+		return app.ErrConflict
+	}
+	t.m.definitions[rec.Name], t.m.versions[rec.ID] = rec, v
+	return nil
+}
 
 // The default definition (RFC 0006 §12.1, as the owner decided): a
 // source change sends an approved translation back to review and asks

@@ -100,6 +100,43 @@ type Suggestions interface {
 	Fill(ctx context.Context, project uuid.UUID, key, locale, idemKey string) (detail string, err error)
 }
 
+// ReleaseRequestFacts is what Release says about a release request
+// (RFC 0006 §5.1).
+type ReleaseRequestFacts struct {
+	Environment string
+	// Requester is who asked, in the outbox spelling: the request's
+	// author for four-eyes.
+	Requester string
+	// State is Release's: pending, deployed, denied, withdrawn or
+	// refused.
+	State string
+	// Required and From are the approval the request was made under:
+	// how many people, and of which party.
+	Required int
+	From     domain.Party
+}
+
+// ReleaseRequests is Release's side of a release request: the facts
+// guards read and four-eyes is decided against, and the two decisions
+// a definition's deploy_release and deny_release carry out — as the
+// principal on ctx, so Release's own checks decide (approvals.decide in
+// the environment; for a deploy, enough approvals and the publish gate
+// run again). Release knows nothing of Workflow; an adapter calls its
+// service.
+type ReleaseRequests interface {
+	// Request reads a request. One that does not exist is
+	// ErrUnavailable.
+	Request(ctx context.Context, project, id uuid.UUID) (ReleaseRequestFacts, error)
+	// Deploy deploys the request as the principal on ctx. A deploy
+	// Release refuses — the approvals do not meet the requirement, or
+	// the publish gate refused it — is ErrRefused; deploying one that
+	// is already deployed is done.
+	Deploy(ctx context.Context, project, id uuid.UUID) (detail string, err error)
+	// Deny denies the request as the principal on ctx; denying one that
+	// is already denied is done.
+	Deny(ctx context.Context, project, id uuid.UUID) error
+}
+
 // AssignmentsPort is what the instance runner needs from assignments and
 // approvals (RFC 0006 §3.1–§3.2). *WorkService implements it.
 //
@@ -191,6 +228,12 @@ type InstanceStore interface {
 	// HasTenantDefinition reports whether a tenant-wide live definition
 	// is called name.
 	HasTenantDefinition(ctx context.Context, name string) (bool, error)
+	// TenantDefinition is the tenant-wide live definition called name
+	// (ErrNotFound when there is none).
+	TenantDefinition(ctx context.Context, name string) (domain.DefinitionRecord, error)
+	// InsertDefinition stores a new definition and its first version: the
+	// release approval default, seeded on first use.
+	InsertDefinition(ctx context.Context, rec domain.DefinitionRecord, v domain.Version) error
 }
 
 // TimerScanner finds, outside any tenant, the tenants holding an

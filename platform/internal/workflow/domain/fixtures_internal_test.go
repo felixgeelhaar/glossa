@@ -23,6 +23,7 @@ type subjectFixture struct {
 	Findings    []FindingCount `json:"findings"`
 	Approvers   []string       `json:"approvers"`
 	TMMatch     float64        `json:"tm_match"`
+	Required    int            `json:"required"`
 }
 
 type triggerFixture struct {
@@ -89,7 +90,8 @@ func TestGuardFixtures(t *testing.T) {
 			s := c.Subject
 			step := Step{
 				Subject: Subject{Kind: SubjectTranslation, Locale: s.Locale, Namespace: s.Namespace, ReviewState: s.ReviewState,
-					Origin: s.Origin, Author: s.Author, Band: s.Band, Findings: s.Findings, Approvers: s.Approvers, TMMatch: s.TMMatch},
+					Origin: s.Origin, Author: s.Author, Band: s.Band, Findings: s.Findings, Approvers: s.Approvers, TMMatch: s.TMMatch,
+					Required: s.Required},
 				Trigger: Trigger{Event: EventName(c.Trigger.Event), Actor: c.Trigger.Actor, Permissions: c.Trigger.Permissions},
 			}
 			if got := fn(step); got != c.Want {

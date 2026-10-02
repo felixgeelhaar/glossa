@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -195,6 +196,47 @@ func TestApprovalsDecideIsLocaleScoped(t *testing.T) {
 	}
 	if g.AllowsFor(domain.PermApprovalsDecide, mustLocale(t, "ja")) || g.Allows(domain.PermApprovalsDecide) {
 		t.Error("a reviewer scoped to de must not decide ja approvals")
+	}
+}
+
+// TestApprovalsDecideIsEnvironmentScopedForReleases pins who decides a
+// release request (RFC 0006 §4.2, §5.1): approvals.decide is the only
+// environment-scoped permission, held — in any locale — by owner, admin
+// and reviewer and by no other role or token scope; and an environment
+// scope is every environment until it names some.
+func TestApprovalsDecideIsEnvironmentScopedForReleases(t *testing.T) {
+	for _, p := range domain.AllPermissions() {
+		if got, want := p.EnvironmentScoped(), p == domain.PermApprovalsDecide; got != want {
+			t.Errorf("%s.EnvironmentScoped() = %v, want %v", p, got, want)
+		}
+	}
+	holds := map[string]bool{"owner": true, "admin": true, "reviewer": true, "developer": false, "translator": false}
+	for role, want := range holds {
+		g := domain.GrantForMember(mustRoles(t, role), mustLocales(t, "de"))
+		if got := g.Holds(domain.PermApprovalsDecide); got != want {
+			t.Errorf("%s limited to de holds approvals.decide = %v, want %v", role, got, want)
+		}
+	}
+	for _, s := range []string{"read", "write", "publish", "admin"} {
+		ss, err := domain.ParseScopes([]string{s})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if domain.GrantForScopes(ss).Holds(domain.PermApprovalsDecide) {
+			t.Errorf("token scope %s holds approvals.decide", s)
+		}
+	}
+
+	all, err := domain.ParseEnvironmentScope(nil)
+	if err != nil || !all.All() || !all.Covers("production") {
+		t.Fatalf("an empty environment scope = %+v (%v), want every environment", all, err)
+	}
+	some, err := domain.ParseEnvironmentScope([]string{"staging", "production", "staging"})
+	if err != nil || some.All() || !some.Covers("production") || some.Covers("development") {
+		t.Fatalf("scope = %v (%v)", some.Strings(), err)
+	}
+	if _, err := domain.ParseEnvironmentScope([]string{"Prod"}); !errors.Is(err, domain.ErrInvalidEnvironmentScope) {
+		t.Errorf("an invalid name = %v, want ErrInvalidEnvironmentScope", err)
 	}
 }
 

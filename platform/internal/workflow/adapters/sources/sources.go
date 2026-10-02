@@ -96,9 +96,9 @@ func NewAuthors(c *catalogapp.Service, l *localizationapp.Service) *Authors {
 
 var _ app.Authors = (*Authors)(nil)
 
-// ErrNoAuthor is a subject whose author cannot be told: a release
-// request (wave 3 records its requester), or a unit with no
-// translation yet.
+// ErrNoAuthor is a subject whose author cannot be told here: a release
+// request (its requester is Release's to say; WorkService asks Release
+// for it), or a unit with no translation yet.
 var ErrNoAuthor = errors.New("workflow: the subject's author is not known")
 
 // Author implements app.Authors.

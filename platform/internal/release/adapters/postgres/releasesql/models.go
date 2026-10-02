@@ -53,6 +53,7 @@ type ReleaseEnvironment struct {
 	UpdatedAt        time.Time
 	Kind             string
 	Branch           pgtype.Text
+	Approval         []byte
 }
 
 type ReleasePublishRequest struct {
@@ -80,6 +81,27 @@ type ReleaseRelease struct {
 	CreatedBy      string
 	CreatedAt      time.Time
 	Branch         pgtype.Text
+}
+
+type ReleaseRequest struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	ProjectID   uuid.UUID
+	Environment string
+	ReleaseID   uuid.UUID
+	Action      string
+	Requester   string
+	Approval    json.RawMessage
+	GateMet     bool
+	GateUnmet   json.RawMessage
+	Forced      bool
+	ForceReason string
+	State       string
+	Version     int32
+	CreatedAt   time.Time
+	DecidedBy   pgtype.Text
+	DecidedAt   pgtype.Timestamptz
+	Reason      string
 }
 
 type ReleaseRollout struct {
