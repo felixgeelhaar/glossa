@@ -175,6 +175,8 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
+| `workflow` | Workflow definitions as files (RFC 0006 §2): `lint <file>` (the server's compile and lint, every finding with its rule, severity and path; exit 1 when a save would be refused), `push <file> [--project P] [--if-version N]` (create, or save the next version under `If-Match`; an unchanged document saves nothing), `pull <name> [--version N] [-o file]`, `list`, `show <name>`, `bind <name> [--locales de,fr] [--namespace ns]`, `unbind <name> \| --binding <id>`, `bindings`, `instances [--status --definition --locale --message]`, `log <instance-id>` (see *Workflows and assignments*). |
+| `assignments` | My work (RFC 0006 §3.1): `list` (the default; `--all` for everyone's, `--project --state --locale --message`), `show <id>`, `accept <id>`, `complete <id>`, `decline <id> [--reason]`, `create --to member:<id\|email>\|role:<role>\|group:<name>\|vendor:<name> --units key@locale,… [--project P] [--due T] [--permission P]` (see *Workflows and assignments*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
 | `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
@@ -384,9 +386,9 @@ layer a locale cannot run never reads as a clean one (intent §41).
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `audit verify` (the export does not verify, including one missing a file) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
+| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
 
 Errors print what happened, where, why and how to fix it:
@@ -415,6 +417,8 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.github.connections.list/v1` | `{project_id (null: the whole workspace), connections: [Connection]}` |
 | `glossa.cli.github.connections.add/v1` | `{connection: Connection}` |
 | `glossa.cli.github.connections.remove/v1` | `{connection_id}` |
+| `glossa.cli.workflow/v1` | Every `workflow` action, with `action` naming it: `lint` `{file, valid, errors, warnings, findings: [Finding]}`; `push` `{file, result (created \| saved \| unchanged \| invalid), definition: Definition \| null, findings: [Finding]}` (with `invalid`, exit 2 and the findings that refused it); `pull` with `-o` `{file, definition: Definition, version}` (without `-o` it prints the document itself, which is what `push` reads); `list` `{project_id, definitions: [Definition]}`; `show` `{definition: Definition, version, document, versions: [{version, created_by, created_at}], project_id, bindings: [Binding]}`; `bind`, `unbind` `{result (created \| unchanged \| removed), binding: Binding}`; `bindings` `{project_id, bindings: [Binding]}`; `instances` `{project_id, instances: [Instance]}`; `log` `{instance: Instance, transitions: [Transition]}` |
+| `glossa.cli.assignments/v1` | Every `assignments` action, with `action` naming it: `list` `{mine (false only with --all), assignments: [Assignment]}`; `show`, `accept`, `complete`, `decline` `{assignment: Assignment}`; `create` `{replayed?, assignment: Assignment}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
@@ -495,6 +499,15 @@ The Quality shapes share:
 The Git connection shapes share:
 
 - `Connection`: `{id, installation_id, repository_id (GitHub's numeric id), repository_name (owner/name, a label GitHub may change), project_id, project? (the slug, left out when it couldn't be read), application_id, application?, default_branch, path ("": the whole repository), created_by?, created_at, updated_at?, version}`
+
+The workflow and assignment shapes share (the Workflow API's, RFC 0006 §2–§3):
+
+- `Definition`: `{id, name, subject (translation \| release_request), project_id (null: tenant-wide), version (the latest, or the one a push saved), created_by, created_at, deleted_at?}`
+- `Finding` (a workflow lint finding, not `glossa.finding/v1`): `{rule, severity (error \| warning \| info; error and warning refuse a save), path? (guards.two_approvals; absent: the whole document), state?, event?, message}`
+- `Binding`: `{id, definition_id, definition? (its name, when it could be read), subject, locales ([]: every locale), namespace?, position (creation order; the later of two equally specific bindings wins), created_by, created_at}`
+- `Instance`: `{id, definition_id, definition?, definition_version, subject, subject_id (the message, for a translation), locale?, state, status (active \| finished), created_at, updated_at}`
+- `Transition`: `{seq, from ("" for the event that created the instance), event, to, outcome (applied \| ignored \| refused), guards: [{guard, passed}], actions: [{name, outcome (done \| refused \| failed), detail?}], actor, outbox_event_id?, at}`
+- `Assignment`: `{id, project_id, instance_id? (the workflow instance whose assign action made it), units: [{message_id, message? (the key; show and create name it), locale}], assignee: {kind (member \| role \| group \| vendor), id?, role?}, permission, state (open \| accepted \| done \| declined \| expired), due_at?, created_by, created_at, updated_at, closed_by?, closed_at?, reason?}`
 
 Finding codes are the kernel's (`missing-argument`, `extra-argument`,
 `argument-type-changed`, `selector-*`, `invalid-plural-key`,
@@ -829,6 +842,73 @@ only connect repositories an installation already sees.
   Applications settings page.
 - A deployment with no GitHub App configured answers
   `github_not_configured` (exit 3) to every one of these commands.
+
+## Workflows and assignments
+
+A workflow definition is an organisation's localization process as data
+(RFC 0006 §2): a `glossa.workflow/v1` document — a statechart whose
+guards and actions name the platform's primitives — linted and stored
+by the server in immutable versions, and bound to projects. `glossa
+workflow` lets a definition live in a repository: lint it in a pull
+request, push it on merge.
+
+```yaml
+- run: glossa workflow lint workflows/review.json     # exit 1 when a save would be refused
+- run: glossa workflow push workflows/review.json     # created, saved as vN, or unchanged
+- run: glossa workflow bind review --locales de,fr    # unchanged when already bound
+  env: { GLOSSA_TOKEN: ${{ secrets.GLOSSA_WORKFLOWS_TOKEN }} }
+```
+
+- **The server is the judge.** `lint` and `push` send the document as
+  it is (JSON, or YAML for a `.yaml`/`.yml` file) and print the
+  server's findings — rule, severity, path, message — so the CLI can
+  never disagree with what a save would do. An `error` or `warning`
+  refuses a save; an `info` is a note.
+- **A push never overwrites someone else's version.** An existing
+  definition (found by the document's `name` in the push's scope:
+  tenant-wide, or the project's own with `--project`) gets its next
+  version saved under `If-Match` on the version read just before.
+  `--if-version N` says which version the file was edited from — what
+  `pull -o` tells you — and a save based on anything but the latest is
+  refused (`precondition_failed`, exit 3) with nothing saved: pull, merge,
+  push again. A document equal to the latest version (whatever its key
+  order or spacing) saves nothing (`unchanged`), so a push on every
+  merge is safe.
+- `bind` is idempotent too: binding the same definition for the same
+  selector again is `unchanged`; the selector bound to another
+  definition is `workflow_binding_exists` and names it. `unbind <name>`
+  removes the definition's one binding (with several, `--locales` and
+  `--namespace` pick one, or `--binding <id>`).
+- `instances` and `log` read what the runner did: which version an
+  instance runs on, the state it is in, and every event it received —
+  the guards it evaluated, the actions it ran and as whom, `ignored` when
+  the world had moved on, `refused` when an action was not allowed.
+- A name both the tenant and the project define is
+  `workflow_ambiguous`: pass the ID.
+
+**Credentials.** Reading workflows needs a token with the `read` scope.
+Saving and binding need `workflows.manage`, which an API token holds
+only with the opt-in **`workflows` scope** — no other scope implies it —
+and a GitHub Actions credential never holds: such a refusal is
+`workflows_scope_required` and says exactly that.
+
+**Assignments** are a batch of translation units given to a member, a
+role, a group or a vendor (RFC 0006 §3.1). `glossa assignments` is my
+work; `complete` is a claim, not a decision — no review state changes,
+the project's workflow decides what follows. Assignment work belongs to
+people, and the CLI signs in with API tokens, which are not members:
+
+- a token's `glossa assignments` is always empty, and `show`, `accept`,
+  `complete` and `decline` of a person's assignment are `not_found`
+  (someone else's assignment does not exist to you) — the message says
+  so;
+- `create` and `--all` need `assignments.manage`, a person's permission
+  (owner, admin) that no token scope grants:
+  `assignments_manage_required`.
+
+Until the CLI can sign in as a person, these commands do their work for
+a credential that is one; Studio's My work is where people act on
+assignments today.
 
 ## Knowledge and AI
 

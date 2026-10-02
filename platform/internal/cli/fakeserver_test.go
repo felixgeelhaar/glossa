@@ -48,6 +48,7 @@ type fakeServer struct {
 	gh           *fakeGitHub
 	ci           *fakeCI
 	members      *fakeMembers
+	wf           *fakeWorkflows
 	requests     []string
 }
 
@@ -121,6 +122,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeGitHub(mux)
 	f.routeCI(mux)
 	f.routeMembers(mux)
+	f.routeWorkflows(mux)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
