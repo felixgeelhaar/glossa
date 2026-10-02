@@ -4,9 +4,12 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0/v0test"
 )
 
@@ -116,6 +119,44 @@ func TestImportFromRestoredV03Database(t *testing.T) {
 	w.json(&out, args...).want(t, ExitOK)
 	if out.Summary["message"]["unchanged"] != 3 || out.Summary["translation"]["unchanged"] != 3 {
 		t.Errorf("re-run = %+v", out.Summary)
+	}
+	if srv.members.posts != 0 {
+		t.Fatalf("without --invite the import sent %d invitations", srv.members.posts)
+	}
+
+	// --invite sends the planned invitations, never the held one, and
+	// invites nobody twice (RFC 0006 §7.2).
+	invite := append(slices.Clone(args), "--invite")
+	srv.members.refuse = true
+	w.json(&doc, invite...).want(t, ExitNetwork)
+	if doc.Error.Code != "forbidden" || !strings.Contains(doc.Error.Fix, "admin scope") {
+		t.Errorf("a token that may not invite: error = %+v", doc.Error)
+	}
+	srv.members.refuse = false
+	srv.member("BOB@example.com", "translator")
+	srv.members.posts = 0
+	w.json(&out, invite...).want(t, ExitOK)
+	sent := map[string]string{}
+	for _, i := range out.Invitations {
+		sent[i.Email] = i.Status
+		if i.Status != v0.InvitationHeld && i.MemberID == "" {
+			t.Errorf("%s is %s without a member id", i.Email, i.Status)
+		}
+	}
+	if sent["alice@example.com"] != "invited" || sent["bob@example.com"] != "exists" || sent["carol@example.com"] != "held" ||
+		srv.members.posts != 1 {
+		t.Fatalf("invitations = %v after %d invitations sent", sent, srv.members.posts)
+	}
+	alice := srv.members.items[len(srv.members.items)-1]
+	if alice["email"] != "alice@example.com" || fmt.Sprint(alice["roles"]) != "[admin]" {
+		t.Errorf("alice was invited as %v", alice)
+	}
+	human = w.run(invite...)
+	if !strings.Contains(human.stdout, "0 invitations sent, 2 already members or invited, 0 failed, 1 held") {
+		t.Errorf("a second --invite run reads:\n%s", human.stdout)
+	}
+	if srv.members.posts != 1 {
+		t.Errorf("a second --invite run sent %d more invitations", srv.members.posts-1)
 	}
 }
 

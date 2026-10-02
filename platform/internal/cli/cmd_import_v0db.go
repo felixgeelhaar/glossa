@@ -2,25 +2,32 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
 )
 
 // importV0DB is `glossa import --from v0 --v0-db DSN` (RFC 0006 §7.2):
 // the import of a restored v0.3 backup. It writes what the platform's
 // API takes — locales, messages with their descriptions, translations
-// with v0.3's provenance — and reports, without acting on them, the
-// plans other waves complete: users as invitations (Identity, wave 3)
-// and history as audit entries (Audit, wave 4).
+// with v0.3's provenance — and reports v0.3's users as invitations,
+// which --invite sends through Identity, and its history as audit
+// entries (Audit, wave 4).
 func (inv *invocation) importV0DB(ctx context.Context, fs *flag.FlagSet, f importFlags) error {
 	for _, name := range []string{"v0-url", "v0-key-env"} {
 		if isSet(fs, name) {
 			return usageError(inv.name, "--%s belongs to an API import; --v0-db reads a restored backup instead", name)
 		}
+	}
+	if f.invite && f.dryRun {
+		return usageError(inv.name, "--invite sends invitations and --dry-run sends nothing: drop --dry-run, or drop --invite to see the plan")
 	}
 	only, err := localeSet(inv, f.locales)
 	if err != nil {
@@ -49,14 +56,76 @@ func (inv *invocation) importV0DB(ctx context.Context, fs *flag.FlagSet, f impor
 	} else if out, err = inv.applyImport(ctx, p, plan.Plan, plan.OriginDetail(), out); err != nil {
 		return err
 	}
+	if f.invite {
+		if out.Invitations, err = inv.sendInvitations(ctx, p, out.Invitations); err != nil {
+			return err
+		}
+	}
 	out.Summary = importSummary(out.Items)
 	if err := inv.emit(out, func(pr *printer) { printImport(pr, out) }); err != nil {
 		return err
 	}
-	if out.Summary["message"]["failed"]+out.Summary["translation"]["failed"] > 0 {
+	failed := out.Summary["message"]["failed"] + out.Summary["translation"]["failed"]
+	for _, i := range out.Invitations {
+		if i.Status == v0.InvitationFailed {
+			failed++
+		}
+	}
+	if failed > 0 {
 		return silentExit(ExitPartial, "partial_failure")
 	}
 	return nil
+}
+
+// sendInvitations sends the planned invitations — never the held ones —
+// through Identity's invitation API, with their mapped roles and
+// locales (RFC 0006 §7.2). It is idempotent on the address: one that is
+// already a member or invited is reported as "exists" and not invited
+// again, and each invitation carries an Idempotency-Key derived from
+// its address, so a retried request does not invite twice either.
+func (inv *invocation) sendInvitations(ctx context.Context, p *project, plans []v0.Invitation) ([]v0.Invitation, error) {
+	members, err := p.client.Members(ctx, p.scope.Tenant)
+	if err != nil {
+		return nil, inv.apiError(err, "can't list the members the invitations would join")
+	}
+	known := map[string]string{}
+	for _, m := range members {
+		known[strings.ToLower(string(m.Email))] = m.Id
+	}
+	out := slices.Clone(plans)
+	for i := range out {
+		in := &out[i]
+		if in.Status != v0.InvitationPlanned {
+			continue
+		}
+		email := strings.ToLower(in.Email)
+		if id, ok := known[email]; ok {
+			in.Status, in.MemberID = v0.InvitationExists, id
+			continue
+		}
+		sum := sha256.Sum256([]byte(email))
+		m, _, err := p.client.InviteMember(ctx, p.scope.Tenant,
+			remote.Invitation{Email: in.Email, Roles: in.Roles, Locales: in.Locales}, "v0-invite-"+hex.EncodeToString(sum[:16]))
+		var ae *remote.APIError
+		switch {
+		case err == nil:
+			in.Status, in.MemberID = v0.InvitationInvited, m.Id
+			known[email] = m.Id
+		case errors.As(err, &ae) && ae.Code == "already_member":
+			in.Status = v0.InvitationExists
+		case errors.As(err, &ae) && (ae.Status == 401 || ae.Status == 403):
+			// Nobody can be invited with this credential: say so once.
+			e := inv.apiError(err, "can't send the invitations")
+			var ce *Error
+			if errors.As(e, &ce) {
+				ce.Fix = "use a token that may invite members (the admin scope), or drop --invite to report the plan only"
+			}
+			return nil, e
+		default:
+			in.Status, in.Reason = v0.InvitationFailed, err.Error()
+		}
+	}
+	return out, nil
 }
 
 // v0DBError explains a restore the importer can't or won't read.
@@ -109,15 +178,19 @@ func printV0Plans(p *printer, out importJSON) {
 		labels = append(labels, s)
 	}
 	p.line("  locales: %s", strings.Join(labels, ", "))
-	held := 0
+	n := map[string]int{}
 	for _, i := range out.Invitations {
-		if i.Status == "held" {
-			held++
-		}
+		n[i.Status]++
 	}
-	p.line("%s %d invitations planned, %d held — not sent: Identity sends them (RFC 0006 wave 3)", p.pass(), len(out.Invitations)-held, held)
+	if n[v0.InvitationInvited]+n[v0.InvitationExists]+n[v0.InvitationFailed] > 0 {
+		p.line("%s %d invitations sent, %d already members or invited, %d failed, %d held", p.pass(),
+			n[v0.InvitationInvited], n[v0.InvitationExists], n[v0.InvitationFailed], n[v0.InvitationHeld])
+	} else {
+		p.line("%s %d invitations planned, %d held — not sent: pass --invite to send them", p.pass(),
+			n[v0.InvitationPlanned], n[v0.InvitationHeld])
+	}
 	for _, i := range out.Invitations {
-		if i.Status == "held" {
+		if i.Status == v0.InvitationHeld || i.Status == v0.InvitationFailed {
 			p.line("  %s %s: %s", p.caution(), i.Email, i.Reason)
 		}
 	}

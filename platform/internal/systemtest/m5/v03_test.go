@@ -192,9 +192,17 @@ func (s *scenario) migratable() {
 	for _, l := range []string{"en", "es"} {
 		s.owner.do(http.MethodPost, s.projectPathOf(p.ID, "/locales"), map[string]string{"code": l}, http.StatusCreated, nil)
 	}
+	// The import sends v0.3's users as invitations (`--invite`, §7.2),
+	// which takes a token that may invite: the owner's fixture token
+	// (read, write, publish) may not, so the import runs on its own.
+	var importer struct {
+		Secret string `json:"secret"`
+	}
+	s.owner.do(http.MethodPost, s.tenantPath("/tokens"),
+		map[string]any{"name": "m5-v03-import", "scopes": []string{"write", "admin"}}, http.StatusCreated, &importer)
 	env := map[string]string{
 		"GLOSSA_SERVER": s.d.base, "GLOSSA_TENANT": s.tenant, "GLOSSA_PROJECT": p.ID,
-		"GLOSSA_TOKEN": s.ownerToken.bearer, "GLOSSA_V0_KEY": srv.apiKey, "HOME": s.t.TempDir(),
+		"GLOSSA_TOKEN": importer.Secret, "GLOSSA_V0_KEY": srv.apiKey, "HOME": s.t.TempDir(),
 	}
 	dir := s.t.TempDir()
 	// The CLI wants a project file; the environment above overrides its
@@ -208,7 +216,8 @@ func (s *scenario) migratable() {
 	imported := false
 	if restored != "" {
 		imported = s.step(id, "`glossa import --from v0 --v0-db` imports the restore", func() error {
-			res := glossa(dir, env, append(cliImportV0DB, srv.dsn(restored), "--v0-project", v03Project, "--v0-tenant", v03Tenant)...)
+			res := glossa(dir, env, append(cliImportV0DB, srv.dsn(restored), "--v0-project", v03Project, "--v0-tenant", v03Tenant,
+				"--invite")...)
 			if res.code != 0 {
 				return fmt.Errorf("exit %d: %s", res.code, res.String())
 			}
