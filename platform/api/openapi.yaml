@@ -249,6 +249,17 @@ tags:
       selects which definition runs for a project's subjects; an
       instance is one subject's run through it, with its transition log.
       A project with no binding has no workflow.
+  - name: assignments
+    description: |
+      Work given to someone (RFC 0006 §3.1): a batch of translation units
+      for a member, a role, a group or a vendor. Completing one is a
+      claim, not a decision — it raises `assignment.completed`, and the
+      project's workflow decides what follows.
+  - name: approvals
+    description: |
+      Sign-offs (RFC 0006 §3.2): n distinct eligible people granting a
+      subject. Deciding is a person's act — no API token or agent can,
+      and the author of the text cannot approve it (four-eyes).
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -8359,6 +8370,348 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  # ── assignments (RFC 0006 §3.1) ─────────────────────────────────────
+  /v1/tenants/{tenant}/assignments:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: Assignments, or my work
+      description: |
+        What the caller may see. With `assignments.manage`, every
+        assignment in their project scope — or, with `mine=true`, only
+        their own. Without it, only their own: given to them directly,
+        to a role they hold, to a group they are in or to their vendor.
+        That is "my work", and it is all a vendor's member (visibility
+        `assigned`) ever sees here. Filters: `project`; a unit by
+        `message` key (with `project`) and/or `locale`; `state`.
+        Needs `assignments.read` (`assignments.manage` for others'
+        work). Problem codes: `invalid_query`, `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: "A message `key`; needs `project`.", schema: { $ref: "#/components/schemas/MessageKey" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/AssignmentState" } }
+        - { name: mine, in: query, required: false, description: Only the caller's own work., schema: { type: boolean } }
+      responses:
+        "200":
+          description: A page of assignments, oldest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createAssignment
+      tags: [assignments]
+      summary: Give translation units to someone
+      description: |
+        One assignment for a batch of a project's translation units —
+        the job a translator works through, not one string at a time.
+        The assignee is exactly one member, role, group or vendor
+        (`assignee`); a vendor's members see these units, and only
+        these, while it is open and for 30 days after it is done (RFC
+        0006 §3.3). Units are named by message key and locale. Needs
+        `assignments.manage` in the project. Problem codes:
+        `invalid_assignment` (422: no units, too many, a key the
+        project does not have, a due date in the past),
+        `unknown_party` (422: no such member, group or vendor),
+        `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+        `not_found` (404: the project).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAssignment" }
+      responses:
+        "201":
+          description: The assignment, `open`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    get:
+      operationId: getAssignment
+      tags: [assignments]
+      summary: An assignment
+      description: |
+        With `assignments.manage`, any in the caller's project scope;
+        otherwise only one given to the caller, with
+        `assignments.read` — someone else's is not found.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment; the `ETag` is its version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/acceptance:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: acceptAssignment
+      tags: [assignments]
+      summary: Take an open assignment on
+      description: |
+        Only its assignee, holding the assignment's permission for every
+        unit. Problem codes: `forbidden` (403: not given to you, or
+        missing the permission), `assignment_state` (409: not `open`).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment, `accepted`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/completion:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: completeAssignment
+      tags: [assignments]
+      summary: Claim an assignment done
+      description: |
+        A claim, not a decision: it raises `assignment.completed` and the
+        project's workflow decides what follows; no review state changes
+        here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+        permission for every unit. Problem codes: `forbidden` (403),
+        `assignment_state` (409: not live).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment, `done`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/decline:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: declineAssignment
+      tags: [assignments]
+      summary: Hand an assignment back
+      description: |
+        By its assignee, or by someone with `assignments.manage` taking
+        it back; raises `assignment.declined`. Problem codes: `forbidden`
+        (403), `assignment_state` (409: not live), `invalid_assignment`
+        (422: a reason over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignmentDecline" }
+      responses:
+        "200":
+          description: The assignment, `declined`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  # ── approvals (RFC 0006 §3.2) ───────────────────────────────────────
+  /v1/tenants/{tenant}/approvals:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listApprovals
+      tags: [approvals]
+      summary: Approvals, with their decisions
+      description: |
+        The approvals inbox. Filters: `project`; a translation unit by
+        `message` key (with `project`) and/or `locale`; `subject`;
+        `state`. Needs `workflows.read`, in the caller's project scope.
+        Problem codes: `invalid_query`, `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: "A message `key`; needs `project`.", schema: { $ref: "#/components/schemas/MessageKey" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: subject, in: query, required: false, schema: { $ref: "#/components/schemas/WorkflowSubject" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/ApprovalState" } }
+      responses:
+        "200":
+          description: A page of approvals, oldest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createApproval
+      x-glossa-idempotency: A pending approval asking the same of the same party for the same unit is answered as it is rather than asked twice.
+      tags: [approvals]
+      summary: Ask for a translation unit to be approved
+      description: |
+        Asks `n` distinct people of `from` (a member, a role or a group —
+        never a vendor) to grant it. Four-eyes always applies: the author
+        of the unit's latest text cannot count. A newer request for the
+        same unit replaces the pending one. Needs `assignments.manage`
+        in the project. Problem codes: `invalid_approval` (422: `n` out
+        of range, a vendor asked, a key the project does not have),
+        `unknown_party` (422), `not_found` (404: the project).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApproval" }
+      responses:
+        "201":
+          description: The approval, `pending`.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/approvals/{approval}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ApprovalPath"
+    get:
+      operationId: getApproval
+      tags: [approvals]
+      summary: An approval, with its decisions
+      description: Needs `workflows.read`, in the caller's project scope.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/approvals/{approval}/decisions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ApprovalPath"
+    post:
+      operationId: decideApproval
+      x-glossa-idempotency: A person's repeated grant records nothing and answers the approval as it is; one person counts once.
+      tags: [approvals]
+      summary: Grant or deny an approval
+      description: |
+        A person's decision, appended to the approval and raised as
+        `approval.granted` or `approval.denied`; the project's workflow
+        moves the translation (RFC 0006 §3.2). Human-only: an API token
+        or an MCP agent is refused (`person_required`, 403) — no scope
+        grants `approvals.decide`. The caller needs `approvals.decide`
+        for the unit's locale, must be in the approval's eligible party
+        (`not_eligible`, 403), and must not be the author of the text
+        under approval (`own_text`, 403: four-eyes). Only the newest
+        approval of a unit takes decisions. Problem codes:
+        `approval_closed` (409: already granted or denied),
+        `approval_superseded` (409: a newer request replaced it),
+        `invalid_approval` (422: a reason over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApprovalDecision" }
+      responses:
+        "201":
+          description: The approval with the decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
 components:
   securitySchemes:
     session:
@@ -8608,6 +8961,18 @@ components:
       in: path
       required: true
       description: A workflow binding `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AssignmentPath:
+      name: assignment
+      in: path
+      required: true
+      description: An assignment `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ApprovalPath:
+      name: approval
+      in: path
+      required: true
+      description: An approval `id`.
       schema: { $ref: "#/components/schemas/Id" }
     WorkflowInstancePath:
       name: workflow_instance
@@ -13622,6 +13987,148 @@ components:
         definition_id: { $ref: "#/components/schemas/Id" }
         definition_name: { type: string }
         version: { type: integer, minimum: 1, description: "The version a new instance would start on." }
+    Party:
+      type: object
+      description: |
+        Exactly one of `member`, `role`, `group` or `vendor` — who work
+        is given to, or who may approve. A group or a vendor is named by
+        its `id` or its name (case does not matter).
+      properties:
+        member: { $ref: "#/components/schemas/Id" }
+        role: { $ref: "#/components/schemas/Role" }
+        group: { type: string, minLength: 1, maxLength: 100, description: A group `id` or name. }
+        vendor: { type: string, minLength: 1, maxLength: 100, description: A vendor `id` or name. }
+    Assignee:
+      type: object
+      required: [kind]
+      description: A party as stored, resolved to Identity's ids.
+      properties:
+        kind: { type: string, enum: [member, role, group, vendor] }
+        id: { $ref: "#/components/schemas/Id", description: "The member, group or vendor; absent for a role." }
+        role: { $ref: "#/components/schemas/Role" }
+    AssignmentState:
+      type: string
+      enum: [open, accepted, done, declined, expired]
+      description: "`open` and `accepted` are live; the others are final."
+    AssignmentUnit:
+      type: object
+      required: [message_id, locale]
+      properties:
+        message_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+    Assignment:
+      type: object
+      required: [id, project_id, units, assignee, permission, state, created_by, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        instance_id: { $ref: "#/components/schemas/Id", description: "The workflow instance whose `assign` action made it; absent for one made by hand." }
+        units:
+          type: array
+          description: The translation units, sorted by message and locale.
+          items: { $ref: "#/components/schemas/AssignmentUnit" }
+        assignee: { $ref: "#/components/schemas/Assignee" }
+        permission: { type: string, description: "What doing the work takes (`translations.write` for translating), for every unit's locale." }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+        state: { $ref: "#/components/schemas/AssignmentState" }
+        created_by: { type: string, description: "Who made it, as the outbox names actors (`person:…`, `token:…`)." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        closed_by: { type: string, description: "Who completed, declined or expired it." }
+        closed_at: { $ref: "#/components/schemas/Timestamp" }
+        reason: { type: string, description: A decline's reason. }
+    AssignmentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Assignment" }
+        next_page_token: { type: string }
+    CreateAssignment:
+      type: object
+      required: [project_id, units, assignee]
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        units:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            required: [message, locale]
+            properties:
+              message: { $ref: "#/components/schemas/MessageKey" }
+              locale: { $ref: "#/components/schemas/Locale" }
+        assignee: { $ref: "#/components/schemas/Party" }
+        permission:
+          type: string
+          maxLength: 64
+          description: What doing the work takes; `translations.write` when omitted.
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+    AssignmentDecline:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 2000 }
+    ApprovalState:
+      type: string
+      enum: [pending, granted, denied]
+      description: "`pending` collects decisions; one denial ends it `denied`, n distinct grants `granted`."
+    ApprovalDecision:
+      type: object
+      required: [principal, decision, at]
+      properties:
+        principal: { type: string, description: "Who decided (`person:…`)." }
+        decision: { type: string, enum: [granted, denied] }
+        reason: { type: string }
+        at: { $ref: "#/components/schemas/Timestamp" }
+    Approval:
+      type: object
+      required: [id, project_id, subject, subject_id, required, eligible, distinct_from_author, state, decisions, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        instance_id: { $ref: "#/components/schemas/Id", description: "The workflow instance whose `request_approval` action asked for it; absent for one asked by hand." }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        subject_id: { $ref: "#/components/schemas/Id", description: "The message, for a translation unit; the release request otherwise." }
+        locale: { $ref: "#/components/schemas/Locale", description: "The translation unit's locale; absent for a release request." }
+        required: { type: integer, minimum: 1, description: How many distinct eligible people must grant it. }
+        eligible: { $ref: "#/components/schemas/Assignee" }
+        distinct_from_author: { type: boolean, description: "Four-eyes: the author of the text under approval neither decides nor counts." }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+        state: { $ref: "#/components/schemas/ApprovalState" }
+        decisions:
+          type: array
+          description: Every decision, in the order they were made. Append-only.
+          items: { $ref: "#/components/schemas/ApprovalDecision" }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        closed_at: { $ref: "#/components/schemas/Timestamp" }
+    ApprovalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Approval" }
+        next_page_token: { type: string }
+    CreateApproval:
+      type: object
+      required: [project_id, message, locale, n, from]
+      description: An approval of one translation unit.
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        message: { $ref: "#/components/schemas/MessageKey" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        n: { type: integer, minimum: 1, maximum: 10, description: How many distinct eligible people must grant it. }
+        from: { $ref: "#/components/schemas/Party" }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+    CreateApprovalDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [granted, denied] }
+        reason: { type: string, maxLength: 2000 }
     WorkflowInstanceStatus:
       type: string
       enum: [active, finished]

@@ -53,6 +53,15 @@ const (
 	assignedAllowed assignedRule = "allowed"
 	// assignedNone: tenantless or public; no tenant data.
 	assignedNone assignedRule = "none"
+	// assignedOwn: the member's own work (RFC 0006 §3.1, §3.3) — the
+	// assignments given to them, their group or their vendor, and
+	// nothing else. A list holds only those (Workflow's
+	// VisibleAssignments falls back to MyAssignments, cut by their
+	// affiliation in the query), an assignment that is not theirs is not
+	// found, and acting on one takes being its assignee and holding its
+	// permission for every unit (WorkService.work). Only assignment
+	// routes may be decided so.
+	assignedOwn assignedRule = "own"
 )
 
 type restriction struct {
@@ -65,6 +74,7 @@ var (
 	pathCovered  = restriction{projectPath, assignedCovered}
 	rowsDenied   = restriction{projectRows, assignedDenied}
 	rowsCovered  = restriction{projectRows, assignedCovered}
+	rowsOwn      = restriction{projectRows, assignedOwn}
 	tenantDenied = restriction{projectTenant, assignedDenied}
 	unscoped     = restriction{projectUnscoped, assignedDenied}
 	public       = restriction{projectNone, assignedNone}
@@ -258,14 +268,32 @@ var restrictions = map[string]restriction{
 	// (workflow/app readScope, writeScope). Linting stores nothing and
 	// names no project. Bindings, resolution and instances are under a
 	// project path. workflows.read is refused to an assigned member.
-	"GET /v1/tenants/{tenant}/workflow-definitions":                                                  rowsDenied,
-	"POST /v1/tenants/{tenant}/workflow-definitions":                                                 rowsDenied,
-	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}":                            rowsDenied,
-	"DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}":                         rowsDenied,
-	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions":                   rowsDenied,
-	"POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions":                  rowsDenied,
-	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version}":         rowsDenied,
-	"POST /v1/tenants/{tenant}/workflow-definition-lints":                                            tenantDenied,
+	"GET /v1/tenants/{tenant}/workflow-definitions":                                          rowsDenied,
+	"POST /v1/tenants/{tenant}/workflow-definitions":                                         rowsDenied,
+	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}":                    rowsDenied,
+	"DELETE /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}":                 rowsDenied,
+	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions":           rowsDenied,
+	"POST /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions":          rowsDenied,
+	"GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version}": rowsDenied,
+	"POST /v1/tenants/{tenant}/workflow-definition-lints":                                    tenantDenied,
+	// Assignments and approvals (RFC 0006 §3.1–3.2). An assignment is a
+	// project's row: a manager's list is cut to their project scope in
+	// the query (authz.Projects) and one outside it is not found
+	// (InProject); giving work takes assignments.manage in the project
+	// (RequireIn). A vendor's member reaches their own work and nothing
+	// else (assignedOwn). Approvals are workflows.read and
+	// approvals.decide, which an assigned member never holds: a vendor
+	// delivers work, it does not sign it off.
+	"GET /v1/tenants/{tenant}/assignments":                                                           rowsOwn,
+	"POST /v1/tenants/{tenant}/assignments":                                                          rowsDenied,
+	"GET /v1/tenants/{tenant}/assignments/{assignment}":                                              rowsOwn,
+	"POST /v1/tenants/{tenant}/assignments/{assignment}/acceptance":                                  rowsOwn,
+	"POST /v1/tenants/{tenant}/assignments/{assignment}/completion":                                  rowsOwn,
+	"POST /v1/tenants/{tenant}/assignments/{assignment}/decline":                                     rowsOwn,
+	"GET /v1/tenants/{tenant}/approvals":                                                             rowsDenied,
+	"POST /v1/tenants/{tenant}/approvals":                                                            rowsDenied,
+	"GET /v1/tenants/{tenant}/approvals/{approval}":                                                  rowsDenied,
+	"POST /v1/tenants/{tenant}/approvals/{approval}/decisions":                                       rowsDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-bindings":                                  pathDenied,
 	"POST /v1/tenants/{tenant}/projects/{project}/workflow-bindings":                                 pathDenied,
 	"DELETE /v1/tenants/{tenant}/projects/{project}/workflow-bindings/{workflow_binding}":            pathDenied,
@@ -371,6 +399,9 @@ func TestEveryOperationHasARestrictionDecision(t *testing.T) {
 			pattern != "PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}" &&
 			pattern != "POST /v1/tenants/{tenant}/term-recognitions" && pattern != "POST /v1/tenants/{tenant}/terminology-checks" {
 			t.Errorf("%s admits an assigned member; only reads, the term look-ups and a translation write in a covered unit may (RFC 0006 §3.3)", pattern)
+		}
+		if d.assigned == assignedOwn && !strings.HasPrefix(path, "/v1/tenants/{tenant}/assignments") {
+			t.Errorf("%s is decided %q; only the member's own assignments are theirs (RFC 0006 §3.1)", pattern, d.assigned)
 		}
 	}
 	slices.Sort(missing)

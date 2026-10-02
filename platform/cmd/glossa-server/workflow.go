@@ -19,6 +19,7 @@ import (
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
 	workflowrelease "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/release"
@@ -77,8 +78,11 @@ func newWorkflow(
 		requests = workflowrelease.NewRequests(src.release)
 		workOpts = append(workOpts, workflowapp.WithReleaseRequests(requests))
 	}
+	// A request made through the API names its units by message key,
+	// resolved through Catalog as the caller.
 	work := workflowapp.NewWorkService(workTx, directory,
-		workflowsources.NewAuthors(src.catalog, src.localization), workOpts...)
+		workflowsources.NewAuthors(src.catalog, src.localization),
+		append(workOpts, workflowapp.WithWorkCatalog(workflowcatalog.New(src.catalog)))...)
 	if src.release != nil {
 		src.release.UseApprovals(workflowrelease.NewLedger(work))
 	}

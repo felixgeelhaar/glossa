@@ -333,6 +333,17 @@ func TestRestrictionsOverHTTP(t *testing.T) {
 				if r.status != http.StatusOK {
 					t.Errorf("%s = %d for an assigned member; the decision is %q", pattern, r.status, d.assigned)
 				}
+			case assignedOwn:
+				// Their own work: the list answers (with nothing, here —
+				// Workflow holds no assignment of theirs), and an id that
+				// is not theirs is not found.
+				addressed := strings.Contains(pattern, "{assignment}")
+				if !addressed && r.status != http.StatusOK || addressed && r.status != http.StatusNotFound {
+					t.Errorf("%s = %d (%s) for an assigned member; the decision is %q", pattern, r.status, r.body, d.assigned)
+				}
+				if !addressed && strings.Contains(string(r.body), `"id"`) {
+					t.Errorf("%s shows an assigned member work that is not theirs: %s", pattern, r.body)
+				}
 			}
 		}
 	})

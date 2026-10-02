@@ -31,7 +31,16 @@ func (s *scenario) workflowTransitionsPath(project, instance string) string {
 	return s.projectPathOf(project, "/workflow-instances/"+instance+"/transitions")
 }
 
-// Assignments, approvals, groups and vendors (§3, §4.3).
+// Assignments, approvals, groups and vendors (§3, §4.3). In the spec
+// since wave 3 (tags `assignments`, `approvals`, `groups`, `vendors`),
+// tenant-level with a project filter. GET …/assignments answers what
+// the caller may see — a manager every assignment, everyone else (a
+// vendor's member included) their own work; an assignment is created
+// with `project_id` once and its units by message key; its actions are
+// …/acceptance, …/completion and …/decline. Approvals are listed by
+// `project`, `message` (a key) and `locale`, carry a `state`, and take
+// decisions as `{"decision": "granted"|"denied", "reason"}`. A member is
+// invited into a vendor with `vendor_id`, `visibility` and `projects`.
 func (s *scenario) assignmentsPath() string         { return s.tenantPath("/assignments") }
 func (s *scenario) assignmentPath(id string) string { return s.tenantPath("/assignments/" + id) }
 func (s *scenario) approvalsPath() string           { return s.tenantPath("/approvals") }

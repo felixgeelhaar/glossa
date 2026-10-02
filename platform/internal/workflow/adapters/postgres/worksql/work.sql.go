@@ -131,6 +131,40 @@ func (q *Queries) CoveredUnits(ctx context.Context, arg CoveredUnitsParams) ([]C
 	return items, nil
 }
 
+const decisionsOf = `-- name: DecisionsOf :many
+SELECT tenant_id, approval_id, seq, principal, verdict, reason, decided_at FROM workflow_approval_decisions
+WHERE approval_id = ANY($1::uuid[])
+ORDER BY approval_id, seq
+`
+
+func (q *Queries) DecisionsOf(ctx context.Context, approvalIds []uuid.UUID) ([]WorkflowApprovalDecision, error) {
+	rows, err := q.db.Query(ctx, decisionsOf, approvalIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkflowApprovalDecision
+	for rows.Next() {
+		var i WorkflowApprovalDecision
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.ApprovalID,
+			&i.Seq,
+			&i.Principal,
+			&i.Verdict,
+			&i.Reason,
+			&i.DecidedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getApproval = `-- name: GetApproval :one
 SELECT id, tenant_id, project_id, instance_id, subject_kind, subject_id, locale, required, eligible, distinct_from_author, due_at, state, version, created_by, created_at, closed_at FROM workflow_approvals WHERE id = $1
 `
@@ -366,6 +400,78 @@ func (q *Queries) LatestApproval(ctx context.Context, arg LatestApprovalParams) 
 	return i, err
 }
 
+const listApprovals = `-- name: ListApprovals :many
+SELECT id, tenant_id, project_id, instance_id, subject_kind, subject_id, locale, required, eligible, distinct_from_author, due_at, state, version, created_by, created_at, closed_at FROM workflow_approvals
+WHERE id > $1
+  AND ($2::uuid = '00000000-0000-0000-0000-000000000000' OR project_id = $2)
+  AND ($3::text = '' OR subject_kind = $3)
+  AND ($4::uuid = '00000000-0000-0000-0000-000000000000' OR subject_id = $4)
+  AND ($5::text = '' OR locale = $5)
+  AND (cardinality($6::text[]) = 0 OR state = ANY($6::text[]))
+  AND (NOT $7::boolean OR project_id = ANY($8::uuid[]))
+ORDER BY id
+LIMIT $9
+`
+
+type ListApprovalsParams struct {
+	After       uuid.UUID
+	ProjectID   uuid.UUID
+	SubjectKind string
+	SubjectID   uuid.UUID
+	Locale      string
+	States      []string
+	ByProjects  bool
+	Projects    []uuid.UUID
+	MaxRows     int32
+}
+
+func (q *Queries) ListApprovals(ctx context.Context, arg ListApprovalsParams) ([]WorkflowApproval, error) {
+	rows, err := q.db.Query(ctx, listApprovals,
+		arg.After,
+		arg.ProjectID,
+		arg.SubjectKind,
+		arg.SubjectID,
+		arg.Locale,
+		arg.States,
+		arg.ByProjects,
+		arg.Projects,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkflowApproval
+	for rows.Next() {
+		var i WorkflowApproval
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.InstanceID,
+			&i.SubjectKind,
+			&i.SubjectID,
+			&i.Locale,
+			&i.Required,
+			&i.Eligible,
+			&i.DistinctFromAuthor,
+			&i.DueAt,
+			&i.State,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.ClosedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAssignments = `-- name: ListAssignments :many
 SELECT id, tenant_id, project_id, instance_id, assignee, permission, due_at, state, version, created_by, created_at, updated_at, closed_by, closed_at, reason FROM workflow_assignments
 WHERE id > $1
@@ -375,19 +481,29 @@ WHERE id > $1
   -- A project-scoped caller's lists are cut in the query, before the
   -- page is, so a page's size never counts rows they cannot see.
   AND (NOT $6::boolean OR project_id = ANY($7::uuid[]))
+  -- One unit, or one message's or one locale's: the assignments that
+  -- cover it.
+  AND (NOT $8::boolean OR EXISTS (
+        SELECT 1 FROM workflow_assignment_units u
+        WHERE u.tenant_id = workflow_assignments.tenant_id AND u.assignment_id = workflow_assignments.id
+          AND ($9::uuid = '00000000-0000-0000-0000-000000000000' OR u.message_id = $9)
+          AND ($10::text = '' OR u.locale = $10)))
 ORDER BY id
-LIMIT $8
+LIMIT $11
 `
 
 type ListAssignmentsParams struct {
-	After      uuid.UUID
-	ProjectID  uuid.UUID
-	States     []string
-	ByAssignee bool
-	Assignees  []string
-	ByProjects bool
-	Projects   []uuid.UUID
-	MaxRows    int32
+	After       uuid.UUID
+	ProjectID   uuid.UUID
+	States      []string
+	ByAssignee  bool
+	Assignees   []string
+	ByProjects  bool
+	Projects    []uuid.UUID
+	ByUnit      bool
+	UnitMessage uuid.UUID
+	UnitLocale  string
+	MaxRows     int32
 }
 
 func (q *Queries) ListAssignments(ctx context.Context, arg ListAssignmentsParams) ([]WorkflowAssignment, error) {
@@ -399,6 +515,9 @@ func (q *Queries) ListAssignments(ctx context.Context, arg ListAssignmentsParams
 		arg.Assignees,
 		arg.ByProjects,
 		arg.Projects,
+		arg.ByUnit,
+		arg.UnitMessage,
+		arg.UnitLocale,
 		arg.MaxRows,
 	)
 	if err != nil {

@@ -150,7 +150,7 @@ func (h *workHarness) manager() context.Context {
 
 func (h *workHarness) assign(project uuid.UUID, to domain.Party, units ...domain.Unit) domain.Assignment {
 	h.t.Helper()
-	a, err := h.svc.Assign(h.manager(), app.AssignInput{ProjectID: project, Units: units, To: to})
+	a, _, err := h.svc.Assign(h.manager(), app.AssignInput{ProjectID: project, Units: units, To: to})
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -255,6 +255,34 @@ func TestCoverageDirectGroupAndVendor(t *testing.T) {
 		t.Error("a declined assignment still covers")
 	}
 
+	// Lists filter by unit in the query: a message, a locale, or both.
+	for _, c := range []struct {
+		f    app.AssignmentFilter
+		want int
+	}{
+		{app.AssignmentFilter{Message: byVendor[0].Message}, 1},
+		{app.AssignmentFilter{Message: byGroup.Message, Locale: "de"}, 1},
+		{app.AssignmentFilter{Message: byGroup.Message, Locale: "fr"}, 0},
+		{app.AssignmentFilter{Locale: "de-AT"}, 1},
+		{app.AssignmentFilter{Locale: "de"}, 3},
+	} {
+		got, err := h.svc.VisibleAssignments(h.manager(), c.f, false)
+		if err != nil || len(got) != c.want {
+			t.Errorf("assignments for %+v = %d, %v; want %d", c.f, len(got), err, c.want)
+		}
+	}
+	// As a person, the vendor's translator may pick up work given to
+	// every translator; with visibility `assigned`, only the vendor's.
+	if got, err := h.svc.VisibleAssignments(h.as(vera), app.AssignmentFilter{Locale: "de"}, false); err != nil || len(got) != 2 {
+		t.Errorf("the vendor's translator's work = %d, %v; want the vendor's and the role's", len(got), err)
+	}
+	p, _ := authz.From(h.as(vera))
+	p.Visibility, p.Coverage = identity.VisibilityAssigned, h.coverage
+	if got, err := h.svc.VisibleAssignments(authz.WithPrincipal(h.inTenant(), p), app.AssignmentFilter{Locale: "de"}, false); err != nil ||
+		len(got) != 1 || got[0].ID != vendorWork.ID {
+		t.Errorf("the assigned vendor member's work = %+v, %v; want only the vendor's", got, err)
+	}
+
 	mine, err := h.svc.MyAssignments(h.as(vera), app.AssignmentFilter{Project: project})
 	if err != nil || len(mine) != 2 {
 		t.Fatalf("vera's work = %d, %v; want her vendor's and the translators'", len(mine), err)
@@ -317,6 +345,43 @@ func TestApprovalsInPostgres(t *testing.T) {
 		t.Fatalf("approvers = %v, %v", approvers, err)
 	}
 
+	// The inbox lists by unit and state, with every decision, in one page
+	// or several.
+	if _, err := h.svc.RequestApprovalForInstance(h.as(first), app.WorkflowApproval{
+		InstanceID: uuid.New(), ProjectID: project, Subject: domain.ApprovalSubject{Kind: domain.SubjectTranslation, ID: uuid.New(), Locale: "fr"},
+		Params: domain.RequestApproval{N: 1, From: domain.Party{Role: "reviewer"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	listed := func(f app.ApprovalFilter) []domain.Approval {
+		t.Helper()
+		out, err := h.svc.Approvals(firstCtx, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	if got := listed(app.ApprovalFilter{Project: project}); len(got) != 2 {
+		t.Errorf("the project's approvals = %d, want 2", len(got))
+	}
+	unit := listed(app.ApprovalFilter{Project: project, Kind: domain.SubjectTranslation, SubjectID: subject.ID, Locale: "de"})
+	if len(unit) != 1 || unit[0].ID != a.ID || len(unit[0].Decisions) != 2 || unit[0].Decisions[1].Reason != "fine" {
+		t.Errorf("the unit's approvals = %+v", unit)
+	}
+	if got := listed(app.ApprovalFilter{States: []domain.ApprovalState{domain.ApprovalPending}}); len(got) != 1 || got[0].Subject.Locale != "fr" {
+		t.Errorf("pending = %+v", got)
+	}
+	page := listed(app.ApprovalFilter{Limit: 1})
+	if len(page) != 1 {
+		t.Fatalf("a page of one = %d", len(page))
+	}
+	if rest := listed(app.ApprovalFilter{After: page[0].ID}); len(rest) != 1 || rest[0].ID == page[0].ID {
+		t.Errorf("the page after = %+v", rest)
+	}
+	if got := listed(app.ApprovalFilter{Project: uuid.New()}); len(got) != 0 {
+		t.Errorf("another project's approvals = %d", len(got))
+	}
+
 	// Decisions and units are append-only for the application role,
 	// whatever the code above it does.
 	for _, stmt := range []string{
@@ -343,8 +408,9 @@ func TestApprovalsInPostgres(t *testing.T) {
 		return tx.QueryRow(ctx, `SELECT count(*) FROM outbox_events
 			WHERE event_type IN ('workflow.approval.requested', 'workflow.approval.granted') AND actor LIKE 'person:%'`).Scan(&n)
 	})
-	if err != nil || n != 3 {
-		t.Fatalf("approval events with a person as actor = %d, %v; want 3", n, err)
+	// Two requests (the second for the inbox above) and two grants.
+	if err != nil || n != 4 {
+		t.Fatalf("approval events with a person as actor = %d, %v; want 4", n, err)
 	}
 
 	// Another tenant sees no approval.

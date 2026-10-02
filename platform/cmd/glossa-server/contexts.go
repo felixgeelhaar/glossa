@@ -392,7 +392,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		return contexts{}, err
 	}
 	c := contexts{
-		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog), workflowRuntime: wf,
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog, wf.work), workflowRuntime: wf,
 		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,

@@ -5859,6 +5859,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Assignments, or my work
+         * @description What the caller may see. With `assignments.manage`, every
+         *     assignment in their project scope — or, with `mine=true`, only
+         *     their own. Without it, only their own: given to them directly,
+         *     to a role they hold, to a group they are in or to their vendor.
+         *     That is "my work", and it is all a vendor's member (visibility
+         *     `assigned`) ever sees here. Filters: `project`; a unit by
+         *     `message` key (with `project`) and/or `locale`; `state`.
+         *     Needs `assignments.read` (`assignments.manage` for others'
+         *     work). Problem codes: `invalid_query`, `invalid_page_size`,
+         *     `invalid_page_token` (400).
+         */
+        get: operations["listAssignments"];
+        put?: never;
+        /**
+         * Give translation units to someone
+         * @description One assignment for a batch of a project's translation units —
+         *     the job a translator works through, not one string at a time.
+         *     The assignee is exactly one member, role, group or vendor
+         *     (`assignee`); a vendor's members see these units, and only
+         *     these, while it is open and for 30 days after it is done (RFC
+         *     0006 §3.3). Units are named by message key and locale. Needs
+         *     `assignments.manage` in the project. Problem codes:
+         *     `invalid_assignment` (422: no units, too many, a key the
+         *     project does not have, a due date in the past),
+         *     `unknown_party` (422: no such member, group or vendor),
+         *     `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+         *     `not_found` (404: the project).
+         */
+        post: operations["createAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/assignments/{assignment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An assignment
+         * @description With `assignments.manage`, any in the caller's project scope;
+         *     otherwise only one given to the caller, with
+         *     `assignments.read` — someone else's is not found.
+         */
+        get: operations["getAssignment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/assignments/{assignment}/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an open assignment on
+         * @description Only its assignee, holding the assignment's permission for every
+         *     unit. Problem codes: `forbidden` (403: not given to you, or
+         *     missing the permission), `assignment_state` (409: not `open`).
+         */
+        post: operations["acceptAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/assignments/{assignment}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim an assignment done
+         * @description A claim, not a decision: it raises `assignment.completed` and the
+         *     project's workflow decides what follows; no review state changes
+         *     here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+         *     permission for every unit. Problem codes: `forbidden` (403),
+         *     `assignment_state` (409: not live).
+         */
+        post: operations["completeAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/assignments/{assignment}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand an assignment back
+         * @description By its assignee, or by someone with `assignments.manage` taking
+         *     it back; raises `assignment.declined`. Problem codes: `forbidden`
+         *     (403), `assignment_state` (409: not live), `invalid_assignment`
+         *     (422: a reason over 2,000 characters).
+         */
+        post: operations["declineAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Approvals, with their decisions
+         * @description The approvals inbox. Filters: `project`; a translation unit by
+         *     `message` key (with `project`) and/or `locale`; `subject`;
+         *     `state`. Needs `workflows.read`, in the caller's project scope.
+         *     Problem codes: `invalid_query`, `invalid_page_size`,
+         *     `invalid_page_token` (400).
+         */
+        get: operations["listApprovals"];
+        put?: never;
+        /**
+         * Ask for a translation unit to be approved
+         * @description Asks `n` distinct people of `from` (a member, a role or a group —
+         *     never a vendor) to grant it. Four-eyes always applies: the author
+         *     of the unit's latest text cannot count. A newer request for the
+         *     same unit replaces the pending one. Needs `assignments.manage`
+         *     in the project. Problem codes: `invalid_approval` (422: `n` out
+         *     of range, a vendor asked, a key the project does not have),
+         *     `unknown_party` (422), `not_found` (404: the project).
+         */
+        post: operations["createApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/approvals/{approval}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An approval `id`. */
+                approval: components["parameters"]["ApprovalPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An approval, with its decisions
+         * @description Needs `workflows.read`, in the caller's project scope.
+         */
+        get: operations["getApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/approvals/{approval}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An approval `id`. */
+                approval: components["parameters"]["ApprovalPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant or deny an approval
+         * @description A person's decision, appended to the approval and raised as
+         *     `approval.granted` or `approval.denied`; the project's workflow
+         *     moves the translation (RFC 0006 §3.2). Human-only: an API token
+         *     or an MCP agent is refused (`person_required`, 403) — no scope
+         *     grants `approvals.decide`. The caller needs `approvals.decide`
+         *     for the unit's locale, must be in the approval's eligible party
+         *     (`not_eligible`, 403), and must not be the author of the text
+         *     under approval (`own_text`, 403: four-eyes). Only the newest
+         *     approval of a unit takes decisions. Problem codes:
+         *     `approval_closed` (409: already granted or denied),
+         *     `approval_superseded` (409: a newer request replaced it),
+         *     `invalid_approval` (422: a reason over 2,000 characters).
+         */
+        post: operations["decideApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9750,6 +10006,131 @@ export interface components {
             /** @description The version a new instance would start on. */
             version?: number;
         };
+        /**
+         * @description Exactly one of `member`, `role`, `group` or `vendor` — who work
+         *     is given to, or who may approve. A group or a vendor is named by
+         *     its `id` or its name (case does not matter).
+         */
+        Party: {
+            member?: components["schemas"]["Id"];
+            role?: components["schemas"]["Role"];
+            /** @description A group `id` or name. */
+            group?: string;
+            /** @description A vendor `id` or name. */
+            vendor?: string;
+        };
+        /** @description A party as stored, resolved to Identity's ids. */
+        Assignee: {
+            /** @enum {string} */
+            kind: "member" | "role" | "group" | "vendor";
+            /** @description The member, group or vendor; absent for a role. */
+            id?: components["schemas"]["Id"];
+            role?: components["schemas"]["Role"];
+        };
+        /**
+         * @description `open` and `accepted` are live; the others are final.
+         * @enum {string}
+         */
+        AssignmentState: "open" | "accepted" | "done" | "declined" | "expired";
+        AssignmentUnit: {
+            message_id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+        };
+        Assignment: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            /** @description The workflow instance whose `assign` action made it; absent for one made by hand. */
+            instance_id?: components["schemas"]["Id"];
+            /** @description The translation units, sorted by message and locale. */
+            units: components["schemas"]["AssignmentUnit"][];
+            assignee: components["schemas"]["Assignee"];
+            /** @description What doing the work takes (`translations.write` for translating), for every unit's locale. */
+            permission: string;
+            due_at?: components["schemas"]["Timestamp"];
+            state: components["schemas"]["AssignmentState"];
+            /** @description Who made it, as the outbox names actors (`person:…`, `token:…`). */
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description Who completed, declined or expired it. */
+            closed_by?: string;
+            closed_at?: components["schemas"]["Timestamp"];
+            /** @description A decline's reason. */
+            reason?: string;
+        };
+        AssignmentList: {
+            items: components["schemas"]["Assignment"][];
+            next_page_token?: string;
+        };
+        CreateAssignment: {
+            project_id: components["schemas"]["Id"];
+            units: {
+                message: components["schemas"]["MessageKey"];
+                locale: components["schemas"]["Locale"];
+            }[];
+            assignee: components["schemas"]["Party"];
+            /** @description What doing the work takes; `translations.write` when omitted. */
+            permission?: string;
+            due_at?: components["schemas"]["Timestamp"];
+        };
+        AssignmentDecline: {
+            reason?: string;
+        };
+        /**
+         * @description `pending` collects decisions; one denial ends it `denied`, n distinct grants `granted`.
+         * @enum {string}
+         */
+        ApprovalState: "pending" | "granted" | "denied";
+        ApprovalDecision: {
+            /** @description Who decided (`person:…`). */
+            principal: string;
+            /** @enum {string} */
+            decision: "granted" | "denied";
+            reason?: string;
+            at: components["schemas"]["Timestamp"];
+        };
+        Approval: {
+            id: components["schemas"]["Id"];
+            project_id: components["schemas"]["Id"];
+            /** @description The workflow instance whose `request_approval` action asked for it; absent for one asked by hand. */
+            instance_id?: components["schemas"]["Id"];
+            subject: components["schemas"]["WorkflowSubject"];
+            /** @description The message, for a translation unit; the release request otherwise. */
+            subject_id: components["schemas"]["Id"];
+            /** @description The translation unit's locale; absent for a release request. */
+            locale?: components["schemas"]["Locale"];
+            /** @description How many distinct eligible people must grant it. */
+            required: number;
+            eligible: components["schemas"]["Assignee"];
+            /** @description Four-eyes: the author of the text under approval neither decides nor counts. */
+            distinct_from_author: boolean;
+            due_at?: components["schemas"]["Timestamp"];
+            state: components["schemas"]["ApprovalState"];
+            /** @description Every decision, in the order they were made. Append-only. */
+            decisions: components["schemas"]["ApprovalDecision"][];
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            closed_at?: components["schemas"]["Timestamp"];
+        };
+        ApprovalList: {
+            items: components["schemas"]["Approval"][];
+            next_page_token?: string;
+        };
+        /** @description An approval of one translation unit. */
+        CreateApproval: {
+            project_id: components["schemas"]["Id"];
+            message: components["schemas"]["MessageKey"];
+            locale: components["schemas"]["Locale"];
+            /** @description How many distinct eligible people must grant it. */
+            n: number;
+            from: components["schemas"]["Party"];
+            due_at?: components["schemas"]["Timestamp"];
+        };
+        CreateApprovalDecision: {
+            /** @enum {string} */
+            decision: "granted" | "denied";
+            reason?: string;
+        };
         /** @enum {string} */
         WorkflowInstanceStatus: "active" | "finished";
         WorkflowInstance: {
@@ -10024,6 +10405,10 @@ export interface components {
         WorkflowVersionPath: number;
         /** @description A workflow binding `id`. */
         WorkflowBindingPath: components["schemas"]["Id"];
+        /** @description An assignment `id`. */
+        AssignmentPath: components["schemas"]["Id"];
+        /** @description An approval `id`. */
+        ApprovalPath: components["schemas"]["Id"];
         /** @description A workflow instance `id`. */
         WorkflowInstancePath: components["schemas"]["Id"];
         /** @description A check-policy version number, as `listCheckPolicyVersions` gives it. */
@@ -17863,6 +18248,338 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    listAssignments: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                /** @description A message `key`; needs `project`. */
+                message?: components["schemas"]["MessageKey"];
+                locale?: components["schemas"]["Locale"];
+                state?: components["schemas"]["AssignmentState"];
+                /** @description Only the caller's own work. */
+                mine?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of assignments, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAssignment: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAssignment"];
+            };
+        };
+        responses: {
+            /** @description The assignment, `open`. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The assignment; the `ETag` is its version. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The assignment, `accepted`. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    completeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The assignment, `done`. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    declineAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An assignment `id`. */
+                assignment: components["parameters"]["AssignmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AssignmentDecline"];
+            };
+        };
+        responses: {
+            /** @description The assignment, `declined`. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listApprovals: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                /** @description A message `key`; needs `project`. */
+                message?: components["schemas"]["MessageKey"];
+                locale?: components["schemas"]["Locale"];
+                subject?: components["schemas"]["WorkflowSubject"];
+                state?: components["schemas"]["ApprovalState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of approvals, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApproval"];
+            };
+        };
+        responses: {
+            /** @description The approval, `pending`. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An approval `id`. */
+                approval: components["parameters"]["ApprovalPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    decideApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An approval `id`. */
+                approval: components["parameters"]["ApprovalPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description The approval with the decision recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
 }

@@ -148,6 +148,7 @@ func (s *workStore) ListAssignments(ctx context.Context, f app.AssignmentFilter)
 		After: f.After, ProjectID: f.Project, States: states,
 		ByAssignee: f.Assignees != nil, Assignees: emptyIfNil(f.Assignees), MaxRows: int32Of(limit),
 		ByProjects: f.Within != nil, Projects: within(f.Within),
+		ByUnit: f.Message != uuid.Nil || f.Locale != "", UnitMessage: f.Message, UnitLocale: f.Locale,
 	})
 	if err != nil {
 		return nil, err
@@ -211,6 +212,51 @@ func (s *workStore) LatestApproval(ctx context.Context, project uuid.UUID, subje
 	return s.withDecisions(ctx, r)
 }
 
+func (s *workStore) ListApprovals(ctx context.Context, f app.ApprovalFilter) ([]domain.Approval, error) {
+	limit := f.Limit
+	if limit <= 0 || limit > maxPage {
+		limit = maxPage
+	}
+	states := make([]string, len(f.States))
+	for i, st := range f.States {
+		states[i] = string(st)
+	}
+	rows, err := s.q.ListApprovals(ctx, worksql.ListApprovalsParams{
+		After: f.After, ProjectID: f.Project, SubjectKind: string(f.Kind), SubjectID: f.SubjectID, Locale: f.Locale,
+		States: states, ByProjects: f.Within != nil, Projects: within(f.Within), MaxRows: int32Of(limit),
+	})
+	if err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	// Every page's decisions in one query.
+	ds, err := s.q.DecisionsOf(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[uuid.UUID][]domain.Decision{}
+	for _, d := range ds {
+		byID[d.ApprovalID] = append(byID[d.ApprovalID], decision(d))
+	}
+	out := make([]domain.Approval, len(rows))
+	for i, r := range rows {
+		a, err := approval(r)
+		if err != nil {
+			return nil, err
+		}
+		a.Decisions = byID[r.ID]
+		out[i] = a
+	}
+	return out, nil
+}
+
+func decision(d worksql.WorkflowApprovalDecision) domain.Decision {
+	return domain.Decision{Principal: d.Principal, Verdict: domain.Verdict(d.Verdict), Reason: d.Reason, At: d.DecidedAt.UTC()}
+}
+
 func (s *workStore) withDecisions(ctx context.Context, r worksql.WorkflowApproval) (domain.Approval, error) {
 	a, err := approval(r)
 	if err != nil {
@@ -221,9 +267,7 @@ func (s *workStore) withDecisions(ctx context.Context, r worksql.WorkflowApprova
 		return domain.Approval{}, err
 	}
 	for _, d := range ds {
-		a.Decisions = append(a.Decisions, domain.Decision{
-			Principal: d.Principal, Verdict: domain.Verdict(d.Verdict), Reason: d.Reason, At: d.DecidedAt.UTC(),
-		})
+		a.Decisions = append(a.Decisions, decision(d))
 	}
 	return a, nil
 }

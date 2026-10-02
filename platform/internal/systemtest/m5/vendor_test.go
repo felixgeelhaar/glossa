@@ -94,9 +94,11 @@ func (s *scenario) vendorVisibility() {
 	})
 	var assignment string
 	s.step(id, fmt.Sprintf("assign %d `de` units of project B to the vendor", assignedUnits), func() error {
+		// One assignment is one project's batch: the project once, the
+		// units by message key and locale.
 		units := make([]map[string]string, 0, len(s.assigned))
 		for _, k := range s.assigned {
-			units = append(units, map[string]string{"project": s.projectB, "message": k, "locale": "de"})
+			units = append(units, map[string]string{"message": k, "locale": "de"})
 		}
 		assignee := map[string]any{"vendor": s.vendorID}
 		if s.vendorID == "" {
@@ -106,7 +108,7 @@ func (s *scenario) vendorVisibility() {
 			ID string `json:"id"`
 		}
 		if _, err := s.owner.try(http.MethodPost, s.assignmentsPath(), map[string]any{
-			"units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
+			"project_id": s.projectB, "units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
 		}, http.StatusCreated, &a); err != nil {
 			return missing("creating an assignment (POST "+s.assignmentsPath()+")", err)
 		}

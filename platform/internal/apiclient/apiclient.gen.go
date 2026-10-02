@@ -345,6 +345,45 @@ func (e AITrigger) Valid() bool {
 	}
 }
 
+// Defines values for ApprovalDecisionDecision.
+const (
+	ApprovalDecisionDecisionDenied  ApprovalDecisionDecision = "denied"
+	ApprovalDecisionDecisionGranted ApprovalDecisionDecision = "granted"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalDecisionDecision enum.
+func (e ApprovalDecisionDecision) Valid() bool {
+	switch e {
+	case ApprovalDecisionDecisionDenied:
+		return true
+	case ApprovalDecisionDecisionGranted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApprovalState.
+const (
+	ApprovalStateDenied  ApprovalState = "denied"
+	ApprovalStateGranted ApprovalState = "granted"
+	ApprovalStatePending ApprovalState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalState enum.
+func (e ApprovalState) Valid() bool {
+	switch e {
+	case ApprovalStateDenied:
+		return true
+	case ApprovalStateGranted:
+		return true
+	case ApprovalStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ArgumentSelectorKind.
 const (
 	ArgumentSelectorKindExact   ArgumentSelectorKind = "exact"
@@ -405,6 +444,57 @@ func (e ArgumentType) Valid() bool {
 	case ArgumentTypeTime:
 		return true
 	case ArgumentTypeUnit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssigneeKind.
+const (
+	AssigneeKindGroup  AssigneeKind = "group"
+	AssigneeKindMember AssigneeKind = "member"
+	AssigneeKindRole   AssigneeKind = "role"
+	AssigneeKindVendor AssigneeKind = "vendor"
+)
+
+// Valid indicates whether the value is a known member of the AssigneeKind enum.
+func (e AssigneeKind) Valid() bool {
+	switch e {
+	case AssigneeKindGroup:
+		return true
+	case AssigneeKindMember:
+		return true
+	case AssigneeKindRole:
+		return true
+	case AssigneeKindVendor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssignmentState.
+const (
+	AssignmentStateAccepted AssignmentState = "accepted"
+	AssignmentStateDeclined AssignmentState = "declined"
+	AssignmentStateDone     AssignmentState = "done"
+	AssignmentStateExpired  AssignmentState = "expired"
+	AssignmentStateOpen     AssignmentState = "open"
+)
+
+// Valid indicates whether the value is a known member of the AssignmentState enum.
+func (e AssignmentState) Valid() bool {
+	switch e {
+	case AssignmentStateAccepted:
+		return true
+	case AssignmentStateDeclined:
+		return true
+	case AssignmentStateDone:
+		return true
+	case AssignmentStateExpired:
+		return true
+	case AssignmentStateOpen:
 		return true
 	default:
 		return false
@@ -813,6 +903,24 @@ func (e ContextSource) Valid() bool {
 	case ContextSourcePlugin:
 		return true
 	case ContextSourceRuntime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateApprovalDecisionDecision.
+const (
+	CreateApprovalDecisionDecisionDenied  CreateApprovalDecisionDecision = "denied"
+	CreateApprovalDecisionDecisionGranted CreateApprovalDecisionDecision = "granted"
+)
+
+// Valid indicates whether the value is a known member of the CreateApprovalDecisionDecision enum.
+func (e CreateApprovalDecisionDecision) Valid() bool {
+	switch e {
+	case CreateApprovalDecisionDecisionDenied:
+		return true
+	case CreateApprovalDecisionDecisionGranted:
 		return true
 	default:
 		return false
@@ -3113,6 +3221,77 @@ type ApplicationList struct {
 	NextPageToken *string       `json:"next_page_token,omitempty"`
 }
 
+// Approval defines model for Approval.
+type Approval struct {
+	// ClosedAt RFC 3339, UTC.
+	ClosedAt *Timestamp `json:"closed_at,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Decisions Every decision, in the order they were made. Append-only.
+	Decisions []ApprovalDecision `json:"decisions"`
+
+	// DistinctFromAuthor Four-eyes: the author of the text under approval neither decides nor counts.
+	DistinctFromAuthor bool `json:"distinct_from_author"`
+
+	// DueAt RFC 3339, UTC.
+	DueAt *Timestamp `json:"due_at,omitempty"`
+
+	// Eligible A party as stored, resolved to Identity's ids.
+	Eligible Assignee `json:"eligible"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// InstanceId The workflow instance whose `request_approval` action asked for it; absent for one asked by hand.
+	InstanceId *Id `json:"instance_id,omitempty"`
+
+	// Locale The translation unit's locale; absent for a release request.
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// Required How many distinct eligible people must grant it.
+	Required int `json:"required"`
+
+	// State `pending` collects decisions; one denial ends it `denied`, n distinct grants `granted`.
+	State ApprovalState `json:"state"`
+
+	// Subject What a definition's instances are about.
+	Subject WorkflowSubject `json:"subject"`
+
+	// SubjectId The message, for a translation unit; the release request otherwise.
+	SubjectId Id `json:"subject_id"`
+}
+
+// ApprovalDecision defines model for ApprovalDecision.
+type ApprovalDecision struct {
+	// At RFC 3339, UTC.
+	At       Timestamp                `json:"at"`
+	Decision ApprovalDecisionDecision `json:"decision"`
+
+	// Principal Who decided (`person:…`).
+	Principal string  `json:"principal"`
+	Reason    *string `json:"reason,omitempty"`
+}
+
+// ApprovalDecisionDecision defines model for ApprovalDecision.Decision.
+type ApprovalDecisionDecision string
+
+// ApprovalList defines model for ApprovalList.
+type ApprovalList struct {
+	Items         []Approval `json:"items"`
+	NextPageToken *string    `json:"next_page_token,omitempty"`
+}
+
+// ApprovalState `pending` collects decisions; one denial ends it `denied`, n distinct grants `granted`.
+type ApprovalState string
+
 // Argument defines model for Argument.
 type Argument struct {
 	// Function The annotating function, if any.
@@ -3131,6 +3310,94 @@ type ArgumentSelectorKind string
 
 // ArgumentType defines model for Argument.Type.
 type ArgumentType string
+
+// Assignee A party as stored, resolved to Identity's ids.
+type Assignee struct {
+	// Id The member, group or vendor; absent for a role.
+	Id   *Id          `json:"id,omitempty"`
+	Kind AssigneeKind `json:"kind"`
+
+	// Role `owner` everything; `admin` everything except owner changes;
+	// `developer` catalog, translations, releases, tokens;
+	// `translator` translates; `reviewer` translates and reviews.
+	// Translators and reviewers can be limited to `locales`.
+	Role *Role `json:"role,omitempty"`
+}
+
+// AssigneeKind defines model for Assignee.Kind.
+type AssigneeKind string
+
+// Assignment defines model for Assignment.
+type Assignment struct {
+	// Assignee A party as stored, resolved to Identity's ids.
+	Assignee Assignee `json:"assignee"`
+
+	// ClosedAt RFC 3339, UTC.
+	ClosedAt *Timestamp `json:"closed_at,omitempty"`
+
+	// ClosedBy Who completed, declined or expired it.
+	ClosedBy *string `json:"closed_by,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CreatedBy Who made it, as the outbox names actors (`person:…`, `token:…`).
+	CreatedBy string `json:"created_by"`
+
+	// DueAt RFC 3339, UTC.
+	DueAt *Timestamp `json:"due_at,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// InstanceId The workflow instance whose `assign` action made it; absent for one made by hand.
+	InstanceId *Id `json:"instance_id,omitempty"`
+
+	// Permission What doing the work takes (`translations.write` for translating), for every unit's locale.
+	Permission string `json:"permission"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+
+	// Reason A decline's reason.
+	Reason *string `json:"reason,omitempty"`
+
+	// State `open` and `accepted` are live; the others are final.
+	State AssignmentState `json:"state"`
+
+	// Units The translation units, sorted by message and locale.
+	Units []AssignmentUnit `json:"units"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// AssignmentDecline defines model for AssignmentDecline.
+type AssignmentDecline struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// AssignmentList defines model for AssignmentList.
+type AssignmentList struct {
+	Items         []Assignment `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// AssignmentState `open` and `accepted` are live; the others are final.
+type AssignmentState string
+
+// AssignmentUnit defines model for AssignmentUnit.
+type AssignmentUnit struct {
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// MessageId An opaque identifier.
+	MessageId Id `json:"message_id"`
+}
 
 // Branch defines model for Branch.
 type Branch struct {
@@ -4111,6 +4378,74 @@ type CreateApplication struct {
 	Name     string   `json:"name"`
 	Platform Platform `json:"platform"`
 	Slug     Slug     `json:"slug"`
+}
+
+// CreateApproval An approval of one translation unit.
+type CreateApproval struct {
+	// DueAt RFC 3339, UTC.
+	DueAt *Timestamp `json:"due_at,omitempty"`
+
+	// From Exactly one of `member`, `role`, `group` or `vendor` — who work
+	// is given to, or who may approve. A group or a vendor is named by
+	// its `id` or its name (case does not matter).
+	From Party `json:"from"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Message A dotted path of `[a-z0-9_-]` segments, unique in the project.
+	//
+	// Examples: checkout.payment.submit
+	Message MessageKey `json:"message"`
+
+	// N How many distinct eligible people must grant it.
+	N int `json:"n"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+}
+
+// CreateApprovalDecision defines model for CreateApprovalDecision.
+type CreateApprovalDecision struct {
+	Decision CreateApprovalDecisionDecision `json:"decision"`
+	Reason   *string                        `json:"reason,omitempty"`
+}
+
+// CreateApprovalDecisionDecision defines model for CreateApprovalDecision.Decision.
+type CreateApprovalDecisionDecision string
+
+// CreateAssignment defines model for CreateAssignment.
+type CreateAssignment struct {
+	// Assignee Exactly one of `member`, `role`, `group` or `vendor` — who work
+	// is given to, or who may approve. A group or a vendor is named by
+	// its `id` or its name (case does not matter).
+	Assignee Party `json:"assignee"`
+
+	// DueAt RFC 3339, UTC.
+	DueAt *Timestamp `json:"due_at,omitempty"`
+
+	// Permission What doing the work takes; `translations.write` when omitted.
+	Permission *string `json:"permission,omitempty"`
+
+	// ProjectId An opaque identifier.
+	ProjectId Id `json:"project_id"`
+	Units     []struct {
+		// Locale A BCP 47 language tag. Stored and returned canonicalized
+		// (`en_us` → `en-US`, `iw` → `he`).
+		//
+		//
+		// Examples: de, pt-BR, zh-Hant-TW
+		Locale Locale `json:"locale"`
+
+		// Message A dotted path of `[a-z0-9_-]` segments, unique in the project.
+		//
+		// Examples: checkout.payment.submit
+		Message MessageKey `json:"message"`
+	} `json:"units"`
 }
 
 // CreateCheckRun One evaluation to record: what was checked, which layers ran,
@@ -5802,6 +6137,26 @@ type Origin string
 
 // PartOfSpeech defines model for PartOfSpeech.
 type PartOfSpeech string
+
+// Party Exactly one of `member`, `role`, `group` or `vendor` — who work
+// is given to, or who may approve. A group or a vendor is named by
+// its `id` or its name (case does not matter).
+type Party struct {
+	// Group A group `id` or name.
+	Group *string `json:"group,omitempty"`
+
+	// Member An opaque identifier.
+	Member *Id `json:"member,omitempty"`
+
+	// Role `owner` everything; `admin` everything except owner changes;
+	// `developer` catalog, translations, releases, tokens;
+	// `translator` translates; `reviewer` translates and reviews.
+	// Translators and reviewers can be limited to `locales`.
+	Role *Role `json:"role,omitempty"`
+
+	// Vendor A vendor `id` or name.
+	Vendor *string `json:"vendor,omitempty"`
+}
 
 // Passkey defines model for Passkey.
 type Passkey struct {
@@ -8356,6 +8711,12 @@ type AISuggestionPath = Id
 // ApplicationPath An opaque identifier.
 type ApplicationPath = Id
 
+// ApprovalPath An opaque identifier.
+type ApprovalPath = Id
+
+// AssignmentPath An opaque identifier.
+type AssignmentPath = Id
+
 // BranchPath An opaque identifier.
 type BranchPath = Id
 
@@ -8679,6 +9040,47 @@ type AcceptAISuggestionParams struct {
 type RejectAISuggestionParams struct {
 	// IfMatch When sent, the `ETag` the change is based on.
 	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// ListApprovalsParams defines parameters for ListApprovals.
+type ListApprovalsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Message A message `key`; needs `project`.
+	Message *MessageKey      `form:"message,omitempty" json:"message,omitempty"`
+	Locale  *Locale          `form:"locale,omitempty" json:"locale,omitempty"`
+	Subject *WorkflowSubject `form:"subject,omitempty" json:"subject,omitempty"`
+	State   *ApprovalState   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListAssignmentsParams defines parameters for ListAssignments.
+type ListAssignmentsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Message A message `key`; needs `project`.
+	Message *MessageKey      `form:"message,omitempty" json:"message,omitempty"`
+	Locale  *Locale          `form:"locale,omitempty" json:"locale,omitempty"`
+	State   *AssignmentState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Mine Only the caller's own work.
+	Mine *bool `form:"mine,omitempty" json:"mine,omitempty"`
+}
+
+// CreateAssignmentParams defines parameters for CreateAssignment.
+type CreateAssignmentParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
 // GetEffectiveStyleGuideParams defines parameters for GetEffectiveStyleGuide.
@@ -9684,6 +10086,18 @@ type AcceptAISuggestionJSONRequestBody = AcceptAISuggestion
 
 // RejectAISuggestionJSONRequestBody defines body for RejectAISuggestion for application/json ContentType.
 type RejectAISuggestionJSONRequestBody = RejectAISuggestion
+
+// CreateApprovalJSONRequestBody defines body for CreateApproval for application/json ContentType.
+type CreateApprovalJSONRequestBody = CreateApproval
+
+// DecideApprovalJSONRequestBody defines body for DecideApproval for application/json ContentType.
+type DecideApprovalJSONRequestBody = CreateApprovalDecision
+
+// CreateAssignmentJSONRequestBody defines body for CreateAssignment for application/json ContentType.
+type CreateAssignmentJSONRequestBody = CreateAssignment
+
+// DeclineAssignmentJSONRequestBody defines body for DeclineAssignment for application/json ContentType.
+type DeclineAssignmentJSONRequestBody = AssignmentDecline
 
 // CreateExportJobJSONRequestBody defines body for CreateExportJob for application/json ContentType.
 type CreateExportJobJSONRequestBody = ExportJobRequest
@@ -10886,6 +11300,203 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
 	RejectAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListApprovals Approvals, with their decisions
+	//
+	// The approvals inbox. Filters: `project`; a translation unit by
+	// `message` key (with `project`) and/or `locale`; `subject`;
+	// `state`. Needs `workflows.read`, in the caller's project scope.
+	// Problem codes: `invalid_query`, `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/approvals (the `ListApprovals` operationId).
+	ListApprovals(ctx context.Context, tenant TenantPath, params *ListApprovalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateApprovalWithBody Ask for a translation unit to be approved
+	//
+	// Asks `n` distinct people of `from` (a member, a role or a group —
+	// never a vendor) to grant it. Four-eyes always applies: the author
+	// of the unit's latest text cannot count. A newer request for the
+	// same unit replaces the pending one. Needs `assignments.manage`
+	// in the project. Problem codes: `invalid_approval` (422: `n` out
+	// of range, a vendor asked, a key the project does not have),
+	// `unknown_party` (422), `not_found` (404: the project).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+	CreateApprovalWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateApproval Ask for a translation unit to be approved
+	//
+	// Asks `n` distinct people of `from` (a member, a role or a group —
+	// never a vendor) to grant it. Four-eyes always applies: the author
+	// of the unit's latest text cannot count. A newer request for the
+	// same unit replaces the pending one. Needs `assignments.manage`
+	// in the project. Problem codes: `invalid_approval` (422: `n` out
+	// of range, a vendor asked, a key the project does not have),
+	// `unknown_party` (422), `not_found` (404: the project).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+	CreateApproval(ctx context.Context, tenant TenantPath, body CreateApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApproval An approval, with its decisions
+	//
+	// Needs `workflows.read`, in the caller's project scope.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/approvals/{approval} (the `GetApproval` operationId).
+	GetApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideApprovalWithBody Grant or deny an approval
+	//
+	// A person's decision, appended to the approval and raised as
+	// `approval.granted` or `approval.denied`; the project's workflow
+	// moves the translation (RFC 0006 §3.2). Human-only: an API token
+	// or an MCP agent is refused (`person_required`, 403) — no scope
+	// grants `approvals.decide`. The caller needs `approvals.decide`
+	// for the unit's locale, must be in the approval's eligible party
+	// (`not_eligible`, 403), and must not be the author of the text
+	// under approval (`own_text`, 403: four-eyes). Only the newest
+	// approval of a unit takes decisions. Problem codes:
+	// `approval_closed` (409: already granted or denied),
+	// `approval_superseded` (409: a newer request replaced it),
+	// `invalid_approval` (422: a reason over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+	DecideApprovalWithBody(ctx context.Context, tenant TenantPath, approval ApprovalPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideApproval Grant or deny an approval
+	//
+	// A person's decision, appended to the approval and raised as
+	// `approval.granted` or `approval.denied`; the project's workflow
+	// moves the translation (RFC 0006 §3.2). Human-only: an API token
+	// or an MCP agent is refused (`person_required`, 403) — no scope
+	// grants `approvals.decide`. The caller needs `approvals.decide`
+	// for the unit's locale, must be in the approval's eligible party
+	// (`not_eligible`, 403), and must not be the author of the text
+	// under approval (`own_text`, 403: four-eyes). Only the newest
+	// approval of a unit takes decisions. Problem codes:
+	// `approval_closed` (409: already granted or denied),
+	// `approval_superseded` (409: a newer request replaced it),
+	// `invalid_approval` (422: a reason over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+	DecideApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAssignments Assignments, or my work
+	//
+	// What the caller may see. With `assignments.manage`, every
+	// assignment in their project scope — or, with `mine=true`, only
+	// their own. Without it, only their own: given to them directly,
+	// to a role they hold, to a group they are in or to their vendor.
+	// That is "my work", and it is all a vendor's member (visibility
+	// `assigned`) ever sees here. Filters: `project`; a unit by
+	// `message` key (with `project`) and/or `locale`; `state`.
+	// Needs `assignments.read` (`assignments.manage` for others'
+	// work). Problem codes: `invalid_query`, `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignments (the `ListAssignments` operationId).
+	ListAssignments(ctx context.Context, tenant TenantPath, params *ListAssignmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAssignmentWithBody Give translation units to someone
+	//
+	// One assignment for a batch of a project's translation units —
+	// the job a translator works through, not one string at a time.
+	// The assignee is exactly one member, role, group or vendor
+	// (`assignee`); a vendor's members see these units, and only
+	// these, while it is open and for 30 days after it is done (RFC
+	// 0006 §3.3). Units are named by message key and locale. Needs
+	// `assignments.manage` in the project. Problem codes:
+	// `invalid_assignment` (422: no units, too many, a key the
+	// project does not have, a due date in the past),
+	// `unknown_party` (422: no such member, group or vendor),
+	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+	// `not_found` (404: the project).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+	CreateAssignmentWithBody(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAssignment Give translation units to someone
+	//
+	// One assignment for a batch of a project's translation units —
+	// the job a translator works through, not one string at a time.
+	// The assignee is exactly one member, role, group or vendor
+	// (`assignee`); a vendor's members see these units, and only
+	// these, while it is open and for 30 days after it is done (RFC
+	// 0006 §3.3). Units are named by message key and locale. Needs
+	// `assignments.manage` in the project. Problem codes:
+	// `invalid_assignment` (422: no units, too many, a key the
+	// project does not have, a due date in the past),
+	// `unknown_party` (422: no such member, group or vendor),
+	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+	// `not_found` (404: the project).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+	CreateAssignment(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, body CreateAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAssignment An assignment
+	//
+	// With `assignments.manage`, any in the caller's project scope;
+	// otherwise only one given to the caller, with
+	// `assignments.read` — someone else's is not found.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignments/{assignment} (the `GetAssignment` operationId).
+	GetAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptAssignment Take an open assignment on
+	//
+	// Only its assignee, holding the assignment's permission for every
+	// unit. Problem codes: `forbidden` (403: not given to you, or
+	// missing the permission), `assignment_state` (409: not `open`).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/acceptance (the `AcceptAssignment` operationId).
+	AcceptAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteAssignment Claim an assignment done
+	//
+	// A claim, not a decision: it raises `assignment.completed` and the
+	// project's workflow decides what follows; no review state changes
+	// here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+	// permission for every unit. Problem codes: `forbidden` (403),
+	// `assignment_state` (409: not live).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/completion (the `CompleteAssignment` operationId).
+	CompleteAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeclineAssignmentWithBody Hand an assignment back
+	//
+	// By its assignee, or by someone with `assignments.manage` taking
+	// it back; raises `assignment.declined`. Problem codes: `forbidden`
+	// (403), `assignment_state` (409: not live), `invalid_assignment`
+	// (422: a reason over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+	DeclineAssignmentWithBody(ctx context.Context, tenant TenantPath, assignment AssignmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeclineAssignment Hand an assignment back
+	//
+	// By its assignee, or by someone with `assignments.manage` taking
+	// it back; raises `assignment.declined`. Problem codes: `forbidden`
+	// (403), `assignment_state` (409: not live), `invalid_assignment`
+	// (422: a reason over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+	DeclineAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 	//
@@ -16399,6 +17010,343 @@ func (c *Client) RejectAISuggestionWithBody(ctx context.Context, tenant TenantPa
 // Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
 func (c *Client) RejectAISuggestion(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRejectAISuggestionRequest(c.Server, tenant, aiSuggestion, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListApprovals Approvals, with their decisions
+//
+// The approvals inbox. Filters: `project`; a translation unit by
+// `message` key (with `project`) and/or `locale`; `subject`;
+// `state`. Needs `workflows.read`, in the caller's project scope.
+// Problem codes: `invalid_query`, `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/approvals (the `ListApprovals` operationId).
+func (c *Client) ListApprovals(ctx context.Context, tenant TenantPath, params *ListApprovalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApprovalsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateApprovalWithBody Ask for a translation unit to be approved
+//
+// Asks `n` distinct people of `from` (a member, a role or a group —
+// never a vendor) to grant it. Four-eyes always applies: the author
+// of the unit's latest text cannot count. A newer request for the
+// same unit replaces the pending one. Needs `assignments.manage`
+// in the project. Problem codes: `invalid_approval` (422: `n` out
+// of range, a vendor asked, a key the project does not have),
+// `unknown_party` (422), `not_found` (404: the project).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+func (c *Client) CreateApprovalWithBody(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApprovalRequestWithBody(c.Server, tenant, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateApproval Ask for a translation unit to be approved
+//
+// Asks `n` distinct people of `from` (a member, a role or a group —
+// never a vendor) to grant it. Four-eyes always applies: the author
+// of the unit's latest text cannot count. A newer request for the
+// same unit replaces the pending one. Needs `assignments.manage`
+// in the project. Problem codes: `invalid_approval` (422: `n` out
+// of range, a vendor asked, a key the project does not have),
+// `unknown_party` (422), `not_found` (404: the project).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+func (c *Client) CreateApproval(ctx context.Context, tenant TenantPath, body CreateApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApprovalRequest(c.Server, tenant, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetApproval An approval, with its decisions
+//
+// Needs `workflows.read`, in the caller's project scope.
+//
+// Corresponds with GET /v1/tenants/{tenant}/approvals/{approval} (the `GetApproval` operationId).
+func (c *Client) GetApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApprovalRequest(c.Server, tenant, approval)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideApprovalWithBody Grant or deny an approval
+//
+// A person's decision, appended to the approval and raised as
+// `approval.granted` or `approval.denied`; the project's workflow
+// moves the translation (RFC 0006 §3.2). Human-only: an API token
+// or an MCP agent is refused (`person_required`, 403) — no scope
+// grants `approvals.decide`. The caller needs `approvals.decide`
+// for the unit's locale, must be in the approval's eligible party
+// (`not_eligible`, 403), and must not be the author of the text
+// under approval (`own_text`, 403: four-eyes). Only the newest
+// approval of a unit takes decisions. Problem codes:
+// `approval_closed` (409: already granted or denied),
+// `approval_superseded` (409: a newer request replaced it),
+// `invalid_approval` (422: a reason over 2,000 characters).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+func (c *Client) DecideApprovalWithBody(ctx context.Context, tenant TenantPath, approval ApprovalPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideApprovalRequestWithBody(c.Server, tenant, approval, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideApproval Grant or deny an approval
+//
+// A person's decision, appended to the approval and raised as
+// `approval.granted` or `approval.denied`; the project's workflow
+// moves the translation (RFC 0006 §3.2). Human-only: an API token
+// or an MCP agent is refused (`person_required`, 403) — no scope
+// grants `approvals.decide`. The caller needs `approvals.decide`
+// for the unit's locale, must be in the approval's eligible party
+// (`not_eligible`, 403), and must not be the author of the text
+// under approval (`own_text`, 403: four-eyes). Only the newest
+// approval of a unit takes decisions. Problem codes:
+// `approval_closed` (409: already granted or denied),
+// `approval_superseded` (409: a newer request replaced it),
+// `invalid_approval` (422: a reason over 2,000 characters).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+func (c *Client) DecideApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideApprovalRequest(c.Server, tenant, approval, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAssignments Assignments, or my work
+//
+// What the caller may see. With `assignments.manage`, every
+// assignment in their project scope — or, with `mine=true`, only
+// their own. Without it, only their own: given to them directly,
+// to a role they hold, to a group they are in or to their vendor.
+// That is "my work", and it is all a vendor's member (visibility
+// `assigned`) ever sees here. Filters: `project`; a unit by
+// `message` key (with `project`) and/or `locale`; `state`.
+// Needs `assignments.read` (`assignments.manage` for others'
+// work). Problem codes: `invalid_query`, `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignments (the `ListAssignments` operationId).
+func (c *Client) ListAssignments(ctx context.Context, tenant TenantPath, params *ListAssignmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAssignmentsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAssignmentWithBody Give translation units to someone
+//
+// One assignment for a batch of a project's translation units —
+// the job a translator works through, not one string at a time.
+// The assignee is exactly one member, role, group or vendor
+// (`assignee`); a vendor's members see these units, and only
+// these, while it is open and for 30 days after it is done (RFC
+// 0006 §3.3). Units are named by message key and locale. Needs
+// `assignments.manage` in the project. Problem codes:
+// `invalid_assignment` (422: no units, too many, a key the
+// project does not have, a due date in the past),
+// `unknown_party` (422: no such member, group or vendor),
+// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+// `not_found` (404: the project).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+func (c *Client) CreateAssignmentWithBody(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAssignmentRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAssignment Give translation units to someone
+//
+// One assignment for a batch of a project's translation units —
+// the job a translator works through, not one string at a time.
+// The assignee is exactly one member, role, group or vendor
+// (`assignee`); a vendor's members see these units, and only
+// these, while it is open and for 30 days after it is done (RFC
+// 0006 §3.3). Units are named by message key and locale. Needs
+// `assignments.manage` in the project. Problem codes:
+// `invalid_assignment` (422: no units, too many, a key the
+// project does not have, a due date in the past),
+// `unknown_party` (422: no such member, group or vendor),
+// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+// `not_found` (404: the project).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+func (c *Client) CreateAssignment(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, body CreateAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAssignmentRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAssignment An assignment
+//
+// With `assignments.manage`, any in the caller's project scope;
+// otherwise only one given to the caller, with
+// `assignments.read` — someone else's is not found.
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignments/{assignment} (the `GetAssignment` operationId).
+func (c *Client) GetAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssignmentRequest(c.Server, tenant, assignment)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptAssignment Take an open assignment on
+//
+// Only its assignee, holding the assignment's permission for every
+// unit. Problem codes: `forbidden` (403: not given to you, or
+// missing the permission), `assignment_state` (409: not `open`).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/acceptance (the `AcceptAssignment` operationId).
+func (c *Client) AcceptAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptAssignmentRequest(c.Server, tenant, assignment)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompleteAssignment Claim an assignment done
+//
+// A claim, not a decision: it raises `assignment.completed` and the
+// project's workflow decides what follows; no review state changes
+// here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+// permission for every unit. Problem codes: `forbidden` (403),
+// `assignment_state` (409: not live).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/completion (the `CompleteAssignment` operationId).
+func (c *Client) CompleteAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteAssignmentRequest(c.Server, tenant, assignment)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeclineAssignmentWithBody Hand an assignment back
+//
+// By its assignee, or by someone with `assignments.manage` taking
+// it back; raises `assignment.declined`. Problem codes: `forbidden`
+// (403), `assignment_state` (409: not live), `invalid_assignment`
+// (422: a reason over 2,000 characters).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+func (c *Client) DeclineAssignmentWithBody(ctx context.Context, tenant TenantPath, assignment AssignmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeclineAssignmentRequestWithBody(c.Server, tenant, assignment, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeclineAssignment Hand an assignment back
+//
+// By its assignee, or by someone with `assignments.manage` taking
+// it back; raises `assignment.declined`. Problem codes: `forbidden`
+// (403), `assignment_state` (409: not live), `invalid_assignment`
+// (422: a reason over 2,000 characters).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+func (c *Client) DeclineAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeclineAssignmentRequest(c.Server, tenant, assignment, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25332,6 +26280,653 @@ func NewRejectAISuggestionRequestWithBody(server string, tenant TenantPath, aiSu
 		}
 
 	}
+
+	return req, nil
+}
+
+// NewListApprovalsRequest constructs an http.Request for the ListApprovals method
+func NewListApprovalsRequest(server string, tenant TenantPath, params *ListApprovalsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/approvals", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Subject != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "subject", *params.Subject, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateApprovalRequest calls the generic CreateApproval builder with application/json body
+func NewCreateApprovalRequest(server string, tenant TenantPath, body CreateApprovalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateApprovalRequestWithBody(server, tenant, "application/json", bodyReader)
+}
+
+// NewCreateApprovalRequestWithBody constructs an http.Request for the CreateApproval method, with any body, and a specified content type
+func NewCreateApprovalRequestWithBody(server string, tenant TenantPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/approvals", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApprovalRequest constructs an http.Request for the GetApproval method
+func NewGetApprovalRequest(server string, tenant TenantPath, approval ApprovalPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "approval", approval, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/approvals/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDecideApprovalRequest calls the generic DecideApproval builder with application/json body
+func NewDecideApprovalRequest(server string, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDecideApprovalRequestWithBody(server, tenant, approval, "application/json", bodyReader)
+}
+
+// NewDecideApprovalRequestWithBody constructs an http.Request for the DecideApproval method, with any body, and a specified content type
+func NewDecideApprovalRequestWithBody(server string, tenant TenantPath, approval ApprovalPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "approval", approval, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/approvals/%s/decisions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAssignmentsRequest constructs an http.Request for the ListAssignments method
+func NewListAssignmentsRequest(server string, tenant TenantPath, params *ListAssignmentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Message != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message", *params.Message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Locale != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "locale", *params.Locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Mine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "mine", *params.Mine, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAssignmentRequest calls the generic CreateAssignment builder with application/json body
+func NewCreateAssignmentRequest(server string, tenant TenantPath, params *CreateAssignmentParams, body CreateAssignmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAssignmentRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateAssignmentRequestWithBody constructs an http.Request for the CreateAssignment method, with any body, and a specified content type
+func NewCreateAssignmentRequestWithBody(server string, tenant TenantPath, params *CreateAssignmentParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAssignmentRequest constructs an http.Request for the GetAssignment method
+func NewGetAssignmentRequest(server string, tenant TenantPath, assignment AssignmentPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "assignment", assignment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptAssignmentRequest constructs an http.Request for the AcceptAssignment method
+func NewAcceptAssignmentRequest(server string, tenant TenantPath, assignment AssignmentPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "assignment", assignment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments/%s/acceptance", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCompleteAssignmentRequest constructs an http.Request for the CompleteAssignment method
+func NewCompleteAssignmentRequest(server string, tenant TenantPath, assignment AssignmentPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "assignment", assignment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments/%s/completion", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeclineAssignmentRequest calls the generic DeclineAssignment builder with application/json body
+func NewDeclineAssignmentRequest(server string, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeclineAssignmentRequestWithBody(server, tenant, assignment, "application/json", bodyReader)
+}
+
+// NewDeclineAssignmentRequestWithBody constructs an http.Request for the DeclineAssignment method, with any body, and a specified content type
+func NewDeclineAssignmentRequestWithBody(server string, tenant TenantPath, assignment AssignmentPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "assignment", assignment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignments/%s/decline", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -38842,6 +40437,215 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}/rejection (the `RejectAISuggestion` operationId).
 	RejectAISuggestionWithResponse(ctx context.Context, tenant TenantPath, aiSuggestion AISuggestionPath, params *RejectAISuggestionParams, body RejectAISuggestionJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectAISuggestionResponse, error)
 
+	// ListApprovalsWithResponse Approvals, with their decisions
+	//
+	// The approvals inbox. Filters: `project`; a translation unit by
+	// `message` key (with `project`) and/or `locale`; `subject`;
+	// `state`. Needs `workflows.read`, in the caller's project scope.
+	// Problem codes: `invalid_query`, `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/approvals (the `ListApprovals` operationId).
+	ListApprovalsWithResponse(ctx context.Context, tenant TenantPath, params *ListApprovalsParams, reqEditors ...RequestEditorFn) (*ListApprovalsResponse, error)
+
+	// CreateApprovalWithBodyWithResponse Ask for a translation unit to be approved
+	//
+	// Asks `n` distinct people of `from` (a member, a role or a group —
+	// never a vendor) to grant it. Four-eyes always applies: the author
+	// of the unit's latest text cannot count. A newer request for the
+	// same unit replaces the pending one. Needs `assignments.manage`
+	// in the project. Problem codes: `invalid_approval` (422: `n` out
+	// of range, a vendor asked, a key the project does not have),
+	// `unknown_party` (422), `not_found` (404: the project).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+	CreateApprovalWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApprovalResponse, error)
+
+	// CreateApprovalWithResponse Ask for a translation unit to be approved
+	//
+	// Asks `n` distinct people of `from` (a member, a role or a group —
+	// never a vendor) to grant it. Four-eyes always applies: the author
+	// of the unit's latest text cannot count. A newer request for the
+	// same unit replaces the pending one. Needs `assignments.manage`
+	// in the project. Problem codes: `invalid_approval` (422: `n` out
+	// of range, a vendor asked, a key the project does not have),
+	// `unknown_party` (422), `not_found` (404: the project).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+	CreateApprovalWithResponse(ctx context.Context, tenant TenantPath, body CreateApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApprovalResponse, error)
+
+	// GetApprovalWithResponse An approval, with its decisions
+	//
+	// Needs `workflows.read`, in the caller's project scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/approvals/{approval} (the `GetApproval` operationId).
+	GetApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, reqEditors ...RequestEditorFn) (*GetApprovalResponse, error)
+
+	// DecideApprovalWithBodyWithResponse Grant or deny an approval
+	//
+	// A person's decision, appended to the approval and raised as
+	// `approval.granted` or `approval.denied`; the project's workflow
+	// moves the translation (RFC 0006 §3.2). Human-only: an API token
+	// or an MCP agent is refused (`person_required`, 403) — no scope
+	// grants `approvals.decide`. The caller needs `approvals.decide`
+	// for the unit's locale, must be in the approval's eligible party
+	// (`not_eligible`, 403), and must not be the author of the text
+	// under approval (`own_text`, 403: four-eyes). Only the newest
+	// approval of a unit takes decisions. Problem codes:
+	// `approval_closed` (409: already granted or denied),
+	// `approval_superseded` (409: a newer request replaced it),
+	// `invalid_approval` (422: a reason over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+	DecideApprovalWithBodyWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error)
+
+	// DecideApprovalWithResponse Grant or deny an approval
+	//
+	// A person's decision, appended to the approval and raised as
+	// `approval.granted` or `approval.denied`; the project's workflow
+	// moves the translation (RFC 0006 §3.2). Human-only: an API token
+	// or an MCP agent is refused (`person_required`, 403) — no scope
+	// grants `approvals.decide`. The caller needs `approvals.decide`
+	// for the unit's locale, must be in the approval's eligible party
+	// (`not_eligible`, 403), and must not be the author of the text
+	// under approval (`own_text`, 403: four-eyes). Only the newest
+	// approval of a unit takes decisions. Problem codes:
+	// `approval_closed` (409: already granted or denied),
+	// `approval_superseded` (409: a newer request replaced it),
+	// `invalid_approval` (422: a reason over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+	DecideApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error)
+
+	// ListAssignmentsWithResponse Assignments, or my work
+	//
+	// What the caller may see. With `assignments.manage`, every
+	// assignment in their project scope — or, with `mine=true`, only
+	// their own. Without it, only their own: given to them directly,
+	// to a role they hold, to a group they are in or to their vendor.
+	// That is "my work", and it is all a vendor's member (visibility
+	// `assigned`) ever sees here. Filters: `project`; a unit by
+	// `message` key (with `project`) and/or `locale`; `state`.
+	// Needs `assignments.read` (`assignments.manage` for others'
+	// work). Problem codes: `invalid_query`, `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignments (the `ListAssignments` operationId).
+	ListAssignmentsWithResponse(ctx context.Context, tenant TenantPath, params *ListAssignmentsParams, reqEditors ...RequestEditorFn) (*ListAssignmentsResponse, error)
+
+	// CreateAssignmentWithBodyWithResponse Give translation units to someone
+	//
+	// One assignment for a batch of a project's translation units —
+	// the job a translator works through, not one string at a time.
+	// The assignee is exactly one member, role, group or vendor
+	// (`assignee`); a vendor's members see these units, and only
+	// these, while it is open and for 30 days after it is done (RFC
+	// 0006 §3.3). Units are named by message key and locale. Needs
+	// `assignments.manage` in the project. Problem codes:
+	// `invalid_assignment` (422: no units, too many, a key the
+	// project does not have, a due date in the past),
+	// `unknown_party` (422: no such member, group or vendor),
+	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+	// `not_found` (404: the project).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+	CreateAssignmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAssignmentResponse, error)
+
+	// CreateAssignmentWithResponse Give translation units to someone
+	//
+	// One assignment for a batch of a project's translation units —
+	// the job a translator works through, not one string at a time.
+	// The assignee is exactly one member, role, group or vendor
+	// (`assignee`); a vendor's members see these units, and only
+	// these, while it is open and for 30 days after it is done (RFC
+	// 0006 §3.3). Units are named by message key and locale. Needs
+	// `assignments.manage` in the project. Problem codes:
+	// `invalid_assignment` (422: no units, too many, a key the
+	// project does not have, a due date in the past),
+	// `unknown_party` (422: no such member, group or vendor),
+	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+	// `not_found` (404: the project).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+	CreateAssignmentWithResponse(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, body CreateAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAssignmentResponse, error)
+
+	// GetAssignmentWithResponse An assignment
+	//
+	// With `assignments.manage`, any in the caller's project scope;
+	// otherwise only one given to the caller, with
+	// `assignments.read` — someone else's is not found.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignments/{assignment} (the `GetAssignment` operationId).
+	GetAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*GetAssignmentResponse, error)
+
+	// AcceptAssignmentWithResponse Take an open assignment on
+	//
+	// Only its assignee, holding the assignment's permission for every
+	// unit. Problem codes: `forbidden` (403: not given to you, or
+	// missing the permission), `assignment_state` (409: not `open`).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/acceptance (the `AcceptAssignment` operationId).
+	AcceptAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*AcceptAssignmentResponse, error)
+
+	// CompleteAssignmentWithResponse Claim an assignment done
+	//
+	// A claim, not a decision: it raises `assignment.completed` and the
+	// project's workflow decides what follows; no review state changes
+	// here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+	// permission for every unit. Problem codes: `forbidden` (403),
+	// `assignment_state` (409: not live).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/completion (the `CompleteAssignment` operationId).
+	CompleteAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*CompleteAssignmentResponse, error)
+
+	// DeclineAssignmentWithBodyWithResponse Hand an assignment back
+	//
+	// By its assignee, or by someone with `assignments.manage` taking
+	// it back; raises `assignment.declined`. Problem codes: `forbidden`
+	// (403), `assignment_state` (409: not live), `invalid_assignment`
+	// (422: a reason over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+	DeclineAssignmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error)
+
+	// DeclineAssignmentWithResponse Hand an assignment back
+	//
+	// By its assignee, or by someone with `assignments.manage` taking
+	// it back; raises `assignment.declined`. Problem codes: `forbidden`
+	// (403), `assignment_state` (409: not live), `invalid_assignment`
+	// (422: a reason over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+	DeclineAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error)
+
 	// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 	//
 	// Every applicable guide merged field by field, the narrowest
@@ -46197,6 +48001,747 @@ func (r RejectAISuggestionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RejectAISuggestionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListApprovalsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ApprovalList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListApprovalsResponse) GetJSON200() *ApprovalList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListApprovalsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListApprovalsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListApprovalsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListApprovalsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApprovalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApprovalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListApprovalsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateApprovalResponse201Headers the declared response headers of an HTTP 201 response for CreateApproval
+type CreateApprovalResponse201Headers struct {
+	Location *string
+}
+
+type CreateApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Approval
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateApprovalResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateApprovalResponse) GetJSON201() *Approval {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateApprovalResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateApprovalResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateApprovalResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateApprovalResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateApprovalResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Approval
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetApprovalResponse) GetJSON200() *Approval {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetApprovalResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetApprovalResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetApprovalResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DecideApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Approval
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DecideApprovalResponse) GetJSON201() *Approval {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r DecideApprovalResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r DecideApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DecideApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DecideApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DecideApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAssignmentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AssignmentList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAssignmentsResponse) GetJSON200() *AssignmentList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAssignmentsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAssignmentsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAssignmentsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAssignmentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAssignmentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAssignmentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAssignmentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateAssignmentResponse201Headers the declared response headers of an HTTP 201 response for CreateAssignment
+type CreateAssignmentResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateAssignmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Assignment
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateAssignmentResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAssignmentResponse) GetJSON201() *Assignment {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAssignmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAssignmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAssignmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetAssignmentResponse200Headers the declared response headers of an HTTP 200 response for GetAssignment
+type GetAssignmentResponse200Headers struct {
+	ETag *string
+}
+
+type GetAssignmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Assignment
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetAssignmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAssignmentResponse) GetJSON200() *Assignment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAssignmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAssignmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAssignmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAssignmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// AcceptAssignmentResponse200Headers the declared response headers of an HTTP 200 response for AcceptAssignment
+type AcceptAssignmentResponse200Headers struct {
+	ETag *string
+}
+
+type AcceptAssignmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Assignment
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *AcceptAssignmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptAssignmentResponse) GetJSON200() *Assignment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r AcceptAssignmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r AcceptAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r AcceptAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r AcceptAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptAssignmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptAssignmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptAssignmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CompleteAssignmentResponse200Headers the declared response headers of an HTTP 200 response for CompleteAssignment
+type CompleteAssignmentResponse200Headers struct {
+	ETag *string
+}
+
+type CompleteAssignmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Assignment
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CompleteAssignmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CompleteAssignmentResponse) GetJSON200() *Assignment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CompleteAssignmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CompleteAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CompleteAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CompleteAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CompleteAssignmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteAssignmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteAssignmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompleteAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DeclineAssignmentResponse200Headers the declared response headers of an HTTP 200 response for DeclineAssignment
+type DeclineAssignmentResponse200Headers struct {
+	ETag *string
+}
+
+type DeclineAssignmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Assignment
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DeclineAssignmentResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeclineAssignmentResponse) GetJSON200() *Assignment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeclineAssignmentResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeclineAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeclineAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DeclineAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r DeclineAssignmentResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r DeclineAssignmentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeclineAssignmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeclineAssignmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeclineAssignmentResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -61088,6 +63633,299 @@ func (c *ClientWithResponses) RejectAISuggestionWithResponse(ctx context.Context
 	return ParseRejectAISuggestionResponse(rsp)
 }
 
+// ListApprovalsWithResponse Approvals, with their decisions
+//
+// The approvals inbox. Filters: `project`; a translation unit by
+// `message` key (with `project`) and/or `locale`; `subject`;
+// `state`. Needs `workflows.read`, in the caller's project scope.
+// Problem codes: `invalid_query`, `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/approvals (the `ListApprovals` operationId).
+func (c *ClientWithResponses) ListApprovalsWithResponse(ctx context.Context, tenant TenantPath, params *ListApprovalsParams, reqEditors ...RequestEditorFn) (*ListApprovalsResponse, error) {
+	rsp, err := c.ListApprovals(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApprovalsResponse(rsp)
+}
+
+// CreateApprovalWithBodyWithResponse Ask for a translation unit to be approved
+//
+// Asks `n` distinct people of `from` (a member, a role or a group —
+// never a vendor) to grant it. Four-eyes always applies: the author
+// of the unit's latest text cannot count. A newer request for the
+// same unit replaces the pending one. Needs `assignments.manage`
+// in the project. Problem codes: `invalid_approval` (422: `n` out
+// of range, a vendor asked, a key the project does not have),
+// `unknown_party` (422), `not_found` (404: the project).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+func (c *ClientWithResponses) CreateApprovalWithBodyWithResponse(ctx context.Context, tenant TenantPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApprovalResponse, error) {
+	rsp, err := c.CreateApprovalWithBody(ctx, tenant, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApprovalResponse(rsp)
+}
+
+// CreateApprovalWithResponse Ask for a translation unit to be approved
+//
+// Asks `n` distinct people of `from` (a member, a role or a group —
+// never a vendor) to grant it. Four-eyes always applies: the author
+// of the unit's latest text cannot count. A newer request for the
+// same unit replaces the pending one. Needs `assignments.manage`
+// in the project. Problem codes: `invalid_approval` (422: `n` out
+// of range, a vendor asked, a key the project does not have),
+// `unknown_party` (422), `not_found` (404: the project).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals (the `CreateApproval` operationId).
+func (c *ClientWithResponses) CreateApprovalWithResponse(ctx context.Context, tenant TenantPath, body CreateApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApprovalResponse, error) {
+	rsp, err := c.CreateApproval(ctx, tenant, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApprovalResponse(rsp)
+}
+
+// GetApprovalWithResponse An approval, with its decisions
+//
+// Needs `workflows.read`, in the caller's project scope.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/approvals/{approval} (the `GetApproval` operationId).
+func (c *ClientWithResponses) GetApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, reqEditors ...RequestEditorFn) (*GetApprovalResponse, error) {
+	rsp, err := c.GetApproval(ctx, tenant, approval, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApprovalResponse(rsp)
+}
+
+// DecideApprovalWithBodyWithResponse Grant or deny an approval
+//
+// A person's decision, appended to the approval and raised as
+// `approval.granted` or `approval.denied`; the project's workflow
+// moves the translation (RFC 0006 §3.2). Human-only: an API token
+// or an MCP agent is refused (`person_required`, 403) — no scope
+// grants `approvals.decide`. The caller needs `approvals.decide`
+// for the unit's locale, must be in the approval's eligible party
+// (`not_eligible`, 403), and must not be the author of the text
+// under approval (`own_text`, 403: four-eyes). Only the newest
+// approval of a unit takes decisions. Problem codes:
+// `approval_closed` (409: already granted or denied),
+// `approval_superseded` (409: a newer request replaced it),
+// `invalid_approval` (422: a reason over 2,000 characters).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+func (c *ClientWithResponses) DecideApprovalWithBodyWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error) {
+	rsp, err := c.DecideApprovalWithBody(ctx, tenant, approval, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideApprovalResponse(rsp)
+}
+
+// DecideApprovalWithResponse Grant or deny an approval
+//
+// A person's decision, appended to the approval and raised as
+// `approval.granted` or `approval.denied`; the project's workflow
+// moves the translation (RFC 0006 §3.2). Human-only: an API token
+// or an MCP agent is refused (`person_required`, 403) — no scope
+// grants `approvals.decide`. The caller needs `approvals.decide`
+// for the unit's locale, must be in the approval's eligible party
+// (`not_eligible`, 403), and must not be the author of the text
+// under approval (`own_text`, 403: four-eyes). Only the newest
+// approval of a unit takes decisions. Problem codes:
+// `approval_closed` (409: already granted or denied),
+// `approval_superseded` (409: a newer request replaced it),
+// `invalid_approval` (422: a reason over 2,000 characters).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
+func (c *ClientWithResponses) DecideApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error) {
+	rsp, err := c.DecideApproval(ctx, tenant, approval, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideApprovalResponse(rsp)
+}
+
+// ListAssignmentsWithResponse Assignments, or my work
+//
+// What the caller may see. With `assignments.manage`, every
+// assignment in their project scope — or, with `mine=true`, only
+// their own. Without it, only their own: given to them directly,
+// to a role they hold, to a group they are in or to their vendor.
+// That is "my work", and it is all a vendor's member (visibility
+// `assigned`) ever sees here. Filters: `project`; a unit by
+// `message` key (with `project`) and/or `locale`; `state`.
+// Needs `assignments.read` (`assignments.manage` for others'
+// work). Problem codes: `invalid_query`, `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignments (the `ListAssignments` operationId).
+func (c *ClientWithResponses) ListAssignmentsWithResponse(ctx context.Context, tenant TenantPath, params *ListAssignmentsParams, reqEditors ...RequestEditorFn) (*ListAssignmentsResponse, error) {
+	rsp, err := c.ListAssignments(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAssignmentsResponse(rsp)
+}
+
+// CreateAssignmentWithBodyWithResponse Give translation units to someone
+//
+// One assignment for a batch of a project's translation units —
+// the job a translator works through, not one string at a time.
+// The assignee is exactly one member, role, group or vendor
+// (`assignee`); a vendor's members see these units, and only
+// these, while it is open and for 30 days after it is done (RFC
+// 0006 §3.3). Units are named by message key and locale. Needs
+// `assignments.manage` in the project. Problem codes:
+// `invalid_assignment` (422: no units, too many, a key the
+// project does not have, a due date in the past),
+// `unknown_party` (422: no such member, group or vendor),
+// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+// `not_found` (404: the project).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+func (c *ClientWithResponses) CreateAssignmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAssignmentResponse, error) {
+	rsp, err := c.CreateAssignmentWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAssignmentResponse(rsp)
+}
+
+// CreateAssignmentWithResponse Give translation units to someone
+//
+// One assignment for a batch of a project's translation units —
+// the job a translator works through, not one string at a time.
+// The assignee is exactly one member, role, group or vendor
+// (`assignee`); a vendor's members see these units, and only
+// these, while it is open and for 30 days after it is done (RFC
+// 0006 §3.3). Units are named by message key and locale. Needs
+// `assignments.manage` in the project. Problem codes:
+// `invalid_assignment` (422: no units, too many, a key the
+// project does not have, a due date in the past),
+// `unknown_party` (422: no such member, group or vendor),
+// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
+// `not_found` (404: the project).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments (the `CreateAssignment` operationId).
+func (c *ClientWithResponses) CreateAssignmentWithResponse(ctx context.Context, tenant TenantPath, params *CreateAssignmentParams, body CreateAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAssignmentResponse, error) {
+	rsp, err := c.CreateAssignment(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAssignmentResponse(rsp)
+}
+
+// GetAssignmentWithResponse An assignment
+//
+// With `assignments.manage`, any in the caller's project scope;
+// otherwise only one given to the caller, with
+// `assignments.read` — someone else's is not found.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignments/{assignment} (the `GetAssignment` operationId).
+func (c *ClientWithResponses) GetAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*GetAssignmentResponse, error) {
+	rsp, err := c.GetAssignment(ctx, tenant, assignment, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAssignmentResponse(rsp)
+}
+
+// AcceptAssignmentWithResponse Take an open assignment on
+//
+// Only its assignee, holding the assignment's permission for every
+// unit. Problem codes: `forbidden` (403: not given to you, or
+// missing the permission), `assignment_state` (409: not `open`).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/acceptance (the `AcceptAssignment` operationId).
+func (c *ClientWithResponses) AcceptAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*AcceptAssignmentResponse, error) {
+	rsp, err := c.AcceptAssignment(ctx, tenant, assignment, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptAssignmentResponse(rsp)
+}
+
+// CompleteAssignmentWithResponse Claim an assignment done
+//
+// A claim, not a decision: it raises `assignment.completed` and the
+// project's workflow decides what follows; no review state changes
+// here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+// permission for every unit. Problem codes: `forbidden` (403),
+// `assignment_state` (409: not live).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/completion (the `CompleteAssignment` operationId).
+func (c *ClientWithResponses) CompleteAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, reqEditors ...RequestEditorFn) (*CompleteAssignmentResponse, error) {
+	rsp, err := c.CompleteAssignment(ctx, tenant, assignment, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteAssignmentResponse(rsp)
+}
+
+// DeclineAssignmentWithBodyWithResponse Hand an assignment back
+//
+// By its assignee, or by someone with `assignments.manage` taking
+// it back; raises `assignment.declined`. Problem codes: `forbidden`
+// (403), `assignment_state` (409: not live), `invalid_assignment`
+// (422: a reason over 2,000 characters).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+func (c *ClientWithResponses) DeclineAssignmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error) {
+	rsp, err := c.DeclineAssignmentWithBody(ctx, tenant, assignment, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeclineAssignmentResponse(rsp)
+}
+
+// DeclineAssignmentWithResponse Hand an assignment back
+//
+// By its assignee, or by someone with `assignments.manage` taking
+// it back; raises `assignment.declined`. Problem codes: `forbidden`
+// (403), `assignment_state` (409: not live), `invalid_assignment`
+// (422: a reason over 2,000 characters).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
+func (c *ClientWithResponses) DeclineAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error) {
+	rsp, err := c.DeclineAssignment(ctx, tenant, assignment, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeclineAssignmentResponse(rsp)
+}
+
 // GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 //
 // Every applicable guide merged field by field, the narrowest
@@ -69362,6 +72200,645 @@ func ParseRejectAISuggestionResponse(rsp *http.Response) (*RejectAISuggestionRes
 	switch {
 	case rsp.StatusCode == 200:
 		var headers RejectAISuggestionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListApprovalsResponse parses an HTTP response from a ListApprovalsWithResponse call
+func ParseListApprovalsResponse(rsp *http.Response) (*ListApprovalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApprovalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApprovalList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateApprovalResponse parses an HTTP response from a CreateApprovalWithResponse call
+func ParseCreateApprovalResponse(rsp *http.Response) (*CreateApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateApprovalResponse201Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetApprovalResponse parses an HTTP response from a GetApprovalWithResponse call
+func ParseGetApprovalResponse(rsp *http.Response) (*GetApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDecideApprovalResponse parses an HTTP response from a DecideApprovalWithResponse call
+func ParseDecideApprovalResponse(rsp *http.Response) (*DecideApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DecideApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAssignmentsResponse parses an HTTP response from a ListAssignmentsWithResponse call
+func ParseListAssignmentsResponse(rsp *http.Response) (*ListAssignmentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAssignmentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AssignmentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAssignmentResponse parses an HTTP response from a CreateAssignmentWithResponse call
+func ParseCreateAssignmentResponse(rsp *http.Response) (*CreateAssignmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAssignmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Assignment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateAssignmentResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAssignmentResponse parses an HTTP response from a GetAssignmentWithResponse call
+func ParseGetAssignmentResponse(rsp *http.Response) (*GetAssignmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAssignmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Assignment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetAssignmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseAcceptAssignmentResponse parses an HTTP response from a AcceptAssignmentWithResponse call
+func ParseAcceptAssignmentResponse(rsp *http.Response) (*AcceptAssignmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptAssignmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Assignment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers AcceptAssignmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCompleteAssignmentResponse parses an HTTP response from a CompleteAssignmentWithResponse call
+func ParseCompleteAssignmentResponse(rsp *http.Response) (*CompleteAssignmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteAssignmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Assignment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CompleteAssignmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeclineAssignmentResponse parses an HTTP response from a DeclineAssignmentWithResponse call
+func ParseDeclineAssignmentResponse(rsp *http.Response) (*DeclineAssignmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeclineAssignmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Assignment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DeclineAssignmentResponse200Headers
 		if values := rsp.Header.Values("ETag"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {

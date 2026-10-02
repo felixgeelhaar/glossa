@@ -38,6 +38,9 @@ var (
 	// not a translation unit: assignments are batches of translation
 	// units (§3.1).
 	ErrUnsupportedSubject = errors.New("workflow: assignments cover translation units only")
+	// ErrIdempotencyReuse is an Idempotency-Key used before for a
+	// different request.
+	ErrIdempotencyReuse = errors.New("workflow: this Idempotency-Key was used for a different request")
 )
 
 // WorkTransactor runs fn in the tenant transaction ctx is already in
@@ -55,12 +58,31 @@ type AssignmentFilter struct {
 	// Assignees are stored spellings (domain.Assignee.String()); an
 	// assignment matches any of them.
 	Assignees []string
+	// Message and Locale keep only assignments covering a unit of that
+	// message, in that locale, or both.
+	Message uuid.UUID
+	Locale  string
 	// Within, when set, keeps only assignments in these projects: the
 	// caller's project scope, set by the service, never by a caller.
 	Within *[]uuid.UUID
 	// After is the last id of the previous page.
 	After uuid.UUID
 	Limit int
+}
+
+// ApprovalFilter narrows a list of approvals. Zero fields don't filter.
+type ApprovalFilter struct {
+	Project uuid.UUID
+	Kind    domain.SubjectKind
+	// SubjectID is a translation unit's message or a release request.
+	SubjectID uuid.UUID
+	// Locale is a canonical BCP 47 tag.
+	Locale string
+	States []domain.ApprovalState
+	// Within is the caller's project scope, set by the service.
+	Within *[]uuid.UUID
+	After  uuid.UUID
+	Limit  int
 }
 
 // CoverageQuery asks which units assignments to any of Assignees cover
@@ -94,6 +116,9 @@ type WorkStore interface {
 	// LatestApproval is the newest approval requested for subject in
 	// project (ErrNotFound when there is none).
 	LatestApproval(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (domain.Approval, error)
+	// ListApprovals lists approvals with their decisions, in id order
+	// after f.After.
+	ListApprovals(ctx context.Context, f ApprovalFilter) ([]domain.Approval, error)
 	// AppendDecision appends the approval's seq-th decision (1-based).
 	AppendDecision(ctx context.Context, approval uuid.UUID, seq int, d domain.Decision) error
 	// UpdateApproval saves state, version and closed_at, like

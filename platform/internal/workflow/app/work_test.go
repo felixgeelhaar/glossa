@@ -124,6 +124,23 @@ func (f *fakeWork) LatestApproval(ctx context.Context, project uuid.UUID, s doma
 	return domain.Approval{}, app.ErrNotFound
 }
 
+func (f *fakeWork) ListApprovals(_ context.Context, flt app.ApprovalFilter) ([]domain.Approval, error) {
+	var out []domain.Approval
+	for _, id := range f.order {
+		a := f.approvals[id]
+		switch {
+		case flt.Within != nil && !slices.Contains(*flt.Within, a.ProjectID),
+			flt.Project != uuid.Nil && a.ProjectID != flt.Project,
+			flt.SubjectID != uuid.Nil && a.Subject.ID != flt.SubjectID,
+			flt.Locale != "" && a.Subject.Locale != flt.Locale,
+			len(flt.States) > 0 && !slices.Contains(flt.States, a.State):
+			continue
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
 func (f *fakeWork) AppendDecision(_ context.Context, id uuid.UUID, seq int, d domain.Decision) error {
 	a := f.approvals[id]
 	if seq != len(a.Decisions)+1 {
@@ -339,7 +356,7 @@ func TestAssignRefusals(t *testing.T) {
 		t.Errorf("a release request: err = %v", err)
 	}
 	// By hand it takes assignments.manage, which a developer lacks.
-	if _, err := w.svc.Assign(developer, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Group: "legal"}}); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, err := w.svc.Assign(developer, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Group: "legal"}}); !errors.Is(err, authz.ErrForbidden) {
 		t.Errorf("a developer assigning by hand: err = %v", err)
 	}
 	// Without a principal nothing is assigned.
@@ -355,11 +372,11 @@ func TestDeclineAndMyWork(t *testing.T) {
 	w := newWorld(t)
 	admin := w.person([]string{"admin"}, nil, nil, uuid.Nil)
 	unit := []domain.Unit{{Message: uuid.New(), Locale: "de"}}
-	byGroup, err := w.svc.Assign(admin, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Group: "legal"}})
+	byGroup, _, err := w.svc.Assign(admin, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Group: "legal"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	byRole, err := w.svc.Assign(admin, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Role: "reviewer"}})
+	byRole, _, err := w.svc.Assign(admin, app.AssignInput{ProjectID: w.project, Units: unit, To: domain.Party{Role: "reviewer"}})
 	if err != nil {
 		t.Fatal(err)
 	}
