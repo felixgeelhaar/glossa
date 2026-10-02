@@ -134,8 +134,12 @@ func TestAssignmentsOverTheAPI(t *testing.T) {
 		resp, err := f.api.CompleteAssignment(ctx, apiv1.CompleteAssignmentRequestObject{Tenant: f.tenant.String(), Assignment: id})
 		return render(t, resp, err)
 	}
+	// Someone else's assignment is not found to act on, as it is to
+	// read: a 403 here would say it exists.
 	stranger := f.person([]string{"translator"}, []string{"de"}, uuid.Nil)
-	complete(stranger, a.Id).want(t, http.StatusForbidden, "forbidden")
+	complete(stranger, a.Id).want(t, http.StatusNotFound, "not_found")
+	resp, err := f.api.GetAssignment(stranger, apiv1.GetAssignmentRequestObject{Tenant: f.tenant.String(), Assignment: a.Id})
+	render(t, resp, err).want(t, http.StatusNotFound, "not_found")
 	complete(f.anonymous, a.Id).want(t, http.StatusUnauthorized, "unauthenticated")
 	accept(vera, a.Id).want(t, http.StatusOK, "")
 	done := complete(vera, a.Id).want(t, http.StatusOK, "")
@@ -153,7 +157,7 @@ func TestAssignmentsOverTheAPI(t *testing.T) {
 			Body: &apiv1.AssignmentDecline{Reason: &reason}})
 		return render(t, resp, err)
 	}
-	decline(stranger, byRole.Id, "no").want(t, http.StatusForbidden, "forbidden")
+	decline(stranger, byRole.Id, "no").want(t, http.StatusNotFound, "not_found")
 	var declined apiv1.Assignment
 	decline(f.owner, byRole.Id, "reassigning").want(t, http.StatusOK, "").decode(t, &declined)
 	if declined.State != "declined" || declined.Reason == nil || *declined.Reason != "reassigning" {

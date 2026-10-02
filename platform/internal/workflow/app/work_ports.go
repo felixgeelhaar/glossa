@@ -29,8 +29,11 @@ var (
 	// member, group or vendor this tenant does not have.
 	ErrUnknownParty = errors.New("workflow: no such member, group or vendor")
 	// ErrNotAssignee is acting on an assignment that is not given to
-	// the caller. It is a refusal for permission.
-	ErrNotAssignee = fmt.Errorf("%w: the assignment is not given to you", authz.ErrForbidden)
+	// the caller. It is not found, not forbidden: reading someone else's
+	// assignment is not found (WorkService.Assignment), and answering
+	// acting on it differently — 403 where reading says 404 — would tell
+	// the caller the assignment exists after all.
+	ErrNotAssignee = fmt.Errorf("%w: no such assignment among yours", ErrNotFound)
 	// ErrSuperseded is a decision on an approval a newer request for the
 	// same subject has replaced.
 	ErrSuperseded = errors.New("workflow: a newer approval request replaced this one")

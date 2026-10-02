@@ -301,7 +301,9 @@ func TestAssignForInstanceAndComplete(t *testing.T) {
 	// Someone the assignment is not given to cannot complete it, even a
 	// translator for the locale.
 	outsider := w.person([]string{"translator"}, []string{"de"}, nil, uuid.Nil)
-	if _, err := w.svc.Complete(outsider, a.ID); !errors.Is(err, app.ErrNotAssignee) || !errors.Is(err, authz.ErrForbidden) {
+	// Not found, as reading it is: refusing for permission would say the
+	// assignment exists.
+	if _, err := w.svc.Complete(outsider, a.ID); !errors.Is(err, app.ErrNotAssignee) || !errors.Is(err, app.ErrNotFound) || errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("an outsider completing: err = %v", err)
 	}
 	// The vendor's translator for another locale lacks the permission

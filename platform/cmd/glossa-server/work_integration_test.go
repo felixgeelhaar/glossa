@@ -110,7 +110,8 @@ func TestAssignmentsAndApprovalsOverHTTP(t *testing.T) {
 	}
 	as(vera, "GET", base+"/assignments/"+theirs, nil).want(t, http.StatusOK, "")
 	as(vera, "GET", base+"/assignments/"+notTheirs, nil).want(t, http.StatusNotFound, "not_found")
-	as(vera, "POST", base+"/assignments/"+notTheirs+"/completion", nil).want(t, http.StatusForbidden, "forbidden")
+	// Acting on it answers as reading it does: a 403 would say it exists.
+	as(vera, "POST", base+"/assignments/"+notTheirs+"/completion", nil).want(t, http.StatusNotFound, "not_found")
 	as(vera, "POST", base+"/assignments", map[string]any{"project_id": aID, "assignee": map[string]any{"vendor": "Lingua"},
 		"units": []map[string]string{{"message": "cancel", "locale": "de"}}}).want(t, http.StatusForbidden, "forbidden")
 
