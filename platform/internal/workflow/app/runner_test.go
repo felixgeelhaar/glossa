@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -660,5 +661,53 @@ func TestTheDefaultLeavesNothingBehindForARevision(t *testing.T) {
 	}
 	if len(w.as.requested) != 0 {
 		t.Errorf("a revision asked for approval: %+v", w.as.requested)
+	}
+}
+
+// A CI token — GitHub OIDC's push path, the usual way source arrives —
+// holds only catalog permissions, and the runner resolves no principal
+// for it, so every action of its events is refused. The default's
+// demotion to needs_review falls back to Workflow's own principal for
+// it (§2.3, amended in wave 3), and the log says so; approving still
+// runs only as the actor.
+func TestACITokensSourceChangeStillSendsItBackToReview(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.tr.state = "approved"
+	ci := outbox.Actor("token:" + uuid.NewString()) // resolves to no principal, as a CI token does
+
+	w.send(domain.EventTranslationOutdated, ci)
+	inst, log := w.only()
+	if inst.State != "reviewing" || w.tr.state != "needs_review" {
+		t.Fatalf("after a CI push: instance %s, translation %s", inst.State, w.tr.state)
+	}
+	demoted := log[len(log)-1].Actions[0]
+	if demoted.Outcome != app.ActionDone || !strings.Contains(demoted.Detail, app.PrincipalRunner) {
+		t.Fatalf("demotion = %+v, want done and saying it ran as Workflow", demoted)
+	}
+	if last := log[len(log)-1]; last.Actor != ci {
+		t.Errorf("the transition names %s, want the token that caused it", last.Actor)
+	}
+
+	// The same token's approval.granted cannot approve: the fallback is
+	// for demotion only.
+	w.as.approvers = []string{"person:" + uuid.NewString()}
+	w.send(domain.EventApprovalGranted, ci)
+	if w.tr.state != "needs_review" {
+		t.Fatalf("a token's event approved the translation: %s", w.tr.state)
+	}
+	if _, log := w.only(); log[len(log)-1].Outcome != app.TransitionRefused {
+		t.Errorf("the approve step = %+v, want refused", log[len(log)-1])
+	}
+}
+
+// Whoever may write the locale demotes as themselves: a developer
+// holds translations.write, so no fallback and nothing in the detail.
+func TestADevelopersSourceChangeDemotesAsTheDeveloper(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.tr.state = "approved"
+	w.send(domain.EventTranslationOutdated, w.person([]string{"developer"}))
+	_, log := w.only()
+	if d := log[len(log)-1].Actions[0]; d.Outcome != app.ActionDone || d.Detail != "" || w.tr.state != "needs_review" {
+		t.Fatalf("demotion = %+v, translation %s", d, w.tr.state)
 	}
 }

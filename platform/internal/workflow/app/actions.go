@@ -98,11 +98,23 @@ func (r *Runner) run(
 ) (outcomes []ActionOutcome, timer *domain.Timer, refused bool, err error) {
 	for _, e := range effects {
 		o := ActionOutcome{Action: e.Name}
-		if !act.ok && e.Use != "notify" {
+		var (
+			detail string
+			due    domain.Duration
+			err    error
+		)
+		switch {
+		case !act.ok && e.Use != "notify" && decision(e):
 			o.Outcome, o.Detail = ActionRefused, act.why
 			return append(outcomes, o), nil, true, nil
+		case !act.ok && e.Use != "notify":
+			detail, due, err = r.asWorkflow(outer, txCtx, e, inst, subject, ev, act.why)
+		default:
+			detail, due, err = r.execute(act.in(outer), act.in(txCtx), e, inst, subject, ev)
+			if refusedForPermission(err) && !decision(e) {
+				detail, due, err = r.asWorkflow(outer, txCtx, e, inst, subject, ev, err.Error())
+			}
 		}
-		detail, due, err := r.execute(act.in(outer), act.in(txCtx), e, inst, subject, ev)
 		switch {
 		case err == nil:
 			o.Outcome, o.Detail = ActionDone, detail
@@ -190,4 +202,47 @@ func (r *Runner) execute(
 
 func unwired(what string) error {
 	return fmt.Errorf("%w: %s is not wired in this deployment", ErrUnavailable, what)
+}
+
+// decision reports whether e decides about text: approving or
+// rejecting it. Those run as the actor and only as the actor (§2.5), so
+// a workflow cannot create a new way to approve text.
+func decision(e domain.Effect) bool {
+	p, ok := e.Params.(domain.SetReviewState)
+	return ok && (p.State == "approved" || p.State == "rejected")
+}
+
+func refusedForPermission(err error) bool {
+	return errors.Is(err, ErrRefused) || errors.Is(err, authz.ErrForbidden) || errors.Is(err, authz.ErrUnauthenticated)
+}
+
+// asWorkflow runs an action that decides nothing — sending back to
+// review, asking for an approval, assigning work, running a check — as
+// Workflow's own principal, because the actor whose event moved the
+// instance cannot (RFC 0006 §2.5, amended in wave 3).
+//
+// It exists for the source change a CI token pushes: GitHub OIDC's push
+// path holds only catalog permissions and resolves to no principal, so
+// without it the default definition's re-review never happened and an
+// outdated translation shipped as approved. Workflow's principal holds
+// catalog.read, translations.read and translations.write and never
+// review, and decisions never come here, so nothing it does can approve
+// or reject text. The detail records that it ran and why.
+func (r *Runner) asWorkflow(
+	outer, txCtx context.Context, e domain.Effect, inst domain.Instance, subject loaded, ev Event, why string,
+) (string, domain.Duration, error) {
+	bg, err := authz.Background(outer, PrincipalRunner, runnerPermissions...)
+	if err != nil {
+		return "", domain.Duration{}, err
+	}
+	p, _ := authz.From(bg)
+	detail, due, err := r.execute(bg, authz.WithPrincipal(txCtx, p), e, inst, subject, ev)
+	if err != nil {
+		return detail, due, err
+	}
+	note := "as " + PrincipalRunner + " (" + why + ")"
+	if detail != "" {
+		note = detail + "; " + note
+	}
+	return note, due, nil
 }
