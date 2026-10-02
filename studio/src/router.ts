@@ -31,6 +31,9 @@ export const routes: RouteRecordRaw[] = [
       { path: "account", name: "account", component: () => import("./views/AccountView.vue"), meta: { title: "Account & security" } },
       { path: "organizations/new", name: "new-organization", component: () => import("./views/NewOrganizationView.vue"), meta: { title: "New organization" } },
       { path: "t/:tenant", name: "projects", component: () => import("./views/ProjectsView.vue"), meta: { title: "Projects" } },
+      // RFC 0006 §3: the work given to me, and the approvals waiting for me.
+      { path: "t/:tenant/work", name: "my-work", component: () => import("./views/work/MyWorkView.vue"), meta: { title: "My work" } },
+      { path: "t/:tenant/approvals", name: "approvals", component: () => import("./views/work/ApprovalsView.vue"), meta: { title: "Approvals" } },
       {
         path: "t/:tenant/settings/knowledge",
         name: "workspace-knowledge",
