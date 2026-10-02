@@ -12,7 +12,7 @@ missing; the steps after the first missing one are listed as *not reached*.
 
 ## The verdict
 
-**4 of the 7 exit criteria hold.**
+**5 of the 7 exit criteria hold.**
 
 | § | Criterion | Verdict | Fails if |
 |---|---|---|---|
@@ -21,17 +21,17 @@ missing; the steps after the first missing one are listed as *not reached*.
 | 12.3 | Release approvals | met | any pointer moves before the second approval as seen at the edge, or a rollback waits. |
 | 12.4 | Staged rollout across three runtimes | met | any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other. |
 | 12.5 | Audit export | **not met** | a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks. |
-| 12.6 | v0.3 imports and renders the same | **not met** | any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code), or a carried field is missing. |
-| 12.7 | Earlier exits hold | **not met** | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
+| 12.6 | v0.3 imports and renders the same | **not met** | any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing. |
+| 12.7 | Earlier exits hold | met | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
 
 What is missing, in one line each:
 
-- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - `glossa audit verify` passes on the export, offline — there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands
-- **§12.6**: publish, and render every key in every locale both ways: zero mismatches (imported by --v0-db) — 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?")
+- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - the audit public keys are published at /.well-known/glossa-audit-keys.json — reading the audit public keys (GET /.well-known/glossa-audit-keys.json) failed: status 404: <nil>
+  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - `glossa audit verify` passes on the export, offline — there is no export to verify, and `glossa audit verify` exits 1: ✗ audit export does not verify: manifest.json can't be read: open /var/folders/wz/yfymxbq52xvb15kg8khpnpdm0000gn/T/TestM5Exit2974485789/021/manifest.json: no such file or directory [manifest_invalid] /   /var/folders/wz/yfymxbq52xvb15kg8khpnpdm0000gn/T/TestM5Exit2974485789/021
+- **§12.6**: `glossa import --from v0 --v0-db --history` sends v0.3's history to the audit trail as the owner — exit 3: error: can't import v0.3's history into the audit trail /   where: POST http://127.0.0.1:58352/v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/projects/01a0fc0d-1ad0-7f13-a475-6c615733850b/audit-imports /   why:   the credential may not do this (forbidden: missing permission audit.import) /…
   - v0.3's history is visible as imported audit entries — listing audit entries does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-- **§12.7**: M4's exit test fails against this build (exit status 1): m4_test.go:248: §12.7 does not hold: the §6.4 size budget was not measured: no Flutter SDK on this machine: flutter is not on PATH (set GLOSSA_FLUTTER)
 
 ## The fixture
 
@@ -75,19 +75,19 @@ What is missing, in one line each:
 | ✅ | B: the second reviewer's approval makes it `approved`, by that reviewer in the revision log | held |
 | ✅ | both instances reached a final state, every action ran as a person, never as Workflow's principal | held |
 
-§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.177s
+§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.255s
 
 The transition logs:
 
 ```text
-bf78d1cc:  —translation.outdated→ reviewing (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
-bf78d1cc: reviewing —translation.reviewed→ reviewing (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
-bf78d1cc: reviewing —approval.granted→ done (person:01a0fbc6-51ce-74fd-a18d-b779b589f2d9)
-b2a4d15d:  —translation.outdated→ translating (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
-b2a4d15d: translating —translation.revised→ translating (person:01a0fbc6-5300-70ea-a09c-450731f1169c)
-b2a4d15d: translating —assignment.completed→ reviewing (person:01a0fbc6-5300-70ea-a09c-450731f1169c)
-b2a4d15d: reviewing —approval.granted→ reviewing (person:01a0fbc6-51ce-74fd-a18d-b779b589f2d9)
-b2a4d15d: reviewing —approval.granted→ done (person:01a0fbc6-51e3-7e8a-97be-8ce6138acdb4)
+5be02057:  —translation.outdated→ reviewing (person:01a0fc0c-5192-7cae-b3fe-371348337283)
+5be02057: reviewing —translation.reviewed→ reviewing (person:01a0fc0c-5192-7cae-b3fe-371348337283)
+5be02057: reviewing —approval.granted→ done (person:01a0fc0c-51b4-72ee-a92c-845032b2de4b)
+ad94aa34:  —translation.outdated→ translating (person:01a0fc0c-5192-7cae-b3fe-371348337283)
+ad94aa34: translating —translation.revised→ translating (person:01a0fc0c-5281-7c96-9642-bcd731b606f0)
+ad94aa34: translating —assignment.completed→ reviewing (person:01a0fc0c-5281-7c96-9642-bcd731b606f0)
+ad94aa34: reviewing —approval.granted→ reviewing (person:01a0fc0c-51b4-72ee-a92c-845032b2de4b)
+ad94aa34: reviewing —approval.granted→ done (person:01a0fc0c-51c2-73ad-9c5e-a6758d20fd83)
 ```
 
 ## §12.2 — vendor visibility on every surface
@@ -258,7 +258,7 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 | ✅ | before approvals are required | v4 |
 | ✅ | right after the publish | previous release |
 | ✅ | after one approval | previous release |
-| ✅ | after the second approval | release 82834fe9 |
+| ✅ | after the second approval | release 8db6b5e9 |
 | ✅ | after a rollback, no approval | the earlier release, within 2.0s |
 
 ## §12.4 — staged rollout across three runtimes
@@ -276,7 +276,7 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 | ✅ | complete: the pointer moves to the candidate and the rollout member is gone | held |
 
 The generator's table (`runtimes/testdata/rollout/cohorts.json`): 10000 installation ids; under its salt `c3RhZ2VkLXJvbGxvdXQtMQ`, 1004 are in the candidate at 10 %.
-The edge's manifest carried salt `GyahEwDgwr7q2cNGJuEK5w`; the expected cohorts under it come from `generate.py`.
+The edge's manifest carried salt `s1x3TT1Q05qPevDSrAS7zQ`; the expected cohorts under it come from `generate.py`.
 
 | | Phase | Runtime | In the candidate | Disagree with the generator | Note |
 |---|---|---|---:|---:|---|
@@ -286,15 +286,15 @@ The edge's manifest carried salt `GyahEwDgwr7q2cNGJuEK5w`; the expected cohorts 
 | ✅ | probe, rollout support off | js | 0 | 0 |  |
 | ✅ | probe, rollout support off | go | 0 | 0 |  |
 | ✅ | probe, rollout support off | dart | 0 | 0 |  |
-| ✅ | 10 % | js | 1005 | 0 |  |
-| ✅ | 10 % | go | 1005 | 0 |  |
-| ✅ | 10 % | dart | 1005 | 0 |  |
+| ✅ | 10 % | js | 1007 | 0 |  |
+| ✅ | 10 % | go | 1007 | 0 |  |
+| ✅ | 10 % | dart | 1007 | 0 |  |
 | ✅ | 10 %, rollout support off | js | 0 | 0 |  |
 | ✅ | 10 %, rollout support off | go | 0 | 0 |  |
 | ✅ | 10 %, rollout support off | dart | 0 | 0 |  |
-| ✅ | 50 % | js | 4932 | 0 |  |
-| ✅ | 50 % | go | 4932 | 0 |  |
-| ✅ | 50 % | dart | 4932 | 0 |  |
+| ✅ | 50 % | js | 4976 | 0 |  |
+| ✅ | 50 % | go | 4976 | 0 |  |
+| ✅ | 50 % | dart | 4976 | 0 |  |
 | ✅ | aborted | js | 0 | 0 |  |
 | ✅ | aborted | go | 0 | 0 |  |
 | ✅ | aborted | dart | 0 | 0 |  |
@@ -303,9 +303,10 @@ The edge's manifest carried salt `GyahEwDgwr7q2cNGJuEK5w`; the expected cohorts 
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | `glossa audit verify` passes on the export, offline | there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands |
+| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | the audit public keys are published at /.well-known/glossa-audit-keys.json | reading the audit public keys (GET /.well-known/glossa-audit-keys.json) failed: status 404: <nil> |
+| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | `glossa audit verify` passes on the export, offline | there is no export to verify, and `glossa audit verify` exits 1: ✗ audit export does not verify: manifest.json can't be read: open /var/folders/wz/yfymxbq52xvb15kg8khpnpdm0000gn/T/TestM5Exit2974485789/021/manifest.json: no such file or directory [manifest_invalid] /   /var/folders/wz/yfymxbq52xvb15kg8khpnpdm0000gn/T/TestM5Exit2974485789/021 |
 | · | an entry for every call the harness recorded, with its actor | _not reached_ |
 | · | one altered byte makes `glossa audit verify` fail | _not reached_ |
 | · | no canary string appears anywhere in the export | _not reached_ |
@@ -326,7 +327,8 @@ The harness recorded 30 successful mutating calls in §12.1–§12.4 itself, nev
 | ✅ | a v0.3 server built from apps/api, migrated with its own migrations, seeded: 300 keys in de/en/es, descriptions, a change history, three users | held |
 | ✅ | dump it and restore the dump with `platform/scripts/v0-restore.sh`, which writes the restore marker | held |
 | ✅ | `glossa import --from v0 --v0-db` imports the restore | held |
-| ❌ | publish, and render every key in every locale both ways: zero mismatches (imported by --v0-db) | 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?") |
+| ✅ | publish, and render every key in every locale both ways with `glossa import --from v0 --verify`: zero mismatches apart from v0.3's known apostrophe defect, which is reported with its count (imported by --v0-db) | held |
+| ❌ | `glossa import --from v0 --v0-db --history` sends v0.3's history to the audit trail as the owner | exit 3: error: can't import v0.3's history into the audit trail /   where: POST http://127.0.0.1:58352/v1/tenants/01a0fc0c-519f-7bdb-9a94-eb11cad6473a/projects/01a0fc0d-1ad0-7f13-a475-6c615733850b/audit-imports /   why:   the credential may not do this (forbidden: missing permission audit.import) /   fix:   importing history writes the organisation's audit trail, which only an owner may (audit.imp… |
 | ✅ | descriptions are on the messages | held |
 | ✅ | the three users are invitations with mapped roles and locales | held |
 | ❌ | v0.3's history is visible as imported audit entries | listing audit entries does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
@@ -334,28 +336,20 @@ The harness recorded 30 successful mutating calls in §12.1–§12.4 itself, nev
 
 v0.3 holds 300 keys × 3 locales, 100 audit-log rows and 3 users.
 
-Imported by --v0-db; **2400 renderings** of 300 keys in de/en/es, **51 differ**.
+51 renderings differ only by v0.3's known apostrophe defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrophe as opening a quoted run; each is listed below with v0.3's text requoted as evidence.
+
+Imported by --v0-db; **3150 renderings** of 300 keys in de/en/es: **51 differ only by v0.3's known apostrophe defect**, **0 differ otherwise**.
+
+Known v0.3 defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrophe as opening a quoted run. Each row is in this category only because v0.3's own formatter, given the same text with its apostrophes requoted the ICU way, renders exactly the runtime's output.
 
 | Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |
 |---|---|---|---|---|
-| `copy.bare_11` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
-| `copy.bare_11` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
-| `copy.bare_11` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
-| `copy.bare_29` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
-| `copy.bare_29` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
-| `copy.bare_29` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
-| `copy.bare_47` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
-| `copy.bare_47` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
-| `copy.bare_47` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
-| `copy.bare_65` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
-| `copy.bare_65` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
-| `copy.bare_65` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
-| `copy.bare_83` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
-| `copy.bare_83` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
-| `copy.bare_83` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
 | `copy.bare_101` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
 | `copy.bare_101` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
 | `copy.bare_101` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
+| `copy.bare_11` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
+| `copy.bare_11` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
+| `copy.bare_11` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
 | `copy.bare_119` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
 | `copy.bare_119` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
 | `copy.bare_119` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
@@ -378,42 +372,55 @@ Imported by --v0-db; **2400 renderings** of 300 keys in de/en/es, **51 differ**.
 | `copy.bare_227` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
 | `copy.bare_227` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
 | `copy.bare_245` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
+| `copy.bare_245` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
+| `copy.bare_245` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
+| `copy.bare_263` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
+| `copy.bare_263` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
+| `copy.bare_263` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
+| `copy.bare_281` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
+| `copy.bare_281` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
+| `copy.bare_281` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
+| `copy.bare_29` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
+| `copy.bare_29` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
+| `copy.bare_29` | es | `map[name:Ada]` | "Rocknroll con Ada" | "Rock'n'roll con Ada" |
+| `copy.bare_299` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
 | … | | | 11 more | |
 
 ## §12.7 — earlier exits hold
 
-M2's exit test passed in 27s.
+M2's exit test passed in 28s.
 
-M3's exit test passed in 62s.
+M3's exit test passed in 63s.
 
-### M2 — **passed** in 27s
+M4's exit test passed in 308s.
+
+### M2 — **passed** in 28s
 
 ```text
---- PASS: TestM2Exit (25.33s)
---- PASS: TestFixtureIsCurrent (0.10s)
+--- PASS: TestM2Exit (26.36s)
+--- PASS: TestFixtureIsCurrent (0.09s)
 --- PASS: TestFixtureShape (0.00s)
 --- PASS: TestInterchangeFilesRead (0.02s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	25.690s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.340s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	26.730s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.350s
 ```
 
-### M3 — **passed** in 62s
+### M3 — **passed** in 63s
 
 ```text
---- PASS: TestM3Exit (59.79s)
+--- PASS: TestM3Exit (61.38s)
 --- PASS: TestFixtureIsCurrent (0.01s)
 --- PASS: TestFixtureShape (0.00s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	60.117s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.125s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	61.826s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.209s
 ```
 
-### M4 — **failed** (exit status 1) in 26s
+### M4 — **passed** in 308s
 
 ```text
---- FAIL: TestM4Exit (24.75s)
-FAIL
-FAIL	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	25.033s
-**7 of the 8 exit criteria hold.**
+--- PASS: TestM4Exit (306.07s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	306.445s
+**8 of the 8 exit criteria hold.**
 | § | Criterion | Verdict |
 |---|---|---|
 | 12.1 | A fixture repository with real CI | met |
@@ -422,10 +429,8 @@ FAIL	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	25.033s
 | 12.4 | Waivers and policy rollout | met |
 | 12.5 | Release gate | met |
 | 12.6 | MCP | met |
-| 12.7 | Flutter | **not met** |
+| 12.7 | Flutter | met |
 | 12.8 | Dashboard | met |
-What is missing, in one line each:
-- **§12.7**: the §6.4 size budget was not measured: no Flutter SDK on this machine: flutter is not on PATH (set GLOSSA_FLUTTER)
 ```
 
 ## What this test cannot prove
