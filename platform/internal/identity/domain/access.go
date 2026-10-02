@@ -220,14 +220,22 @@ const (
 	// ScopeAdmin manages the tenant, its members, its tokens and its AI
 	// configuration — never its owners.
 	ScopeAdmin Scope = "admin"
+	// ScopeWorkflows reads, saves and binds workflow definitions (RFC
+	// 0006 §4.2) — what `glossa workflow push` from CI needs. It is
+	// opt-in: no other scope implies it and no default set holds it, so
+	// an existing token never starts changing how work flows. It grants
+	// no review and no approvals.decide: a token that writes the process
+	// still cannot take the human decisions in it (§3.2, §9.3).
+	ScopeWorkflows Scope = "workflows"
 )
 
 var scopePermissions = map[Scope][]Permission{
 	ScopeRead: append(slices.Clone(readAll), PermTokensRead),
 	ScopeWrite: {PermCatalogWrite, PermTranslationsWrite, PermKnowledgeWrite, PermIntelligenceTranslate,
 		PermIntegrationImport, PermIntegrationManage},
-	ScopePublish: {PermReleasesPublish},
-	ScopeAdmin:   {PermTenantManage, PermMembersManage, PermTokensManage, PermIntelligenceManage},
+	ScopePublish:   {PermReleasesPublish},
+	ScopeAdmin:     {PermTenantManage, PermMembersManage, PermTokensManage, PermIntelligenceManage},
+	ScopeWorkflows: {PermWorkflowsRead, PermWorkflowsManage},
 }
 
 // Scopes is a non-empty, sorted, duplicate-free set of token scopes.

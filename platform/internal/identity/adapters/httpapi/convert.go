@@ -74,7 +74,7 @@ func toToken(t domain.APIToken) apiv1.Token {
 		scopes[i] = apiv1.Scope(s)
 	}
 	return apiv1.Token{
-		Id: t.ID.String(), Name: t.Name, Hint: t.Hint, Scopes: scopes, CreatedBy: t.CreatedBy.String(),
+		Id: t.ID.String(), Name: t.Name, Hint: t.Hint, Scopes: scopes, Projects: t.Projects.Strings(), CreatedBy: t.CreatedBy.String(),
 		CreatedAt: t.CreatedAt.UTC(), ExpiresAt: t.ExpiresAt, LastUsedAt: t.LastUsedAt, RevokedAt: t.RevokedAt,
 	}
 }

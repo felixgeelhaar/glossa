@@ -3,6 +3,7 @@ package domain_test
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
@@ -99,6 +100,13 @@ var pinnedScopeMatrix = map[string][]string{
 		"knowledge.read", "members.manage", "members.read", "releases.read", "tenant.manage", "tenant.read",
 		"tokens.manage", "tokens.read", "translations.read", "workflows.read",
 	},
+	// workflows: what `glossa workflow push` needs, and nothing a person
+	// decides — no review, no approvals.decide, no assignments.manage.
+	"workflows": {
+		"assignments.read", "catalog.read", "integration.read", "intelligence.read", "knowledge.read",
+		"members.read", "releases.read", "tenant.read", "tokens.read", "translations.read",
+		"workflows.manage", "workflows.read",
+	},
 }
 
 func permissionNames(ps []domain.Permission) []string {
@@ -160,7 +168,7 @@ func TestNoScopeCombinationReachesAHumanOnlyPermission(t *testing.T) {
 			t.Errorf("%s must be human-only", p)
 		}
 	}
-	all := []string{"read", "write", "publish", "admin"}
+	all := []string{"read", "write", "publish", "admin", "workflows"}
 	for mask := 1; mask < 1<<len(all); mask++ {
 		var names []string
 		for i, s := range all {
@@ -185,6 +193,33 @@ func TestNoScopeCombinationReachesAHumanOnlyPermission(t *testing.T) {
 	for _, p := range domain.CIPermissions() {
 		if p.HumanOnly() {
 			t.Errorf("the CI ceiling holds %s", p)
+		}
+	}
+}
+
+// The workflows scope is opt-in (RFC 0006 §4.2): no other scope, alone
+// or together, reaches workflows.manage, so every token issued before it
+// existed — and every token issued without naming it — keeps leaving the
+// process alone. Nor does the CI ceiling.
+func TestTheWorkflowsScopeIsOptIn(t *testing.T) {
+	others, err := domain.ParseScopes([]string{"read", "write", "publish", "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, held := domain.GrantForScopes(others).Locales(domain.PermWorkflowsManage); held {
+		t.Error("read, write, publish and admin together reach workflows.manage; only the workflows scope may")
+	}
+	if slices.Contains(domain.CIPermissions(), domain.PermWorkflowsManage) {
+		t.Error("the CI ceiling holds workflows.manage")
+	}
+	only, err := domain.ParseScopes([]string{"workflows"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := domain.GrantForScopes(only)
+	for _, p := range []domain.Permission{domain.PermApprovalsDecide, domain.PermTranslationsReview, domain.PermAssignmentsManage} {
+		if _, held := g.Locales(p); held {
+			t.Errorf("the workflows scope reaches %s", p)
 		}
 	}
 }

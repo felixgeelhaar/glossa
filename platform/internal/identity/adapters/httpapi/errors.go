@@ -14,6 +14,10 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
+// codeInvalidProjectScope is a project scope that names something other
+// than project ids, or too many of them.
+const codeInvalidProjectScope problem.Code = "invalid_project_scope"
+
 type mapping struct {
 	status int
 	code   problem.Code
@@ -72,6 +76,7 @@ var problems = []struct {
 	{domain.ErrInvalidDisplayName, mapping{400, "invalid_display_name", "at most 200 characters"}},
 	{domain.ErrInvalidTokenName, mapping{400, "invalid_token_name", "1-100 characters"}},
 	{domain.ErrInvalidTokenExpiry, mapping{400, "invalid_token_expiry", "expires_at must be in the future"}},
+	{domain.ErrTooManyProjects, mapping{400, codeInvalidProjectScope, ""}},
 	// In-context grants and preview origins (RFC 0004 §5.2).
 	{domain.ErrOriginNotBound, mapping{401, "origin_not_bound",
 		"this grant was minted for another origin"}},

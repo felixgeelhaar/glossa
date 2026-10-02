@@ -5709,11 +5709,14 @@ export interface components {
         /**
          * @description `read` reads the tenant; `write` pushes messages and
          *     translations; `publish` creates releases; `admin` manages the
-         *     tenant, members and tokens (never owners). Every scope implies
-         *     `read`.
+         *     tenant, members and tokens (never owners); `workflows` saves and
+         *     binds workflow definitions (`workflows.manage`, RFC 0006 §4.2) —
+         *     opt-in, implied by no other scope. Every scope implies `read`.
+         *     No scope grants review or `approvals.decide`: those are a
+         *     person's decisions.
          * @enum {string}
          */
-        Scope: "read" | "write" | "publish" | "admin";
+        Scope: "read" | "write" | "publish" | "admin" | "workflows";
         /** @description RFC 9457 problem details. */
         Problem: {
             /**
@@ -5890,6 +5893,8 @@ export interface components {
             /** @description The first characters of the secret, e.g. `glossa_api_Ab3x`. */
             hint: string;
             scopes: components["schemas"]["Scope"][];
+            /** @description The projects the token may act on (RFC 0006 §4.1); empty means every project. */
+            projects: components["schemas"]["Id"][];
             /** @description `person:<id>` or `token:<id>`. */
             created_by: string;
             created_at: components["schemas"]["Timestamp"];
@@ -5904,6 +5909,14 @@ export interface components {
         CreateToken: {
             name: string;
             scopes: components["schemas"]["Scope"][];
+            /**
+             * @description Limits the token to these projects (RFC 0006 §4.1): a project
+             *     outside them answers as one that does not exist. Omitted or
+             *     empty, every project — or, for a creator who is themselves
+             *     limited to some projects, exactly theirs. Naming a project
+             *     outside the creator's own is `scope_exceeds_grant` (403).
+             */
+            projects?: components["schemas"]["Id"][];
             expires_at?: components["schemas"]["Timestamp"];
         };
         CreatedToken: {

@@ -1787,10 +1787,11 @@ func (e Role) Valid() bool {
 
 // Defines values for Scope.
 const (
-	ScopeAdmin   Scope = "admin"
-	ScopePublish Scope = "publish"
-	ScopeRead    Scope = "read"
-	ScopeWrite   Scope = "write"
+	ScopeAdmin     Scope = "admin"
+	ScopePublish   Scope = "publish"
+	ScopeRead      Scope = "read"
+	ScopeWorkflows Scope = "workflows"
+	ScopeWrite     Scope = "write"
 )
 
 // Valid indicates whether the value is a known member of the Scope enum.
@@ -1801,6 +1802,8 @@ func (e Scope) Valid() bool {
 	case ScopePublish:
 		return true
 	case ScopeRead:
+		return true
+	case ScopeWorkflows:
 		return true
 	case ScopeWrite:
 		return true
@@ -4233,7 +4236,14 @@ type CreateToken struct {
 	// ExpiresAt RFC 3339, UTC.
 	ExpiresAt *Timestamp `json:"expires_at,omitempty"`
 	Name      string     `json:"name"`
-	Scopes    []Scope    `json:"scopes"`
+
+	// Projects Limits the token to these projects (RFC 0006 §4.1): a project
+	// outside them answers as one that does not exist. Omitted or
+	// empty, every project — or, for a creator who is themselves
+	// limited to some projects, exactly theirs. Naming a project
+	// outside the creator's own is `scope_exceeds_grant` (403).
+	Projects *[]Id   `json:"projects,omitempty"`
+	Scopes   []Scope `json:"scopes"`
 }
 
 // CreateWaiver A finding to accept. The reason is required and non-empty.
@@ -6812,8 +6822,11 @@ type SaveCheckPolicy struct {
 
 // Scope `read` reads the tenant; `write` pushes messages and
 // translations; `publish` creates releases; `admin` manages the
-// tenant, members and tokens (never owners). Every scope implies
-// `read`.
+// tenant, members and tokens (never owners); `workflows` saves and
+// binds workflow definitions (`workflows.manage`, RFC 0006 §4.2) —
+// opt-in, implied by no other scope. Every scope implies `read`.
+// No scope grants review or `approvals.decide`: those are a
+// person's decisions.
 type Scope string
 
 // Session defines model for Session.
@@ -7458,6 +7471,9 @@ type Token struct {
 	// LastUsedAt RFC 3339, UTC.
 	LastUsedAt *Timestamp `json:"last_used_at,omitempty"`
 	Name       string     `json:"name"`
+
+	// Projects The projects the token may act on (RFC 0006 §4.1); empty means every project.
+	Projects []Id `json:"projects"`
 
 	// RevokedAt RFC 3339, UTC.
 	RevokedAt *Timestamp `json:"revoked_at,omitempty"`

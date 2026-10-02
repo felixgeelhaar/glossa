@@ -413,6 +413,20 @@ func (a *API) GetTenant(ctx context.Context, _ apiv1.GetTenantRequestObject) (ap
 	return apiv1.GetTenant200JSONResponse(toTenant(t)), nil
 }
 
+// projectScope reads a project scope from a request body. A malformed
+// id is the body's fault (400), not a project that is "not found".
+func projectScope(ids *[]string) ([]string, error) {
+	if ids == nil {
+		return nil, nil
+	}
+	for _, id := range *ids {
+		if _, err := domain.ParseProjectRef(id); err != nil {
+			return nil, badRequest(codeInvalidProjectScope, fmt.Sprintf("%q is not a project id", id))
+		}
+	}
+	return *ids, nil
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""
@@ -534,7 +548,13 @@ func (a *API) ListTokens(ctx context.Context, req apiv1.ListTokensRequestObject)
 }
 
 func (a *API) CreateToken(ctx context.Context, req apiv1.CreateTokenRequestObject) (apiv1.CreateTokenResponseObject, error) {
-	created, err := a.svc.CreateToken(ctx, req.Body.Name, fromScopes(req.Body.Scopes), req.Body.ExpiresAt, deref(req.Params.IdempotencyKey))
+	projects, err := projectScope(req.Body.Projects)
+	if err != nil {
+		return nil, err
+	}
+	created, err := a.svc.IssueToken(ctx, app.TokenRequest{
+		Name: req.Body.Name, Scopes: fromScopes(req.Body.Scopes), Projects: projects, ExpiresAt: req.Body.ExpiresAt,
+	}, deref(req.Params.IdempotencyKey))
 	if err != nil {
 		return nil, err
 	}
