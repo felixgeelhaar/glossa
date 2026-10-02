@@ -12,28 +12,26 @@ missing; the steps after the first missing one are listed as *not reached*.
 
 ## The verdict
 
-**3 of the 7 exit criteria hold.**
+**4 of the 7 exit criteria hold.**
 
 | § | Criterion | Verdict | Fails if |
 |---|---|---|---|
 | 12.1 | Two workflows, one event | met | B needs a code path A doesn't; an instance strands short of a final state; the author's or a token's grant counts; Workflow's principal approves anything. |
 | 12.2 | Vendor visibility on every surface | met | any generated operation leaks an id outside the assignment, or an operation in the spec has no verdict in the coverage table. |
-| 12.3 | Release approvals | **not met** | any pointer moves before the second approval as seen at the edge, or a rollback waits. |
-| 12.4 | Staged rollout across three runtimes | **not met** | any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other. |
+| 12.3 | Release approvals | met | any pointer moves before the second approval as seen at the edge, or a rollback waits. |
+| 12.4 | Staged rollout across three runtimes | met | any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other. |
 | 12.5 | Audit export | **not met** | a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks. |
 | 12.6 | v0.3 imports and renders the same | **not met** | any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code), or a carried field is missing. |
-| 12.7 | Earlier exits hold | met | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
+| 12.7 | Earlier exits hold | **not met** | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
 
 What is missing, in one line each:
 
-- **§12.3**: `production` requires two approvals, distinct from the requester — the environment was saved without its `approval`: the field does not exist, so nothing will wait
-  - a publish creates a release request and the edge still serves the previous release — the publish answered 201 and moved the pointer at once: the edge serves the new release ed8b7288, not the previous 1a69b891 — no request was made and no approval waited
-- **§12.4**: start a rollout of the candidate at 10 % in project A's `production` — starting a rollout (POST /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/projects/01a0fb69-df72-7595-8c1a-70554b2e3530/environments/production/rollouts) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
-  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+- **§12.5**: the tenant's audit entries can be listed — listing audit entries (GET /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+  - export the run's range as an audit export job — starting an audit export job (POST /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
   - `glossa audit verify` passes on the export, offline — there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands
 - **§12.6**: publish, and render every key in every locale both ways: zero mismatches (imported by --v0-db) — 51 of 2400 renderings differ (first: `copy.bare_11` de map[name:Ada] — v0.3 "Gehts gut, {name}?", runtime "Geht's gut, Ada?")
   - v0.3's history is visible as imported audit entries — listing audit entries does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"})
+- **§12.7**: M4's exit test fails against this build (exit status 1): m4_test.go:248: §12.7 does not hold: the §6.4 size budget was not measured: no Flutter SDK on this machine: flutter is not on PATH (set GLOSSA_FLUTTER)
 
 ## The fixture
 
@@ -77,19 +75,19 @@ What is missing, in one line each:
 | ✅ | B: the second reviewer's approval makes it `approved`, by that reviewer in the revision log | held |
 | ✅ | both instances reached a final state, every action ran as a person, never as Workflow's principal | held |
 
-§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.270s
+§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.177s
 
 The transition logs:
 
 ```text
-ad11e012:  —translation.outdated→ reviewing (person:01a0fb69-df5f-7a68-96da-525ef707fc3d)
-ad11e012: reviewing —translation.reviewed→ reviewing (person:01a0fb69-df5f-7a68-96da-525ef707fc3d)
-ad11e012: reviewing —approval.granted→ done (person:01a0fb69-df8c-72bb-a278-358bfd31070a)
-474f92ea:  —translation.outdated→ translating (person:01a0fb69-df5f-7a68-96da-525ef707fc3d)
-474f92ea: translating —translation.revised→ translating (person:01a0fb69-e06c-7451-b239-ea36d414e8ee)
-474f92ea: translating —assignment.completed→ reviewing (person:01a0fb69-e06c-7451-b239-ea36d414e8ee)
-474f92ea: reviewing —approval.granted→ reviewing (person:01a0fb69-df8c-72bb-a278-358bfd31070a)
-474f92ea: reviewing —approval.granted→ done (person:01a0fb69-df9e-7900-bba0-8ea00ffe4f36)
+bf78d1cc:  —translation.outdated→ reviewing (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
+bf78d1cc: reviewing —translation.reviewed→ reviewing (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
+bf78d1cc: reviewing —approval.granted→ done (person:01a0fbc6-51ce-74fd-a18d-b779b589f2d9)
+b2a4d15d:  —translation.outdated→ translating (person:01a0fbc6-51a3-76e9-9525-16c588f3a820)
+b2a4d15d: translating —translation.revised→ translating (person:01a0fbc6-5300-70ea-a09c-450731f1169c)
+b2a4d15d: translating —assignment.completed→ reviewing (person:01a0fbc6-5300-70ea-a09c-450731f1169c)
+b2a4d15d: reviewing —approval.granted→ reviewing (person:01a0fbc6-51ce-74fd-a18d-b779b589f2d9)
+b2a4d15d: reviewing —approval.granted→ done (person:01a0fbc6-51e3-7e8a-97be-8ce6138acdb4)
 ```
 
 ## §12.2 — vendor visibility on every surface
@@ -101,7 +99,7 @@ ad11e012: reviewing —approval.granted→ done (person:01a0fb69-df8c-72bb-a278-
 | ✅ | writes outside the assignment are refused | held |
 | ✅ | export, import and TM search are refused | held |
 
-The sweep generated 116 GET operations from platform/api/openapi.yaml.
+The sweep generated 120 GET operations from platform/api/openapi.yaml.
 
 The vendor member could not create an API token (HTTP 403: {"type":"urn:glossa:problem:forbidden","title":"Forbidden","status":403,"code":"forbidden","detail":"missing permission tokens.manage"}), so no MCP tool is reachable as them.
 
@@ -109,7 +107,7 @@ The vendor member could not create an API token (HTTP 403: {"type":"urn:glossa:p
 
 Every GET operation of `platform/api/openapi.yaml`, called as the vendor's translator — inside the
 assignment (project B, an assigned unit) and, where the operation is addressed by a project or a
-message, outside it (project A, an unassigned unit, which must answer 404). **116 hold, 0 show something
+message, outside it (project A, an unassigned unit, which must answer 404). **120 hold, 0 show something
 outside the assignment or answer undocumented, 0 have no verdict** (no fixture id to address them).
 
 | | Operation | Inside | Outside | Why |
@@ -163,7 +161,7 @@ outside the assignment or answer undocumented, 0 have no verdict** (no fixture i
 | ✅ | `getBranch` | 403 | 404 |  |
 | ✅ | `listBranchProposals` | 403 | 404 |  |
 | ✅ | `listCaptureFindings` | 403 | 404 |  |
-| ✅ | `getCaptureImage` | 404 | 404 |  |
+| ✅ | `getCaptureImage` | 200 | 404 |  |
 | ✅ | `getCheckPolicy` | 403 | 404 |  |
 | ✅ | `exportCheckPolicy` | 403 | 404 |  |
 | ✅ | `listCheckPolicyVersions` | 403 | 404 |  |
@@ -175,6 +173,8 @@ outside the assignment or answer undocumented, 0 have no verdict** (no fixture i
 | ✅ | `listEnvironments` | 403 | 404 |  |
 | ✅ | `getEnvironment` | 403 | 404 |  |
 | ✅ | `listDeployments` | 403 | 404 |  |
+| ✅ | `listRollouts` | 403 | 404 |  |
+| ✅ | `getRollout` | 403 | 404 |  |
 | ✅ | `getFallbackGraph` | 403 | 404 |  |
 | ✅ | `listFindings` | 403 | 404 |  |
 | ✅ | `listLinguisticJobs` | 403 | 404 |  |
@@ -192,6 +192,8 @@ outside the assignment or answer undocumented, 0 have no verdict** (no fixture i
 | ✅ | `listNamespaces` | 403 | 404 |  |
 | ✅ | `listPreviewOrigins` | 403 | 404 |  |
 | ✅ | `getQualitySummary` | 403 | 404 |  |
+| ✅ | `listReleaseRequests` | 403 | 404 |  |
+| ✅ | `getReleaseRequest` | 403 | 404 |  |
 | ✅ | `listReleaseSigningKeys` | 403 | 404 |  |
 | ✅ | `listReleases` | 403 | 404 |  |
 | ✅ | `getRelease` | 403 | 404 |  |
@@ -241,21 +243,23 @@ The MCP read tools, as the same member:
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | `production` requires two approvals, distinct from the requester | the environment was saved without its `approval`: the field does not exist, so nothing will wait |
-| ❌ | a publish creates a release request and the edge still serves the previous release | the publish answered 201 and moved the pointer at once: the edge serves the new release ed8b7288, not the previous 1a69b891 — no request was made and no approval waited |
-| · | the requester's own approval is refused | _not reached_ |
-| · | after the first approval the edge still serves the previous release | _not reached_ |
-| · | after the second approval the edge serves the new release | _not reached_ |
-| · | a forced publish over an unmet gate still waits for approvals, and the approvers see its reason | _not reached_ |
+| ✅ | `production` requires two approvals, distinct from the requester | held |
+| ✅ | a publish creates a release request and the edge still serves the previous release | held |
+| ✅ | the requester's own approval is refused | held |
+| ✅ | after the first approval the edge still serves the previous release | held |
+| ✅ | after the second approval the edge serves the new release | held |
+| ✅ | a forced publish over an unmet gate still waits for approvals, and the approvers see its reason | held |
 | ✅ | a rollback takes effect at the edge at once, with no approval | held |
 
 What `glossa-edge` served for project B's `production`, read over HTTP from the edge process:
 
 | | When | The edge served |
 |---|---|---|
-| ✅ | before approvals are required | v2 |
-| ❌ | right after the publish | the new release ed8b7288 |
-| ✅ | after a rollback, no approval | the earlier release, within 5.1s |
+| ✅ | before approvals are required | v4 |
+| ✅ | right after the publish | previous release |
+| ✅ | after one approval | previous release |
+| ✅ | after the second approval | release 82834fe9 |
+| ✅ | after a rollback, no approval | the earlier release, within 2.0s |
 
 ## §12.4 — staged rollout across three runtimes
 
@@ -263,15 +267,16 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 |---|---|---|
 | ✅ | the generator's cohort table: 10,000 installation ids with their SPEC §1.4 cohorts | held |
 | ✅ | each runtime implements SPEC §1.4 (probe: the edge's manifests, a 10 % rollout under the table's salt) | held |
-| ❌ | start a rollout of the candidate at 10 % in project A's `production` | starting a rollout (POST /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/projects/01a0fb69-df72-7595-8c1a-70554b2e3530/environments/production/rollouts) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| · | the edge's manifest carries it | _not reached_ |
-| · | three runtimes at 10 %, against the generator | _not reached_ |
-| · | rollout support off | _not reached_ |
-| · | advance to 50 % keeps every 10 % installation | _not reached_ |
-| · | abort returns all of them to stable | _not reached_ |
-| · | complete moves the pointer | _not reached_ |
+| ✅ | start a rollout of the candidate at 10 % in project A's `production` | held |
+| ✅ | the edge's signed manifest carries the rollout: 10 %, the candidate, a salt | held |
+| ✅ | three runtimes at 10 %: within 9–11 %, and each agrees id for id with the generator | held |
+| ✅ | rollout support off: every id stays on stable | held |
+| ✅ | advance to 50 %: every 10 % installation stays in the candidate | held |
+| ✅ | abort: every installation is back on stable at the next refresh | held |
+| ✅ | complete: the pointer moves to the candidate and the rollout member is gone | held |
 
 The generator's table (`runtimes/testdata/rollout/cohorts.json`): 10000 installation ids; under its salt `c3RhZ2VkLXJvbGxvdXQtMQ`, 1004 are in the candidate at 10 %.
+The edge's manifest carried salt `GyahEwDgwr7q2cNGJuEK5w`; the expected cohorts under it come from `generate.py`.
 
 | | Phase | Runtime | In the candidate | Disagree with the generator | Note |
 |---|---|---|---:|---:|---|
@@ -281,26 +286,38 @@ The generator's table (`runtimes/testdata/rollout/cohorts.json`): 10000 installa
 | ✅ | probe, rollout support off | js | 0 | 0 |  |
 | ✅ | probe, rollout support off | go | 0 | 0 |  |
 | ✅ | probe, rollout support off | dart | 0 | 0 |  |
+| ✅ | 10 % | js | 1005 | 0 |  |
+| ✅ | 10 % | go | 1005 | 0 |  |
+| ✅ | 10 % | dart | 1005 | 0 |  |
+| ✅ | 10 %, rollout support off | js | 0 | 0 |  |
+| ✅ | 10 %, rollout support off | go | 0 | 0 |  |
+| ✅ | 10 %, rollout support off | dart | 0 | 0 |  |
+| ✅ | 50 % | js | 4932 | 0 |  |
+| ✅ | 50 % | go | 4932 | 0 |  |
+| ✅ | 50 % | dart | 4932 | 0 |  |
+| ✅ | aborted | js | 0 | 0 |  |
+| ✅ | aborted | go | 0 | 0 |  |
+| ✅ | aborted | dart | 0 | 0 |  |
 
 ## §12.5 — audit export
 
 | | Step | What happened |
 |---|---|---|
-| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
-| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0fb69-df6e-74e2-ab53-2ddee7731b6e/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | the tenant's audit entries can be listed | listing audit entries (GET /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-entries) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
+| ❌ | export the run's range as an audit export job | starting an audit export job (POST /v1/tenants/01a0fbc6-51b3-7bac-b20b-d6352dbb6339/audit-export-jobs) does not exist on this server (HTTP 404: {"type":"urn:glossa:problem:not_found","title":"Not Found","status":404,"code":"not_found","detail":"no such resource"}) |
 | ❌ | `glossa audit verify` passes on the export, offline | there is no export to verify, and `glossa audit verify` exits 2: error: unknown command "audit" /   fix:   run `glossa help` for the list of commands |
 | · | an entry for every call the harness recorded, with its actor | _not reached_ |
 | · | one altered byte makes `glossa audit verify` fail | _not reached_ |
 | · | no canary string appears anywhere in the export | _not reached_ |
 
-The harness recorded 21 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.1:10 12.2:1 12.3:6 12.4:4].
+The harness recorded 30 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.1:10 12.2:1 12.3:10 12.4:9].
 
 | § | Successful mutating calls the harness recorded |
 |---|---:|
 | 12.1 | 10 |
 | 12.2 | 1 |
-| 12.3 | 6 |
-| 12.4 | 4 |
+| 12.3 | 10 |
+| 12.4 | 9 |
 
 ## §12.6 — v0.3 imports and renders the same
 
@@ -365,39 +382,38 @@ Imported by --v0-db; **2400 renderings** of 300 keys in de/en/es, **51 differ**.
 
 ## §12.7 — earlier exits hold
 
-M2's exit test passed in 33s.
+M2's exit test passed in 27s.
 
-M3's exit test passed in 65s.
+M3's exit test passed in 62s.
 
-M4's exit test passed in 128s.
-
-### M2 — **passed** in 33s
+### M2 — **passed** in 27s
 
 ```text
---- PASS: TestM2Exit (30.88s)
+--- PASS: TestM2Exit (25.33s)
 --- PASS: TestFixtureIsCurrent (0.10s)
 --- PASS: TestFixtureShape (0.00s)
 --- PASS: TestInterchangeFilesRead (0.02s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	31.273s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.373s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	25.690s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.340s
 ```
 
-### M3 — **passed** in 65s
+### M3 — **passed** in 62s
 
 ```text
---- PASS: TestM3Exit (61.74s)
+--- PASS: TestM3Exit (59.79s)
 --- PASS: TestFixtureIsCurrent (0.01s)
 --- PASS: TestFixtureShape (0.00s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	62.237s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.231s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	60.117s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.125s
 ```
 
-### M4 — **passed** in 128s
+### M4 — **failed** (exit status 1) in 26s
 
 ```text
---- PASS: TestM4Exit (125.68s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	126.071s
-**8 of the 8 exit criteria hold.**
+--- FAIL: TestM4Exit (24.75s)
+FAIL
+FAIL	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	25.033s
+**7 of the 8 exit criteria hold.**
 | § | Criterion | Verdict |
 |---|---|---|
 | 12.1 | A fixture repository with real CI | met |
@@ -406,8 +422,10 @@ ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	126.071s
 | 12.4 | Waivers and policy rollout | met |
 | 12.5 | Release gate | met |
 | 12.6 | MCP | met |
-| 12.7 | Flutter | met |
+| 12.7 | Flutter | **not met** |
 | 12.8 | Dashboard | met |
+What is missing, in one line each:
+- **§12.7**: the §6.4 size budget was not measured: no Flutter SDK on this machine: flutter is not on PATH (set GLOSSA_FLUTTER)
 ```
 
 ## What this test cannot prove
