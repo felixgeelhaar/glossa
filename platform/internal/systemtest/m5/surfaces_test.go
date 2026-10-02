@@ -49,7 +49,14 @@ func (s *scenario) approvalDecisions(id string) string {
 }
 func (s *scenario) vendorsPath() string { return s.tenantPath("/vendors") }
 
-// Release requests and rollouts (§5).
+// Release requests and rollouts (§5). In the spec since wave 4 (tags
+// `release-requests`, `rollouts`). A publish or promote into an
+// environment with an `approval` answers 202 with the release's `id` and
+// `release_request_id`; a request is read under …/release-requests and
+// granted with `{"decision": "granted"}` at …/approvals (201). A rollout
+// starts with `{"release_id", "percent"}` (201, ETag), advances with a
+// PATCH of `{"percent"}` carrying that ETag as If-Match, and ends at
+// …/completion or …/abort.
 func (s *scenario) releaseRequestsPath(project string) string {
 	return s.projectPathOf(project, "/release-requests")
 }
