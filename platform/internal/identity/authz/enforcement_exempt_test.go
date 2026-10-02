@@ -28,6 +28,8 @@ var notProjectAddressed = map[string]string{
 	"audit.Service.RecordToolCall": "records an MCP call after the tool's own application service checked the project; it reads nothing back",
 	"audit.Service.Verify": "the tenant's hash chain, which belongs to no project; reached by no route until RFC 0006 " +
 		"wave 5's audit API, which must gate it with audit.read and RequireUnscoped",
+	"audit.Service.ExportKeys": noData + ": the deployment's audit key set, whose public half is published to anyone " +
+		"(/.well-known/glossa-audit-keys.json) and whose private half only the export jobs sign with",
 
 	"identity.Service.WaitAudits": "waits for in-flight sign-in audit writes at shutdown; reads no tenant data",
 
