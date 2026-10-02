@@ -46,8 +46,8 @@ runtime, including one written before SPEC §1.4, by ignoring `rollout`, which i
 guarantee itself. `rollout-candidate-side` (activation, restart, advance, abort back to stable, a
 new rollout drawing again), `rollout-candidate-fallback` (a candidate whose artifact fails
 integrity falls back to the stable view of the same manifest) and `rollout-invalid` (an invalid
-`rollout` is ignored with a `schema` error) need §1.4: JS and Go pass them (RFC 0006 wave 2); the
-Dart driver lists them in `_skips` until wave 3.
+`rollout` is ignored with a `schema` error) need §1.4: JS and Go pass them since RFC 0006 wave 2,
+Dart since wave 3.
 
 ## `rollout/cohorts.json` (staged rollout, SPEC §1.4)
 
