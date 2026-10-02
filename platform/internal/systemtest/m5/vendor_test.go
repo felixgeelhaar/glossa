@@ -179,6 +179,12 @@ func (s *scenario) resolveSweepIDs() {
 	s.inside["message"], s.outside["message"] = s.assigned[0], s.unassigned[0]
 	s.inside["locale"], s.outside["locale"] = "de", "de"
 	s.inside["environment"], s.outside["environment"] = "production", "production"
+	for k, v := range s.sweepInside {
+		s.inside[k] = v
+	}
+	for k, v := range s.sweepOutside {
+		s.outside[k] = v
+	}
 }
 
 // withQuery adds op's required query parameters from ids, or names the
@@ -360,11 +366,13 @@ func (s *scenario) generatedSweep() {
 }
 
 // outsideSides are the id sets an operation is called with outside the
-// assignment: project A for anything addressed by a project, and project
-// B with an unassigned unit for anything addressed by a message.
+// assignment: project A for anything addressed by a project, or by a
+// tenant-level id the fixture made in project A (an import job, an AI
+// fill, a Git connection); and project B with an unassigned unit for
+// anything addressed by a message.
 func (s *scenario) outsideSides(path string) []map[string]string {
 	var sides []map[string]string
-	if strings.Contains(path, "{project}") {
+	if strings.Contains(path, "{project}") || s.outsideByID(path) {
 		a := cloneIDs(s.outside)
 		a["message"] = unitKey("a", 1)
 		sides = append(sides, a)
@@ -375,6 +383,17 @@ func (s *scenario) outsideSides(path string) []map[string]string {
 		sides = append(sides, b)
 	}
 	return sides
+}
+
+// outsideByID says path is addressed by an id that has a value of its
+// own outside the assignment: one the fixture made in project A.
+func (s *scenario) outsideByID(path string) bool {
+	for _, m := range pathParam.FindAllStringSubmatch(path, -1) {
+		if out, ok := s.outside[m[1]]; ok && m[1] != "tenant" && out != s.inside[m[1]] {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneIDs(m map[string]string) map[string]string {

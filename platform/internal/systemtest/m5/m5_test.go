@@ -157,6 +157,10 @@ type scenario struct {
 	outside map[string]string
 	// ids inside it.
 	inside map[string]string
+	// sweepInside and sweepOutside are the ids the fixture made for the
+	// sweep in project B and project A, for the operations whose parent
+	// collection cannot hand the sweep one (sweepResources).
+	sweepInside, sweepOutside map[string]string
 
 	criteria []*criterion
 	byID     map[string]*criterion
