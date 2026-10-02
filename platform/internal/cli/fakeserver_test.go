@@ -49,6 +49,7 @@ type fakeServer struct {
 	ci           *fakeCI
 	members      *fakeMembers
 	wf           *fakeWorkflows
+	audit        *fakeAuditImports
 	requests     []string
 }
 
@@ -123,6 +124,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeCI(mux)
 	f.routeMembers(mux)
 	f.routeWorkflows(mux)
+	f.routeAuditImports(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))

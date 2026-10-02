@@ -386,7 +386,7 @@ layer a locale cannot run never reads as a clean one (intent §41).
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
+| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `import --from v0 --verify` (a rendering differs other than by v0.3's known apostrophe defect: `renderings_differ`), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
 | 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`) |
 | 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
@@ -439,7 +439,8 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
-| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`) |
+| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, history?: {sent, recorded, existing}, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`; `history` is `--history`'s) |
+| `glossa.cli.import-verify/v1` | `{from, source: {db, tenant, project, restore} \| {url, project}, edge, environment, release, summary: {renderings, keys, locales, match, known_defect, mismatch}, known_defects: [row], mismatches: [row], runtime_errors?}`, a row being `{key, locale, args, v0, runtime, v0_error?, runtime_error?, verdict, defect?, v0_requoted?}` (`import --from v0 --verify`; `defect` is `v0_bare_apostrophe`, and `v0_requoted` its evidence) |
 | `glossa.cli.import.job/v1` | `{format, mode (dry_run \| merge \| overwrite), dry_run, scope (project \| tenant), file: {path, size, sha256}, job: Job, waited, results: [Result], results_filter (problems \| all)}` (`import --format`, `tm import`, `terms import`) |
 | `glossa.cli.export/v1` | `{format, scope, job: Job, waited, file: {path?, name, size, sha256, content_type, verified} \| null, extracted: [{path, size}]}` (`export`, `tm export`, `terms export`) |
 | `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
@@ -719,13 +720,84 @@ PGPASSWORD=… glossa import --from v0 --v0-db postgres://postgres@localhost/glo
   one that may not stops the run before anyone is invited. `--invite`
   and `--dry-run` exclude each other. An invitation is accepted when the
   person signs in with that address.
-- Reported as a plan, not acted on: `audit_entries` (each `audit_log`
-  row as `v0.translation.changed` with actor `v0:<user id>`,
-  `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`) for Audit to
-  import. Locale labels are reported; the platform names locales from
-  CLDR.
+- v0.3's history: `audit_entries` reports each `audit_log` row as
+  `v0.translation.changed` with actor `v0:<user id>`,
+  `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`. `--history`
+  sends them to the organisation's audit trail
+  (`POST …/projects/{project}/audit-imports`, 500 rows a request) as
+  imported entries: the actor, v0.3's time, the key and locale (or
+  `translation_deleted` / `no_translation` for a row whose translation
+  is gone), the v0.3 row id, the restore's name and SHA-256 — and the
+  **SHA-256 of the text before and after, never the text**: an audit
+  entry holds no translation text (RFC 0006 §6.1), and whoever holds the
+  archived dump can show which text a digest stands for. Each row is
+  recorded once per organisation, keyed by its v0.3 id, so a re-run, a
+  retried request, or the import of another project of the same
+  organisation (whose plan carries the rows whose translation is gone
+  again) records nothing twice; `history` reports `sent`, `recorded` and
+  `existing`. Imported entries are appended to the end of the
+  organisation's hash chain like any other: the chain is ordered by when
+  an entry was recorded, `occurred_at` says when it happened. Only an
+  **owner** may import history (`audit.import`); no API token scope
+  reaches it, so a token is refused (`forbidden`, exit 3). The CLI signs
+  in with API tokens until it can hold a person's session (RFC 0006 wave
+  5, which `glossa approve` needs too); it sends with whatever
+  credential it has, so `--history` works for an owner from then on.
+  `--history` and `--dry-run` exclude each other.
+- Locale labels are reported; the platform names locales from CLDR.
 - `not_carried` lists every v0.3 field the import leaves behind, with
   why. The archived dump keeps all of it.
+
+### Proving it renders the same (`--verify`)
+
+```sh
+export GLOSSA_DELIVERY_KEY=dk_…   # a delivery key for the environment
+glossa import --from v0 --v0-db postgres://postgres@localhost/glossa_v0_restore --v0-tenant klarlabs \
+  --v0-project brotwerk-site --verify --edge https://edge.example.com --environment production
+```
+
+`--verify` imports nothing and writes nothing. It reads v0.3's text — from
+the restore (`--v0-db`) or v0.3's API (`--v0-url`) — and renders every key
+in every v0.3 locale twice: with **v0.3's own formatter**
+(`@felixgeelhaar/glossa-format`) over that text, and with
+**`@glossa/runtime`** over the release glossa-edge serves to the delivery
+key in `--environment`, exactly as a product would load it. The two share
+no code. Both get the same arguments, generated from each message's own
+argument metadata (the platform's `Arguments` over the MF1 text, in every
+locale): every plural with 0, 1, 2, 5, 21 and its exact keys, every select
+with each of its keys and a value that reaches its catch-all, every other
+argument with one value; the product of those, or each selector varied
+alone past 64 sets.
+
+- **How it runs.** The CLI is one Go binary and both formatters are
+  JavaScript, so it embeds a small Node driver, writes it to a temporary
+  directory and runs it with `node` (22 or later; `--node` names another).
+  The two packages are not bundled — the comparison is only worth
+  something against the very builds products use: it finds them under
+  `node_modules/` from the working directory upwards, or in a Glossa
+  checkout (`packages/format`, `runtimes/js/runtime`, built with
+  `make system-m5-deps`), or where `--format-module` and
+  `--runtime-module` point. A missing or unbuilt package is
+  `module_not_found` / `module_not_built` (exit 2).
+- **Verdicts.** Each rendering is `match`, `known_defect` or `mismatch`.
+  `known_defect` is exactly one defect of v0.3's formatter
+  (`v0_bare_apostrophe`): it reads any apostrophe that isn't doubled as
+  the start of a quoted run lasting to the next apostrophe or the end,
+  so `Geht's gut, {name}?` renders as `Gehts gut, {name}?` where ICU —
+  and the runtime — say `Geht's gut, Ada?`. A rendering is put in that
+  category only when the runtime rendered, v0.3 differs from it (or
+  failed), and **v0.3's own formatter, given the same text with only its
+  apostrophes rewritten to mean what ICU means, renders exactly the
+  runtime's output** (`v0_requoted` in the row is that evidence). Any
+  other difference — a changed word beside an apostrophe, a number
+  formatted differently, a key the release lacks (the runtime falls
+  back), an error on either side — is a `mismatch`.
+- **Reported, never hidden.** Every known-defect row is listed with its
+  key, locale, arguments and both outputs, and counted in `summary`;
+  every mismatch too. Exit 0 when there are no mismatches (known defects
+  or not), 1 (`renderings_differ`) otherwise. Run it against an
+  environment that ships what was imported — a key the policy holds back
+  falls back and is a mismatch.
 
 ## Release
 
