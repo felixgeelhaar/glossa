@@ -60,6 +60,15 @@
       ]
     },
     {
+      "use": "review_state_in",
+      "params": { "states": ["approved", "rejected"] },
+      "cases": [
+        { "name": "a reviewer approved it", "subject": { "review_state": "approved" }, "want": true },
+        { "name": "a reviewer rejected it", "subject": { "review_state": "rejected" }, "want": true },
+        { "name": "sent back to review, which decides nothing", "subject": { "review_state": "needs_review" }, "want": false }
+      ]
+    },
+    {
       "use": "namespace_in",
       "params": { "namespaces": ["checkout", "legal"] },
       "cases": [
@@ -114,6 +123,8 @@
     { "use": "findings_at_least", "params": { "severity": "error", "count": 0 } },
     { "use": "locale_in", "params": { "locales": [] } },
     { "use": "locale_in", "params": { "locales": ["not a locale!"] } },
+    { "use": "review_state_in", "params": { "states": [] } },
+    { "use": "review_state_in", "params": { "states": ["legal_review"] } },
     { "use": "namespace_in", "params": { "namespaces": [""] } },
     { "use": "approvals_at_least", "params": { "n": 0 } },
     { "use": "approvals_at_least", "params": { "n": 11 } },

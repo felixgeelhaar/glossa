@@ -17,7 +17,7 @@ import (
 func TestTheVocabularyIsClosed(t *testing.T) {
 	wantGuards := []string{
 		"actor_has_permission", "approvals_as_required", "approvals_at_least", "confidence_at_least", "findings_at_least",
-		"locale_in", "namespace_in", "origin_in", "tm_match_at_least",
+		"locale_in", "namespace_in", "origin_in", "review_state_in", "tm_match_at_least",
 	}
 	wantActions := []string{
 		"assign", "deny_release", "deploy_release", "notify", "request_approval", "request_approval_as_required",

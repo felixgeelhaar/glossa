@@ -188,6 +188,15 @@ type LocaleIn struct {
 	Locales []string `json:"locales"`
 }
 
+// ReviewStateIn holds when the translation's current review state is
+// one of States, read when the step runs. It is what tells a review a
+// person made through Localization (approved, rejected) from the echo
+// of a workflow's own action (back to needs_review), since both are
+// translation.reviewed.
+type ReviewStateIn struct {
+	States []string `json:"states"`
+}
+
 // NamespaceIn holds when the subject's namespace is one of Namespaces.
 type NamespaceIn struct {
 	Namespaces []string `json:"namespaces"`
@@ -283,6 +292,21 @@ var guardPrimitives = map[string]guardPrimitive{
 			tag, err := bcp47.Parse(s.Subject.Locale)
 			return err == nil && slices.Contains(p.Locales, tag.String())
 		}, p, nil
+	}},
+	"review_state_in": {translationOnly, func(raw []byte) (GuardFunc, any, error) {
+		var p ReviewStateIn
+		if err := decodeStrict(raw, &p); err != nil {
+			return nil, nil, err
+		}
+		if len(p.States) == 0 {
+			return nil, nil, paramErr("states must name at least one review state")
+		}
+		for _, s := range p.States {
+			if !slices.Contains(ReviewStates, s) {
+				return nil, nil, paramErr("states must be among %s, not %q", strings.Join(ReviewStates, ", "), s)
+			}
+		}
+		return func(s Step) bool { return slices.Contains(p.States, s.Subject.ReviewState) }, p, nil
 	}},
 	"namespace_in": {translationOnly, func(raw []byte) (GuardFunc, any, error) {
 		var p NamespaceIn
