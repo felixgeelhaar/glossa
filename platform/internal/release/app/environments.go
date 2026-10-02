@@ -125,40 +125,7 @@ func (s *Service) CreateEnvironment(ctx context.Context, project uuid.UUID, name
 // environment's ETag. The release it serves keeps serving; the policy
 // governs the next publish and what may be promoted into it.
 func (s *Service) UpdateEnvironment(ctx context.Context, project uuid.UUID, name string, ifMatch int, policy domain.Policy) (domain.Environment, error) {
-	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
-	if err != nil {
-		return domain.Environment{}, err
-	}
-	if !validName(name) {
-		return domain.Environment{}, ErrNotFound
-	}
-	p, err := domain.NewPolicy(policy.States, policy.IncludeOutdated)
-	if err != nil {
-		return domain.Environment{}, err
-	}
-	var e domain.Environment
-	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		if err := s.ensureDefaults(ctx, st, project); err != nil {
-			return err
-		}
-		var err error
-		if e, err = st.Environment(ctx, project, name, true); err != nil {
-			return err
-		}
-		if e.Version != ifMatch {
-			return ErrPreconditionFailed
-		}
-		expected := e.Version
-		changed, err := e.ChangePolicy(p, s.now())
-		if err != nil || !changed {
-			return err
-		}
-		if err := st.UpdateEnvironment(ctx, e, expected); err != nil {
-			return err
-		}
-		return st.Publish(ctx, environmentEvent(domain.EventEnvironmentPolicyChanged, e, by))
-	})
-	return e, err
+	return s.ConfigureEnvironment(ctx, project, name, ifMatch, policy, nil)
 }
 
 func environmentEvent(typ string, e domain.Environment, by string) outbox.Event {

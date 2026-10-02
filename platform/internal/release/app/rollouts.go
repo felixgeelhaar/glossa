@@ -9,6 +9,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
@@ -392,20 +393,21 @@ func (s *Service) GetRollout(ctx context.Context, project, id uuid.UUID) (domain
 	return ro, err
 }
 
-// maxRolloutsListed bounds ListRollouts.
-const maxRolloutsListed = 100
-
-// ListRollouts lists an environment's rollouts, newest first (at most
-// 100): the active one, if any, and the history of ended ones.
-func (s *Service) ListRollouts(ctx context.Context, project uuid.UUID, name string) ([]domain.Rollout, error) {
+// ListRollouts lists an environment's rollouts, newest first: the
+// active one, if any, and the history of ended ones, a page at a time.
+func (s *Service) ListRollouts(ctx context.Context, project uuid.UUID, name string, page pagination.Page) ([]domain.Rollout, *string, error) {
 	if _, err := s.checkProject(ctx, project, authz.ReleasesRead); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !validName(name) {
-		return nil, ErrNotFound
+		return nil, nil, ErrNotFound
+	}
+	after, err := afterUUID(page.After)
+	if err != nil {
+		return nil, nil, err
 	}
 	var rows []domain.Rollout
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		if err := s.ensureDefaults(ctx, st, project); err != nil {
 			return err
 		}
@@ -413,8 +415,12 @@ func (s *Service) ListRollouts(ctx context.Context, project uuid.UUID, name stri
 			return err
 		}
 		var err error
-		rows, err = st.Rollouts(ctx, project, name, maxRolloutsListed)
+		rows, err = st.Rollouts(ctx, project, name, after, page.Limit())
 		return err
 	})
-	return rows, err
+	if err != nil {
+		return nil, nil, err
+	}
+	items, next := pagination.Trim(rows, page, func(r domain.Rollout) string { return r.ID.String() })
+	return items, next, nil
 }

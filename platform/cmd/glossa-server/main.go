@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
 	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
@@ -198,6 +199,9 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	// Audit's HTTP edge: the v0.3 history import (RFC 0006 §7.2), which
+	// answers audit_import_unavailable until Audit implements it.
+	bounded.auditAPI = auditapi.New(v0HistoryImporter(audit))
 	for _, o := range opts {
 		o(&bounded)
 	}

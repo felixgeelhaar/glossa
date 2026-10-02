@@ -74,6 +74,20 @@ func newAuditKeys(cfg config.Config) (*auditdomain.KeySet, error) {
 	return keys, nil
 }
 
+// v0HistoryImporter is Audit's import of v0.3's history (RFC 0006 §7.2).
+// The route and the use case were built in parallel against
+// app.V0HistoryImporter and meet here; the assertion below makes a
+// service that stops implementing it a build failure, not a route that
+// quietly answers `audit_import_unavailable`. Nil only without Audit.
+var _ auditapp.V0HistoryImporter = (*auditapp.Service)(nil)
+
+func v0HistoryImporter(svc *auditapp.Service) auditapp.V0HistoryImporter {
+	if svc == nil {
+		return nil
+	}
+	return svc
+}
+
 // auditBackfillRetry is how long the audit backfill waits after a
 // failure.
 const auditBackfillRetry = time.Minute

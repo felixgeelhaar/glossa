@@ -1655,10 +1655,29 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change an environment's eligibility policy
+         * Change an environment's eligibility policy or approval requirement
          * @description The policy decides what the next publish ships and which
          *     releases may be promoted here; the release served keeps serving.
-         *     Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+         *
+         *     `approval` requires every publish and promote into the
+         *     environment to be approved by `n` distinct people of `from`, none
+         *     of them the requester (RFC 0006 §5.1): such a move answers `202`
+         *     with a release request and moves no pointer. `clear_approval`
+         *     switches the requirement off; leaving both out keeps it as it
+         *     is. Changing who must approve is governance, not publishing, so
+         *     it also needs `workflows.manage` (owner and admin by default). A
+         *     request already pending keeps showing the requirement it was made
+         *     under; its deploy must also meet the environment's requirement of
+         *     the moment. Policy and approval change together, under one
+         *     `If-Match`.
+         *
+         *     Needs `releases.publish`. Problem codes: `invalid_policy`,
+         *     `invalid_request` (400: `approval` together with
+         *     `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+         *     exactly one of `member`, `role` or `group`, or
+         *     `distinct_from_requester` not true — self-approval is not
+         *     offered), `approval_on_branch` (422: a branch environment's
+         *     policy is fixed).
          */
         patch: operations["updateEnvironment"];
         trace?: never;
@@ -1699,10 +1718,20 @@ export interface paths {
          *     `policy_not_met` and can be overridden with `force` and a
          *     `force_reason`, which the deployment records.
          *
+         *     An environment with an `approval` requirement holds the promote
+         *     as a release request: the answer is `202` with the request, no
+         *     pointer moves, and the release is deployed once the requirement
+         *     is met (see `release-requests`). A forced promote waits too:
+         *     `force` overrides the completeness requirement, never the
+         *     approval. A promote into an environment with an active staged
+         *     rollout is refused (`rollout_active`): it would replace the
+         *     stable side under installations the rollout compares with it;
+         *     complete or abort the rollout first.
+         *
          *     Needs `releases.publish`. Problem codes: `force_reason_required`,
          *     `invalid_force_reason` (400), `release_not_found` (404),
          *     `release_ineligible`, `branch_release_not_promotable`,
-         *     `policy_not_met` (409), `storage_unavailable` (503).
+         *     `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
          */
         post: operations["promoteRelease"];
         delete?: never;
@@ -1809,6 +1838,302 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The environment's staged rollouts
+         * @description Newest first: the active one, if any, and the history of ended
+         *     ones. Needs `releases.read`.
+         */
+        get: operations["listRollouts"];
+        put?: never;
+        /**
+         * Start serving a candidate release to a share of installations
+         * @description The environment's manifest gains a signed `rollout` member
+         *     (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+         *     salt fixed for the rollout's life; a runtime activates the
+         *     candidate when its installation's cohort falls below `percent`,
+         *     and every other installation — and every runtime that predates
+         *     rollouts — keeps the release the environment points at. The
+         *     pointer does not move until the rollout is completed.
+         *
+         *     The candidate is held to what a promote into the environment is
+         *     held to: a main-catalog release of the project the environment's
+         *     policy covers, through the completeness requirement or forced
+         *     with a `force_reason` that the completing deployment records.
+         *     The environment must already serve a release with the same
+         *     source locale, and may have one active rollout at a time. A
+         *     rollout ends by itself only at `max_duration_seconds` (default 14 days),
+         *     when it is aborted. An environment that requires release
+         *     approvals refuses rollouts (`rollout_needs_approval`) until a
+         *     release request can carry one; publish or promote there instead.
+         *
+         *     Needs `releases.publish`. Problem codes: `invalid_percent`,
+         *     `invalid_max_duration`, `force_reason_required`,
+         *     `invalid_force_reason`, `invalid_idempotency_key` (400),
+         *     `release_not_found` (404), `rollout_active`,
+         *     `rollout_no_stable`, `rollout_candidate_served`,
+         *     `rollout_branch_environment`, `rollout_source_locale`,
+         *     `rollout_needs_approval`, `release_ineligible`,
+         *     `branch_release_not_promotable`, `policy_not_met` (409),
+         *     `idempotency_key_reused` (422), `storage_unavailable` (503).
+         */
+        post: operations["startRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A rollout
+         * @description Needs `releases.read`.
+         */
+        get: operations["getRollout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the share of installations in the candidate
+         * @description Any percent may follow any other, down as well as up (RFC 0006
+         *     §15 Q5); the salt stays, so the installations in the candidate
+         *     at a lower percent are among those at a higher one. Advancing
+         *     needs no approval. Needs `releases.publish`. Problem codes:
+         *     `invalid_percent` (400), `rollout_ended` (409).
+         */
+        patch: operations["advanceRollout"];
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the candidate the environment's release
+         * @description The pointer moves to the candidate as a promote moves it — the
+         *     deployment records the force the rollout started with, if any —
+         *     and the manifest drops `rollout`. The completeness requirement
+         *     is not asked again: it was asked when the rollout started, about
+         *     the same immutable release. Completing an ended rollout is
+         *     `rollout_ended`. Needs `releases.publish`. Problem codes:
+         *     `rollout_ended` (409), `storage_unavailable` (503).
+         */
+        post: operations["completeRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the rollout and keep the environment's release
+         * @description The manifest drops `rollout` and every installation returns to
+         *     the release the environment points at on its next refresh.
+         *     Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+         *     A rollback of the environment aborts its rollout too. Needs
+         *     `releases.publish`. Problem codes: `rollout_ended` (409).
+         */
+        post: operations["abortRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's release requests
+         * @description Newest first, optionally in one `environment` and one `state`.
+         *     Needs `releases.read`.
+         */
+        get: operations["listReleaseRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A release request
+         * @description What it would deploy, where, who asked, the requirement its
+         *     approvers were asked for, what the completeness requirement said
+         *     when it was made, and whether the requester forced it and why.
+         *     Needs `releases.read`.
+         */
+        get: operations["getReleaseRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant or deny a release request
+         * @description A person's decision on the request's current approval — the one
+         *     the project's release-approval workflow asked for — recorded as
+         *     `POST …/approvals/{approval}/decisions` records it. Once enough
+         *     distinct people other than the requester have granted it, the
+         *     workflow deploys the release as the last of them: Release checks
+         *     the requirement itself, runs the completeness requirement again
+         *     and moves the pointer, and the edge serves it within seconds. A
+         *     denial closes the request; nothing moves.
+         *
+         *     Human-only: an API token or an MCP agent is refused
+         *     (`person_required`, 403) — no scope grants `approvals.decide`.
+         *     The caller needs `approvals.decide` in the request's environment,
+         *     must be of the requirement's party (`not_eligible`, 403), and
+         *     must not be the requester (`own_text`, 403: four-eyes). Problem
+         *     codes: `approval_not_requested` (409: the workflow has not asked
+         *     for the approval yet; retry shortly), `release_request_closed`
+         *     (409: deployed, denied, withdrawn or refused), `approval_closed`,
+         *     `approval_superseded` (409), `invalid_approval` (422: a reason
+         *     over 2,000 characters).
+         */
+        post: operations["decideReleaseRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a pending release request back
+         * @description Its requester, or anyone who may publish to the project. No
+         *     pointer moves. A newer publish or promote into the same
+         *     environment withdraws the pending request by itself. Needs
+         *     `releases.publish`. Problem codes: `invalid_withdraw_reason`
+         *     (400), `release_request_closed` (409).
+         */
+        post: operations["withdrawReleaseRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/releases": {
         parameters: {
             query?: never;
@@ -1847,10 +2172,22 @@ export interface paths {
          *     no reason is `force_reason_required` and a reason with no
          *     override is `invalid_force_reason`.
          *
+         *     An environment with an `approval` requirement holds the publish
+         *     as a release request: the release is built and recorded, but the
+         *     answer is `202` with the release's `id` and the request, and the
+         *     environment keeps serving what it served. The release is deployed
+         *     once the requirement is met (see `release-requests`). A forced
+         *     publish waits too: `force` overrides the completeness
+         *     requirement, never the approval, and the approvers see that it
+         *     was forced and why. A retry with the same `Idempotency-Key`
+         *     answers the same request. A publish into an environment with an
+         *     active staged rollout is refused (`rollout_active`); complete or
+         *     abort the rollout first.
+         *
          *     Needs `releases.publish`. Problem codes: `invalid_environment`,
          *     `invalid_note`, `force_reason_required`, `invalid_force_reason`
-         *     (400), `policy_not_met` (409), `not_releasable` (422),
-         *     `storage_unavailable` (503).
+         *     (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+         *     (422), `storage_unavailable` (503).
          */
         post: operations["publishRelease"];
         delete?: never;
@@ -6115,6 +6452,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/audit-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record v0.3's history as imported audit entries
+         * @description `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+         *     from a restored backup, in batches (RFC 0006 §7.2). Each row
+         *     becomes an imported audit entry `v0.translation.changed` in the
+         *     tenant's audit trail, in its own chain segment marked as
+         *     imported, with actor `v0:<user id>` — never a member of this
+         *     platform — and a reference to the imported translation. History
+         *     is carried as history: nothing is replayed as a revision, and no
+         *     provenance is fabricated.
+         *
+         *     **No text.** A row carries a translation's before and after only
+         *     as SHA-256 digests of their UTF-8 bytes: an audit entry never
+         *     holds message or translation text (§6.1). The body has no member
+         *     that could carry one, and a member it does not name is ignored.
+         *
+         *     Writing the tenant's audit trail is the owner's: it needs
+         *     `audit.export`, which only an owner holds by default and no API
+         *     token scope grants, in the project. Every row is recorded under
+         *     the project in the path. Answers `audit_import_unavailable`
+         *     (503) on a server that does not run the importer. Problem codes:
+         *     `invalid_request` (400), `audit_import_unavailable` (503).
+         */
+        post: operations["importV0History"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7050,6 +7431,8 @@ export interface components {
             /** @description The branch a `branch` environment previews; absent for a standard one. */
             branch?: components["schemas"]["BranchName"];
             policy: components["schemas"]["EnvironmentPolicy"];
+            /** @description Present when a publish or promote here needs approval (RFC 0006 §5.1). */
+            approval?: components["schemas"]["EnvironmentApproval"];
             current_release_id?: components["schemas"]["Id"];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -7083,6 +7466,10 @@ export interface components {
         };
         UpdateEnvironment: {
             policy: components["schemas"]["EnvironmentPolicy"];
+            /** @description Sets the approval requirement; omitted keeps it as it is. */
+            approval?: components["schemas"]["EnvironmentApproval"];
+            /** @description Switches the approval requirement off. Not together with `approval`. */
+            clear_approval?: boolean;
         };
         Promotion: {
             release_id: components["schemas"]["Id"];
@@ -7122,6 +7509,168 @@ export interface components {
             forced: boolean;
             /** @description Why it went ahead; present exactly when `forced`. */
             force_reason?: string;
+        };
+        /**
+         * @description Exactly one of `member` (a member `id`), `role` or `group` (a
+         *     group `id` or name, lower-case) — who may approve. A vendor
+         *     delivers work and does not sign it off, so it is not a party
+         *     here.
+         */
+        EnvironmentApprovalParty: {
+            member?: string;
+            role?: components["schemas"]["Role"];
+            group?: string;
+        };
+        /**
+         * @description `n` distinct people of `from`, none of them the requester, must
+         *     grant a publish or promote into the environment before its
+         *     pointer moves. `distinct_from_requester` is always true:
+         *     self-approval is not offered (RFC 0006 §15 q6).
+         */
+        EnvironmentApproval: {
+            n: number;
+            from: components["schemas"]["EnvironmentApprovalParty"];
+            distinct_from_requester: boolean;
+        };
+        /**
+         * @description `pending` waits for approvals; the others are final. `refused`:
+         *     approved, but the completeness requirement, run again at deploy
+         *     time, refused it — `reason` says why.
+         * @enum {string}
+         */
+        ReleaseRequestState: "pending" | "deployed" | "denied" | "withdrawn" | "refused";
+        /** @description What the environment's completeness requirement said when the request was made. */
+        GateVerdict: {
+            met: boolean;
+            /** @description What the requirement asked for and the release lacks; absent when met. */
+            unmet?: string[];
+        };
+        ReleaseRequest: {
+            id: components["schemas"]["Id"];
+            environment: components["schemas"]["EnvironmentName"];
+            release_id: components["schemas"]["Id"];
+            /**
+             * @description What the deploy records.
+             * @enum {string}
+             */
+            action: "publish" | "promote";
+            /** @description Who asked (`person:…`, `token:…`). They never count toward the approval. */
+            requester: string;
+            approval: components["schemas"]["EnvironmentApproval"];
+            gate: components["schemas"]["GateVerdict"];
+            /**
+             * @description The requester overrode the completeness requirement. Force
+             *     overrides the gate, never the approval: the approvers see it.
+             */
+            forced: boolean;
+            /** @description Why; present exactly when `forced`. */
+            force_reason?: string;
+            state: components["schemas"]["ReleaseRequestState"];
+            /** @description Who closed it: the last approver, the denier, or who withdrew it. */
+            decided_by?: string;
+            decided_at?: components["schemas"]["Timestamp"];
+            /** @description Why it was refused or withdrawn. */
+            reason?: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        ReleaseRequestList: {
+            items: components["schemas"]["ReleaseRequest"][];
+            next_page_token?: string;
+        };
+        /** @description A publish or promote held for approval. No pointer moved. */
+        ReleaseHeld: {
+            /** @description The release the request would deploy: the one just recorded by a publish, or the one a promote named. */
+            id: components["schemas"]["Id"];
+            release_request_id: components["schemas"]["Id"];
+            release_request: components["schemas"]["ReleaseRequest"];
+        };
+        ReleaseRequestWithdrawal: {
+            reason?: string;
+        };
+        Rollout: {
+            id: components["schemas"]["Id"];
+            environment: components["schemas"]["EnvironmentName"];
+            /** @description The candidate. */
+            release_id: components["schemas"]["Id"];
+            /** @description What the environment served when the rollout started. */
+            stable_release_id: components["schemas"]["Id"];
+            percent: number;
+            /** @enum {string} */
+            status: "active" | "completed" | "aborted";
+            /**
+             * @description How an ended rollout ended.
+             * @enum {string}
+             */
+            end?: "completed" | "aborted" | "expired" | "rolled_back";
+            max_duration_seconds: number;
+            expires_at: components["schemas"]["Timestamp"];
+            /** @description The candidate was started past the completeness requirement. */
+            forced: boolean;
+            /** @description Why; present exactly when `forced`. */
+            force_reason?: string;
+            started_by: string;
+            started_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            ended_by?: string;
+            ended_at?: components["schemas"]["Timestamp"];
+        };
+        RolloutList: {
+            items: components["schemas"]["Rollout"][];
+            next_page_token?: string;
+        };
+        StartRollout: {
+            release_id: components["schemas"]["Id"];
+            /** @description The share of installations in the candidate, 0–100 (`invalid_percent`). */
+            percent: number;
+            /**
+             * @description When the rollout is aborted unless a person ended it first:
+             *     one hour to 90 days (`invalid_max_duration`); 14 days when
+             *     omitted.
+             */
+            max_duration_seconds?: number;
+            /**
+             * @description Start although the environment's completeness requirement
+             *     refuses the candidate (`policy_not_met`). It needs a
+             *     `force_reason`, which the completing deployment records.
+             */
+            force?: boolean;
+            /** @description Required with `force` (`force_reason_required`) and refused without it (`invalid_force_reason`). */
+            force_reason?: string;
+        };
+        AdvanceRollout: {
+            /** @description 0–100 (`invalid_percent`). */
+            percent: number;
+        };
+        /**
+         * @description One row of v0.3's `audit_log`. No text: the translation's before
+         *     and after are SHA-256 digests of their UTF-8 bytes.
+         */
+        V0HistoryEntry: {
+            /** @description v0.3's `audit_log` id: the idempotency key. */
+            v0_id: string;
+            /** @description As the plan names it (`v0.translation.changed`). */
+            action: string;
+            /** @description `v0:<uuid>`, `v0:ai:<label>`, `v0:system:<label>` or `v0:unknown`; never a member of this platform. */
+            actor: string;
+            occurred_at: components["schemas"]["Timestamp"];
+            /** @description The translation's message, when the row still resolves to one. */
+            key?: components["schemas"]["MessageKey"];
+            locale?: components["schemas"]["Locale"];
+            /** @description Why the row resolves to no translation. */
+            unresolved?: string;
+            before_sha256?: string;
+            after_sha256?: string;
+        };
+        V0HistoryImport: {
+            /** @description The dump the rows were read from, as the restore marker names it. */
+            restore: string;
+            restore_sha256: string;
+            entries: components["schemas"]["V0HistoryEntry"][];
+        };
+        V0HistoryReport: {
+            recorded: number;
+            /** @description Rows an earlier import recorded already (same `v0_id`). */
+            existing: number;
         };
         DeploymentList: {
             items: components["schemas"]["Deployment"][];
@@ -10367,6 +10916,10 @@ export interface components {
         EnvironmentPath: components["schemas"]["EnvironmentName"];
         /** @description A release `id`. */
         ReleasePath: components["schemas"]["Id"];
+        /** @description A release request `id`. */
+        ReleaseRequestPath: components["schemas"]["Id"];
+        /** @description A rollout `id`. */
+        RolloutPath: components["schemas"]["Id"];
         /** @description A passkey `id` (its credential ID, base64url). */
         PasskeyPath: string;
         /** @description A delivery key `id` (not the key itself). */
@@ -13091,6 +13644,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
             428: components["responses"]["PreconditionRequired"];
         };
     };
@@ -13122,6 +13676,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Environment"];
+                };
+            };
+            /**
+             * @description Held for approval: a release request was made and no pointer
+             *     moved. `Location` is the request.
+             */
+            202: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseHeld"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -13234,6 +13801,378 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listRollouts: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of rollouts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRollout"];
+            };
+        };
+        responses: {
+            /** @description The rollout, active. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRollout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    advanceRollout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceRollout"];
+            };
+        };
+        responses: {
+            /** @description The rollout. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    completeRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout, completed. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    abortRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout, aborted. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listReleaseRequests: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                environment?: components["schemas"]["EnvironmentName"];
+                state?: components["schemas"]["ReleaseRequestState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of release requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequestList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    decideReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description The approval with the decision recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    withdrawReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequestWithdrawal"];
+            };
+        };
+        responses: {
+            /** @description The release request, withdrawn. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listReleases: {
         parameters: {
             query?: {
@@ -13296,6 +14235,20 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Release"];
+                };
+            };
+            /**
+             * @description Held for approval: the release was recorded and a release
+             *     request made; no pointer moved. `Location` is the request.
+             */
+            202: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseHeld"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -18581,6 +19534,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    importV0History: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["V0HistoryImport"];
+            };
+        };
+        responses: {
+            /** @description What the import recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["V0HistoryReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

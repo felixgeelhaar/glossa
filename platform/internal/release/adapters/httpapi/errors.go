@@ -31,9 +31,24 @@ var problems = []struct {
 	{domain.ErrBranchReleaseNotPromotable, 409, "branch_release_not_promotable", ""},
 	{domain.ErrTooManyBranches, 409, "too_many_branches", ""},
 	{domain.ErrFixedPolicy, 409, "fixed_policy", ""},
-	// A publish or promote into an environment with an active staged
-	// rollout (RFC 0006 §5.2). The rollout endpoints arrive in M5 wave 4.
+	// Staged rollouts (RFC 0006 §5.2). rollout_active is also a publish
+	// or promote into an environment with an active rollout.
 	{domain.ErrRolloutActive, 409, "rollout_active", ""},
+	{domain.ErrRolloutEnded, 409, "rollout_ended", ""},
+	{domain.ErrRolloutNoStable, 409, "rollout_no_stable", ""},
+	{domain.ErrRolloutCandidateServed, 409, "rollout_candidate_served", ""},
+	{domain.ErrRolloutBranchEnvironment, 409, "rollout_branch_environment", ""},
+	{domain.ErrRolloutSourceLocale, 409, "rollout_source_locale", ""},
+	{domain.ErrRolloutNeedsApproval, 409, "rollout_needs_approval", ""},
+	{domain.ErrInvalidPercent, 400, "invalid_percent", ""},
+	{domain.ErrInvalidMaxDuration, 400, "invalid_max_duration", ""},
+	// Release approvals (RFC 0006 §5.1).
+	{domain.ErrInvalidApproval, 422, "invalid_approval", ""},
+	{domain.ErrApprovalOnBranch, 422, "approval_on_branch", ""},
+	{domain.ErrRequestClosed, 409, "release_request_closed", ""},
+	{domain.ErrApprovalNotMet, 409, "approval_not_met", ""},
+	{domain.ErrInvalidWithdrawReason, 400, "invalid_withdraw_reason", ""},
+	{app.ErrApprovalsUnavailable, 503, "approvals_unavailable", ""},
 	{app.ErrPreconditionFailed, 412, problem.CodePreconditionFailed, "the resource changed; fetch it and retry with its new ETag"},
 	{app.ErrIdempotencyReuse, 422, "idempotency_key_reused", "this Idempotency-Key was used for a different request"},
 	{domain.ErrNotReleasable, 422, "not_releasable", ""},

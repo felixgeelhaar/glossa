@@ -165,8 +165,9 @@ type Store interface {
 	// ActiveRollout is the environment's active rollout (ErrNotFound if
 	// none); lock it under the environment's lock only.
 	ActiveRollout(ctx context.Context, project uuid.UUID, environment string, lock bool) (domain.Rollout, error)
-	// Rollouts lists an environment's rollouts, newest first.
-	Rollouts(ctx context.Context, project uuid.UUID, environment string, limit int) ([]domain.Rollout, error)
+	// Rollouts lists an environment's rollouts, newest first, after the
+	// rollout after (none: from the newest).
+	Rollouts(ctx context.Context, project uuid.UUID, environment string, after uuid.UUID, limit int) ([]domain.Rollout, error)
 	// UpdateRollout saves r if the stored version is expected
 	// (ErrStaleVersion otherwise).
 	UpdateRollout(ctx context.Context, r domain.Rollout, expected int) error

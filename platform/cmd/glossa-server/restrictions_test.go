@@ -301,6 +301,31 @@ var restrictions = map[string]restriction{
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances":                                 pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}":             pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions": pathDenied,
+	// Release requests and rollouts (RFC 0006 §5): Release's, under
+	// {project}. Reading takes releases.read in the project
+	// (checkProject → RequireIn); withdrawing and every rollout change
+	// releases.publish there. Deciding is Workflow's
+	// (DecideReleaseRequest): approvals.decide in the request's
+	// environment (RequireInEnvironment, which checks the project), and
+	// human-only. An assigned member holds none of them: a release
+	// ships every unit, not just theirs, and a vendor does not sign it
+	// off.
+	"GET /v1/tenants/{tenant}/projects/{project}/release-requests":                                          pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}":                        pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals":             pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal":            pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts":                       pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts":                      pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}":             pathDenied,
+	"PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}":           pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion": pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort":      pathDenied,
+	// The v0.3 history import (RFC 0006 §7.2) writes the tenant's audit
+	// trail under the project in the path: audit.export in the project
+	// (RequireIn), which only an owner holds by default and no token
+	// scope grants. An assigned member is refused it like every
+	// permission but tenant.read.
+	"POST /v1/tenants/{tenant}/projects/{project}/audit-imports": pathDenied,
 
 	"POST /v1/tenants/{tenant}/projects":                                                            unscoped,
 	"POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews":                                 pathDenied,

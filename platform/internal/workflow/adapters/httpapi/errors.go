@@ -23,15 +23,18 @@ const (
 	codeInstancesUnavailable problem.Code = "workflow_instances_unavailable"
 	codeInvalidQuery         problem.Code = "invalid_query"
 	// Assignments and approvals (RFC 0006 §3).
-	codeInvalidAssignment        problem.Code = "invalid_assignment"
-	codeInvalidApproval          problem.Code = "invalid_approval"
-	codeUnknownParty             problem.Code = "unknown_party"
-	codeAssignmentState          problem.Code = "assignment_state"
-	codeApprovalClosed           problem.Code = "approval_closed"
-	codeApprovalSuperseded       problem.Code = "approval_superseded"
-	codePersonRequired           problem.Code = "person_required"
-	codeNotEligible              problem.Code = "not_eligible"
-	codeOwnText                  problem.Code = "own_text"
+	codeInvalidAssignment  problem.Code = "invalid_assignment"
+	codeInvalidApproval    problem.Code = "invalid_approval"
+	codeUnknownParty       problem.Code = "unknown_party"
+	codeAssignmentState    problem.Code = "assignment_state"
+	codeApprovalClosed     problem.Code = "approval_closed"
+	codeApprovalSuperseded problem.Code = "approval_superseded"
+	codePersonRequired     problem.Code = "person_required"
+	codeNotEligible        problem.Code = "not_eligible"
+	codeOwnText            problem.Code = "own_text"
+	// Release requests (RFC 0006 §5.1).
+	codeApprovalNotRequested     problem.Code = "approval_not_requested"
+	codeReleaseRequestClosed     problem.Code = "release_request_closed"
 	detailInvalidWorkflow                     = "the workflow definition does not compile or lint; see findings"
 	detailStaleDefinitionVersion              = "the definition has a newer version; read it and retry with its ETag"
 )
@@ -68,6 +71,8 @@ var problems = []struct {
 	{domain.ErrAssignmentState, http.StatusConflict, codeAssignmentState, ""},
 	{domain.ErrApprovalClosed, http.StatusConflict, codeApprovalClosed, ""},
 	{app.ErrSuperseded, http.StatusConflict, codeApprovalSuperseded, ""},
+	{app.ErrApprovalNotRequested, http.StatusConflict, codeApprovalNotRequested, ""},
+	{app.ErrReleaseRequestClosed, http.StatusConflict, codeReleaseRequestClosed, ""},
 	{app.ErrIdempotencyReuse, http.StatusUnprocessableEntity, "idempotency_key_reused", ""},
 	{idempotency.ErrInvalidKey, http.StatusBadRequest, "invalid_idempotency_key", ""},
 }

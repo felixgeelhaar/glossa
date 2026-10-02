@@ -75,7 +75,9 @@ func releasePublish(r Releases) app.Tool {
 			"ship and whether the catalog is complete enough to publish; a project that does not " +
 			"meet that requirement is refused with policy_not_met, and overriding it takes a " +
 			"person and a recorded reason — there is no way to force it from here. Run check_run " +
-			"first to see what would fail. Pass idempotency_key and repeat it if the call times " +
+			"first to see what would fail. In an environment that requires release approval the " +
+			"release is recorded but not deployed: the answer carries `held` with the release " +
+			"request, and only people can approve it. Pass idempotency_key and repeat it if the call times " +
 			"out, so a retry returns the release the first attempt made instead of publishing a " +
 			"second one. Needs a publish session on a token carrying the publish scope.",
 		Toolset:     domain.ToolsetPublish,
@@ -102,6 +104,10 @@ func releasePublish(r Releases) app.Tool {
 			})
 			if err != nil {
 				return app.Result{}, err
+			}
+			if out.Held != nil {
+				return app.Result{Explanation: heldExplanation(out.Held, out.Release, "published"), Data: out,
+					Affected: []string{out.Release.ID, out.Held.RequestID}}, nil
 			}
 			what := "was published to"
 			if out.Replayed {
@@ -149,7 +155,9 @@ func releasePromote(r Releases) app.Tool {
 			"manifest is written, so what production serves is exactly what was tested. The " +
 			"target environment's policy must cover the one the release was built under, and a " +
 			"branch release is never promotable. Promoting the release an environment already " +
-			"serves changes nothing and is not an error. Read explain_delivery first to see what " +
+			"serves changes nothing and is not an error. In an environment that requires release " +
+			"approval nothing moves: the answer carries `held` with the release request, and only " +
+			"people can approve it. Read explain_delivery first to see what " +
 			"the environment serves now. Needs a publish session on a token carrying the publish " +
 			"scope.",
 		Toolset:     domain.ToolsetPublish,
@@ -178,6 +186,10 @@ func releasePromote(r Releases) app.Tool {
 			out, err := r.Promote(ctx, project, a.Environment, id)
 			if err != nil {
 				return app.Result{}, err
+			}
+			if out.Held != nil {
+				return app.Result{Explanation: heldExplanation(out.Held, out.Release, "promoted"), Data: out,
+					Affected: []string{out.Release.ID, out.Held.RequestID}}, nil
 			}
 			return app.Result{Explanation: moved(out, "promoted to"), Data: out, Affected: []string{out.Release.ID}}, nil
 		},
@@ -268,6 +280,16 @@ func moved(d Deployed, what string) string {
 	}
 	return fmt.Sprintf("%s was %s release %d (%s), built for %s.",
 		d.Environment, what, d.Release.Version, shortDigest(d.Release.Digest), d.Release.Environment)
+}
+
+// heldExplanation says plainly that nothing was deployed: the move waits
+// for people to approve it (RFC 0006 §5.1), and no tool can approve.
+func heldExplanation(h *Held, r Release, what string) string {
+	return fmt.Sprintf("Release %d (%s) was NOT deployed: %s requires release approval, so it was %s as release "+
+		"request %s and %s still serves what it served before. It deploys once %s other than the requester "+
+		"approve it; approving is a person's decision and no tool can make it.",
+		r.Version, shortDigest(r.Digest), h.Environment, what, h.RequestID, h.Environment,
+		plural(h.Approvals, "person", "people"))
 }
 
 // shortDigest renders a manifest digest for a sentence. The full digest

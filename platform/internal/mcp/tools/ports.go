@@ -621,21 +621,39 @@ type PublishRequest struct {
 	IdempotencyKey string
 }
 
+// Held is a publish or a promote into an environment that requires
+// release approvals (RFC 0006 §5.1): it became a release request and no
+// pointer moved. The release is deployed only once enough people other
+// than the requester approve it — people, never an agent: there is no
+// approve tool.
+type Held struct {
+	RequestID   string `json:"release_request_id"`
+	Environment string `json:"environment"`
+	// Approvals is how many distinct people must approve.
+	Approvals int `json:"approvals_required"`
+}
+
 // Published is a publish's result.
 type Published struct {
 	Release Release `json:"release"`
 	// Replayed says this call returned an earlier request's release,
 	// because it carried the same idempotency key.
 	Replayed bool `json:"replayed"`
+	// Held is set when the release was recorded but not deployed: it
+	// waits for approval, and the environment still serves what it did.
+	Held *Held `json:"held,omitempty"`
 }
 
-// Deployed is an environment after a pointer moved.
+// Deployed is an environment after a pointer moved — or, when Held is
+// set, after a promote that moved nothing and waits for approval.
 type Deployed struct {
 	Environment string  `json:"environment"`
 	Release     Release `json:"release"`
 	// Moved is false when the environment already served that release,
-	// which is not an error.
+	// which is not an error, and whenever the promote was held.
 	Moved bool `json:"moved"`
+	// Held is set when the promote became a release request.
+	Held *Held `json:"held,omitempty"`
 }
 
 // Releases is Release's application service, as MCP publishes through

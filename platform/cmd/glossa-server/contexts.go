@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
@@ -126,6 +127,10 @@ type contexts struct {
 	// read side of instances.
 	workflow    *workflowapp.Service
 	workflowAPI *workflowapi.API
+	// auditAPI is Audit's HTTP edge (RFC 0006 §6): the v0.3 history
+	// import. Audit is built before the other contexts (Identity records
+	// through it), so main sets this once both exist.
+	auditAPI *auditapi.API
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
