@@ -171,7 +171,8 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `export --format xliff\|json\|tmx\|tbx` | Exports through the server's export jobs and downloads the file, checked against its SHA-256. `-o`, `--unzip`, `--job` (see *Import and export*). |
 | `jobs` | Import and export jobs: `list [--direction --state --all-projects --limit]` (the project's and the workspace's TMX and TBX jobs), `show <id> [--wait] [--all-results]`, `cancel <id>`. |
 | `import --from v0` | Imports a Glossa v0.3 project (below). |
-| `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|scope\|revoke]` (see *Release*). |
+| `release` | `publish [--dry-run]`, `list`, `show`, `diff`, `promote`, `rollback`, `environments`, `keys [list\|create\|scope\|revoke]`, `requests [list\|show\|withdraw]` (release requests: publishes and promotes held for approval), `rollout start\|status\|list\|advance\|complete\|abort` (staged rollouts) (see *Release*, *Release approvals* and *Staged rollouts*). A publish or promote held for approval exits 5. |
+| `approve`, `deny` | A person's decision (RFC 0006 §3.2, §5.1): `approve` with no argument lists what waits for approval in the project — pending release requests and translation approvals (`--environment`, `--locale`, `--message`); `approve <ref> [--reason R]` grants, `deny <ref> --reason R` denies. `<ref>` is a release request's ID, an approval's ID, or `key@locale` for a translation unit. **Human-only**: an API token is refused (`person_required`, exit 3), and the message says to sign in with `glossa login --device` (see *Release approvals*). |
 | `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
@@ -387,9 +388,10 @@ layer a locale cannot run never reads as a clean one (intent §41).
 |---|---|
 | 0 | OK |
 | 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `import --from v0 --verify` (a rendering differs other than by v0.3's known apostrophe defect: `renderings_differ`), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`), `deny` without `--reason` (`reason_required`), a decision or withdrawal the server refuses as invalid (`invalid_approval`, `invalid_withdraw_reason`), a rollout start or advance the server refuses as invalid (`invalid_percent`, `invalid_max_duration`, `force_reason_required`, `invalid_force_reason`, `invalid_idempotency_key`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`, `policy_not_met`, `branch_release_not_promotable`, `rollout_active`, `rollout_no_stable`, `rollout_candidate_served`, `rollout_branch_environment`, `rollout_source_locale`, `rollout_needs_approval`, `rollout_ended`, `no_active_rollout`, `precondition_failed` on a rollout someone changed since it was read, `person_required` (an API token deciding an approval), `own_text`, `not_eligible`, `approval_not_requested`, `release_request_closed`, `approval_closed`, `approval_superseded`, `approval_not_found`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
+| 5 | Held for approval (`release_held`): `release publish` or `release promote` into an environment that requires approvals went through, but nothing was deployed — the release is recorded and a release request waits for people to approve it (`glossa approve <request>`). The `--json` document is the command's own, with `held: true` and the `release_request`, not an error |
 
 Errors print what happened, where, why and how to fix it:
 
@@ -446,12 +448,15 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
 | `glossa.cli.jobs.show/v1` | `{job: Job, results: [Result], results_filter}` |
 | `glossa.cli.jobs.cancel/v1` | `{job: Job}` |
-| `glossa.cli.release.publish/v1` | `{replayed, idempotency_key, release: Release}` |
+| `glossa.cli.release.publish/v1` | `{replayed, idempotency_key, release: Release, held, release_request?: ReleaseRequest}` — `held: true` (exit 5) when the environment requires approvals: the release was recorded, `release_request` waits for them, nothing was deployed |
 | `glossa.cli.release.preview/v1` | `{environment, policy: {states, include_outdated}, base: Ref \| null, releasable, problems: [{code, detail, key?, locale?}], release: {source_locale, locales: [code], manifest_digest, counts} \| null, changes: [{locale, added, changed, removed}], identical}` (`release publish --dry-run`) |
 | `glossa.cli.release.list/v1` | `{releases: [Release & {serving: [environment]}]}` (newest first) |
 | `glossa.cli.release.show/v1` | `{release: Release, serving: [environment]}` |
 | `glossa.cli.release.diff/v1` | `{release: Ref, base: Ref \| null, locales: [{locale, added, changed, removed}], identical}` |
-| `glossa.cli.release.promote/v1`, `glossa.cli.release.rollback/v1` | `{environment: Environment, previous: Ref \| null}` |
+| `glossa.cli.release.promote/v1`, `glossa.cli.release.rollback/v1` | `{environment: Environment, previous: Ref \| null, held, release?: Ref, release_request?: ReleaseRequest}` — a held promote (exit 5) leaves `environment` as it was; `release` is what `release_request` would deploy |
+| `glossa.cli.release.requests/v1` | `release requests`, with `action` naming it: `list` `{environment?, state? (absent: all), release_requests: [ReleaseRequest & {release: Ref}]}` (newest first); `show` `{release_request: ReleaseRequest & {release: Ref}, approval: Approval \| null}` (null: not asked yet, or a credential that can't read workflows); `withdraw` `{release_request}` |
+| `glossa.cli.release.rollout/v1` | `release rollout`, with `action` naming it: `start`, `status`, `advance`, `complete`, `abort` `{environment, replayed? (start), idempotency_key? (start), etag (the rollout's version, for --if-match), previous_percent? (advance), rollout: Rollout \| null}` (`status` with no active rollout: `null`); `list` `{environment, rollouts: [Rollout]}` (newest first) |
+| `glossa.cli.approve/v1` | `approve`, `deny`: `list` `{project_id, release_requests: [ReleaseRequest & {release: Ref}], approvals: [Approval]}` (pending only: release requests newest first, translation approvals oldest first); `approve`, `deny` `{kind (release_request \| translation), release_request?: ReleaseRequest & {release: Ref} (read again after the decision: `deployed` once the last approval deployed it), approval: Approval}` |
 | `glossa.cli.release.environments/v1` | `{environments: [Environment]}` |
 | `glossa.cli.release.keys/v1` | `{keys: [DeliveryKey]}` |
 | `glossa.cli.release.key/v1` | `{action: created \| scoped \| revoked, key: DeliveryKey}` |
@@ -491,6 +496,9 @@ The release shapes share:
 - `Ref`: `{id, version}`
 - `Environment`: `{name, release: Ref | null, policy: {states, include_outdated}, updated_at}`
 - `DeliveryKey`: `{id, name, key, scope: {environments, branches}, created_at, revoked_at?}`
+- `ReleaseRequest`: `{id, environment, release_id, action (publish \| promote), requester, approval: {n, from: {member? \| role? \| group?}, distinct_from_requester}, gate: {met, unmet?}, forced, force_reason?, state (pending \| deployed \| denied \| withdrawn \| refused), decided_by?, decided_at?, reason?, created_at}`
+- `Approval`: `{id, project_id, instance_id?, subject (translation \| release_request), subject_id (the message, or the release request), message? (the key, when it could be read), locale?, required, granted (distinct grants so far), eligible: {kind, id?, role?}, distinct_from_author, due_at?, state (pending \| granted \| denied), decisions: [{principal, decision (granted \| denied), reason?, at}], created_by, created_at, closed_at?}`
+- `Rollout`: `{id, environment, release_id (the candidate), stable_release_id, release: Ref, stable_release: Ref, percent, status (active \| completed \| aborted), end? (completed \| aborted \| expired \| rolled_back), max_duration_seconds, expires_at, forced, force_reason?, started_by, started_at, updated_at, ended_by?, ended_at?}`
 
 The Quality shapes share:
 
@@ -876,6 +884,116 @@ v6 → v7 (0191… → 0192…)
   another environment than theirs, so the bundle is written for one:
   `latest` is what `--environment` serves now; a release ID or `v<N>`
   defaults to the environment it was published to.
+
+### Release approvals
+
+An environment can require approvals (RFC 0006 §5.1): `n` distinct
+people of a member, role or group, never the requester. A `publish` or
+`promote` into it is **held**: the release is built and recorded, a
+release request is made, and the environment keeps serving what it
+served. The command says so, names the request and the next step, and
+exits **5** — a CI step never reads "held" as "deployed".
+
+```text
+$ glossa release publish --environment production
+! Held for approval: v8 was recorded but not deployed to production (0193…)
+  release request rr_7Kq…: production keeps serving v7 until 2 people of role reviewer, none of them the requester, approve
+  next: someone else runs `glossa approve rr_7Kq…`, signed in as a person (`glossa login --device`), or approves it in Studio
+  nothing was deployed; `glossa release requests show rr_7Kq…` follows it
+```
+
+```sh
+glossa approve                                   # what waits: pending release requests and translation approvals
+glossa approve rr_7Kq… --reason "copy checked"   # grant; the last grant deploys
+glossa deny rr_7Kq… --reason "de is wrong"       # deny: the request closes, nothing moves
+glossa approve checkout.pay@de                   # a translation unit's pending approval
+glossa release requests [--environment production] [--state pending|deployed|denied|withdrawn|refused|all]
+glossa release requests show rr_7Kq…             # the requirement, the gate, force and why, every decision
+glossa release requests withdraw rr_7Kq… [--reason R]
+```
+
+- **Approvals need a person.** Deciding is human-only: an API token or
+  an agent is refused (`person_required`, exit 3) and the CLI says
+  `approvals need a person: sign in with glossa login --device` rather
+  than "forbidden". The CLI sends whatever credential it holds; signed
+  in with `glossa login --device` it decides as you. Studio's approvals
+  inbox is the other way.
+- **Four-eyes.** The requester never approves their own request, and an
+  author never approves their own text (`own_text`); a person who isn't
+  of the party asked is `not_eligible`. One person's repeated grant
+  counts once.
+- **When the last grant lands**, the release-approval workflow deploys
+  the release as that approver: `approve` reads the request again and
+  says `production now serves v8`, or that the workflow is deploying it,
+  or — `refused` — that the completeness requirement, run again at
+  deploy time, said no. A forced publish waits for approvals too; the
+  approvers see that it was forced and why.
+- Right after a publish the workflow may not have asked yet
+  (`approval_not_requested`): retry in a few seconds. A request that is
+  no longer pending is `release_request_closed`; a newer publish or
+  promote into the environment withdraws the pending one.
+- `<ref>` is a release request's ID, an approval's ID (one on a release
+  request decides the request), or `key@locale` for the newest pending
+  approval of a translation unit. `approve` lists all pending items of
+  the project; the server decides who may decide, so the list is not
+  narrowed to you.
+- A **rollback never needs approval** and is never delayed.
+
+### Staged rollouts
+
+A rollout serves a candidate release to a share of installations,
+chosen by the runtimes from the signed manifest (RFC 0006 §5.2,
+runtimes/SPEC.md §1.4); every other installation, and every runtime
+that predates rollouts, keeps the release the environment points at.
+
+```sh
+glossa release rollout start --environment production --release v8 --percent 10 [--max-duration 14d] \
+  [--force --force-reason "why"] [--idempotency-key K]
+glossa release rollout status --environment production          # the active one and its etag (alias: show)
+glossa release rollout advance --environment production --percent 50
+glossa release rollout complete --environment production        # the pointer moves to the candidate
+glossa release rollout abort --environment production           # everyone back on stable at the next refresh
+glossa release rollout list --environment production [--limit N]
+```
+
+- `advance`, `complete` and `abort` act on the environment's active
+  rollout, or on the one `<id>` names (`advance ro_7Kq… --percent 50`).
+  `advance` goes down as well as up; the salt stays, so installations in
+  the candidate at the lower share stay in it at a higher one.
+- **Changes are conditional on what was read.** `advance` and `complete`
+  send `If-Match` with the rollout's ETag — the one `--if-match` names
+  (`status --json` prints it as `etag`), else the one read just before.
+  If someone changed the rollout meanwhile, the change is refused
+  (`precondition_failed`, exit 3: "the rollout changed since it was
+  read") and nothing happens; read it again and decide. `abort` sends
+  `If-Match` only with `--if-match`: an abort must never be slowed by a
+  stale tag.
+- `start` sends an `Idempotency-Key` (a new one per invocation, or
+  `--idempotency-key`); a replay reports `replayed: true`.
+  `--max-duration` is one hour to 90 days (`72h`, `14d`; default 14
+  days), after which the server aborts the rollout so a forgotten 10 %
+  doesn't become a permanent second production.
+- The candidate is held to what a promote into the environment is held
+  to: `release_ineligible`, `branch_release_not_promotable`, and
+  `policy_not_met` unless `--force --force-reason`, which the completing
+  deployment records. The environment must already serve a release
+  (`rollout_no_stable`) other than the candidate
+  (`rollout_candidate_served`) with the same source locale
+  (`rollout_source_locale`), not be a branch environment
+  (`rollout_branch_environment`), and have no other active rollout
+  (`rollout_active`). An environment that requires approvals refuses
+  rollouts (`rollout_needs_approval`) until a release request can carry
+  one: promote there and approve the request instead.
+- While a rollout is active, `publish` and `promote` into its
+  environment are refused (`rollout_active`): complete or abort it
+  first. A `rollback` is never refused; it aborts the rollout
+  (`end: rolled_back`).
+- Changing an ended rollout is `rollout_ended`; acting with none active
+  is `no_active_rollout`. Every refusal names its code, exits 2 for
+  input the server rejects (`invalid_percent`, `invalid_max_duration`,
+  `force_reason_required`, `invalid_force_reason`) and 3 otherwise.
+  Starting, advancing, completing and aborting need the `publish`
+  scope; `status` and `list` need `read`.
 
 ## Git connections
 
