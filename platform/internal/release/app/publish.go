@@ -266,8 +266,15 @@ func findEnvironment(envs []domain.Environment, name string) (domain.Environment
 
 // move points env at rel and appends the deployment to its history,
 // carrying the override that let the move past the environment's check
-// policy, if any.
+// policy, if any. An active rollout in env refuses a publish or promote
+// and is aborted by a rollback (rolloutBeforeMove).
 func (s *Service) move(ctx context.Context, st Store, env *domain.Environment, rel domain.Release, action domain.Action, by string, override domain.Override) error {
+	if env.Current == rel.ID {
+		return nil
+	}
+	if err := s.rolloutBeforeMove(ctx, st, *env, action, by); err != nil {
+		return err
+	}
 	previous, expected := env.Current, env.Version
 	if !env.Point(rel.ID, s.now()) {
 		return nil

@@ -98,6 +98,11 @@ var systemPolicies = map[string][]string{
 	// format versions only, read-only; the work runs in tenant scope.
 	"release_publish_requests": {"release_publish_requests_system_select"},
 	"release_delivery_keys":    {"release_delivery_keys_system_select"},
+	// The rollout sweep finds active rollouts past their max_duration
+	// and counts the active ones (system scope release.rollout_sweeper,
+	// RFC 0006 §5.2): ids, status and expiry only, read-only; aborting
+	// one runs in its tenant's scope.
+	"release_rollouts": {"release_rollouts_system_select"},
 	// The daily catalog.proposals job finds the tenants holding proposed
 	// messages whose branches all closed long ago (system scope
 	// catalog.proposals): branch identity and closing time, proposal

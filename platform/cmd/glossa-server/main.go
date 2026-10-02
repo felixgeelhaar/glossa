@@ -125,6 +125,9 @@ type app struct {
 	// workflowTimers raises workflow timers every minute (RFC 0006
 	// §2.3); nil where the leased periodic jobs don't run.
 	workflowTimers *scheduler.Scheduler
+	// rolloutSweep aborts staged rollouts past their max_duration
+	// (RFC 0006 §5.2); nil where the leased periodic jobs don't run.
+	rolloutSweep *scheduler.Scheduler
 	// branchPublisher publishes due branch environments; nil when the
 	// publisher is off.
 	branchPublisher *releaseapp.Publisher
@@ -214,6 +217,11 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	rolloutSweep, err := newRolloutSweep(cfg.Purge, logger, registry, pool, bounded.rolloutSweeper)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
 	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, audit, registry, tp, logger)
 	if err != nil {
 		pool.Close()
@@ -230,6 +238,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
+		rolloutSweep:    rolloutSweep,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
 		githubChecks: bounded.githubChecks, audit: audit, identity: identitySvc, shutdownTP: shutdownTP,
 	}, nil
@@ -308,12 +317,12 @@ func (a *app) run(ctx context.Context) error {
 // progress finishes first, bounded by its timeout, and gives its lease
 // back so the next replica isn't blocked.
 //
-// The workflow timer sweep runs beside it on its own one-minute
-// schedule, and is waited for with it.
+// The workflow timer sweep and the rollout sweep run beside it on
+// their own schedules, and are waited for with it.
 func (a *app) startPurger(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers} {
+	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers, a.rolloutSweep} {
 		if s == nil {
 			continue
 		}

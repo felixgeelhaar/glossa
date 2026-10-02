@@ -83,6 +83,17 @@ type Scanner interface {
 	// StaleKeyIndexes lists active keys whose index object was last
 	// written in a format older than version.
 	StaleKeyIndexes(ctx context.Context, version, limit int) ([]KeyRef, error)
+	// ExpiredRollouts lists active rollouts whose max_duration has
+	// passed at now (RFC 0006 §5.2).
+	ExpiredRollouts(ctx context.Context, now time.Time, limit int) ([]RolloutRef, error)
+	// ActiveRollouts counts the deployment's active rollouts.
+	ActiveRollouts(ctx context.Context) (int, error)
+}
+
+// RolloutRef names a rollout of a tenant's project environment.
+type RolloutRef struct {
+	EnvironmentRef
+	Rollout uuid.UUID
 }
 
 // Transactor runs units of work scoped to the tenant on ctx.
@@ -146,6 +157,19 @@ type Store interface {
 	// MarkKeyIndexed records the format the key's index object was last
 	// written in.
 	MarkKeyIndexed(ctx context.Context, id uuid.UUID, version int) error
+
+	// InsertRollout records r; false if the environment has an active
+	// rollout already, or one with r's ID exists.
+	InsertRollout(ctx context.Context, r domain.Rollout) (bool, error)
+	Rollout(ctx context.Context, project, id uuid.UUID) (domain.Rollout, error)
+	// ActiveRollout is the environment's active rollout (ErrNotFound if
+	// none); lock it under the environment's lock only.
+	ActiveRollout(ctx context.Context, project uuid.UUID, environment string, lock bool) (domain.Rollout, error)
+	// Rollouts lists an environment's rollouts, newest first.
+	Rollouts(ctx context.Context, project uuid.UUID, environment string, limit int) ([]domain.Rollout, error)
+	// UpdateRollout saves r if the stored version is expected
+	// (ErrStaleVersion otherwise).
+	UpdateRollout(ctx context.Context, r domain.Rollout, expected int) error
 
 	Publish(ctx context.Context, e outbox.Event) error
 }

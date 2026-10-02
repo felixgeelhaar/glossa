@@ -81,3 +81,26 @@ type ReleaseRelease struct {
 	CreatedAt      time.Time
 	Branch         pgtype.Text
 }
+
+type ReleaseRollout struct {
+	ID                 uuid.UUID
+	TenantID           uuid.UUID
+	ProjectID          uuid.UUID
+	Environment        string
+	CandidateReleaseID uuid.UUID
+	StableReleaseID    uuid.UUID
+	Percent            int16
+	Salt               string
+	Status             string
+	MaxDurationSeconds int64
+	ExpiresAt          time.Time
+	Forced             bool
+	ForceReason        string
+	StartedBy          string
+	StartedAt          time.Time
+	UpdatedAt          time.Time
+	Version            int32
+	EndedBy            pgtype.Text
+	EndedAt            pgtype.Timestamptz
+	EndReason          pgtype.Text
+}

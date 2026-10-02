@@ -33,16 +33,24 @@ type Manifest struct {
 	Environment string     `json:"environment"`
 	Release     ReleaseRef `json:"release"`
 	Content
-	Signatures []Signature `json:"signatures,omitempty"`
+	// Rollout is the active staged rollout, if any (SPEC §1.4). The
+	// signature covers it.
+	Rollout    *ManifestRollout `json:"rollout,omitempty"`
+	Signatures []Signature      `json:"signatures,omitempty"`
 }
 
 // Manifest returns the unsigned manifest of r as environment serves it.
 func (r Release) Manifest(environment string) Manifest {
 	return Manifest{
 		Schema: ManifestSchema, Project: r.ProjectID.String(), Environment: environment,
-		Release: ReleaseRef{ID: r.ID.String(), Version: r.Version, CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339)},
+		Release: releaseRef(r),
 		Content: r.Content,
 	}
+}
+
+// releaseRef is how a manifest names r.
+func releaseRef(r Release) ReleaseRef {
+	return ReleaseRef{ID: r.ID.String(), Version: r.Version, CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339)}
 }
 
 // Encode signs m with every key of s and returns the bytes to serve: the

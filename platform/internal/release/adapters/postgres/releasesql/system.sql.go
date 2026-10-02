@@ -12,6 +12,19 @@ import (
 	"github.com/google/uuid"
 )
 
+const countActiveRollouts = `-- name: CountActiveRollouts :one
+SELECT count(*)::integer FROM release_rollouts WHERE status = 'active'
+`
+
+// System scope release.rollout_sweeper: the glossa_release_rollouts
+// gauge (RFC 0006 §10.1).
+func (q *Queries) CountActiveRollouts(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countActiveRollouts)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listDuePublishRequests = `-- name: ListDuePublishRequests :many
 
 SELECT tenant_id, project_id, environment FROM release_publish_requests
@@ -45,6 +58,52 @@ func (q *Queries) ListDuePublishRequests(ctx context.Context, arg ListDuePublish
 	for rows.Next() {
 		var i ListDuePublishRequestsRow
 		if err := rows.Scan(&i.TenantID, &i.ProjectID, &i.Environment); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listExpiredRollouts = `-- name: ListExpiredRollouts :many
+SELECT tenant_id, project_id, environment, id FROM release_rollouts
+WHERE status = 'active' AND expires_at <= $1
+ORDER BY expires_at, id
+LIMIT $2::int
+`
+
+type ListExpiredRolloutsParams struct {
+	Now     time.Time
+	MaxRows int32
+}
+
+type ListExpiredRolloutsRow struct {
+	TenantID    uuid.UUID
+	ProjectID   uuid.UUID
+	Environment string
+	ID          uuid.UUID
+}
+
+// System scope release.rollout_sweeper: active rollouts past their
+// max_duration (RFC 0006 §5.2), which the sweep aborts.
+func (q *Queries) ListExpiredRollouts(ctx context.Context, arg ListExpiredRolloutsParams) ([]ListExpiredRolloutsRow, error) {
+	rows, err := q.db.Query(ctx, listExpiredRollouts, arg.Now, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiredRolloutsRow
+	for rows.Next() {
+		var i ListExpiredRolloutsRow
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.ProjectID,
+			&i.Environment,
+			&i.ID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

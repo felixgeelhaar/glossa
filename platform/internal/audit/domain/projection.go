@@ -88,6 +88,17 @@ var (
 		Selectors: []string{"project_id", "environment", "kind", "branch", "states", "by"},
 		By:        "by",
 	}
+	// A rollout's events carry no text: ids, the share, the state and
+	// who changed it. The salt is not in them at all: it is in the
+	// signed manifest, and an audit entry has no use for it.
+	releaseRollout = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"rollout_id", "project_id", "environment", "release_id", "stable_release_id", "percent", "previous_percent",
+			"status", "end", "max_duration_seconds", "expires_at", "forced", "by",
+		},
+		By: "by",
+	}
 	releaseDeliveryKey = Projection{
 		Project:   "project_id",
 		Selectors: []string{"key_id", "project_id", "environments", "by"},
@@ -226,6 +237,8 @@ var Projections = map[string]Projection{
 	},
 	"release.delivery_key.created": releaseDeliveryKey, "release.delivery_key.scope_changed": releaseDeliveryKey,
 	"release.delivery_key.revoked": releaseDeliveryKey,
+	"release.rollout.started":      releaseRollout, "release.rollout.advanced": releaseRollout,
+	"release.rollout.completed": releaseRollout, "release.rollout.aborted": releaseRollout,
 }
 
 var (
