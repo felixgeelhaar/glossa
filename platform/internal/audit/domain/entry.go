@@ -221,6 +221,15 @@ const CanonicalFormat = "glossa.audit.entry/1"
 // Canonical returns e's canonical encoding: the RFC 8785 (JCS) form of
 // the object above.
 func (e Entry) Canonical() ([]byte, error) {
+	out, err := jcs.Marshal(e.canonical())
+	if err != nil {
+		return nil, fmt.Errorf("%w: canonical form: %w", ErrInvalidEntry, err)
+	}
+	return out, nil
+}
+
+// canonical is the object Canonical encodes.
+func (e Entry) canonical() canonicalEntry {
 	c := canonicalEntry{
 		Format:        CanonicalFormat,
 		TenantID:      e.Tenant.String(),
@@ -243,11 +252,7 @@ func (e Entry) Canonical() ([]byte, error) {
 	if len(c.Summary) == 0 {
 		c.Summary = json.RawMessage(`{}`)
 	}
-	out, err := jcs.Marshal(c)
-	if err != nil {
-		return nil, fmt.Errorf("%w: canonical form: %w", ErrInvalidEntry, err)
-	}
-	return out, nil
+	return c
 }
 
 // ComputeHash returns sha256(prev_hash ‖ canonical(e)).
