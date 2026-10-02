@@ -54,6 +54,59 @@ func (q *Queries) AppendTransition(ctx context.Context, arg AppendTransitionPara
 	return err
 }
 
+const countInstancesByStatus = `-- name: CountInstancesByStatus :many
+SELECT status, count(*)::integer AS instances FROM workflow_instances GROUP BY status
+`
+
+type CountInstancesByStatusRow struct {
+	Status    string
+	Instances int32
+}
+
+// System scope workflow.timers: the glossa_workflow_instances gauge
+// (RFC 0006 §10.1). Reads only the status migration 0043 grants.
+func (q *Queries) CountInstancesByStatus(ctx context.Context) ([]CountInstancesByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countInstancesByStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountInstancesByStatusRow
+	for rows.Next() {
+		var i CountInstancesByStatusRow
+		if err := rows.Scan(&i.Status, &i.Instances); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countLiveAssignments = `-- name: CountLiveAssignments :one
+SELECT
+    count(*) FILTER (WHERE due_at IS NOT NULL AND due_at < $1)::integer AS overdue,
+    count(*) FILTER (WHERE due_at IS NULL OR due_at >= $1)::integer AS on_time
+FROM workflow_assignments WHERE state IN ('open', 'accepted')
+`
+
+type CountLiveAssignmentsRow struct {
+	Overdue int32
+	OnTime  int32
+}
+
+// System scope workflow.timers: the glossa_assignments_open gauge
+// (RFC 0006 §10.1). Reads only the state and due date migration 0055
+// grants.
+func (q *Queries) CountLiveAssignments(ctx context.Context, now pgtype.Timestamptz) (CountLiveAssignmentsRow, error) {
+	row := q.db.QueryRow(ctx, countLiveAssignments, now)
+	var i CountLiveAssignmentsRow
+	err := row.Scan(&i.Overdue, &i.OnTime)
+	return i, err
+}
+
 const getInstance = `-- name: GetInstance :one
 SELECT id, tenant_id, project_id, definition_id, version, subject_kind, subject_id, locale, state, snapshot, status, due_at, overdue_at, timer_state, created_at, updated_at, finished_at FROM workflow_instances WHERE id = $1
 `

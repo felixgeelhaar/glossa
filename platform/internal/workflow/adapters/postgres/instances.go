@@ -299,6 +299,34 @@ func (s *Instances) TenantsWithDueTimers(ctx context.Context, now time.Time, lim
 	return out, err
 }
 
+var _ app.WorkloadScanner = (*Instances)(nil)
+
+// InstancesByStatus implements app.WorkloadScanner in the system scope
+// workflow.timers: the status column migration 0043 grants, counted.
+func (s *Instances) InstancesByStatus(ctx context.Context) (map[string]int, error) {
+	out := map[string]int{}
+	err := s.uow.InSystemTx(ctx, s.scope, func(ctx context.Context, tx *db.SystemTx) error {
+		rows, err := workflowsql.New(tx).CountInstancesByStatus(ctx)
+		for _, r := range rows {
+			out[r.Status] = int(r.Instances)
+		}
+		return err
+	})
+	return out, err
+}
+
+// LiveAssignments implements app.WorkloadScanner in the system scope
+// workflow.timers: the state and due date migration 0055 grants,
+// counted.
+func (s *Instances) LiveAssignments(ctx context.Context, now time.Time) (overdue, onTime int, err error) {
+	err = s.uow.InSystemTx(ctx, s.scope, func(ctx context.Context, tx *db.SystemTx) error {
+		r, err := workflowsql.New(tx).CountLiveAssignments(ctx, pgtype.Timestamptz{Time: now, Valid: true})
+		overdue, onTime = int(r.Overdue), int(r.OnTime)
+		return err
+	})
+	return overdue, onTime, err
+}
+
 // ── rows ────────────────────────────────────────────────────────────
 
 func instances(rows []workflowsql.WorkflowInstance) []domain.Instance {

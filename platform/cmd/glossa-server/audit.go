@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 
+	auditmetrics "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/metrics"
 	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
 	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
@@ -20,10 +22,14 @@ import (
 // newAudit wires the Audit context (RFC 0006 §6) and subscribes its
 // projection to every event type. It is built before Identity and MCP,
 // which record sign-ins and tool calls through it.
-func newAudit(pool *pgxpool.Pool, events *outbox.Registry, keys *auditdomain.KeySet, logger *slog.Logger) (*auditapp.Service, error) {
+func newAudit(
+	pool *pgxpool.Pool, events *outbox.Registry, keys *auditdomain.KeySet, logger *slog.Logger, reg prometheus.Registerer,
+) (*auditapp.Service, error) {
 	uow := db.NewUnitOfWork(pool)
 	svc := auditapp.New(auditpg.NewStore(uow),
-		auditapp.WithHistory(outbox.NewHistory(uow)), auditapp.WithExportKeys(keys), auditapp.WithLogger(logger))
+		auditapp.WithHistory(outbox.NewHistory(uow)), auditapp.WithExportKeys(keys), auditapp.WithLogger(logger),
+		// RFC 0006 §10.1: entries appended, broken chains, export jobs.
+		auditapp.WithMetrics(auditmetrics.New(reg)))
 	if err := svc.Subscribe(events); err != nil {
 		return nil, err
 	}

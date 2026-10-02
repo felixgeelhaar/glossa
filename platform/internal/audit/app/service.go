@@ -24,6 +24,7 @@ type Service struct {
 	history History
 	logger  *slog.Logger
 	keys    *domain.KeySet
+	metrics Metrics
 }
 
 // Option configures the service.
@@ -155,6 +156,7 @@ func (s *Service) Append(ctx context.Context, drafts ...domain.Draft) ([]domain.
 	if err != nil {
 		return nil, fmt.Errorf("audit: append: %w", err)
 	}
+	s.appended(len(appended))
 	return appended, nil
 }
 
@@ -185,6 +187,7 @@ func (s *Service) Verify(ctx context.Context) (VerifyReport, error) {
 		}
 		for _, e := range page {
 			if err := v.Next(e); err != nil {
+				s.verified(err)
 				return VerifyReport{Entries: v.Count(), Head: v.Head()}, err
 			}
 			after = e.Sequence

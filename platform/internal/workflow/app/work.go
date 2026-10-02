@@ -33,7 +33,9 @@ type WorkService struct {
 	// (RFC 0006 §5.1); nil refuses every decision on one.
 	releases ReleaseRequests
 	catalog  Catalog
-	now      func() time.Time
+	// metrics counts recorded decisions; nil counts nothing.
+	metrics DecisionMetrics
+	now     func() time.Time
 }
 
 // WorkOption configures a WorkService.
@@ -625,8 +627,12 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 		return domain.Approval{}, err
 	}
 
-	var out domain.Approval
+	var (
+		out     domain.Approval
+		decided *domain.Decision
+	)
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) error {
+		decided = nil
 		a, err := st.LockApproval(ctx, id)
 		if err != nil {
 			return err
@@ -663,8 +669,12 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 		if d.Verdict == domain.VerdictDenied {
 			event = domain.EventTypeApprovalDenied
 		}
+		decided = &d
 		return st.Publish(ctx, approvalEvent(event, a, &d, author, actor))
 	})
+	if err == nil && decided != nil && s.metrics != nil {
+		s.metrics.Decision(string(out.Subject.Kind), string(decided.Verdict))
+	}
 	return out, err
 }
 

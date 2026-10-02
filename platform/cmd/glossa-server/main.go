@@ -184,7 +184,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	audit, err := newAudit(pool, events, auditKeys, logger)
+	audit, err := newAudit(pool, events, auditKeys, logger, registry)
 	if err != nil {
 		pool.Close()
 		return nil, err

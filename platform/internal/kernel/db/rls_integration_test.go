@@ -124,6 +124,11 @@ var systemPolicies = map[string][]string{
 	// §2.3): the tenant, the status and the timer columns only,
 	// read-only. Raising each timer runs in the tenant's own scope.
 	"workflow_instances": {"workflow_instances_system_select"},
+	// The same sweep counts the live assignments for
+	// glossa_assignments_open{overdue} (RFC 0006 §10.1, migration 0055):
+	// the state and the due date only, read-only. No assignee, no
+	// project, no unit.
+	"workflow_assignments": {"workflow_assignments_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// A CORS preflight carries no credentials, so "is this a registered

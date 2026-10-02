@@ -116,3 +116,17 @@ SELECT * FROM workflow_definitions WHERE project_id IS NULL AND name = sqlc.arg(
 SELECT DISTINCT tenant_id FROM workflow_instances
 WHERE status = 'active' AND timer_state IS NOT NULL AND LEAST(due_at, overdue_at) <= sqlc.arg(now)
 LIMIT sqlc.arg(max_rows);
+
+-- name: CountInstancesByStatus :many
+-- System scope workflow.timers: the glossa_workflow_instances gauge
+-- (RFC 0006 §10.1). Reads only the status migration 0043 grants.
+SELECT status, count(*)::integer AS instances FROM workflow_instances GROUP BY status;
+
+-- name: CountLiveAssignments :one
+-- System scope workflow.timers: the glossa_assignments_open gauge
+-- (RFC 0006 §10.1). Reads only the state and due date migration 0055
+-- grants.
+SELECT
+    count(*) FILTER (WHERE due_at IS NOT NULL AND due_at < sqlc.arg(now))::integer AS overdue,
+    count(*) FILTER (WHERE due_at IS NULL OR due_at >= sqlc.arg(now))::integer AS on_time
+FROM workflow_assignments WHERE state IN ('open', 'accepted');

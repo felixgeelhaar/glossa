@@ -114,6 +114,11 @@ type RunnerDeps struct {
 	Releases ReleaseRequests
 	Actors   Actors
 	Timers   TimerScanner
+	// Metrics records transitions and the instance and assignment
+	// gauges (RFC 0006 §10.1); Workload counts the gauges. Either may be
+	// nil, and then nothing is recorded.
+	Metrics  RunnerMetrics
+	Workload WorkloadScanner
 	Logger   *slog.Logger
 	Now      func() time.Time
 }
@@ -261,7 +266,7 @@ func (r *Runner) handleSubject(ctx, reader context.Context, act acting, ev Event
 		}
 		bound = slices.ContainsFunc(bs, func(b domain.Binding) bool { return b.Subject == s.Kind })
 	}
-	return r.d.Tx.InTenant(ctx, func(txCtx context.Context, st InstanceStore) error {
+	return r.inTenant(ctx, func(txCtx, ctx context.Context, st InstanceStore) error {
 		instances, err := st.LockActive(txCtx, s)
 		if err != nil {
 			return err
@@ -327,7 +332,7 @@ func (r *Runner) startIfNeeded(
 
 // handleProject steps every active instance of a kind in a project.
 func (r *Runner) handleProject(ctx, reader context.Context, act acting, ev Event) error {
-	return r.d.Tx.InTenant(ctx, func(txCtx context.Context, st InstanceStore) error {
+	return r.inTenant(ctx, func(txCtx, ctx context.Context, st InstanceStore) error {
 		instances, err := st.LockActiveInProject(txCtx, ev.Project, ev.Kind, maxProjectFanOut)
 		if err != nil {
 			return err
@@ -353,7 +358,7 @@ func (r *Runner) handleProject(ctx, reader context.Context, act acting, ev Event
 // timer was raised for, or the one that asked for an assignment or an
 // approval.
 func (r *Runner) handleInstance(ctx, reader context.Context, act acting, ev Event) error {
-	return r.d.Tx.InTenant(ctx, func(txCtx context.Context, st InstanceStore) error {
+	return r.inTenant(ctx, func(txCtx, ctx context.Context, st InstanceStore) error {
 		inst, err := st.LockInstance(txCtx, ev.Instance)
 		if errors.Is(err, ErrNotFound) {
 			return nil
@@ -393,6 +398,7 @@ func (r *Runner) step(ctx, outer context.Context, st InstanceStore, act acting, 
 	}
 	if !applies {
 		t.To, t.Outcome = inst.State, TransitionIgnored
+		counted(outer, t.Outcome)
 		return st.AppendTransition(ctx, inst.ID, t)
 	}
 	outcomes, timer, refused, err := r.run(ctx, outer, act, effects, inst, subject, ev, to)
@@ -402,6 +408,7 @@ func (r *Runner) step(ctx, outer context.Context, st InstanceStore, act acting, 
 	t.Actions = outcomes
 	if refused {
 		t.To, t.Outcome = inst.State, TransitionRefused
+		counted(outer, t.Outcome)
 		return st.AppendTransition(ctx, inst.ID, t)
 	}
 	t.To, t.Outcome = to, TransitionApplied
@@ -409,6 +416,7 @@ func (r *Runner) step(ctx, outer context.Context, st InstanceStore, act acting, 
 	if err := st.SaveInstance(ctx, inst, snapshot); err != nil {
 		return err
 	}
+	counted(outer, t.Outcome)
 	return st.AppendTransition(ctx, inst.ID, t)
 }
 

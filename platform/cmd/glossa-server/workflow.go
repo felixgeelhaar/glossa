@@ -21,6 +21,7 @@ import (
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
+	workflowmetrics "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/metrics"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
 	workflowrelease "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/release"
 	workflowsources "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/sources"
@@ -56,8 +57,12 @@ type workflowSources struct {
 // decides.
 func newWorkflow(
 	uow *db.UnitOfWork, events *outbox.Registry, definitions *workflowapp.Service, src workflowSources, logger *slog.Logger,
+	reg prometheus.Registerer,
 ) (workflowServices, error) {
 	instances := workflowpg.NewInstances(uow)
+	// RFC 0006 §10.1: transitions, instances, live assignments and
+	// approval decisions, on the server's registry.
+	metrics := workflowmetrics.New(reg)
 	// Assignments and approvals (RFC 0006 §3.1–§3.2). Who a member is
 	// comes from Identity's tenant store, joined inside the caller's
 	// transaction (reads only: no TOTP secret is ever opened there, so
@@ -73,7 +78,7 @@ func newWorkflow(
 	// asks Workflow who approved, and checks the requirement itself
 	// before it moves a pointer; until UseApprovals it deploys nothing.
 	var requests *workflowrelease.Requests
-	var workOpts []workflowapp.WorkOption
+	workOpts := []workflowapp.WorkOption{workflowapp.WithWorkMetrics(metrics)}
 	if src.release != nil {
 		requests = workflowrelease.NewRequests(src.release)
 		workOpts = append(workOpts, workflowapp.WithReleaseRequests(requests))
@@ -91,6 +96,7 @@ func newWorkflow(
 	coverage := workflowapp.NewCoverage(workTx, directory, nil)
 	deps := workflowapp.RunnerDeps{
 		Tx: instances, Definitions: definitions, Timers: instances, Logger: logger,
+		Metrics: metrics, Workload: instances,
 		Translations: workflowsources.NewTranslations(src.catalog, src.localization),
 		Findings:     workflowsources.NewFindings(src.quality),
 		Suggestions:  workflowsources.NewSuggestions(src.intelligence),
@@ -139,6 +145,11 @@ func newWorkflowTimers(
 		n, err := runner.SweepTimers(ctx)
 		if n > 0 {
 			logger.InfoContext(ctx, "workflow: timers raised", slog.Int("timers", n))
+		}
+		// The §10.1 gauges are counted on the same lease, so one replica
+		// reports them; a failed count leaves them as they were.
+		if cerr := runner.CountWork(ctx); cerr != nil {
+			logger.WarnContext(ctx, "workflow: instances and assignments not counted", slog.Any("error", cerr))
 		}
 		return err
 	}})
