@@ -23,6 +23,11 @@ export const routes: RouteRecordRaw[] = [
     component: () => import("./views/in-context/AuthorizeView.vue"),
     meta: { title: "Allow in-product editing" },
   },
+  // Device sign-in for the Glossa CLI (RFC 0006 §7.2, RFC 8628): the
+  // `verification_uri` the CLI prints. Outside the shell like the popup
+  // above, and like it not public — an anonymous visitor signs in and
+  // comes back to `/device?code=…` with the code still filled in.
+  { path: "/device", name: "device", component: () => import("./views/device/DeviceView.vue"), meta: { title: "Sign in a device" } },
   {
     path: "/",
     component: () => import("./components/AppShell.vue"),
