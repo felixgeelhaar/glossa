@@ -150,21 +150,32 @@ func (q *Queries) InsertRollout(ctx context.Context, arg InsertRolloutParams) (i
 }
 
 const listRollouts = `-- name: ListRollouts :many
-SELECT id, tenant_id, project_id, environment, candidate_release_id, stable_release_id, percent, salt, status, max_duration_seconds, expires_at, forced, force_reason, started_by, started_at, updated_at, version, ended_by, ended_at, end_reason FROM release_rollouts
-WHERE project_id = $1 AND environment = $2
-ORDER BY started_at DESC, id DESC
-LIMIT $3::int
+SELECT id, tenant_id, project_id, environment, candidate_release_id, stable_release_id, percent, salt, status, max_duration_seconds, expires_at, forced, force_reason, started_by, started_at, updated_at, version, ended_by, ended_at, end_reason FROM release_rollouts r
+WHERE r.project_id = $1 AND r.environment = $2
+  AND ($3::uuid IS NULL OR (r.started_at, r.id) < (
+        SELECT a.started_at, a.id FROM release_rollouts a
+        WHERE a.project_id = $1 AND a.id = $3::uuid))
+ORDER BY r.started_at DESC, r.id DESC
+LIMIT $4::int
 `
 
 type ListRolloutsParams struct {
 	ProjectID   uuid.UUID
 	Environment string
+	After       uuid.NullUUID
 	MaxRows     int32
 }
 
-// An environment's rollouts, newest first.
+// An environment's rollouts, newest first, after the rollout `after`
+// (a page token) when given. An idempotency-keyed rollout's id is not
+// time-ordered, so the cursor is the row's (started_at, id).
 func (q *Queries) ListRollouts(ctx context.Context, arg ListRolloutsParams) ([]ReleaseRollout, error) {
-	rows, err := q.db.Query(ctx, listRollouts, arg.ProjectID, arg.Environment, arg.MaxRows)
+	rows, err := q.db.Query(ctx, listRollouts,
+		arg.ProjectID,
+		arg.Environment,
+		arg.After,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

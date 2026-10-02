@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +38,11 @@ func (a *Releases) Publish(
 ) (tools.Published, error) {
 	rel, replayed, err := a.release.Publish(ctx, project,
 		releaseapp.PublishInput{Environment: in.Environment, Note: in.Note}, in.IdempotencyKey)
+	if req, ok := held(err); ok {
+		// Recorded, not deployed (RFC 0006 §5.1): an agent told
+		// "published" would believe production changed.
+		return tools.Published{Release: releaseOf(rel), Replayed: replayed, Held: heldOf(req)}, nil
+	}
 	if err != nil {
 		return tools.Published{}, notFound(err, releaseNotFound...)
 	}
@@ -55,10 +61,31 @@ func (a *Releases) Promote(
 	// who means to override it does so where the reason can be attached
 	// to a person.
 	env, err := a.release.Promote(ctx, project, environment, id, releaseapp.PromoteInput{})
+	if req, ok := held(err); ok {
+		rel, err := a.release.GetRelease(ctx, project, req.ReleaseID)
+		if err != nil {
+			return tools.Deployed{}, notFound(err, releaseNotFound...)
+		}
+		return tools.Deployed{Environment: req.Environment, Release: releaseOf(rel), Held: heldOf(req)}, nil
+	}
 	if err != nil {
 		return tools.Deployed{}, notFound(err, releaseNotFound...)
 	}
 	return a.deployed(ctx, project, env, before)
+}
+
+// held reports whether err is a publish or promote that became a
+// release request, and returns the request.
+func held(err error) (release.ReleaseRequest, bool) {
+	var h *release.HeldError
+	if errors.As(err, &h) {
+		return h.Request, true
+	}
+	return release.ReleaseRequest{}, false
+}
+
+func heldOf(r release.ReleaseRequest) *tools.Held {
+	return &tools.Held{RequestID: r.ID.String(), Environment: r.Environment, Approvals: r.Approval.N}
 }
 
 // Rollback implements tools.Releases. uuid.Nil is "the release before

@@ -108,6 +108,28 @@ type Config struct {
 	Context              Context
 	GitHub               GitHub
 	MCP                  MCP
+	Audit                Audit
+}
+
+// Audit configures the Audit context's exports (RFC 0006 §6.2).
+//
+// An export is signed with the audit key, never the release signing
+// key: one key, one purpose. There is no development fallback derived
+// from GLOSSA_AUTH_SECRET as there is for releases — an export is
+// evidence, and evidence signed by a key nobody chose is not evidence.
+// So exports are off until an operator configures a key and turns them
+// on, and turning them on without a key refuses to start.
+type Audit struct {
+	// ExportsEnabled lets audit export jobs run (RFC 0006 wave 5).
+	ExportsEnabled bool
+	// SigningKey is the active audit key, "keyId=base64(32-byte Ed25519
+	// seed)": exactly one. Rotation: a new key here, the old one's public
+	// key in RetiredKeys.
+	SigningKey Secret
+	// RetiredKeys are public keys older exports still verify with,
+	// "keyId=base64(ed25519 public key),…". Never drop one while an
+	// export it signed may still need verifying.
+	RetiredKeys string
 }
 
 // MCP configures the Model Context Protocol endpoint (RFC 0005 §7):
@@ -430,11 +452,34 @@ func Load(lookup LookupFunc) (Config, error) {
 		Rate:  r.intRange("GLOSSA_MCP_RATE", 120, 1, 100_000),
 		Burst: r.intRange("GLOSSA_MCP_BURST", 240, 1, 100_000),
 	}
+	cfg.Audit = r.audit()
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
 	}
 	return cfg, nil
+}
+
+func (r *reader) audit() Audit {
+	a := Audit{
+		ExportsEnabled: r.boolean("GLOSSA_AUDIT_EXPORTS_ENABLED", false),
+		SigningKey:     Secret{r.str("GLOSSA_AUDIT_SIGNING_KEY", "")},
+		RetiredKeys:    r.str("GLOSSA_AUDIT_RETIRED_KEYS", ""),
+	}
+	if key := a.SigningKey.Reveal(); key != "" {
+		if strings.Contains(key, ",") {
+			r.fail("GLOSSA_AUDIT_SIGNING_KEY", "exactly one keyId=base64(seed): an export carries one signature; put the previous key's public key in GLOSSA_AUDIT_RETIRED_KEYS")
+		} else {
+			r.keyList("GLOSSA_AUDIT_SIGNING_KEY", key)
+		}
+	}
+	r.keyList("GLOSSA_AUDIT_RETIRED_KEYS", a.RetiredKeys)
+	if a.ExportsEnabled && a.SigningKey.IsZero() {
+		r.fail("GLOSSA_AUDIT_SIGNING_KEY", "required when GLOSSA_AUDIT_EXPORTS_ENABLED is true: "+
+			"audit exports are signed with their own key, never the release key (RFC 0006 §6.2); "+
+			"set keyId=base64(32-byte seed), e.g. audit-2026=$(openssl rand -base64 32)")
+	}
+	return a
 }
 
 // validate checks the cross-field rules.

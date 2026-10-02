@@ -90,6 +90,94 @@ func (s *Service) SetEnvironmentApproval(ctx context.Context, project uuid.UUID,
 	return e, err
 }
 
+// ApprovalChange is what an environment update asks of its approval
+// requirement: Approval replaces it, and a nil Approval switches it
+// off. A nil *ApprovalChange leaves it as it is.
+type ApprovalChange struct {
+	Approval *domain.ApprovalPolicy
+}
+
+// ConfigureEnvironment changes an environment's eligibility policy and,
+// when approval is not nil, its approval requirement — together, under
+// one ifMatch and in one transaction, so a client that changes both
+// never leaves one applied and the other refused. It takes
+// releases.publish, and workflows.manage as well when the approval
+// requirement actually changes (SetEnvironmentApproval says why); an
+// update that restates the requirement unchanged is a policy edit.
+// One release.environment.policy_changed is published when anything
+// changed.
+func (s *Service) ConfigureEnvironment(ctx context.Context, project uuid.UUID, name string, ifMatch int,
+	policy domain.Policy, approval *ApprovalChange,
+) (domain.Environment, error) {
+	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	if !validName(name) {
+		return domain.Environment{}, ErrNotFound
+	}
+	p, err := domain.NewPolicy(policy.States, policy.IncludeOutdated)
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	if approval != nil && approval.Approval != nil {
+		a, err := domain.NewApprovalPolicy(approval.Approval.N, approval.Approval.From, approval.Approval.DistinctFromRequester)
+		if err != nil {
+			return domain.Environment{}, err
+		}
+		approval = &ApprovalChange{Approval: &a}
+	}
+	var e domain.Environment
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		if err := s.ensureDefaults(ctx, st, project); err != nil {
+			return err
+		}
+		var err error
+		if e, err = st.Environment(ctx, project, name, true); err != nil {
+			return err
+		}
+		if e.Version != ifMatch {
+			return ErrPreconditionFailed
+		}
+		expected := e.Version
+		policyChanged, err := e.ChangePolicy(p, s.now())
+		if err != nil {
+			return err
+		}
+		var approvalChanged bool
+		if approval != nil {
+			if !sameApproval(e.Approval, approval.Approval) {
+				if err := authz.RequireIn(ctx, authz.WorkflowsManage, project); err != nil {
+					return err
+				}
+			}
+			if approvalChanged, err = e.ChangeApproval(approval.Approval, s.now()); err != nil {
+				return err
+			}
+		}
+		if !policyChanged && !approvalChanged {
+			return nil
+		}
+		if policyChanged && approvalChanged {
+			e.Version = expected + 1 // one change, one version
+		}
+		if err := st.UpdateEnvironment(ctx, e, expected); err != nil {
+			return err
+		}
+		return st.Publish(ctx, environmentEvent(domain.EventEnvironmentPolicyChanged, e, by))
+	})
+	return e, err
+}
+
+// sameApproval reports whether a and b are the same requirement (nil is
+// none), as the domain compares them.
+func sameApproval(a, b *domain.ApprovalPolicy) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
 // hold records a request to deploy rel into env instead of moving the
 // pointer, in the caller's transaction (env locked). A pending request
 // into the same environment is withdrawn by the newer one: two requests

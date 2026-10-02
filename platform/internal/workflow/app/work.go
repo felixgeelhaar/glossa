@@ -668,6 +668,60 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 	return out, err
 }
 
+// DecideReleaseRequest records the caller's decision on a release
+// request's current approval: the newest approval Workflow holds for
+// that request, which the project's release-approval workflow asked for
+// (RFC 0006 §5.1). It is Decide, reached by the request instead of by
+// the approval: human-only, approvals.decide in the request's
+// environment, of the approval's eligible party, and never the
+// requester. The deploy that follows a sufficient grant is the
+// workflow's, as the last approver; Release checks the requirement
+// again before it moves anything.
+//
+// A request that is not one of the project's is ErrNotFound; one that
+// is no longer pending is ErrReleaseRequestClosed; one the workflow has
+// not asked about yet is ErrApprovalNotRequested.
+func (s *WorkService) DecideReleaseRequest(ctx context.Context, project, request uuid.UUID, verdict domain.Verdict, reason string) (domain.Approval, error) {
+	p, err := actorInTenant(ctx)
+	if err != nil {
+		return domain.Approval{}, err
+	}
+	// Who is asking is settled before anything is looked up: a token
+	// learns nothing about which requests have approvals.
+	if PermApprovalsDecide.HumanOnly() && (p.Person.IsZero() || p.Member.IsZero()) {
+		return domain.Approval{}, fmt.Errorf("%w: %w", authz.ErrForbidden, domain.ErrNotHuman)
+	}
+	if s.releases == nil {
+		return domain.Approval{}, fmt.Errorf("%w: release requests are not wired in this deployment", authz.ErrForbidden)
+	}
+	facts, err := s.releases.Request(ctx, project, request)
+	if errors.Is(err, ErrUnavailable) {
+		return domain.Approval{}, fmt.Errorf("%w: release request %s", ErrNotFound, request)
+	}
+	if err != nil {
+		return domain.Approval{}, err
+	}
+	if err := authz.RequireInEnvironment(ctx, PermApprovalsDecide, project, facts.Environment); err != nil {
+		return domain.Approval{}, err
+	}
+	if facts.State != "pending" {
+		return domain.Approval{}, fmt.Errorf("%w: it is %s", ErrReleaseRequestClosed, facts.State)
+	}
+	subject := domain.ApprovalSubject{Kind: domain.SubjectReleaseRequest, ID: request}
+	var current domain.Approval
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
+		current, err = st.LatestApproval(ctx, project, subject)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return domain.Approval{}, fmt.Errorf("%w: release request %s", ErrApprovalNotRequested, request)
+	}
+	if err != nil {
+		return domain.Approval{}, err
+	}
+	return s.Decide(ctx, current.ID, verdict, reason)
+}
+
 // decidable checks that the caller may decide an approval of s, and
 // returns the author four-eyes is held against.
 //

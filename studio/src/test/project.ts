@@ -14,6 +14,7 @@ import { QUALITY, type QualityPort } from "../api/quality";
 import { QUALITY_SUMMARY, type QualitySummaryPort } from "../api/quality-summary";
 import type { QualitySummary } from "../api/quality-summary-schemas";
 import { RELEASES, type ReleasesPort } from "../api/releases";
+import { WORK, type WorkPort } from "../api/work";
 import type { Project, ProjectLocale, Role } from "../api/schemas";
 import { grantFor } from "../session/permissions";
 import { refreshSession } from "../session/session";
@@ -86,6 +87,7 @@ export interface ScreenOptions {
   /** The summary the project context already holds, as ProjectLayout would have loaded it. */
   health?: QualitySummary;
   context?: ContextPort;
+  work?: WorkPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
   memberLocales?: string[];
@@ -132,6 +134,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
       .concat([
         { path: "/t/:tenant", name: "projects", component: Empty },
         { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
+        { path: "/t/:tenant/work", name: "my-work", component: Empty },
       ]),
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
@@ -148,6 +151,7 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.context) provide[CONTEXT as symbol] = options.context;
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.inContext) provide[IN_CONTEXT as symbol] = options.inContext;
+  if (options.work) provide[WORK as symbol] = options.work;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;
@@ -155,6 +159,9 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
 
 export interface TenantScreenOptions {
   integration?: IntegrationPort;
+  work?: WorkPort;
+  /** Locale scope of the member (translators, reviewers). */
+  locales?: string[];
   github?: GitHubPort;
   qualitySummary?: QualitySummaryPort;
   roles?: Role[];
@@ -172,7 +179,7 @@ export async function mountTenantScreen(component: Component, options: TenantScr
         member_id: "m",
         tenant: { id: "t", kind: "organization", slug: "acme", name: "Acme", created_at: NOW },
         roles: options.roles ?? ["developer"],
-        locales: [],
+        locales: options.locales ?? [],
       },
     ],
   };
@@ -194,6 +201,8 @@ export async function mountTenantScreen(component: Component, options: TenantScr
       { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
       { path: "/t/:tenant/settings/knowledge/imports/:job", name: "workspace-import-job", component: Empty },
       { path: "/t/:tenant/settings/github", name: "workspace-github", component: Empty },
+      { path: "/t/:tenant/work", name: "my-work", component: Empty },
+      { path: "/t/:tenant/approvals", name: "approvals", component: Empty },
     ],
   });
   await router.push(options.path);
@@ -201,6 +210,7 @@ export async function mountTenantScreen(component: Component, options: TenantScr
   if (options.integration) provide[INTEGRATION as symbol] = options.integration;
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.qualitySummary) provide[QUALITY_SUMMARY as symbol] = options.qualitySummary;
+  if (options.work) provide[WORK as symbol] = options.work;
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;

@@ -19,7 +19,7 @@ import (
 // API takes — locales, messages with their descriptions, translations
 // with v0.3's provenance — and reports v0.3's users as invitations,
 // which --invite sends through Identity, and its history as audit
-// entries (Audit, wave 4).
+// entries, which --history sends to Audit.
 func (inv *invocation) importV0DB(ctx context.Context, fs *flag.FlagSet, f importFlags) error {
 	for _, name := range []string{"v0-url", "v0-key-env"} {
 		if isSet(fs, name) {
@@ -28,6 +28,9 @@ func (inv *invocation) importV0DB(ctx context.Context, fs *flag.FlagSet, f impor
 	}
 	if f.invite && f.dryRun {
 		return usageError(inv.name, "--invite sends invitations and --dry-run sends nothing: drop --dry-run, or drop --invite to see the plan")
+	}
+	if f.history && f.dryRun {
+		return usageError(inv.name, "--history writes the audit trail and --dry-run writes nothing: drop --dry-run, or drop --history to see the plan")
 	}
 	only, err := localeSet(inv, f.locales)
 	if err != nil {
@@ -58,6 +61,11 @@ func (inv *invocation) importV0DB(ctx context.Context, fs *flag.FlagSet, f impor
 	}
 	if f.invite {
 		if out.Invitations, err = inv.sendInvitations(ctx, p, out.Invitations); err != nil {
+			return err
+		}
+	}
+	if f.history {
+		if out.History, err = inv.sendHistory(ctx, p, plan); err != nil {
 			return err
 		}
 	}
@@ -200,8 +208,13 @@ func printV0Plans(p *printer, out importJSON) {
 			unresolved++
 		}
 	}
-	p.line("%s %d history entries planned as imported audit entries (%d without a translation) — not written: Audit imports them (wave 4)",
-		p.pass(), len(out.AuditEntries), unresolved)
+	if h := out.History; h != nil {
+		p.line("%s %d history entries sent to the audit trail (%d without a translation): %d recorded, %d already there", p.pass(),
+			h.Sent, unresolved, h.Recorded, h.Existing)
+	} else {
+		p.line("%s %d history entries planned as imported audit entries (%d without a translation) — not written: pass --history (an owner's) to import them",
+			p.pass(), len(out.AuditEntries), unresolved)
+	}
 	for _, w := range out.Warnings {
 		p.line("%s %s", p.caution(), w)
 	}

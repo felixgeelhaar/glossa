@@ -1767,6 +1767,51 @@ func (e ReleaseProblemCode) Valid() bool {
 	}
 }
 
+// Defines values for ReleaseRequestAction.
+const (
+	ReleaseRequestActionPromote ReleaseRequestAction = "promote"
+	ReleaseRequestActionPublish ReleaseRequestAction = "publish"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseRequestAction enum.
+func (e ReleaseRequestAction) Valid() bool {
+	switch e {
+	case ReleaseRequestActionPromote:
+		return true
+	case ReleaseRequestActionPublish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReleaseRequestState.
+const (
+	ReleaseRequestStateDenied    ReleaseRequestState = "denied"
+	ReleaseRequestStateDeployed  ReleaseRequestState = "deployed"
+	ReleaseRequestStatePending   ReleaseRequestState = "pending"
+	ReleaseRequestStateRefused   ReleaseRequestState = "refused"
+	ReleaseRequestStateWithdrawn ReleaseRequestState = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseRequestState enum.
+func (e ReleaseRequestState) Valid() bool {
+	switch e {
+	case ReleaseRequestStateDenied:
+		return true
+	case ReleaseRequestStateDeployed:
+		return true
+	case ReleaseRequestStatePending:
+		return true
+	case ReleaseRequestStateRefused:
+		return true
+	case ReleaseRequestStateWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReportedFindingSchema.
 const (
 	ReportedFindingSchemaGlossaFindingv1 ReportedFindingSchema = "glossa.finding/v1"
@@ -1887,6 +1932,51 @@ func (e Role) Valid() bool {
 	case RoleReviewer:
 		return true
 	case RoleTranslator:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RolloutEnd.
+const (
+	RolloutEndAborted    RolloutEnd = "aborted"
+	RolloutEndCompleted  RolloutEnd = "completed"
+	RolloutEndExpired    RolloutEnd = "expired"
+	RolloutEndRolledBack RolloutEnd = "rolled_back"
+)
+
+// Valid indicates whether the value is a known member of the RolloutEnd enum.
+func (e RolloutEnd) Valid() bool {
+	switch e {
+	case RolloutEndAborted:
+		return true
+	case RolloutEndCompleted:
+		return true
+	case RolloutEndExpired:
+		return true
+	case RolloutEndRolledBack:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RolloutStatus.
+const (
+	RolloutStatusAborted   RolloutStatus = "aborted"
+	RolloutStatusActive    RolloutStatus = "active"
+	RolloutStatusCompleted RolloutStatus = "completed"
+)
+
+// Valid indicates whether the value is a known member of the RolloutStatus enum.
+func (e RolloutStatus) Valid() bool {
+	switch e {
+	case RolloutStatusAborted:
+		return true
+	case RolloutStatusActive:
+		return true
+	case RolloutStatusCompleted:
 		return true
 	default:
 		return false
@@ -3198,6 +3288,12 @@ type AddMember struct {
 	// and nothing else (RFC 0006 §3.3). Only a translator can be
 	// `assigned`, and a vendor's member always is.
 	Visibility *Visibility `json:"visibility,omitempty"`
+}
+
+// AdvanceRollout defines model for AdvanceRollout.
+type AdvanceRollout struct {
+	// Percent 0–100 (`invalid_percent`).
+	Percent int `json:"percent"`
 }
 
 // Application defines model for Application.
@@ -4779,6 +4875,9 @@ type EmailRequest struct {
 
 // Environment defines model for Environment.
 type Environment struct {
+	// Approval Present when a publish or promote here needs approval (RFC 0006 §5.1).
+	Approval *EnvironmentApproval `json:"approval,omitempty"`
+
 	// Branch The branch a `branch` environment previews; absent for a standard one.
 	Branch *BranchName `json:"branch,omitempty"`
 
@@ -4812,6 +4911,36 @@ type Environment struct {
 
 	// UpdatedAt RFC 3339, UTC.
 	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// EnvironmentApproval `n` distinct people of `from`, none of them the requester, must
+// grant a publish or promote into the environment before its
+// pointer moves. `distinct_from_requester` is always true:
+// self-approval is not offered (RFC 0006 §15 q6).
+type EnvironmentApproval struct {
+	DistinctFromRequester bool `json:"distinct_from_requester"`
+
+	// From Exactly one of `member` (a member `id`), `role` or `group` (a
+	// group `id` or name, lower-case) — who may approve. A vendor
+	// delivers work and does not sign it off, so it is not a party
+	// here.
+	From EnvironmentApprovalParty `json:"from"`
+	N    int                      `json:"n"`
+}
+
+// EnvironmentApprovalParty Exactly one of `member` (a member `id`), `role` or `group` (a
+// group `id` or name, lower-case) — who may approve. A vendor
+// delivers work and does not sign it off, so it is not a party
+// here.
+type EnvironmentApprovalParty struct {
+	Group  *string `json:"group,omitempty"`
+	Member *string `json:"member,omitempty"`
+
+	// Role `owner` everything; `admin` everything except owner changes;
+	// `developer` catalog, translations, releases, tokens;
+	// `translator` translates; `reviewer` translates and reviews.
+	// Translators and reviewers can be limited to `locales`.
+	Role *Role `json:"role,omitempty"`
 }
 
 // EnvironmentKind `standard` serves the main catalog (the default environments and
@@ -5119,6 +5248,14 @@ type FindingSpanSide string
 //
 // Examples: f_7c1a3e9b40d2f815
 type Fingerprint = string
+
+// GateVerdict What the environment's completeness requirement said when the request was made.
+type GateVerdict struct {
+	Met bool `json:"met"`
+
+	// Unmet What the requirement asked for and the release lacks; absent when met.
+	Unmet *[]string `json:"unmet,omitempty"`
+}
 
 // GitConnection defines model for GitConnection.
 type GitConnection struct {
@@ -6994,6 +7131,16 @@ type ReleaseDiff struct {
 	ReleaseId Id `json:"release_id"`
 }
 
+// ReleaseHeld A publish or promote held for approval. No pointer moved.
+type ReleaseHeld struct {
+	// Id The release the request would deploy: the one just recorded by a publish, or the one a promote named.
+	Id             Id             `json:"id"`
+	ReleaseRequest ReleaseRequest `json:"release_request"`
+
+	// ReleaseRequestId An opaque identifier.
+	ReleaseRequestId Id `json:"release_request_id"`
+}
+
 // ReleaseList defines model for ReleaseList.
 type ReleaseList struct {
 	Items         []Release `json:"items"`
@@ -7073,6 +7220,78 @@ type ReleaseProblem struct {
 
 // ReleaseProblemCode defines model for ReleaseProblem.Code.
 type ReleaseProblemCode string
+
+// ReleaseRequest defines model for ReleaseRequest.
+type ReleaseRequest struct {
+	// Action What the deploy records.
+	Action ReleaseRequestAction `json:"action"`
+
+	// Approval `n` distinct people of `from`, none of them the requester, must
+	// grant a publish or promote into the environment before its
+	// pointer moves. `distinct_from_requester` is always true:
+	// self-approval is not offered (RFC 0006 §15 q6).
+	Approval EnvironmentApproval `json:"approval"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// DecidedAt RFC 3339, UTC.
+	DecidedAt *Timestamp `json:"decided_at,omitempty"`
+
+	// DecidedBy Who closed it: the last approver, the denier, or who withdrew it.
+	DecidedBy *string `json:"decided_by,omitempty"`
+
+	// Environment `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
+	Environment EnvironmentName `json:"environment"`
+
+	// ForceReason Why; present exactly when `forced`.
+	ForceReason *string `json:"force_reason,omitempty"`
+
+	// Forced The requester overrode the completeness requirement. Force
+	// overrides the gate, never the approval: the approvers see it.
+	Forced bool `json:"forced"`
+
+	// Gate What the environment's completeness requirement said when the request was made.
+	Gate GateVerdict `json:"gate"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Reason Why it was refused or withdrawn.
+	Reason *string `json:"reason,omitempty"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
+
+	// Requester Who asked (`person:…`, `token:…`). They never count toward the approval.
+	Requester string `json:"requester"`
+
+	// State `pending` waits for approvals; the others are final. `refused`:
+	// approved, but the completeness requirement, run again at deploy
+	// time, refused it — `reason` says why.
+	State ReleaseRequestState `json:"state"`
+}
+
+// ReleaseRequestAction What the deploy records.
+type ReleaseRequestAction string
+
+// ReleaseRequestList defines model for ReleaseRequestList.
+type ReleaseRequestList struct {
+	Items         []ReleaseRequest `json:"items"`
+	NextPageToken *string          `json:"next_page_token,omitempty"`
+}
+
+// ReleaseRequestState `pending` waits for approvals; the others are final. `refused`:
+// approved, but the completeness requirement, run again at deploy
+// time, refused it — `reason` says why.
+type ReleaseRequestState string
+
+// ReleaseRequestWithdrawal defines model for ReleaseRequestWithdrawal.
+type ReleaseRequestWithdrawal struct {
+	Reason *string `json:"reason,omitempty"`
+}
 
 // RenameMessage defines model for RenameMessage.
 type RenameMessage struct {
@@ -7230,6 +7449,61 @@ type Rollback struct {
 	ReleaseId *Id `json:"release_id,omitempty"`
 }
 
+// Rollout defines model for Rollout.
+type Rollout struct {
+	// End How an ended rollout ended.
+	End *RolloutEnd `json:"end,omitempty"`
+
+	// EndedAt RFC 3339, UTC.
+	EndedAt *Timestamp `json:"ended_at,omitempty"`
+	EndedBy *string    `json:"ended_by,omitempty"`
+
+	// Environment `development`, `preview`, `staging`, `production` or a custom
+	// name (not `a`). `pr-<number>` and `br-<8 hex>` are reserved for
+	// branch environments.
+	Environment EnvironmentName `json:"environment"`
+
+	// ExpiresAt RFC 3339, UTC.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// ForceReason Why; present exactly when `forced`.
+	ForceReason *string `json:"force_reason,omitempty"`
+
+	// Forced The candidate was started past the completeness requirement.
+	Forced bool `json:"forced"`
+
+	// Id An opaque identifier.
+	Id                 Id  `json:"id"`
+	MaxDurationSeconds int `json:"max_duration_seconds"`
+	Percent            int `json:"percent"`
+
+	// ReleaseId The candidate.
+	ReleaseId Id `json:"release_id"`
+
+	// StableReleaseId What the environment served when the rollout started.
+	StableReleaseId Id `json:"stable_release_id"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt Timestamp     `json:"started_at"`
+	StartedBy string        `json:"started_by"`
+	Status    RolloutStatus `json:"status"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// RolloutEnd How an ended rollout ended.
+type RolloutEnd string
+
+// RolloutStatus defines model for Rollout.Status.
+type RolloutStatus string
+
+// RolloutList defines model for RolloutList.
+type RolloutList struct {
+	Items         []Rollout `json:"items"`
+	NextPageToken *string   `json:"next_page_token,omitempty"`
+}
+
 // SaveCheckPolicy A new version of the check policy.
 type SaveCheckPolicy struct {
 	// DryRun Answer the impact preview and store nothing — neither the document nor a version.
@@ -7323,6 +7597,28 @@ type SourceRevision struct {
 type SourceRevisionList struct {
 	Items         []SourceRevision `json:"items"`
 	NextPageToken *string          `json:"next_page_token,omitempty"`
+}
+
+// StartRollout defines model for StartRollout.
+type StartRollout struct {
+	// Force Start although the environment's completeness requirement
+	// refuses the candidate (`policy_not_met`). It needs a
+	// `force_reason`, which the completing deployment records.
+	Force *bool `json:"force,omitempty"`
+
+	// ForceReason Required with `force` (`force_reason_required`) and refused without it (`invalid_force_reason`).
+	ForceReason *string `json:"force_reason,omitempty"`
+
+	// MaxDurationSeconds When the rollout is aborted unless a person ended it first:
+	// one hour to 90 days (`invalid_max_duration`); 14 days when
+	// omitted.
+	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
+
+	// Percent The share of installations in the candidate, 0–100 (`invalid_percent`).
+	Percent int `json:"percent"`
+
+	// ReleaseId An opaque identifier.
+	ReleaseId Id `json:"release_id"`
 }
 
 // StyleDates defines model for StyleDates.
@@ -8160,6 +8456,12 @@ type UpdateApplication struct {
 
 // UpdateEnvironment defines model for UpdateEnvironment.
 type UpdateEnvironment struct {
+	// Approval Sets the approval requirement; omitted keeps it as it is.
+	Approval *EnvironmentApproval `json:"approval,omitempty"`
+
+	// ClearApproval Switches the approval requirement off. Not together with `approval`.
+	ClearApproval *bool `json:"clear_approval,omitempty"`
+
 	// Policy Which translations ship to an environment: those in `states`
 	// (never `rejected`), and outdated ones (made against an older
 	// source revision) only with `include_outdated`. Production and
@@ -8290,6 +8592,55 @@ type UsagesTool struct {
 
 	// Version A semantic version.
 	Version string `json:"version"`
+}
+
+// V0HistoryEntry One row of v0.3's `audit_log`. No text: the translation's before
+// and after are SHA-256 digests of their UTF-8 bytes.
+type V0HistoryEntry struct {
+	// Action As the plan names it (`v0.translation.changed`).
+	Action string `json:"action"`
+
+	// Actor `v0:<uuid>`, `v0:ai:<label>`, `v0:system:<label>` or `v0:unknown`; never a member of this platform.
+	Actor        string  `json:"actor"`
+	AfterSha256  *string `json:"after_sha256,omitempty"`
+	BeforeSha256 *string `json:"before_sha256,omitempty"`
+
+	// Key The translation's message, when the row still resolves to one.
+	//
+	// Examples: checkout.payment.submit
+	Key *MessageKey `json:"key,omitempty"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale *Locale `json:"locale,omitempty"`
+
+	// OccurredAt RFC 3339, UTC.
+	OccurredAt Timestamp `json:"occurred_at"`
+
+	// Unresolved Why the row resolves to no translation.
+	Unresolved *string `json:"unresolved,omitempty"`
+
+	// V0Id v0.3's `audit_log` id: the idempotency key.
+	V0Id string `json:"v0_id"`
+}
+
+// V0HistoryImport defines model for V0HistoryImport.
+type V0HistoryImport struct {
+	Entries []V0HistoryEntry `json:"entries"`
+
+	// Restore The dump the rows were read from, as the restore marker names it.
+	Restore       string `json:"restore"`
+	RestoreSha256 string `json:"restore_sha256"`
+}
+
+// V0HistoryReport defines model for V0HistoryReport.
+type V0HistoryReport struct {
+	// Existing Rows an earlier import recorded already (same `v0_id`).
+	Existing int `json:"existing"`
+	Recorded int `json:"recorded"`
 }
 
 // Vendor defines model for Vendor.
@@ -8807,6 +9158,12 @@ type ProjectPath = Id
 
 // ReleasePath An opaque identifier.
 type ReleasePath = Id
+
+// ReleaseRequestPath An opaque identifier.
+type ReleaseRequestPath = Id
+
+// RolloutPath An opaque identifier.
+type RolloutPath = Id
 
 // StyleGuidePath An opaque identifier.
 type StyleGuidePath = Id
@@ -9428,6 +9785,37 @@ type ListDeploymentsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListRolloutsParams defines parameters for ListRollouts.
+type ListRolloutsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// StartRolloutParams defines parameters for StartRollout.
+type StartRolloutParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AdvanceRolloutParams defines parameters for AdvanceRollout.
+type AdvanceRolloutParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
+// AbortRolloutParams defines parameters for AbortRollout.
+type AbortRolloutParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
+// CompleteRolloutParams defines parameters for CompleteRollout.
+type CompleteRolloutParams struct {
+	// IfMatch When sent, the `ETag` the change is based on.
+	IfMatch *IfMatchOptional `json:"If-Match,omitempty"`
+}
+
 // PutFallbackGraphParams defines parameters for PutFallbackGraph.
 type PutFallbackGraphParams struct {
 	// IfMatch When sent, the `ETag` the change is based on.
@@ -9613,6 +10001,16 @@ type GetQualitySummaryParams struct {
 	// ago — the same default `getAIMetrics` uses, so a caller who
 	// reads both sees one month in both.
 	Since *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
+// ListReleaseRequestsParams defines parameters for ListReleaseRequests.
+type ListReleaseRequestsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken   *PageToken           `form:"page_token,omitempty" json:"page_token,omitempty"`
+	Environment *EnvironmentName     `form:"environment,omitempty" json:"environment,omitempty"`
+	State       *ReleaseRequestState `form:"state,omitempty" json:"state,omitempty"`
 }
 
 // ListReleasesParams defines parameters for ListReleases.
@@ -10150,6 +10548,9 @@ type CreateApplicationJSONRequestBody = CreateApplication
 // UpdateApplicationJSONRequestBody defines body for UpdateApplication for application/json ContentType.
 type UpdateApplicationJSONRequestBody = UpdateApplication
 
+// ImportV0HistoryJSONRequestBody defines body for ImportV0History for application/json ContentType.
+type ImportV0HistoryJSONRequestBody = V0HistoryImport
+
 // PushBranchMessagesJSONRequestBody defines body for PushBranchMessages for application/json ContentType.
 type PushBranchMessagesJSONRequestBody = BranchPush
 
@@ -10192,6 +10593,12 @@ type PromoteReleaseJSONRequestBody = Promotion
 // RollbackEnvironmentJSONRequestBody defines body for RollbackEnvironment for application/json ContentType.
 type RollbackEnvironmentJSONRequestBody = Rollback
 
+// StartRolloutJSONRequestBody defines body for StartRollout for application/json ContentType.
+type StartRolloutJSONRequestBody = StartRollout
+
+// AdvanceRolloutJSONRequestBody defines body for AdvanceRollout for application/json ContentType.
+type AdvanceRolloutJSONRequestBody = AdvanceRollout
+
 // PutFallbackGraphJSONRequestBody defines body for PutFallbackGraph for application/json ContentType.
 type PutFallbackGraphJSONRequestBody = PutFallbackGraph
 
@@ -10227,6 +10634,12 @@ type ReviewTranslationJSONRequestBody = ReviewTranslation
 
 // RegisterPreviewOriginJSONRequestBody defines body for RegisterPreviewOrigin for application/json ContentType.
 type RegisterPreviewOriginJSONRequestBody = CreatePreviewOrigin
+
+// DecideReleaseRequestJSONRequestBody defines body for DecideReleaseRequest for application/json ContentType.
+type DecideReleaseRequestJSONRequestBody = CreateApprovalDecision
+
+// WithdrawReleaseRequestJSONRequestBody defines body for WithdrawReleaseRequest for application/json ContentType.
+type WithdrawReleaseRequestJSONRequestBody = ReleaseRequestWithdrawal
 
 // PublishReleaseJSONRequestBody defines body for PublishRelease for application/json ContentType.
 type PublishReleaseJSONRequestBody = PublishRelease
@@ -12559,6 +12972,62 @@ type ClientInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplication(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ImportV0HistoryWithBody Record v0.3's history as imported audit entries
+	//
+	// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+	// from a restored backup, in batches (RFC 0006 §7.2). Each row
+	// becomes an imported audit entry `v0.translation.changed` in the
+	// tenant's audit trail, in its own chain segment marked as
+	// imported, with actor `v0:<user id>` — never a member of this
+	// platform — and a reference to the imported translation. History
+	// is carried as history: nothing is replayed as a revision, and no
+	// provenance is fabricated.
+	//
+	// **No text.** A row carries a translation's before and after only
+	// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+	// holds message or translation text (§6.1). The body has no member
+	// that could carry one, and a member it does not name is ignored.
+	//
+	// Writing the tenant's audit trail is the owner's: it needs
+	// `audit.export`, which only an owner holds by default and no API
+	// token scope grants, in the project. Every row is recorded under
+	// the project in the path. Answers `audit_import_unavailable`
+	// (503) on a server that does not run the importer. Problem codes:
+	// `invalid_request` (400), `audit_import_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+	ImportV0HistoryWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportV0History Record v0.3's history as imported audit entries
+	//
+	// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+	// from a restored backup, in batches (RFC 0006 §7.2). Each row
+	// becomes an imported audit entry `v0.translation.changed` in the
+	// tenant's audit trail, in its own chain segment marked as
+	// imported, with actor `v0:<user id>` — never a member of this
+	// platform — and a reference to the imported translation. History
+	// is carried as history: nothing is replayed as a revision, and no
+	// provenance is fabricated.
+	//
+	// **No text.** A row carries a translation's before and after only
+	// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+	// holds message or translation text (§6.1). The body has no member
+	// that could carry one, and a member it does not name is ignored.
+	//
+	// Writing the tenant's audit trail is the owner's: it needs
+	// `audit.export`, which only an owner holds by default and no API
+	// token scope grants, in the project. Every row is recorded under
+	// the project in the path. Answers `audit_import_unavailable`
+	// (503) on a server that does not run the importer. Problem codes:
+	// `invalid_request` (400), `audit_import_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+	ImportV0History(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportV0HistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PushBranchMessagesWithBody Push a branch's messages (CI, glossa push --branch)
 	//
 	// The branch's catalog, up to 10000 messages in one transaction —
@@ -13391,22 +13860,60 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
 	GetEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateEnvironmentWithBody Change an environment's eligibility policy
+	// UpdateEnvironmentWithBody Change an environment's eligibility policy or approval requirement
 	//
 	// The policy decides what the next publish ships and which
 	// releases may be promoted here; the release served keeps serving.
-	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// `approval` requires every publish and promote into the
+	// environment to be approved by `n` distinct people of `from`, none
+	// of them the requester (RFC 0006 §5.1): such a move answers `202`
+	// with a release request and moves no pointer. `clear_approval`
+	// switches the requirement off; leaving both out keeps it as it
+	// is. Changing who must approve is governance, not publishing, so
+	// it also needs `workflows.manage` (owner and admin by default). A
+	// request already pending keeps showing the requirement it was made
+	// under; its deploy must also meet the environment's requirement of
+	// the moment. Policy and approval change together, under one
+	// `If-Match`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_policy`,
+	// `invalid_request` (400: `approval` together with
+	// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+	// exactly one of `member`, `role` or `group`, or
+	// `distinct_from_requester` not true — self-approval is not
+	// offered), `approval_on_branch` (422: a branch environment's
+	// policy is fixed).
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
 	UpdateEnvironmentWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateEnvironment Change an environment's eligibility policy
+	// UpdateEnvironment Change an environment's eligibility policy or approval requirement
 	//
 	// The policy decides what the next publish ships and which
 	// releases may be promoted here; the release served keeps serving.
-	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// `approval` requires every publish and promote into the
+	// environment to be approved by `n` distinct people of `from`, none
+	// of them the requester (RFC 0006 §5.1): such a move answers `202`
+	// with a release request and moves no pointer. `clear_approval`
+	// switches the requirement off; leaving both out keeps it as it
+	// is. Changing who must approve is governance, not publishing, so
+	// it also needs `workflows.manage` (owner and admin by default). A
+	// request already pending keeps showing the requirement it was made
+	// under; its deploy must also meet the environment's requirement of
+	// the moment. Policy and approval change together, under one
+	// `If-Match`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_policy`,
+	// `invalid_request` (400: `approval` together with
+	// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+	// exactly one of `member`, `role` or `group`, or
+	// `distinct_from_requester` not true — self-approval is not
+	// offered), `approval_on_branch` (422: a branch environment's
+	// policy is fixed).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13440,10 +13947,20 @@ type ClientInterface interface {
 	// `policy_not_met` and can be overridden with `force` and a
 	// `force_reason`, which the deployment records.
 	//
+	// An environment with an `approval` requirement holds the promote
+	// as a release request: the answer is `202` with the request, no
+	// pointer moves, and the release is deployed once the requirement
+	// is met (see `release-requests`). A forced promote waits too:
+	// `force` overrides the completeness requirement, never the
+	// approval. A promote into an environment with an active staged
+	// rollout is refused (`rollout_active`): it would replace the
+	// stable side under installations the rollout compares with it;
+	// complete or abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `force_reason_required`,
 	// `invalid_force_reason` (400), `release_not_found` (404),
 	// `release_ineligible`, `branch_release_not_promotable`,
-	// `policy_not_met` (409), `storage_unavailable` (503).
+	// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13470,10 +13987,20 @@ type ClientInterface interface {
 	// `policy_not_met` and can be overridden with `force` and a
 	// `force_reason`, which the deployment records.
 	//
+	// An environment with an `approval` requirement holds the promote
+	// as a release request: the answer is `202` with the request, no
+	// pointer moves, and the release is deployed once the requirement
+	// is met (see `release-requests`). A forced promote waits too:
+	// `force` overrides the completeness requirement, never the
+	// approval. A promote into an environment with an active staged
+	// rollout is refused (`rollout_active`): it would replace the
+	// stable side under installations the rollout compares with it;
+	// complete or abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `force_reason_required`,
 	// `invalid_force_reason` (400), `release_not_found` (404),
 	// `release_ineligible`, `branch_release_not_promotable`,
-	// `policy_not_met` (409), `storage_unavailable` (503).
+	// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13526,6 +14053,143 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
 	RollbackEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRollouts The environment's staged rollouts
+	//
+	// Newest first: the active one, if any, and the history of ended
+	// ones. Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `ListRollouts` operationId).
+	ListRollouts(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListRolloutsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartRolloutWithBody Start serving a candidate release to a share of installations
+	//
+	// The environment's manifest gains a signed `rollout` member
+	// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+	// salt fixed for the rollout's life; a runtime activates the
+	// candidate when its installation's cohort falls below `percent`,
+	// and every other installation — and every runtime that predates
+	// rollouts — keeps the release the environment points at. The
+	// pointer does not move until the rollout is completed.
+	//
+	// The candidate is held to what a promote into the environment is
+	// held to: a main-catalog release of the project the environment's
+	// policy covers, through the completeness requirement or forced
+	// with a `force_reason` that the completing deployment records.
+	// The environment must already serve a release with the same
+	// source locale, and may have one active rollout at a time. A
+	// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+	// when it is aborted. An environment that requires release
+	// approvals refuses rollouts (`rollout_needs_approval`) until a
+	// release request can carry one; publish or promote there instead.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_percent`,
+	// `invalid_max_duration`, `force_reason_required`,
+	// `invalid_force_reason`, `invalid_idempotency_key` (400),
+	// `release_not_found` (404), `rollout_active`,
+	// `rollout_no_stable`, `rollout_candidate_served`,
+	// `rollout_branch_environment`, `rollout_source_locale`,
+	// `rollout_needs_approval`, `release_ineligible`,
+	// `branch_release_not_promotable`, `policy_not_met` (409),
+	// `idempotency_key_reused` (422), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+	StartRolloutWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartRollout Start serving a candidate release to a share of installations
+	//
+	// The environment's manifest gains a signed `rollout` member
+	// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+	// salt fixed for the rollout's life; a runtime activates the
+	// candidate when its installation's cohort falls below `percent`,
+	// and every other installation — and every runtime that predates
+	// rollouts — keeps the release the environment points at. The
+	// pointer does not move until the rollout is completed.
+	//
+	// The candidate is held to what a promote into the environment is
+	// held to: a main-catalog release of the project the environment's
+	// policy covers, through the completeness requirement or forced
+	// with a `force_reason` that the completing deployment records.
+	// The environment must already serve a release with the same
+	// source locale, and may have one active rollout at a time. A
+	// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+	// when it is aborted. An environment that requires release
+	// approvals refuses rollouts (`rollout_needs_approval`) until a
+	// release request can carry one; publish or promote there instead.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_percent`,
+	// `invalid_max_duration`, `force_reason_required`,
+	// `invalid_force_reason`, `invalid_idempotency_key` (400),
+	// `release_not_found` (404), `rollout_active`,
+	// `rollout_no_stable`, `rollout_candidate_served`,
+	// `rollout_branch_environment`, `rollout_source_locale`,
+	// `rollout_needs_approval`, `release_ineligible`,
+	// `branch_release_not_promotable`, `policy_not_met` (409),
+	// `idempotency_key_reused` (422), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+	StartRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, body StartRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRollout A rollout
+	//
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `GetRollout` operationId).
+	GetRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdvanceRolloutWithBody Change the share of installations in the candidate
+	//
+	// Any percent may follow any other, down as well as up (RFC 0006
+	// §15 Q5); the salt stays, so the installations in the candidate
+	// at a lower percent are among those at a higher one. Advancing
+	// needs no approval. Needs `releases.publish`. Problem codes:
+	// `invalid_percent` (400), `rollout_ended` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+	AdvanceRolloutWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdvanceRollout Change the share of installations in the candidate
+	//
+	// Any percent may follow any other, down as well as up (RFC 0006
+	// §15 Q5); the salt stays, so the installations in the candidate
+	// at a lower percent are among those at a higher one. Advancing
+	// needs no approval. Needs `releases.publish`. Problem codes:
+	// `invalid_percent` (400), `rollout_ended` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+	AdvanceRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, body AdvanceRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AbortRollout End the rollout and keep the environment's release
+	//
+	// The manifest drops `rollout` and every installation returns to
+	// the release the environment points at on its next refresh.
+	// Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+	// A rollback of the environment aborts its rollout too. Needs
+	// `releases.publish`. Problem codes: `rollout_ended` (409).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort (the `AbortRollout` operationId).
+	AbortRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AbortRolloutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteRollout Make the candidate the environment's release
+	//
+	// The pointer moves to the candidate as a promote moves it — the
+	// deployment records the force the rollout started with, if any —
+	// and the manifest drops `rollout`. The completeness requirement
+	// is not asked again: it was asked when the rollout started, about
+	// the same immutable release. Completing an ended rollout is
+	// `rollout_ended`. Needs `releases.publish`. Problem codes:
+	// `rollout_ended` (409), `storage_unavailable` (503).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion (the `CompleteRollout` operationId).
+	CompleteRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *CompleteRolloutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetFallbackGraph A project's fallback graph
 	//
@@ -14265,6 +14929,104 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
 	GetQualitySummary(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListReleaseRequests A project's release requests
+	//
+	// Newest first, optionally in one `environment` and one `state`.
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests (the `ListReleaseRequests` operationId).
+	ListReleaseRequests(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleaseRequestsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReleaseRequest A release request
+	//
+	// What it would deploy, where, who asked, the requirement its
+	// approvers were asked for, what the completeness requirement said
+	// when it was made, and whether the requester forced it and why.
+	// Needs `releases.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request} (the `GetReleaseRequest` operationId).
+	GetReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideReleaseRequestWithBody Grant or deny a release request
+	//
+	// A person's decision on the request's current approval — the one
+	// the project's release-approval workflow asked for — recorded as
+	// `POST …/approvals/{approval}/decisions` records it. Once enough
+	// distinct people other than the requester have granted it, the
+	// workflow deploys the release as the last of them: Release checks
+	// the requirement itself, runs the completeness requirement again
+	// and moves the pointer, and the edge serves it within seconds. A
+	// denial closes the request; nothing moves.
+	//
+	// Human-only: an API token or an MCP agent is refused
+	// (`person_required`, 403) — no scope grants `approvals.decide`.
+	// The caller needs `approvals.decide` in the request's environment,
+	// must be of the requirement's party (`not_eligible`, 403), and
+	// must not be the requester (`own_text`, 403: four-eyes). Problem
+	// codes: `approval_not_requested` (409: the workflow has not asked
+	// for the approval yet; retry shortly), `release_request_closed`
+	// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+	// `approval_superseded` (409), `invalid_approval` (422: a reason
+	// over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+	DecideReleaseRequestWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideReleaseRequest Grant or deny a release request
+	//
+	// A person's decision on the request's current approval — the one
+	// the project's release-approval workflow asked for — recorded as
+	// `POST …/approvals/{approval}/decisions` records it. Once enough
+	// distinct people other than the requester have granted it, the
+	// workflow deploys the release as the last of them: Release checks
+	// the requirement itself, runs the completeness requirement again
+	// and moves the pointer, and the edge serves it within seconds. A
+	// denial closes the request; nothing moves.
+	//
+	// Human-only: an API token or an MCP agent is refused
+	// (`person_required`, 403) — no scope grants `approvals.decide`.
+	// The caller needs `approvals.decide` in the request's environment,
+	// must be of the requirement's party (`not_eligible`, 403), and
+	// must not be the requester (`own_text`, 403: four-eyes). Problem
+	// codes: `approval_not_requested` (409: the workflow has not asked
+	// for the approval yet; retry shortly), `release_request_closed`
+	// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+	// `approval_superseded` (409), `invalid_approval` (422: a reason
+	// over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+	DecideReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body DecideReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WithdrawReleaseRequestWithBody Take a pending release request back
+	//
+	// Its requester, or anyone who may publish to the project. No
+	// pointer moves. A newer publish or promote into the same
+	// environment withdraws the pending request by itself. Needs
+	// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+	// (400), `release_request_closed` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+	WithdrawReleaseRequestWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WithdrawReleaseRequest Take a pending release request back
+	//
+	// Its requester, or anyone who may publish to the project. No
+	// pointer moves. A newer publish or promote into the same
+	// environment withdraws the pending request by itself. Needs
+	// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+	// (400), `release_request_closed` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+	WithdrawReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body WithdrawReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListReleaseSigningKeys The public keys manifests are signed with
 	//
 	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -14303,10 +15065,22 @@ type ClientInterface interface {
 	// no reason is `force_reason_required` and a reason with no
 	// override is `invalid_force_reason`.
 	//
+	// An environment with an `approval` requirement holds the publish
+	// as a release request: the release is built and recorded, but the
+	// answer is `202` with the release's `id` and the request, and the
+	// environment keeps serving what it served. The release is deployed
+	// once the requirement is met (see `release-requests`). A forced
+	// publish waits too: `force` overrides the completeness
+	// requirement, never the approval, and the approvers see that it
+	// was forced and why. A retry with the same `Idempotency-Key`
+	// answers the same request. A publish into an environment with an
+	// active staged rollout is refused (`rollout_active`); complete or
+	// abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `invalid_environment`,
 	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
-	// (400), `policy_not_met` (409), `not_releasable` (422),
-	// `storage_unavailable` (503).
+	// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -14333,10 +15107,22 @@ type ClientInterface interface {
 	// no reason is `force_reason_required` and a reason with no
 	// override is `invalid_force_reason`.
 	//
+	// An environment with an `approval` requirement holds the publish
+	// as a release request: the release is built and recorded, but the
+	// answer is `202` with the release's `id` and the request, and the
+	// environment keeps serving what it served. The release is deployed
+	// once the requirement is met (see `release-requests`). A forced
+	// publish waits too: `force` overrides the completeness
+	// requirement, never the approval, and the approvers see that it
+	// was forced and why. A retry with the same `Idempotency-Key`
+	// answers the same request. A publish into an environment with an
+	// active staged rollout is refused (`rollout_active`); complete or
+	// abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `invalid_environment`,
 	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
-	// (400), `policy_not_met` (409), `not_releasable` (422),
-	// `storage_unavailable` (503).
+	// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -19108,6 +19894,82 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 	return c.Client.Do(req)
 }
 
+// ImportV0HistoryWithBody Record v0.3's history as imported audit entries
+//
+// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+// from a restored backup, in batches (RFC 0006 §7.2). Each row
+// becomes an imported audit entry `v0.translation.changed` in the
+// tenant's audit trail, in its own chain segment marked as
+// imported, with actor `v0:<user id>` — never a member of this
+// platform — and a reference to the imported translation. History
+// is carried as history: nothing is replayed as a revision, and no
+// provenance is fabricated.
+//
+// **No text.** A row carries a translation's before and after only
+// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+// holds message or translation text (§6.1). The body has no member
+// that could carry one, and a member it does not name is ignored.
+//
+// Writing the tenant's audit trail is the owner's: it needs
+// `audit.export`, which only an owner holds by default and no API
+// token scope grants, in the project. Every row is recorded under
+// the project in the path. Answers `audit_import_unavailable`
+// (503) on a server that does not run the importer. Problem codes:
+// `invalid_request` (400), `audit_import_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+func (c *Client) ImportV0HistoryWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportV0HistoryRequestWithBody(c.Server, tenant, project, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ImportV0History Record v0.3's history as imported audit entries
+//
+// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+// from a restored backup, in batches (RFC 0006 §7.2). Each row
+// becomes an imported audit entry `v0.translation.changed` in the
+// tenant's audit trail, in its own chain segment marked as
+// imported, with actor `v0:<user id>` — never a member of this
+// platform — and a reference to the imported translation. History
+// is carried as history: nothing is replayed as a revision, and no
+// provenance is fabricated.
+//
+// **No text.** A row carries a translation's before and after only
+// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+// holds message or translation text (§6.1). The body has no member
+// that could carry one, and a member it does not name is ignored.
+//
+// Writing the tenant's audit trail is the owner's: it needs
+// `audit.export`, which only an owner holds by default and no API
+// token scope grants, in the project. Every row is recorded under
+// the project in the path. Answers `audit_import_unavailable`
+// (503) on a server that does not run the importer. Problem codes:
+// `invalid_request` (400), `audit_import_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+func (c *Client) ImportV0History(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportV0HistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportV0HistoryRequest(c.Server, tenant, project, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // PushBranchMessagesWithBody Push a branch's messages (CI, glossa push --branch)
 //
 // The branch's catalog, up to 10000 messages in one transaction —
@@ -20330,11 +21192,30 @@ func (c *Client) GetEnvironment(ctx context.Context, tenant TenantPath, project 
 	return c.Client.Do(req)
 }
 
-// UpdateEnvironmentWithBody Change an environment's eligibility policy
+// UpdateEnvironmentWithBody Change an environment's eligibility policy or approval requirement
 //
 // The policy decides what the next publish ships and which
 // releases may be promoted here; the release served keeps serving.
-// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// `approval` requires every publish and promote into the
+// environment to be approved by `n` distinct people of `from`, none
+// of them the requester (RFC 0006 §5.1): such a move answers `202`
+// with a release request and moves no pointer. `clear_approval`
+// switches the requirement off; leaving both out keeps it as it
+// is. Changing who must approve is governance, not publishing, so
+// it also needs `workflows.manage` (owner and admin by default). A
+// request already pending keeps showing the requirement it was made
+// under; its deploy must also meet the environment's requirement of
+// the moment. Policy and approval change together, under one
+// `If-Match`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_policy`,
+// `invalid_request` (400: `approval` together with
+// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+// exactly one of `member`, `role` or `group`, or
+// `distinct_from_requester` not true — self-approval is not
+// offered), `approval_on_branch` (422: a branch environment's
+// policy is fixed).
 //
 // Takes any type of body and a specified content type.
 //
@@ -20351,11 +21232,30 @@ func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, tenant TenantPat
 	return c.Client.Do(req)
 }
 
-// UpdateEnvironment Change an environment's eligibility policy
+// UpdateEnvironment Change an environment's eligibility policy or approval requirement
 //
 // The policy decides what the next publish ships and which
 // releases may be promoted here; the release served keeps serving.
-// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// `approval` requires every publish and promote into the
+// environment to be approved by `n` distinct people of `from`, none
+// of them the requester (RFC 0006 §5.1): such a move answers `202`
+// with a release request and moves no pointer. `clear_approval`
+// switches the requirement off; leaving both out keeps it as it
+// is. Changing who must approve is governance, not publishing, so
+// it also needs `workflows.manage` (owner and admin by default). A
+// request already pending keeps showing the requirement it was made
+// under; its deploy must also meet the environment's requirement of
+// the moment. Policy and approval change together, under one
+// `If-Match`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_policy`,
+// `invalid_request` (400: `approval` together with
+// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+// exactly one of `member`, `role` or `group`, or
+// `distinct_from_requester` not true — self-approval is not
+// offered), `approval_on_branch` (422: a branch environment's
+// policy is fixed).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20409,10 +21309,20 @@ func (c *Client) ListDeployments(ctx context.Context, tenant TenantPath, project
 // `policy_not_met` and can be overridden with `force` and a
 // `force_reason`, which the deployment records.
 //
+// An environment with an `approval` requirement holds the promote
+// as a release request: the answer is `202` with the request, no
+// pointer moves, and the release is deployed once the requirement
+// is met (see `release-requests`). A forced promote waits too:
+// `force` overrides the completeness requirement, never the
+// approval. A promote into an environment with an active staged
+// rollout is refused (`rollout_active`): it would replace the
+// stable side under installations the rollout compares with it;
+// complete or abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `force_reason_required`,
 // `invalid_force_reason` (400), `release_not_found` (404),
 // `release_ineligible`, `branch_release_not_promotable`,
-// `policy_not_met` (409), `storage_unavailable` (503).
+// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -20449,10 +21359,20 @@ func (c *Client) PromoteReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // `policy_not_met` and can be overridden with `force` and a
 // `force_reason`, which the deployment records.
 //
+// An environment with an `approval` requirement holds the promote
+// as a release request: the answer is `202` with the request, no
+// pointer moves, and the release is deployed once the requirement
+// is met (see `release-requests`). A forced promote waits too:
+// `force` overrides the completeness requirement, never the
+// approval. A promote into an environment with an active staged
+// rollout is refused (`rollout_active`): it would replace the
+// stable side under installations the rollout compares with it;
+// complete or abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `force_reason_required`,
 // `invalid_force_reason` (400), `release_not_found` (404),
 // `release_ineligible`, `branch_release_not_promotable`,
-// `policy_not_met` (409), `storage_unavailable` (503).
+// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20536,6 +21456,223 @@ func (c *Client) RollbackEnvironmentWithBody(ctx context.Context, tenant TenantP
 // Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
 func (c *Client) RollbackEnvironment(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRollbackEnvironmentRequest(c.Server, tenant, project, environment, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListRollouts The environment's staged rollouts
+//
+// Newest first: the active one, if any, and the history of ended
+// ones. Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `ListRollouts` operationId).
+func (c *Client) ListRollouts(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListRolloutsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRolloutsRequest(c.Server, tenant, project, environment, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartRolloutWithBody Start serving a candidate release to a share of installations
+//
+// The environment's manifest gains a signed `rollout` member
+// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+// salt fixed for the rollout's life; a runtime activates the
+// candidate when its installation's cohort falls below `percent`,
+// and every other installation — and every runtime that predates
+// rollouts — keeps the release the environment points at. The
+// pointer does not move until the rollout is completed.
+//
+// The candidate is held to what a promote into the environment is
+// held to: a main-catalog release of the project the environment's
+// policy covers, through the completeness requirement or forced
+// with a `force_reason` that the completing deployment records.
+// The environment must already serve a release with the same
+// source locale, and may have one active rollout at a time. A
+// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+// when it is aborted. An environment that requires release
+// approvals refuses rollouts (`rollout_needs_approval`) until a
+// release request can carry one; publish or promote there instead.
+//
+// Needs `releases.publish`. Problem codes: `invalid_percent`,
+// `invalid_max_duration`, `force_reason_required`,
+// `invalid_force_reason`, `invalid_idempotency_key` (400),
+// `release_not_found` (404), `rollout_active`,
+// `rollout_no_stable`, `rollout_candidate_served`,
+// `rollout_branch_environment`, `rollout_source_locale`,
+// `rollout_needs_approval`, `release_ineligible`,
+// `branch_release_not_promotable`, `policy_not_met` (409),
+// `idempotency_key_reused` (422), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+func (c *Client) StartRolloutWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartRolloutRequestWithBody(c.Server, tenant, project, environment, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartRollout Start serving a candidate release to a share of installations
+//
+// The environment's manifest gains a signed `rollout` member
+// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+// salt fixed for the rollout's life; a runtime activates the
+// candidate when its installation's cohort falls below `percent`,
+// and every other installation — and every runtime that predates
+// rollouts — keeps the release the environment points at. The
+// pointer does not move until the rollout is completed.
+//
+// The candidate is held to what a promote into the environment is
+// held to: a main-catalog release of the project the environment's
+// policy covers, through the completeness requirement or forced
+// with a `force_reason` that the completing deployment records.
+// The environment must already serve a release with the same
+// source locale, and may have one active rollout at a time. A
+// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+// when it is aborted. An environment that requires release
+// approvals refuses rollouts (`rollout_needs_approval`) until a
+// release request can carry one; publish or promote there instead.
+//
+// Needs `releases.publish`. Problem codes: `invalid_percent`,
+// `invalid_max_duration`, `force_reason_required`,
+// `invalid_force_reason`, `invalid_idempotency_key` (400),
+// `release_not_found` (404), `rollout_active`,
+// `rollout_no_stable`, `rollout_candidate_served`,
+// `rollout_branch_environment`, `rollout_source_locale`,
+// `rollout_needs_approval`, `release_ineligible`,
+// `branch_release_not_promotable`, `policy_not_met` (409),
+// `idempotency_key_reused` (422), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+func (c *Client) StartRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, body StartRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartRolloutRequest(c.Server, tenant, project, environment, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetRollout A rollout
+//
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `GetRollout` operationId).
+func (c *Client) GetRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRolloutRequest(c.Server, tenant, project, environment, rollout)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdvanceRolloutWithBody Change the share of installations in the candidate
+//
+// Any percent may follow any other, down as well as up (RFC 0006
+// §15 Q5); the salt stays, so the installations in the candidate
+// at a lower percent are among those at a higher one. Advancing
+// needs no approval. Needs `releases.publish`. Problem codes:
+// `invalid_percent` (400), `rollout_ended` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+func (c *Client) AdvanceRolloutWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceRolloutRequestWithBody(c.Server, tenant, project, environment, rollout, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AdvanceRollout Change the share of installations in the candidate
+//
+// Any percent may follow any other, down as well as up (RFC 0006
+// §15 Q5); the salt stays, so the installations in the candidate
+// at a lower percent are among those at a higher one. Advancing
+// needs no approval. Needs `releases.publish`. Problem codes:
+// `invalid_percent` (400), `rollout_ended` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+func (c *Client) AdvanceRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, body AdvanceRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceRolloutRequest(c.Server, tenant, project, environment, rollout, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AbortRollout End the rollout and keep the environment's release
+//
+// The manifest drops `rollout` and every installation returns to
+// the release the environment points at on its next refresh.
+// Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+// A rollback of the environment aborts its rollout too. Needs
+// `releases.publish`. Problem codes: `rollout_ended` (409).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort (the `AbortRollout` operationId).
+func (c *Client) AbortRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AbortRolloutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAbortRolloutRequest(c.Server, tenant, project, environment, rollout, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CompleteRollout Make the candidate the environment's release
+//
+// The pointer moves to the candidate as a promote moves it — the
+// deployment records the force the rollout started with, if any —
+// and the manifest drops `rollout`. The completeness requirement
+// is not asked again: it was asked when the rollout started, about
+// the same immutable release. Completing an ended rollout is
+// `rollout_ended`. Needs `releases.publish`. Problem codes:
+// `rollout_ended` (409), `storage_unavailable` (503).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion (the `CompleteRollout` operationId).
+func (c *Client) CompleteRollout(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *CompleteRolloutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteRolloutRequest(c.Server, tenant, project, environment, rollout, params)
 	if err != nil {
 		return nil, err
 	}
@@ -21734,6 +22871,164 @@ func (c *Client) GetQualitySummary(ctx context.Context, tenant TenantPath, proje
 	return c.Client.Do(req)
 }
 
+// ListReleaseRequests A project's release requests
+//
+// Newest first, optionally in one `environment` and one `state`.
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests (the `ListReleaseRequests` operationId).
+func (c *Client) ListReleaseRequests(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleaseRequestsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleaseRequestsRequest(c.Server, tenant, project, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetReleaseRequest A release request
+//
+// What it would deploy, where, who asked, the requirement its
+// approvers were asked for, what the completeness requirement said
+// when it was made, and whether the requester forced it and why.
+// Needs `releases.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request} (the `GetReleaseRequest` operationId).
+func (c *Client) GetReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseRequestRequest(c.Server, tenant, project, releaseRequest)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideReleaseRequestWithBody Grant or deny a release request
+//
+// A person's decision on the request's current approval — the one
+// the project's release-approval workflow asked for — recorded as
+// `POST …/approvals/{approval}/decisions` records it. Once enough
+// distinct people other than the requester have granted it, the
+// workflow deploys the release as the last of them: Release checks
+// the requirement itself, runs the completeness requirement again
+// and moves the pointer, and the edge serves it within seconds. A
+// denial closes the request; nothing moves.
+//
+// Human-only: an API token or an MCP agent is refused
+// (`person_required`, 403) — no scope grants `approvals.decide`.
+// The caller needs `approvals.decide` in the request's environment,
+// must be of the requirement's party (`not_eligible`, 403), and
+// must not be the requester (`own_text`, 403: four-eyes). Problem
+// codes: `approval_not_requested` (409: the workflow has not asked
+// for the approval yet; retry shortly), `release_request_closed`
+// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+// `approval_superseded` (409), `invalid_approval` (422: a reason
+// over 2,000 characters).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+func (c *Client) DecideReleaseRequestWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideReleaseRequestRequestWithBody(c.Server, tenant, project, releaseRequest, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideReleaseRequest Grant or deny a release request
+//
+// A person's decision on the request's current approval — the one
+// the project's release-approval workflow asked for — recorded as
+// `POST …/approvals/{approval}/decisions` records it. Once enough
+// distinct people other than the requester have granted it, the
+// workflow deploys the release as the last of them: Release checks
+// the requirement itself, runs the completeness requirement again
+// and moves the pointer, and the edge serves it within seconds. A
+// denial closes the request; nothing moves.
+//
+// Human-only: an API token or an MCP agent is refused
+// (`person_required`, 403) — no scope grants `approvals.decide`.
+// The caller needs `approvals.decide` in the request's environment,
+// must be of the requirement's party (`not_eligible`, 403), and
+// must not be the requester (`own_text`, 403: four-eyes). Problem
+// codes: `approval_not_requested` (409: the workflow has not asked
+// for the approval yet; retry shortly), `release_request_closed`
+// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+// `approval_superseded` (409), `invalid_approval` (422: a reason
+// over 2,000 characters).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+func (c *Client) DecideReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body DecideReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideReleaseRequestRequest(c.Server, tenant, project, releaseRequest, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// WithdrawReleaseRequestWithBody Take a pending release request back
+//
+// Its requester, or anyone who may publish to the project. No
+// pointer moves. A newer publish or promote into the same
+// environment withdraws the pending request by itself. Needs
+// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+// (400), `release_request_closed` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+func (c *Client) WithdrawReleaseRequestWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWithdrawReleaseRequestRequestWithBody(c.Server, tenant, project, releaseRequest, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// WithdrawReleaseRequest Take a pending release request back
+//
+// Its requester, or anyone who may publish to the project. No
+// pointer moves. A newer publish or promote into the same
+// environment withdraws the pending request by itself. Needs
+// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+// (400), `release_request_closed` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+func (c *Client) WithdrawReleaseRequest(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body WithdrawReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWithdrawReleaseRequestRequest(c.Server, tenant, project, releaseRequest, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListReleaseSigningKeys The public keys manifests are signed with
 //
 // Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -21792,10 +23087,22 @@ func (c *Client) ListReleases(ctx context.Context, tenant TenantPath, project Pr
 // no reason is `force_reason_required` and a reason with no
 // override is `invalid_force_reason`.
 //
+// An environment with an `approval` requirement holds the publish
+// as a release request: the release is built and recorded, but the
+// answer is `202` with the release's `id` and the request, and the
+// environment keeps serving what it served. The release is deployed
+// once the requirement is met (see `release-requests`). A forced
+// publish waits too: `force` overrides the completeness
+// requirement, never the approval, and the approvers see that it
+// was forced and why. A retry with the same `Idempotency-Key`
+// answers the same request. A publish into an environment with an
+// active staged rollout is refused (`rollout_active`); complete or
+// abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `invalid_environment`,
 // `invalid_note`, `force_reason_required`, `invalid_force_reason`
-// (400), `policy_not_met` (409), `not_releasable` (422),
-// `storage_unavailable` (503).
+// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -21832,10 +23139,22 @@ func (c *Client) PublishReleaseWithBody(ctx context.Context, tenant TenantPath, 
 // no reason is `force_reason_required` and a reason with no
 // override is `invalid_force_reason`.
 //
+// An environment with an `approval` requirement holds the publish
+// as a release request: the release is built and recorded, but the
+// answer is `202` with the release's `id` and the request, and the
+// environment keeps serving what it served. The release is deployed
+// once the requirement is met (see `release-requests`). A forced
+// publish waits too: `force` overrides the completeness
+// requirement, never the approval, and the approvers see that it
+// was forced and why. A retry with the same `Idempotency-Key`
+// answers the same request. A publish into an environment with an
+// active staged rollout is refused (`rollout_active`); complete or
+// abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `invalid_environment`,
 // `invalid_note`, `force_reason_required`, `invalid_force_reason`
-// (400), `policy_not_met` (409), `not_releasable` (422),
-// `storage_unavailable` (503).
+// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -30045,6 +31364,60 @@ func NewUpdateApplicationRequestWithBody(server string, tenant TenantPath, proje
 	return req, nil
 }
 
+// NewImportV0HistoryRequest calls the generic ImportV0History builder with application/json body
+func NewImportV0HistoryRequest(server string, tenant TenantPath, project ProjectPath, body ImportV0HistoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewImportV0HistoryRequestWithBody(server, tenant, project, "application/json", bodyReader)
+}
+
+// NewImportV0HistoryRequestWithBody constructs an http.Request for the ImportV0History method, with any body, and a specified content type
+func NewImportV0HistoryRequestWithBody(server string, tenant TenantPath, project ProjectPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/audit-imports", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPushBranchMessagesRequest calls the generic PushBranchMessages builder with application/json body
 func NewPushBranchMessagesRequest(server string, tenant TenantPath, project ProjectPath, body PushBranchMessagesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32277,6 +33650,445 @@ func NewRollbackEnvironmentRequestWithBody(server string, tenant TenantPath, pro
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListRolloutsRequest constructs an http.Request for the ListRollouts method
+func NewListRolloutsRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListRolloutsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartRolloutRequest calls the generic StartRollout builder with application/json body
+func NewStartRolloutRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, body StartRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartRolloutRequestWithBody(server, tenant, project, environment, params, "application/json", bodyReader)
+}
+
+// NewStartRolloutRequestWithBody constructs an http.Request for the StartRollout method, with any body, and a specified content type
+func NewStartRolloutRequestWithBody(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetRolloutRequest constructs an http.Request for the GetRollout method
+func NewGetRolloutRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "rollout", rollout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAdvanceRolloutRequest calls the generic AdvanceRollout builder with application/json body
+func NewAdvanceRolloutRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, body AdvanceRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdvanceRolloutRequestWithBody(server, tenant, project, environment, rollout, params, "application/json", bodyReader)
+}
+
+// NewAdvanceRolloutRequestWithBody constructs an http.Request for the AdvanceRollout method, with any body, and a specified content type
+func NewAdvanceRolloutRequestWithBody(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "rollout", rollout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewAbortRolloutRequest constructs an http.Request for the AbortRollout method
+func NewAbortRolloutRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AbortRolloutParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "rollout", rollout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts/%s/abort", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCompleteRolloutRequest constructs an http.Request for the CompleteRollout method
+func NewCompleteRolloutRequest(server string, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *CompleteRolloutParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "environment", environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "rollout", rollout, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/environments/%s/rollouts/%s/completion", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IfMatch != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", *params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Match", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -34717,6 +36529,280 @@ func NewGetQualitySummaryRequest(server string, tenant TenantPath, project Proje
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListReleaseRequestsRequest constructs an http.Request for the ListReleaseRequests method
+func NewListReleaseRequestsRequest(server string, tenant TenantPath, project ProjectPath, params *ListReleaseRequestsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/release-requests", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Environment != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "environment", *params.Environment, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseRequestRequest constructs an http.Request for the GetReleaseRequest method
+func NewGetReleaseRequestRequest(server string, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release_request", releaseRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/release-requests/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDecideReleaseRequestRequest calls the generic DecideReleaseRequest builder with application/json body
+func NewDecideReleaseRequestRequest(server string, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body DecideReleaseRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDecideReleaseRequestRequestWithBody(server, tenant, project, releaseRequest, "application/json", bodyReader)
+}
+
+// NewDecideReleaseRequestRequestWithBody constructs an http.Request for the DecideReleaseRequest method, with any body, and a specified content type
+func NewDecideReleaseRequestRequestWithBody(server string, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release_request", releaseRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/release-requests/%s/approvals", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewWithdrawReleaseRequestRequest calls the generic WithdrawReleaseRequest builder with application/json body
+func NewWithdrawReleaseRequestRequest(server string, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body WithdrawReleaseRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewWithdrawReleaseRequestRequestWithBody(server, tenant, project, releaseRequest, "application/json", bodyReader)
+}
+
+// NewWithdrawReleaseRequestRequestWithBody constructs an http.Request for the WithdrawReleaseRequest method, with any body, and a specified content type
+func NewWithdrawReleaseRequestRequestWithBody(server string, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "release_request", releaseRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/release-requests/%s/withdrawal", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -41775,6 +43861,62 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/applications/{application} (the `UpdateApplication` operationId).
 	UpdateApplicationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, application ApplicationPath, params *UpdateApplicationParams, body UpdateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApplicationResponse, error)
 
+	// ImportV0HistoryWithBodyWithResponse Record v0.3's history as imported audit entries
+	//
+	// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+	// from a restored backup, in batches (RFC 0006 §7.2). Each row
+	// becomes an imported audit entry `v0.translation.changed` in the
+	// tenant's audit trail, in its own chain segment marked as
+	// imported, with actor `v0:<user id>` — never a member of this
+	// platform — and a reference to the imported translation. History
+	// is carried as history: nothing is replayed as a revision, and no
+	// provenance is fabricated.
+	//
+	// **No text.** A row carries a translation's before and after only
+	// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+	// holds message or translation text (§6.1). The body has no member
+	// that could carry one, and a member it does not name is ignored.
+	//
+	// Writing the tenant's audit trail is the owner's: it needs
+	// `audit.export`, which only an owner holds by default and no API
+	// token scope grants, in the project. Every row is recorded under
+	// the project in the path. Answers `audit_import_unavailable`
+	// (503) on a server that does not run the importer. Problem codes:
+	// `invalid_request` (400), `audit_import_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+	ImportV0HistoryWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportV0HistoryResponse, error)
+
+	// ImportV0HistoryWithResponse Record v0.3's history as imported audit entries
+	//
+	// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+	// from a restored backup, in batches (RFC 0006 §7.2). Each row
+	// becomes an imported audit entry `v0.translation.changed` in the
+	// tenant's audit trail, in its own chain segment marked as
+	// imported, with actor `v0:<user id>` — never a member of this
+	// platform — and a reference to the imported translation. History
+	// is carried as history: nothing is replayed as a revision, and no
+	// provenance is fabricated.
+	//
+	// **No text.** A row carries a translation's before and after only
+	// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+	// holds message or translation text (§6.1). The body has no member
+	// that could carry one, and a member it does not name is ignored.
+	//
+	// Writing the tenant's audit trail is the owner's: it needs
+	// `audit.export`, which only an owner holds by default and no API
+	// token scope grants, in the project. Every row is recorded under
+	// the project in the path. Answers `audit_import_unavailable`
+	// (503) on a server that does not run the importer. Problem codes:
+	// `invalid_request` (400), `audit_import_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+	ImportV0HistoryWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportV0HistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportV0HistoryResponse, error)
+
 	// PushBranchMessagesWithBodyWithResponse Push a branch's messages (CI, glossa push --branch)
 	//
 	// The branch's catalog, up to 10000 messages in one transaction —
@@ -42643,22 +44785,60 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `GetEnvironment` operationId).
 	GetEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, reqEditors ...RequestEditorFn) (*GetEnvironmentResponse, error)
 
-	// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy
+	// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy or approval requirement
 	//
 	// The policy decides what the next publish ships and which
 	// releases may be promoted here; the release served keeps serving.
-	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// `approval` requires every publish and promote into the
+	// environment to be approved by `n` distinct people of `from`, none
+	// of them the requester (RFC 0006 §5.1): such a move answers `202`
+	// with a release request and moves no pointer. `clear_approval`
+	// switches the requirement off; leaving both out keeps it as it
+	// is. Changing who must approve is governance, not publishing, so
+	// it also needs `workflows.manage` (owner and admin by default). A
+	// request already pending keeps showing the requirement it was made
+	// under; its deploy must also meet the environment's requirement of
+	// the moment. Policy and approval change together, under one
+	// `If-Match`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_policy`,
+	// `invalid_request` (400: `approval` together with
+	// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+	// exactly one of `member`, `role` or `group`, or
+	// `distinct_from_requester` not true — self-approval is not
+	// offered), `approval_on_branch` (422: a branch environment's
+	// policy is fixed).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment} (the `UpdateEnvironment` operationId).
 	UpdateEnvironmentWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *UpdateEnvironmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error)
 
-	// UpdateEnvironmentWithResponse Change an environment's eligibility policy
+	// UpdateEnvironmentWithResponse Change an environment's eligibility policy or approval requirement
 	//
 	// The policy decides what the next publish ships and which
 	// releases may be promoted here; the release served keeps serving.
-	// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+	//
+	// `approval` requires every publish and promote into the
+	// environment to be approved by `n` distinct people of `from`, none
+	// of them the requester (RFC 0006 §5.1): such a move answers `202`
+	// with a release request and moves no pointer. `clear_approval`
+	// switches the requirement off; leaving both out keeps it as it
+	// is. Changing who must approve is governance, not publishing, so
+	// it also needs `workflows.manage` (owner and admin by default). A
+	// request already pending keeps showing the requirement it was made
+	// under; its deploy must also meet the environment's requirement of
+	// the moment. Policy and approval change together, under one
+	// `If-Match`.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_policy`,
+	// `invalid_request` (400: `approval` together with
+	// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+	// exactly one of `member`, `role` or `group`, or
+	// `distinct_from_requester` not true — self-approval is not
+	// offered), `approval_on_branch` (422: a branch environment's
+	// policy is fixed).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -42694,10 +44874,20 @@ type ClientWithResponsesInterface interface {
 	// `policy_not_met` and can be overridden with `force` and a
 	// `force_reason`, which the deployment records.
 	//
+	// An environment with an `approval` requirement holds the promote
+	// as a release request: the answer is `202` with the request, no
+	// pointer moves, and the release is deployed once the requirement
+	// is met (see `release-requests`). A forced promote waits too:
+	// `force` overrides the completeness requirement, never the
+	// approval. A promote into an environment with an active staged
+	// rollout is refused (`rollout_active`): it would replace the
+	// stable side under installations the rollout compares with it;
+	// complete or abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `force_reason_required`,
 	// `invalid_force_reason` (400), `release_not_found` (404),
 	// `release_ineligible`, `branch_release_not_promotable`,
-	// `policy_not_met` (409), `storage_unavailable` (503).
+	// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -42724,10 +44914,20 @@ type ClientWithResponsesInterface interface {
 	// `policy_not_met` and can be overridden with `force` and a
 	// `force_reason`, which the deployment records.
 	//
+	// An environment with an `approval` requirement holds the promote
+	// as a release request: the answer is `202` with the request, no
+	// pointer moves, and the release is deployed once the requirement
+	// is met (see `release-requests`). A forced promote waits too:
+	// `force` overrides the completeness requirement, never the
+	// approval. A promote into an environment with an active staged
+	// rollout is refused (`rollout_active`): it would replace the
+	// stable side under installations the rollout compares with it;
+	// complete or abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `force_reason_required`,
 	// `invalid_force_reason` (400), `release_not_found` (404),
 	// `release_ineligible`, `branch_release_not_promotable`,
-	// `policy_not_met` (409), `storage_unavailable` (503).
+	// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -42782,6 +44982,151 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollbacks (the `RollbackEnvironment` operationId).
 	RollbackEnvironmentWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, body RollbackEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackEnvironmentResponse, error)
+
+	// ListRolloutsWithResponse The environment's staged rollouts
+	//
+	// Newest first: the active one, if any, and the history of ended
+	// ones. Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `ListRollouts` operationId).
+	ListRolloutsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListRolloutsParams, reqEditors ...RequestEditorFn) (*ListRolloutsResponse, error)
+
+	// StartRolloutWithBodyWithResponse Start serving a candidate release to a share of installations
+	//
+	// The environment's manifest gains a signed `rollout` member
+	// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+	// salt fixed for the rollout's life; a runtime activates the
+	// candidate when its installation's cohort falls below `percent`,
+	// and every other installation — and every runtime that predates
+	// rollouts — keeps the release the environment points at. The
+	// pointer does not move until the rollout is completed.
+	//
+	// The candidate is held to what a promote into the environment is
+	// held to: a main-catalog release of the project the environment's
+	// policy covers, through the completeness requirement or forced
+	// with a `force_reason` that the completing deployment records.
+	// The environment must already serve a release with the same
+	// source locale, and may have one active rollout at a time. A
+	// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+	// when it is aborted. An environment that requires release
+	// approvals refuses rollouts (`rollout_needs_approval`) until a
+	// release request can carry one; publish or promote there instead.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_percent`,
+	// `invalid_max_duration`, `force_reason_required`,
+	// `invalid_force_reason`, `invalid_idempotency_key` (400),
+	// `release_not_found` (404), `rollout_active`,
+	// `rollout_no_stable`, `rollout_candidate_served`,
+	// `rollout_branch_environment`, `rollout_source_locale`,
+	// `rollout_needs_approval`, `release_ineligible`,
+	// `branch_release_not_promotable`, `policy_not_met` (409),
+	// `idempotency_key_reused` (422), `storage_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+	StartRolloutWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartRolloutResponse, error)
+
+	// StartRolloutWithResponse Start serving a candidate release to a share of installations
+	//
+	// The environment's manifest gains a signed `rollout` member
+	// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+	// salt fixed for the rollout's life; a runtime activates the
+	// candidate when its installation's cohort falls below `percent`,
+	// and every other installation — and every runtime that predates
+	// rollouts — keeps the release the environment points at. The
+	// pointer does not move until the rollout is completed.
+	//
+	// The candidate is held to what a promote into the environment is
+	// held to: a main-catalog release of the project the environment's
+	// policy covers, through the completeness requirement or forced
+	// with a `force_reason` that the completing deployment records.
+	// The environment must already serve a release with the same
+	// source locale, and may have one active rollout at a time. A
+	// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+	// when it is aborted. An environment that requires release
+	// approvals refuses rollouts (`rollout_needs_approval`) until a
+	// release request can carry one; publish or promote there instead.
+	//
+	// Needs `releases.publish`. Problem codes: `invalid_percent`,
+	// `invalid_max_duration`, `force_reason_required`,
+	// `invalid_force_reason`, `invalid_idempotency_key` (400),
+	// `release_not_found` (404), `rollout_active`,
+	// `rollout_no_stable`, `rollout_candidate_served`,
+	// `rollout_branch_environment`, `rollout_source_locale`,
+	// `rollout_needs_approval`, `release_ineligible`,
+	// `branch_release_not_promotable`, `policy_not_met` (409),
+	// `idempotency_key_reused` (422), `storage_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+	StartRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, body StartRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartRolloutResponse, error)
+
+	// GetRolloutWithResponse A rollout
+	//
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `GetRollout` operationId).
+	GetRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, reqEditors ...RequestEditorFn) (*GetRolloutResponse, error)
+
+	// AdvanceRolloutWithBodyWithResponse Change the share of installations in the candidate
+	//
+	// Any percent may follow any other, down as well as up (RFC 0006
+	// §15 Q5); the salt stays, so the installations in the candidate
+	// at a lower percent are among those at a higher one. Advancing
+	// needs no approval. Needs `releases.publish`. Problem codes:
+	// `invalid_percent` (400), `rollout_ended` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+	AdvanceRolloutWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceRolloutResponse, error)
+
+	// AdvanceRolloutWithResponse Change the share of installations in the candidate
+	//
+	// Any percent may follow any other, down as well as up (RFC 0006
+	// §15 Q5); the salt stays, so the installations in the candidate
+	// at a lower percent are among those at a higher one. Advancing
+	// needs no approval. Needs `releases.publish`. Problem codes:
+	// `invalid_percent` (400), `rollout_ended` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+	AdvanceRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, body AdvanceRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceRolloutResponse, error)
+
+	// AbortRolloutWithResponse End the rollout and keep the environment's release
+	//
+	// The manifest drops `rollout` and every installation returns to
+	// the release the environment points at on its next refresh.
+	// Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+	// A rollback of the environment aborts its rollout too. Needs
+	// `releases.publish`. Problem codes: `rollout_ended` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort (the `AbortRollout` operationId).
+	AbortRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AbortRolloutParams, reqEditors ...RequestEditorFn) (*AbortRolloutResponse, error)
+
+	// CompleteRolloutWithResponse Make the candidate the environment's release
+	//
+	// The pointer moves to the candidate as a promote moves it — the
+	// deployment records the force the rollout started with, if any —
+	// and the manifest drops `rollout`. The completeness requirement
+	// is not asked again: it was asked when the rollout started, about
+	// the same immutable release. Completing an ended rollout is
+	// `rollout_ended`. Needs `releases.publish`. Problem codes:
+	// `rollout_ended` (409), `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion (the `CompleteRollout` operationId).
+	CompleteRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *CompleteRolloutParams, reqEditors ...RequestEditorFn) (*CompleteRolloutResponse, error)
 
 	// GetFallbackGraphWithResponse A project's fallback graph
 	//
@@ -43563,6 +45908,108 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/quality-summary (the `GetQualitySummary` operationId).
 	GetQualitySummaryWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *GetQualitySummaryParams, reqEditors ...RequestEditorFn) (*GetQualitySummaryResponse, error)
 
+	// ListReleaseRequestsWithResponse A project's release requests
+	//
+	// Newest first, optionally in one `environment` and one `state`.
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests (the `ListReleaseRequests` operationId).
+	ListReleaseRequestsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleaseRequestsParams, reqEditors ...RequestEditorFn) (*ListReleaseRequestsResponse, error)
+
+	// GetReleaseRequestWithResponse A release request
+	//
+	// What it would deploy, where, who asked, the requirement its
+	// approvers were asked for, what the completeness requirement said
+	// when it was made, and whether the requester forced it and why.
+	// Needs `releases.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request} (the `GetReleaseRequest` operationId).
+	GetReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, reqEditors ...RequestEditorFn) (*GetReleaseRequestResponse, error)
+
+	// DecideReleaseRequestWithBodyWithResponse Grant or deny a release request
+	//
+	// A person's decision on the request's current approval — the one
+	// the project's release-approval workflow asked for — recorded as
+	// `POST …/approvals/{approval}/decisions` records it. Once enough
+	// distinct people other than the requester have granted it, the
+	// workflow deploys the release as the last of them: Release checks
+	// the requirement itself, runs the completeness requirement again
+	// and moves the pointer, and the edge serves it within seconds. A
+	// denial closes the request; nothing moves.
+	//
+	// Human-only: an API token or an MCP agent is refused
+	// (`person_required`, 403) — no scope grants `approvals.decide`.
+	// The caller needs `approvals.decide` in the request's environment,
+	// must be of the requirement's party (`not_eligible`, 403), and
+	// must not be the requester (`own_text`, 403: four-eyes). Problem
+	// codes: `approval_not_requested` (409: the workflow has not asked
+	// for the approval yet; retry shortly), `release_request_closed`
+	// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+	// `approval_superseded` (409), `invalid_approval` (422: a reason
+	// over 2,000 characters).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+	DecideReleaseRequestWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideReleaseRequestResponse, error)
+
+	// DecideReleaseRequestWithResponse Grant or deny a release request
+	//
+	// A person's decision on the request's current approval — the one
+	// the project's release-approval workflow asked for — recorded as
+	// `POST …/approvals/{approval}/decisions` records it. Once enough
+	// distinct people other than the requester have granted it, the
+	// workflow deploys the release as the last of them: Release checks
+	// the requirement itself, runs the completeness requirement again
+	// and moves the pointer, and the edge serves it within seconds. A
+	// denial closes the request; nothing moves.
+	//
+	// Human-only: an API token or an MCP agent is refused
+	// (`person_required`, 403) — no scope grants `approvals.decide`.
+	// The caller needs `approvals.decide` in the request's environment,
+	// must be of the requirement's party (`not_eligible`, 403), and
+	// must not be the requester (`own_text`, 403: four-eyes). Problem
+	// codes: `approval_not_requested` (409: the workflow has not asked
+	// for the approval yet; retry shortly), `release_request_closed`
+	// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+	// `approval_superseded` (409), `invalid_approval` (422: a reason
+	// over 2,000 characters).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+	DecideReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body DecideReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideReleaseRequestResponse, error)
+
+	// WithdrawReleaseRequestWithBodyWithResponse Take a pending release request back
+	//
+	// Its requester, or anyone who may publish to the project. No
+	// pointer moves. A newer publish or promote into the same
+	// environment withdraws the pending request by itself. Needs
+	// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+	// (400), `release_request_closed` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+	WithdrawReleaseRequestWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WithdrawReleaseRequestResponse, error)
+
+	// WithdrawReleaseRequestWithResponse Take a pending release request back
+	//
+	// Its requester, or anyone who may publish to the project. No
+	// pointer moves. A newer publish or promote into the same
+	// environment withdraws the pending request by itself. Needs
+	// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+	// (400), `release_request_closed` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+	WithdrawReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body WithdrawReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*WithdrawReleaseRequestResponse, error)
+
 	// ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 	//
 	// Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -43605,10 +46052,22 @@ type ClientWithResponsesInterface interface {
 	// no reason is `force_reason_required` and a reason with no
 	// override is `invalid_force_reason`.
 	//
+	// An environment with an `approval` requirement holds the publish
+	// as a release request: the release is built and recorded, but the
+	// answer is `202` with the release's `id` and the request, and the
+	// environment keeps serving what it served. The release is deployed
+	// once the requirement is met (see `release-requests`). A forced
+	// publish waits too: `force` overrides the completeness
+	// requirement, never the approval, and the approvers see that it
+	// was forced and why. A retry with the same `Idempotency-Key`
+	// answers the same request. A publish into an environment with an
+	// active staged rollout is refused (`rollout_active`); complete or
+	// abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `invalid_environment`,
 	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
-	// (400), `policy_not_met` (409), `not_releasable` (422),
-	// `storage_unavailable` (503).
+	// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -43635,10 +46094,22 @@ type ClientWithResponsesInterface interface {
 	// no reason is `force_reason_required` and a reason with no
 	// override is `invalid_force_reason`.
 	//
+	// An environment with an `approval` requirement holds the publish
+	// as a release request: the release is built and recorded, but the
+	// answer is `202` with the release's `id` and the request, and the
+	// environment keeps serving what it served. The release is deployed
+	// once the requirement is met (see `release-requests`). A forced
+	// publish waits too: `force` overrides the completeness
+	// requirement, never the approval, and the approvers see that it
+	// was forced and why. A retry with the same `Idempotency-Key`
+	// answers the same request. A publish into an environment with an
+	// active staged rollout is refused (`rollout_active`); complete or
+	// abort the rollout first.
+	//
 	// Needs `releases.publish`. Problem codes: `invalid_environment`,
 	// `invalid_note`, `force_reason_required`, `invalid_force_reason`
-	// (400), `policy_not_met` (409), `not_releasable` (422),
-	// `storage_unavailable` (503).
+	// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+	// (422), `storage_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -52572,6 +55043,89 @@ func (r UpdateApplicationResponse) ContentType() string {
 	return ""
 }
 
+type ImportV0HistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *V0HistoryReport
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ImportV0HistoryResponse) GetJSON200() *V0HistoryReport {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r ImportV0HistoryResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r ImportV0HistoryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportV0HistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportV0HistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ImportV0HistoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PushBranchMessagesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54718,6 +57272,8 @@ type UpdateEnvironmentResponse struct {
 	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
 	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
 	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
 	ApplicationproblemJSON428 *PreconditionRequired
 	// Headers200 the parsed response headers for an HTTP 200 response
@@ -54757,6 +57313,11 @@ func (r UpdateEnvironmentResponse) GetApplicationproblemJSON409() *Conflict {
 // GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
 func (r UpdateEnvironmentResponse) GetApplicationproblemJSON412() *PreconditionFailed {
 	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r UpdateEnvironmentResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
 }
 
 // GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
@@ -54867,11 +57428,18 @@ type PromoteReleaseResponse200Headers struct {
 	ETag *string
 }
 
+// PromoteReleaseResponse202Headers the declared response headers of an HTTP 202 response for PromoteRelease
+type PromoteReleaseResponse202Headers struct {
+	Location *string
+}
+
 type PromoteReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *Environment
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *ReleaseHeld
 	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
 	ApplicationproblemJSON400 *BadRequest
 	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
@@ -54884,11 +57452,18 @@ type PromoteReleaseResponse struct {
 	ApplicationproblemJSON409 *Conflict
 	// Headers200 the parsed response headers for an HTTP 200 response
 	Headers200 *PromoteReleaseResponse200Headers
+	// Headers202 the parsed response headers for an HTTP 202 response
+	Headers202 *PromoteReleaseResponse202Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r PromoteReleaseResponse) GetJSON200() *Environment {
 	return r.JSON200
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r PromoteReleaseResponse) GetJSON202() *ReleaseHeld {
+	return r.JSON202
 }
 
 // GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
@@ -55091,6 +57666,527 @@ func (r RollbackEnvironmentResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RollbackEnvironmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListRolloutsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RolloutList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListRolloutsResponse) GetJSON200() *RolloutList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListRolloutsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListRolloutsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListRolloutsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListRolloutsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListRolloutsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRolloutsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRolloutsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRolloutsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// StartRolloutResponse201Headers the declared response headers of an HTTP 201 response for StartRollout
+type StartRolloutResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type StartRolloutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Rollout
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *StartRolloutResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartRolloutResponse) GetJSON201() *Rollout {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r StartRolloutResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r StartRolloutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartRolloutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartRolloutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartRolloutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetRolloutResponse200Headers the declared response headers of an HTTP 200 response for GetRollout
+type GetRolloutResponse200Headers struct {
+	ETag *string
+}
+
+type GetRolloutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Rollout
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetRolloutResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetRolloutResponse) GetJSON200() *Rollout {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetRolloutResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetRolloutResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetRolloutResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetRolloutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRolloutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRolloutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRolloutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// AdvanceRolloutResponse200Headers the declared response headers of an HTTP 200 response for AdvanceRollout
+type AdvanceRolloutResponse200Headers struct {
+	ETag *string
+}
+
+type AdvanceRolloutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Rollout
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *AdvanceRolloutResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AdvanceRolloutResponse) GetJSON200() *Rollout {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r AdvanceRolloutResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r AdvanceRolloutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AdvanceRolloutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdvanceRolloutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AdvanceRolloutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// AbortRolloutResponse200Headers the declared response headers of an HTTP 200 response for AbortRollout
+type AbortRolloutResponse200Headers struct {
+	ETag *string
+}
+
+type AbortRolloutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Rollout
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *AbortRolloutResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AbortRolloutResponse) GetJSON200() *Rollout {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r AbortRolloutResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetBody returns the raw response body bytes
+func (r AbortRolloutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AbortRolloutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AbortRolloutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AbortRolloutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CompleteRolloutResponse200Headers the declared response headers of an HTTP 200 response for CompleteRollout
+type CompleteRolloutResponse200Headers struct {
+	ETag *string
+}
+
+type CompleteRolloutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Rollout
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CompleteRolloutResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CompleteRolloutResponse) GetJSON200() *Rollout {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CompleteRolloutResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CompleteRolloutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteRolloutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteRolloutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompleteRolloutResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -57603,6 +60699,296 @@ func (r GetQualitySummaryResponse) ContentType() string {
 	return ""
 }
 
+type ListReleaseRequestsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseRequestList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListReleaseRequestsResponse) GetJSON200() *ReleaseRequestList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListReleaseRequestsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListReleaseRequestsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListReleaseRequestsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListReleaseRequestsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListReleaseRequestsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleaseRequestsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleaseRequestsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListReleaseRequestsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetReleaseRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetReleaseRequestResponse) GetJSON200() *ReleaseRequest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetReleaseRequestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetReleaseRequestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetReleaseRequestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetReleaseRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetReleaseRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DecideReleaseRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Approval
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r DecideReleaseRequestResponse) GetJSON201() *Approval {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r DecideReleaseRequestResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r DecideReleaseRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DecideReleaseRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DecideReleaseRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DecideReleaseRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type WithdrawReleaseRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReleaseRequest
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r WithdrawReleaseRequestResponse) GetJSON200() *ReleaseRequest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r WithdrawReleaseRequestResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r WithdrawReleaseRequestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r WithdrawReleaseRequestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r WithdrawReleaseRequestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r WithdrawReleaseRequestResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r WithdrawReleaseRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r WithdrawReleaseRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WithdrawReleaseRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WithdrawReleaseRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReleaseSigningKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -57740,11 +61126,19 @@ type PublishReleaseResponse201Headers struct {
 	Location           *string
 }
 
+// PublishReleaseResponse202Headers the declared response headers of an HTTP 202 response for PublishRelease
+type PublishReleaseResponse202Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
 type PublishReleaseResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *Release
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *ReleaseHeld
 	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
 	ApplicationproblemJSON400 *BadRequest
 	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
@@ -57761,11 +61155,18 @@ type PublishReleaseResponse struct {
 	ApplicationproblemJSON503 *Unavailable
 	// Headers201 the parsed response headers for an HTTP 201 response
 	Headers201 *PublishReleaseResponse201Headers
+	// Headers202 the parsed response headers for an HTTP 202 response
+	Headers202 *PublishReleaseResponse202Headers
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
 func (r PublishReleaseResponse) GetJSON201() *Release {
 	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r PublishReleaseResponse) GetJSON202() *ReleaseHeld {
+	return r.JSON202
 }
 
 // GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
@@ -65476,6 +68877,74 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 	return ParseUpdateApplicationResponse(rsp)
 }
 
+// ImportV0HistoryWithBodyWithResponse Record v0.3's history as imported audit entries
+//
+// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+// from a restored backup, in batches (RFC 0006 §7.2). Each row
+// becomes an imported audit entry `v0.translation.changed` in the
+// tenant's audit trail, in its own chain segment marked as
+// imported, with actor `v0:<user id>` — never a member of this
+// platform — and a reference to the imported translation. History
+// is carried as history: nothing is replayed as a revision, and no
+// provenance is fabricated.
+//
+// **No text.** A row carries a translation's before and after only
+// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+// holds message or translation text (§6.1). The body has no member
+// that could carry one, and a member it does not name is ignored.
+//
+// Writing the tenant's audit trail is the owner's: it needs
+// `audit.export`, which only an owner holds by default and no API
+// token scope grants, in the project. Every row is recorded under
+// the project in the path. Answers `audit_import_unavailable`
+// (503) on a server that does not run the importer. Problem codes:
+// `invalid_request` (400), `audit_import_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+func (c *ClientWithResponses) ImportV0HistoryWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportV0HistoryResponse, error) {
+	rsp, err := c.ImportV0HistoryWithBody(ctx, tenant, project, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportV0HistoryResponse(rsp)
+}
+
+// ImportV0HistoryWithResponse Record v0.3's history as imported audit entries
+//
+// `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+// from a restored backup, in batches (RFC 0006 §7.2). Each row
+// becomes an imported audit entry `v0.translation.changed` in the
+// tenant's audit trail, in its own chain segment marked as
+// imported, with actor `v0:<user id>` — never a member of this
+// platform — and a reference to the imported translation. History
+// is carried as history: nothing is replayed as a revision, and no
+// provenance is fabricated.
+//
+// **No text.** A row carries a translation's before and after only
+// as SHA-256 digests of their UTF-8 bytes: an audit entry never
+// holds message or translation text (§6.1). The body has no member
+// that could carry one, and a member it does not name is ignored.
+//
+// Writing the tenant's audit trail is the owner's: it needs
+// `audit.export`, which only an owner holds by default and no API
+// token scope grants, in the project. Every row is recorded under
+// the project in the path. Answers `audit_import_unavailable`
+// (503) on a server that does not run the importer. Problem codes:
+// `invalid_request` (400), `audit_import_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/audit-imports (the `ImportV0History` operationId).
+func (c *ClientWithResponses) ImportV0HistoryWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, body ImportV0HistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*ImportV0HistoryResponse, error) {
+	rsp, err := c.ImportV0History(ctx, tenant, project, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportV0HistoryResponse(rsp)
+}
+
 // PushBranchMessagesWithBodyWithResponse Push a branch's messages (CI, glossa push --branch)
 //
 // The branch's catalog, up to 10000 messages in one transaction —
@@ -66578,11 +70047,30 @@ func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, te
 	return ParseGetEnvironmentResponse(rsp)
 }
 
-// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy
+// UpdateEnvironmentWithBodyWithResponse Change an environment's eligibility policy or approval requirement
 //
 // The policy decides what the next publish ships and which
 // releases may be promoted here; the release served keeps serving.
-// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// `approval` requires every publish and promote into the
+// environment to be approved by `n` distinct people of `from`, none
+// of them the requester (RFC 0006 §5.1): such a move answers `202`
+// with a release request and moves no pointer. `clear_approval`
+// switches the requirement off; leaving both out keeps it as it
+// is. Changing who must approve is governance, not publishing, so
+// it also needs `workflows.manage` (owner and admin by default). A
+// request already pending keeps showing the requirement it was made
+// under; its deploy must also meet the environment's requirement of
+// the moment. Policy and approval change together, under one
+// `If-Match`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_policy`,
+// `invalid_request` (400: `approval` together with
+// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+// exactly one of `member`, `role` or `group`, or
+// `distinct_from_requester` not true — self-approval is not
+// offered), `approval_on_branch` (422: a branch environment's
+// policy is fixed).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -66595,11 +70083,30 @@ func (c *ClientWithResponses) UpdateEnvironmentWithBodyWithResponse(ctx context.
 	return ParseUpdateEnvironmentResponse(rsp)
 }
 
-// UpdateEnvironmentWithResponse Change an environment's eligibility policy
+// UpdateEnvironmentWithResponse Change an environment's eligibility policy or approval requirement
 //
 // The policy decides what the next publish ships and which
 // releases may be promoted here; the release served keeps serving.
-// Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+//
+// `approval` requires every publish and promote into the
+// environment to be approved by `n` distinct people of `from`, none
+// of them the requester (RFC 0006 §5.1): such a move answers `202`
+// with a release request and moves no pointer. `clear_approval`
+// switches the requirement off; leaving both out keeps it as it
+// is. Changing who must approve is governance, not publishing, so
+// it also needs `workflows.manage` (owner and admin by default). A
+// request already pending keeps showing the requirement it was made
+// under; its deploy must also meet the environment's requirement of
+// the moment. Policy and approval change together, under one
+// `If-Match`.
+//
+// Needs `releases.publish`. Problem codes: `invalid_policy`,
+// `invalid_request` (400: `approval` together with
+// `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+// exactly one of `member`, `role` or `group`, or
+// `distinct_from_requester` not true — self-approval is not
+// offered), `approval_on_branch` (422: a branch environment's
+// policy is fixed).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -66647,10 +70154,20 @@ func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, t
 // `policy_not_met` and can be overridden with `force` and a
 // `force_reason`, which the deployment records.
 //
+// An environment with an `approval` requirement holds the promote
+// as a release request: the answer is `202` with the request, no
+// pointer moves, and the release is deployed once the requirement
+// is met (see `release-requests`). A forced promote waits too:
+// `force` overrides the completeness requirement, never the
+// approval. A promote into an environment with an active staged
+// rollout is refused (`rollout_active`): it would replace the
+// stable side under installations the rollout compares with it;
+// complete or abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `force_reason_required`,
 // `invalid_force_reason` (400), `release_not_found` (404),
 // `release_ineligible`, `branch_release_not_promotable`,
-// `policy_not_met` (409), `storage_unavailable` (503).
+// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -66683,10 +70200,20 @@ func (c *ClientWithResponses) PromoteReleaseWithBodyWithResponse(ctx context.Con
 // `policy_not_met` and can be overridden with `force` and a
 // `force_reason`, which the deployment records.
 //
+// An environment with an `approval` requirement holds the promote
+// as a release request: the answer is `202` with the request, no
+// pointer moves, and the release is deployed once the requirement
+// is met (see `release-requests`). A forced promote waits too:
+// `force` overrides the completeness requirement, never the
+// approval. A promote into an environment with an active staged
+// rollout is refused (`rollout_active`): it would replace the
+// stable side under installations the rollout compares with it;
+// complete or abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `force_reason_required`,
 // `invalid_force_reason` (400), `release_not_found` (404),
 // `release_ineligible`, `branch_release_not_promotable`,
-// `policy_not_met` (409), `storage_unavailable` (503).
+// `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -66764,6 +70291,199 @@ func (c *ClientWithResponses) RollbackEnvironmentWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseRollbackEnvironmentResponse(rsp)
+}
+
+// ListRolloutsWithResponse The environment's staged rollouts
+//
+// Newest first: the active one, if any, and the history of ended
+// ones. Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `ListRollouts` operationId).
+func (c *ClientWithResponses) ListRolloutsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *ListRolloutsParams, reqEditors ...RequestEditorFn) (*ListRolloutsResponse, error) {
+	rsp, err := c.ListRollouts(ctx, tenant, project, environment, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRolloutsResponse(rsp)
+}
+
+// StartRolloutWithBodyWithResponse Start serving a candidate release to a share of installations
+//
+// The environment's manifest gains a signed `rollout` member
+// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+// salt fixed for the rollout's life; a runtime activates the
+// candidate when its installation's cohort falls below `percent`,
+// and every other installation — and every runtime that predates
+// rollouts — keeps the release the environment points at. The
+// pointer does not move until the rollout is completed.
+//
+// The candidate is held to what a promote into the environment is
+// held to: a main-catalog release of the project the environment's
+// policy covers, through the completeness requirement or forced
+// with a `force_reason` that the completing deployment records.
+// The environment must already serve a release with the same
+// source locale, and may have one active rollout at a time. A
+// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+// when it is aborted. An environment that requires release
+// approvals refuses rollouts (`rollout_needs_approval`) until a
+// release request can carry one; publish or promote there instead.
+//
+// Needs `releases.publish`. Problem codes: `invalid_percent`,
+// `invalid_max_duration`, `force_reason_required`,
+// `invalid_force_reason`, `invalid_idempotency_key` (400),
+// `release_not_found` (404), `rollout_active`,
+// `rollout_no_stable`, `rollout_candidate_served`,
+// `rollout_branch_environment`, `rollout_source_locale`,
+// `rollout_needs_approval`, `release_ineligible`,
+// `branch_release_not_promotable`, `policy_not_met` (409),
+// `idempotency_key_reused` (422), `storage_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+func (c *ClientWithResponses) StartRolloutWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartRolloutResponse, error) {
+	rsp, err := c.StartRolloutWithBody(ctx, tenant, project, environment, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartRolloutResponse(rsp)
+}
+
+// StartRolloutWithResponse Start serving a candidate release to a share of installations
+//
+// The environment's manifest gains a signed `rollout` member
+// (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+// salt fixed for the rollout's life; a runtime activates the
+// candidate when its installation's cohort falls below `percent`,
+// and every other installation — and every runtime that predates
+// rollouts — keeps the release the environment points at. The
+// pointer does not move until the rollout is completed.
+//
+// The candidate is held to what a promote into the environment is
+// held to: a main-catalog release of the project the environment's
+// policy covers, through the completeness requirement or forced
+// with a `force_reason` that the completing deployment records.
+// The environment must already serve a release with the same
+// source locale, and may have one active rollout at a time. A
+// rollout ends by itself only at `max_duration_seconds` (default 14 days),
+// when it is aborted. An environment that requires release
+// approvals refuses rollouts (`rollout_needs_approval`) until a
+// release request can carry one; publish or promote there instead.
+//
+// Needs `releases.publish`. Problem codes: `invalid_percent`,
+// `invalid_max_duration`, `force_reason_required`,
+// `invalid_force_reason`, `invalid_idempotency_key` (400),
+// `release_not_found` (404), `rollout_active`,
+// `rollout_no_stable`, `rollout_candidate_served`,
+// `rollout_branch_environment`, `rollout_source_locale`,
+// `rollout_needs_approval`, `release_ineligible`,
+// `branch_release_not_promotable`, `policy_not_met` (409),
+// `idempotency_key_reused` (422), `storage_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts (the `StartRollout` operationId).
+func (c *ClientWithResponses) StartRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, params *StartRolloutParams, body StartRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartRolloutResponse, error) {
+	rsp, err := c.StartRollout(ctx, tenant, project, environment, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartRolloutResponse(rsp)
+}
+
+// GetRolloutWithResponse A rollout
+//
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `GetRollout` operationId).
+func (c *ClientWithResponses) GetRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, reqEditors ...RequestEditorFn) (*GetRolloutResponse, error) {
+	rsp, err := c.GetRollout(ctx, tenant, project, environment, rollout, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRolloutResponse(rsp)
+}
+
+// AdvanceRolloutWithBodyWithResponse Change the share of installations in the candidate
+//
+// Any percent may follow any other, down as well as up (RFC 0006
+// §15 Q5); the salt stays, so the installations in the candidate
+// at a lower percent are among those at a higher one. Advancing
+// needs no approval. Needs `releases.publish`. Problem codes:
+// `invalid_percent` (400), `rollout_ended` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+func (c *ClientWithResponses) AdvanceRolloutWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceRolloutResponse, error) {
+	rsp, err := c.AdvanceRolloutWithBody(ctx, tenant, project, environment, rollout, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdvanceRolloutResponse(rsp)
+}
+
+// AdvanceRolloutWithResponse Change the share of installations in the candidate
+//
+// Any percent may follow any other, down as well as up (RFC 0006
+// §15 Q5); the salt stays, so the installations in the candidate
+// at a lower percent are among those at a higher one. Advancing
+// needs no approval. Needs `releases.publish`. Problem codes:
+// `invalid_percent` (400), `rollout_ended` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout} (the `AdvanceRollout` operationId).
+func (c *ClientWithResponses) AdvanceRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AdvanceRolloutParams, body AdvanceRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceRolloutResponse, error) {
+	rsp, err := c.AdvanceRollout(ctx, tenant, project, environment, rollout, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdvanceRolloutResponse(rsp)
+}
+
+// AbortRolloutWithResponse End the rollout and keep the environment's release
+//
+// The manifest drops `rollout` and every installation returns to
+// the release the environment points at on its next refresh.
+// Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+// A rollback of the environment aborts its rollout too. Needs
+// `releases.publish`. Problem codes: `rollout_ended` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort (the `AbortRollout` operationId).
+func (c *ClientWithResponses) AbortRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *AbortRolloutParams, reqEditors ...RequestEditorFn) (*AbortRolloutResponse, error) {
+	rsp, err := c.AbortRollout(ctx, tenant, project, environment, rollout, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAbortRolloutResponse(rsp)
+}
+
+// CompleteRolloutWithResponse Make the candidate the environment's release
+//
+// The pointer moves to the candidate as a promote moves it — the
+// deployment records the force the rollout started with, if any —
+// and the manifest drops `rollout`. The completeness requirement
+// is not asked again: it was asked when the rollout started, about
+// the same immutable release. Completing an ended rollout is
+// `rollout_ended`. Needs `releases.publish`. Problem codes:
+// `rollout_ended` (409), `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion (the `CompleteRollout` operationId).
+func (c *ClientWithResponses) CompleteRolloutWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, environment EnvironmentPath, rollout RolloutPath, params *CompleteRolloutParams, reqEditors ...RequestEditorFn) (*CompleteRolloutResponse, error) {
+	rsp, err := c.CompleteRollout(ctx, tenant, project, environment, rollout, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteRolloutResponse(rsp)
 }
 
 // GetFallbackGraphWithResponse A project's fallback graph
@@ -67816,6 +71536,144 @@ func (c *ClientWithResponses) GetQualitySummaryWithResponse(ctx context.Context,
 	return ParseGetQualitySummaryResponse(rsp)
 }
 
+// ListReleaseRequestsWithResponse A project's release requests
+//
+// Newest first, optionally in one `environment` and one `state`.
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests (the `ListReleaseRequests` operationId).
+func (c *ClientWithResponses) ListReleaseRequestsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, params *ListReleaseRequestsParams, reqEditors ...RequestEditorFn) (*ListReleaseRequestsResponse, error) {
+	rsp, err := c.ListReleaseRequests(ctx, tenant, project, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleaseRequestsResponse(rsp)
+}
+
+// GetReleaseRequestWithResponse A release request
+//
+// What it would deploy, where, who asked, the requirement its
+// approvers were asked for, what the completeness requirement said
+// when it was made, and whether the requester forced it and why.
+// Needs `releases.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request} (the `GetReleaseRequest` operationId).
+func (c *ClientWithResponses) GetReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, reqEditors ...RequestEditorFn) (*GetReleaseRequestResponse, error) {
+	rsp, err := c.GetReleaseRequest(ctx, tenant, project, releaseRequest, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseRequestResponse(rsp)
+}
+
+// DecideReleaseRequestWithBodyWithResponse Grant or deny a release request
+//
+// A person's decision on the request's current approval — the one
+// the project's release-approval workflow asked for — recorded as
+// `POST …/approvals/{approval}/decisions` records it. Once enough
+// distinct people other than the requester have granted it, the
+// workflow deploys the release as the last of them: Release checks
+// the requirement itself, runs the completeness requirement again
+// and moves the pointer, and the edge serves it within seconds. A
+// denial closes the request; nothing moves.
+//
+// Human-only: an API token or an MCP agent is refused
+// (`person_required`, 403) — no scope grants `approvals.decide`.
+// The caller needs `approvals.decide` in the request's environment,
+// must be of the requirement's party (`not_eligible`, 403), and
+// must not be the requester (`own_text`, 403: four-eyes). Problem
+// codes: `approval_not_requested` (409: the workflow has not asked
+// for the approval yet; retry shortly), `release_request_closed`
+// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+// `approval_superseded` (409), `invalid_approval` (422: a reason
+// over 2,000 characters).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+func (c *ClientWithResponses) DecideReleaseRequestWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideReleaseRequestResponse, error) {
+	rsp, err := c.DecideReleaseRequestWithBody(ctx, tenant, project, releaseRequest, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideReleaseRequestResponse(rsp)
+}
+
+// DecideReleaseRequestWithResponse Grant or deny a release request
+//
+// A person's decision on the request's current approval — the one
+// the project's release-approval workflow asked for — recorded as
+// `POST …/approvals/{approval}/decisions` records it. Once enough
+// distinct people other than the requester have granted it, the
+// workflow deploys the release as the last of them: Release checks
+// the requirement itself, runs the completeness requirement again
+// and moves the pointer, and the edge serves it within seconds. A
+// denial closes the request; nothing moves.
+//
+// Human-only: an API token or an MCP agent is refused
+// (`person_required`, 403) — no scope grants `approvals.decide`.
+// The caller needs `approvals.decide` in the request's environment,
+// must be of the requirement's party (`not_eligible`, 403), and
+// must not be the requester (`own_text`, 403: four-eyes). Problem
+// codes: `approval_not_requested` (409: the workflow has not asked
+// for the approval yet; retry shortly), `release_request_closed`
+// (409: deployed, denied, withdrawn or refused), `approval_closed`,
+// `approval_superseded` (409), `invalid_approval` (422: a reason
+// over 2,000 characters).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals (the `DecideReleaseRequest` operationId).
+func (c *ClientWithResponses) DecideReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body DecideReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideReleaseRequestResponse, error) {
+	rsp, err := c.DecideReleaseRequest(ctx, tenant, project, releaseRequest, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideReleaseRequestResponse(rsp)
+}
+
+// WithdrawReleaseRequestWithBodyWithResponse Take a pending release request back
+//
+// Its requester, or anyone who may publish to the project. No
+// pointer moves. A newer publish or promote into the same
+// environment withdraws the pending request by itself. Needs
+// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+// (400), `release_request_closed` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+func (c *ClientWithResponses) WithdrawReleaseRequestWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WithdrawReleaseRequestResponse, error) {
+	rsp, err := c.WithdrawReleaseRequestWithBody(ctx, tenant, project, releaseRequest, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWithdrawReleaseRequestResponse(rsp)
+}
+
+// WithdrawReleaseRequestWithResponse Take a pending release request back
+//
+// Its requester, or anyone who may publish to the project. No
+// pointer moves. A newer publish or promote into the same
+// environment withdraws the pending request by itself. Needs
+// `releases.publish`. Problem codes: `invalid_withdraw_reason`
+// (400), `release_request_closed` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal (the `WithdrawReleaseRequest` operationId).
+func (c *ClientWithResponses) WithdrawReleaseRequestWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, releaseRequest ReleaseRequestPath, body WithdrawReleaseRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*WithdrawReleaseRequestResponse, error) {
+	rsp, err := c.WithdrawReleaseRequest(ctx, tenant, project, releaseRequest, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWithdrawReleaseRequestResponse(rsp)
+}
+
 // ListReleaseSigningKeysWithResponse The public keys manifests are signed with
 //
 // Configure runtimes with these (runtimes/SPEC.md §1.3). Active
@@ -67870,10 +71728,22 @@ func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, tena
 // no reason is `force_reason_required` and a reason with no
 // override is `invalid_force_reason`.
 //
+// An environment with an `approval` requirement holds the publish
+// as a release request: the release is built and recorded, but the
+// answer is `202` with the release's `id` and the request, and the
+// environment keeps serving what it served. The release is deployed
+// once the requirement is met (see `release-requests`). A forced
+// publish waits too: `force` overrides the completeness
+// requirement, never the approval, and the approvers see that it
+// was forced and why. A retry with the same `Idempotency-Key`
+// answers the same request. A publish into an environment with an
+// active staged rollout is refused (`rollout_active`); complete or
+// abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `invalid_environment`,
 // `invalid_note`, `force_reason_required`, `invalid_force_reason`
-// (400), `policy_not_met` (409), `not_releasable` (422),
-// `storage_unavailable` (503).
+// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -67906,10 +71776,22 @@ func (c *ClientWithResponses) PublishReleaseWithBodyWithResponse(ctx context.Con
 // no reason is `force_reason_required` and a reason with no
 // override is `invalid_force_reason`.
 //
+// An environment with an `approval` requirement holds the publish
+// as a release request: the release is built and recorded, but the
+// answer is `202` with the release's `id` and the request, and the
+// environment keeps serving what it served. The release is deployed
+// once the requirement is met (see `release-requests`). A forced
+// publish waits too: `force` overrides the completeness
+// requirement, never the approval, and the approvers see that it
+// was forced and why. A retry with the same `Idempotency-Key`
+// answers the same request. A publish into an environment with an
+// active staged rollout is refused (`rollout_active`); complete or
+// abort the rollout first.
+//
 // Needs `releases.publish`. Problem codes: `invalid_environment`,
 // `invalid_note`, `force_reason_required`, `invalid_force_reason`
-// (400), `policy_not_met` (409), `not_releasable` (422),
-// `storage_unavailable` (503).
+// (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+// (422), `storage_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -76149,6 +80031,74 @@ func ParseUpdateApplicationResponse(rsp *http.Response) (*UpdateApplicationRespo
 	return response, nil
 }
 
+// ParseImportV0HistoryResponse parses an HTTP response from a ImportV0HistoryWithResponse call
+func ParseImportV0HistoryResponse(rsp *http.Response) (*ImportV0HistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportV0HistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest V0HistoryReport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePushBranchMessagesResponse parses an HTTP response from a PushBranchMessagesWithResponse call
 func ParsePushBranchMessagesResponse(rsp *http.Response) (*PushBranchMessagesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -77982,6 +81932,13 @@ func ParseUpdateEnvironmentResponse(rsp *http.Response) (*UpdateEnvironmentRespo
 		}
 		response.ApplicationproblemJSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
 		var dest PreconditionRequired
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -78082,6 +82039,13 @@ func ParsePromoteReleaseResponse(rsp *http.Response) (*PromoteReleaseResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ReleaseHeld
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -78130,6 +82094,16 @@ func ParsePromoteReleaseResponse(rsp *http.Response) (*PromoteReleaseResponse, e
 			headers.ETag = &value
 		}
 		response.Headers200 = &headers
+	case rsp.StatusCode == 202:
+		var headers PromoteReleaseResponse202Headers
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers202 = &headers
 	}
 
 	return response, nil
@@ -78250,6 +82224,479 @@ func ParseRollbackEnvironmentResponse(rsp *http.Response) (*RollbackEnvironmentR
 	switch {
 	case rsp.StatusCode == 200:
 		var headers RollbackEnvironmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListRolloutsResponse parses an HTTP response from a ListRolloutsWithResponse call
+func ParseListRolloutsResponse(rsp *http.Response) (*ListRolloutsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRolloutsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RolloutList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartRolloutResponse parses an HTTP response from a StartRolloutWithResponse call
+func ParseStartRolloutResponse(rsp *http.Response) (*StartRolloutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartRolloutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Rollout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers StartRolloutResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetRolloutResponse parses an HTTP response from a GetRolloutWithResponse call
+func ParseGetRolloutResponse(rsp *http.Response) (*GetRolloutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRolloutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Rollout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetRolloutResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseAdvanceRolloutResponse parses an HTTP response from a AdvanceRolloutWithResponse call
+func ParseAdvanceRolloutResponse(rsp *http.Response) (*AdvanceRolloutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdvanceRolloutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Rollout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers AdvanceRolloutResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseAbortRolloutResponse parses an HTTP response from a AbortRolloutWithResponse call
+func ParseAbortRolloutResponse(rsp *http.Response) (*AbortRolloutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AbortRolloutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Rollout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers AbortRolloutResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCompleteRolloutResponse parses an HTTP response from a CompleteRolloutWithResponse call
+func ParseCompleteRolloutResponse(rsp *http.Response) (*CompleteRolloutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteRolloutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Rollout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CompleteRolloutResponse200Headers
 		if values := rsp.Header.Values("ETag"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
@@ -80397,6 +84844,236 @@ func ParseGetQualitySummaryResponse(rsp *http.Response) (*GetQualitySummaryRespo
 	return response, nil
 }
 
+// ParseListReleaseRequestsResponse parses an HTTP response from a ListReleaseRequestsWithResponse call
+func ParseListReleaseRequestsResponse(rsp *http.Response) (*ListReleaseRequestsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleaseRequestsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseRequestList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseRequestResponse parses an HTTP response from a GetReleaseRequestWithResponse call
+func ParseGetReleaseRequestResponse(rsp *http.Response) (*GetReleaseRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDecideReleaseRequestResponse parses an HTTP response from a DecideReleaseRequestWithResponse call
+func ParseDecideReleaseRequestResponse(rsp *http.Response) (*DecideReleaseRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DecideReleaseRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWithdrawReleaseRequestResponse parses an HTTP response from a WithdrawReleaseRequestWithResponse call
+func ParseWithdrawReleaseRequestResponse(rsp *http.Response) (*WithdrawReleaseRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WithdrawReleaseRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListReleaseSigningKeysResponse parses an HTTP response from a ListReleaseSigningKeysWithResponse call
 func ParseListReleaseSigningKeysResponse(rsp *http.Response) (*ListReleaseSigningKeysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -80519,6 +85196,13 @@ func ParsePublishReleaseResponse(rsp *http.Response) (*PublishReleaseResponse, e
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ReleaseHeld
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -80588,6 +85272,23 @@ func ParsePublishReleaseResponse(rsp *http.Response) (*PublishReleaseResponse, e
 			headers.Location = &value
 		}
 		response.Headers201 = &headers
+	case rsp.StatusCode == 202:
+		var headers PublishReleaseResponse202Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers202 = &headers
 	}
 
 	return response, nil

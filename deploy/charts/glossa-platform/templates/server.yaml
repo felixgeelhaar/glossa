@@ -193,6 +193,17 @@ spec:
             - name: GLOSSA_RELEASE_RETIRED_KEYS
               value: {{ . | quote }}
             {{- end }}
+            {{- if .Values.audit.exports.enabled }}
+            - name: GLOSSA_AUDIT_EXPORTS_ENABLED
+              value: "true"
+            {{- include "gp.secretEnv" (dict "name" "GLOSSA_AUDIT_SIGNING_KEY" "secret" (required "audit.signingKey.secretName is required when audit.exports.enabled (Secret with GLOSSA_AUDIT_SIGNING_KEY; not the release key)" .Values.audit.signingKey.secretName) "key" .Values.audit.signingKey.secretKey) | nindent 12 }}
+            {{- else if .Values.audit.signingKey.secretName }}
+            {{- include "gp.secretEnv" (dict "name" "GLOSSA_AUDIT_SIGNING_KEY" "secret" .Values.audit.signingKey.secretName "key" .Values.audit.signingKey.secretKey) | nindent 12 }}
+            {{- end }}
+            {{- with .Values.audit.retiredKeys }}
+            - name: GLOSSA_AUDIT_RETIRED_KEYS
+              value: {{ . | quote }}
+            {{- end }}
             {{- /* No GitHub App configured: not one GLOSSA_GITHUB_APP_*,
                    _CLIENT_* or _WEBHOOK_* variable, and no Secret to
                    create — the endpoints answer github_not_configured

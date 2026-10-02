@@ -175,12 +175,15 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
+| `workflow` | Workflow definitions as files (RFC 0006 §2): `lint <file>` (the server's compile and lint, every finding with its rule, severity and path; exit 1 when a save would be refused), `push <file> [--project P] [--if-version N]` (create, or save the next version under `If-Match`; an unchanged document saves nothing), `pull <name> [--version N] [-o file]`, `list`, `show <name>`, `bind <name> [--locales de,fr] [--namespace ns]`, `unbind <name> \| --binding <id>`, `bindings`, `instances [--status --definition --locale --message]`, `log <instance-id>` (see *Workflows and assignments*). |
+| `assignments` | My work (RFC 0006 §3.1): `list` (the default; `--all` for everyone's, `--project --state --locale --message`), `show <id>`, `accept <id>`, `complete <id>`, `decline <id> [--reason]`, `create --to member:<id\|email>\|role:<role>\|group:<name>\|vendor:<name> --units key@locale,… [--project P] [--due T] [--permission P]` (see *Workflows and assignments*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
 | `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
 | `translate` | `--locale L [--namespace --key-prefix] [--missing\|--outdated] [--dry-run] [--wait]`: fills locales with AI suggestions. |
 | `review` | The AI review queue: `list [--locale]`, `accept <id\|key> [--text]`, `reject <id\|key> [--reason]`. |
 | `ai status` | Provider consent, the monthly budget and spend, providers (never their keys), and the project's auto-translate locales, namespace tags and review routing. |
+| `audit verify <export> --public-key <key>` | Checks a signed `glossa.audit/v1` export **offline** — no server, no glossa.yaml, no token: the manifest's signature, every line's hash and link, no gaps, and that the file is exactly what the manifest signs. Exit 1 at the first thing that fails, named (see *Audit*). |
 | `mcp` | Speaks MCP on stdin and stdout, proxying to `glossa-server`'s `/mcp` endpoint with the stored token, so an editor that speaks only stdio gets the same tools without a second server (RFC 0005 §7.1). It is framing only — it registers no tool and validates no argument, so it cannot diverge from the endpoint. Read-only unless you ask: `--allow-write` offers the write tools (needs a token with the `write` scope), `--allow-publish` the release tools (needs `publish`). The two are alternatives, not a pair. Asking is not getting: the server still checks the token's scopes and refuses a session it may not open. See `internal/mcp/README.md`. |
 
 `check` reads like CI output:
@@ -383,9 +386,9 @@ layer a locale cannot run never reads as a clean one (intent §41).
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`) |
-| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
+| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `import --from v0 --verify` (a rendering differs other than by v0.3's known apostrophe defect: `renderings_differ`), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`) |
+| 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
 
 Errors print what happened, where, why and how to fix it:
@@ -414,6 +417,8 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.github.connections.list/v1` | `{project_id (null: the whole workspace), connections: [Connection]}` |
 | `glossa.cli.github.connections.add/v1` | `{connection: Connection}` |
 | `glossa.cli.github.connections.remove/v1` | `{connection_id}` |
+| `glossa.cli.workflow/v1` | Every `workflow` action, with `action` naming it: `lint` `{file, valid, errors, warnings, findings: [Finding]}`; `push` `{file, result (created \| saved \| unchanged \| invalid), definition: Definition \| null, findings: [Finding]}` (with `invalid`, exit 2 and the findings that refused it); `pull` with `-o` `{file, definition: Definition, version}` (without `-o` it prints the document itself, which is what `push` reads); `list` `{project_id, definitions: [Definition]}`; `show` `{definition: Definition, version, document, versions: [{version, created_by, created_at}], project_id, bindings: [Binding]}`; `bind`, `unbind` `{result (created \| unchanged \| removed), binding: Binding}`; `bindings` `{project_id, bindings: [Binding]}`; `instances` `{project_id, instances: [Instance]}`; `log` `{instance: Instance, transitions: [Transition]}` |
+| `glossa.cli.assignments/v1` | Every `assignments` action, with `action` naming it: `list` `{mine (false only with --all), assignments: [Assignment]}`; `show`, `accept`, `complete`, `decline` `{assignment: Assignment}`; `create` `{replayed?, assignment: Assignment}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
@@ -434,7 +439,8 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
-| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`) |
+| `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, history?: {sent, recorded, existing}, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`; `history` is `--history`'s) |
+| `glossa.cli.import-verify/v1` | `{from, source: {db, tenant, project, restore} \| {url, project}, edge, environment, release, summary: {renderings, keys, locales, match, known_defect, mismatch}, known_defects: [row], mismatches: [row], runtime_errors?}`, a row being `{key, locale, args, v0, runtime, v0_error?, runtime_error?, verdict, defect?, v0_requoted?}` (`import --from v0 --verify`; `defect` is `v0_bare_apostrophe`, and `v0_requoted` its evidence) |
 | `glossa.cli.import.job/v1` | `{format, mode (dry_run \| merge \| overwrite), dry_run, scope (project \| tenant), file: {path, size, sha256}, job: Job, waited, results: [Result], results_filter (problems \| all)}` (`import --format`, `tm import`, `terms import`) |
 | `glossa.cli.export/v1` | `{format, scope, job: Job, waited, file: {path?, name, size, sha256, content_type, verified} \| null, extracted: [{path, size}]}` (`export`, `tm export`, `terms export`) |
 | `glossa.cli.jobs.list/v1` | `{jobs: [Job]}` (newest first; the project's and the workspace's, or with `--all-projects` the tenant's) |
@@ -464,6 +470,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.review.list/v1` | `{suggestions: [Suggestion]}` (riskiest first) |
 | `glossa.cli.review.decision/v1` | `{decision: accepted \| rejected, edited, suggestion: Suggestion}` |
 | `glossa.cli.ai.status/v1` | `{consent: {enabled, changed_at?, changed_by?}, max_concurrent_jobs, budget: {monthly_micro_usd, spent_micro_usd, remaining_micro_usd, month_start, calls, by_provider: [{provider, model, calls, cost_micro_usd, input_tokens, output_tokens}]}, providers: [{name, kind, enabled, api_key_set, base_url?, models}], project: {auto_translate_locales, namespace_tags: {namespace: [tag]}, review: {auto_approve, auto_approve_min, recommend_min, auto_approve_environments?, force_review?}}}` |
+| `glossa.cli.audit.verify/v1` | `{path, ok, tenant_id?, key_id?, created_at?, first_sequence?, last_sequence?, last_hash?, entry_count, verified, failure: {check, line?, sequence?, reason} \| null}`; `check` is one of the codes under *Audit*, and the manifest's fields are absent when it did not parse |
 
 The import and export shapes share:
 
@@ -493,6 +500,15 @@ The Quality shapes share:
 The Git connection shapes share:
 
 - `Connection`: `{id, installation_id, repository_id (GitHub's numeric id), repository_name (owner/name, a label GitHub may change), project_id, project? (the slug, left out when it couldn't be read), application_id, application?, default_branch, path ("": the whole repository), created_by?, created_at, updated_at?, version}`
+
+The workflow and assignment shapes share (the Workflow API's, RFC 0006 §2–§3):
+
+- `Definition`: `{id, name, subject (translation \| release_request), project_id (null: tenant-wide), version (the latest, or the one a push saved), created_by, created_at, deleted_at?}`
+- `Finding` (a workflow lint finding, not `glossa.finding/v1`): `{rule, severity (error \| warning \| info; error and warning refuse a save), path? (guards.two_approvals; absent: the whole document), state?, event?, message}`
+- `Binding`: `{id, definition_id, definition? (its name, when it could be read), subject, locales ([]: every locale), namespace?, position (creation order; the later of two equally specific bindings wins), created_by, created_at}`
+- `Instance`: `{id, definition_id, definition?, definition_version, subject, subject_id (the message, for a translation), locale?, state, status (active \| finished), created_at, updated_at}`
+- `Transition`: `{seq, from ("" for the event that created the instance), event, to, outcome (applied \| ignored \| refused), guards: [{guard, passed}], actions: [{name, outcome (done \| refused \| failed), detail?}], actor, outbox_event_id?, at}`
+- `Assignment`: `{id, project_id, instance_id? (the workflow instance whose assign action made it), units: [{message_id, message? (the key; show and create name it), locale}], assignee: {kind (member \| role \| group \| vendor), id?, role?}, permission, state (open \| accepted \| done \| declined \| expired), due_at?, created_by, created_at, updated_at, closed_by?, closed_at?, reason?}`
 
 Finding codes are the kernel's (`missing-argument`, `extra-argument`,
 `argument-type-changed`, `selector-*`, `invalid-plural-key`,
@@ -704,13 +720,84 @@ PGPASSWORD=… glossa import --from v0 --v0-db postgres://postgres@localhost/glo
   one that may not stops the run before anyone is invited. `--invite`
   and `--dry-run` exclude each other. An invitation is accepted when the
   person signs in with that address.
-- Reported as a plan, not acted on: `audit_entries` (each `audit_log`
-  row as `v0.translation.changed` with actor `v0:<user id>`,
-  `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`) for Audit to
-  import. Locale labels are reported; the platform names locales from
-  CLDR.
+- v0.3's history: `audit_entries` reports each `audit_log` row as
+  `v0.translation.changed` with actor `v0:<user id>`,
+  `v0:ai:<provider>`, `v0:system:<label>` or `v0:unknown`. `--history`
+  sends them to the organisation's audit trail
+  (`POST …/projects/{project}/audit-imports`, 500 rows a request) as
+  imported entries: the actor, v0.3's time, the key and locale (or
+  `translation_deleted` / `no_translation` for a row whose translation
+  is gone), the v0.3 row id, the restore's name and SHA-256 — and the
+  **SHA-256 of the text before and after, never the text**: an audit
+  entry holds no translation text (RFC 0006 §6.1), and whoever holds the
+  archived dump can show which text a digest stands for. Each row is
+  recorded once per organisation, keyed by its v0.3 id, so a re-run, a
+  retried request, or the import of another project of the same
+  organisation (whose plan carries the rows whose translation is gone
+  again) records nothing twice; `history` reports `sent`, `recorded` and
+  `existing`. Imported entries are appended to the end of the
+  organisation's hash chain like any other: the chain is ordered by when
+  an entry was recorded, `occurred_at` says when it happened. Only an
+  **owner** may import history (`audit.import`); no API token scope
+  reaches it, so a token is refused (`forbidden`, exit 3). The CLI signs
+  in with API tokens until it can hold a person's session (RFC 0006 wave
+  5, which `glossa approve` needs too); it sends with whatever
+  credential it has, so `--history` works for an owner from then on.
+  `--history` and `--dry-run` exclude each other.
+- Locale labels are reported; the platform names locales from CLDR.
 - `not_carried` lists every v0.3 field the import leaves behind, with
   why. The archived dump keeps all of it.
+
+### Proving it renders the same (`--verify`)
+
+```sh
+export GLOSSA_DELIVERY_KEY=dk_…   # a delivery key for the environment
+glossa import --from v0 --v0-db postgres://postgres@localhost/glossa_v0_restore --v0-tenant klarlabs \
+  --v0-project brotwerk-site --verify --edge https://edge.example.com --environment production
+```
+
+`--verify` imports nothing and writes nothing. It reads v0.3's text — from
+the restore (`--v0-db`) or v0.3's API (`--v0-url`) — and renders every key
+in every v0.3 locale twice: with **v0.3's own formatter**
+(`@felixgeelhaar/glossa-format`) over that text, and with
+**`@glossa/runtime`** over the release glossa-edge serves to the delivery
+key in `--environment`, exactly as a product would load it. The two share
+no code. Both get the same arguments, generated from each message's own
+argument metadata (the platform's `Arguments` over the MF1 text, in every
+locale): every plural with 0, 1, 2, 5, 21 and its exact keys, every select
+with each of its keys and a value that reaches its catch-all, every other
+argument with one value; the product of those, or each selector varied
+alone past 64 sets.
+
+- **How it runs.** The CLI is one Go binary and both formatters are
+  JavaScript, so it embeds a small Node driver, writes it to a temporary
+  directory and runs it with `node` (22 or later; `--node` names another).
+  The two packages are not bundled — the comparison is only worth
+  something against the very builds products use: it finds them under
+  `node_modules/` from the working directory upwards, or in a Glossa
+  checkout (`packages/format`, `runtimes/js/runtime`, built with
+  `make system-m5-deps`), or where `--format-module` and
+  `--runtime-module` point. A missing or unbuilt package is
+  `module_not_found` / `module_not_built` (exit 2).
+- **Verdicts.** Each rendering is `match`, `known_defect` or `mismatch`.
+  `known_defect` is exactly one defect of v0.3's formatter
+  (`v0_bare_apostrophe`): it reads any apostrophe that isn't doubled as
+  the start of a quoted run lasting to the next apostrophe or the end,
+  so `Geht's gut, {name}?` renders as `Gehts gut, {name}?` where ICU —
+  and the runtime — say `Geht's gut, Ada?`. A rendering is put in that
+  category only when the runtime rendered, v0.3 differs from it (or
+  failed), and **v0.3's own formatter, given the same text with only its
+  apostrophes rewritten to mean what ICU means, renders exactly the
+  runtime's output** (`v0_requoted` in the row is that evidence). Any
+  other difference — a changed word beside an apostrophe, a number
+  formatted differently, a key the release lacks (the runtime falls
+  back), an error on either side — is a `mismatch`.
+- **Reported, never hidden.** Every known-defect row is listed with its
+  key, locale, arguments and both outputs, and counted in `summary`;
+  every mismatch too. Exit 0 when there are no mismatches (known defects
+  or not), 1 (`renderings_differ`) otherwise. Run it against an
+  environment that ships what was imported — a key the policy holds back
+  falls back and is a mismatch.
 
 ## Release
 
@@ -828,6 +915,73 @@ only connect repositories an installation already sees.
 - A deployment with no GitHub App configured answers
   `github_not_configured` (exit 3) to every one of these commands.
 
+## Workflows and assignments
+
+A workflow definition is an organisation's localization process as data
+(RFC 0006 §2): a `glossa.workflow/v1` document — a statechart whose
+guards and actions name the platform's primitives — linted and stored
+by the server in immutable versions, and bound to projects. `glossa
+workflow` lets a definition live in a repository: lint it in a pull
+request, push it on merge.
+
+```yaml
+- run: glossa workflow lint workflows/review.json     # exit 1 when a save would be refused
+- run: glossa workflow push workflows/review.json     # created, saved as vN, or unchanged
+- run: glossa workflow bind review --locales de,fr    # unchanged when already bound
+  env: { GLOSSA_TOKEN: ${{ secrets.GLOSSA_WORKFLOWS_TOKEN }} }
+```
+
+- **The server is the judge.** `lint` and `push` send the document as
+  it is (JSON, or YAML for a `.yaml`/`.yml` file) and print the
+  server's findings — rule, severity, path, message — so the CLI can
+  never disagree with what a save would do. An `error` or `warning`
+  refuses a save; an `info` is a note.
+- **A push never overwrites someone else's version.** An existing
+  definition (found by the document's `name` in the push's scope:
+  tenant-wide, or the project's own with `--project`) gets its next
+  version saved under `If-Match` on the version read just before.
+  `--if-version N` says which version the file was edited from — what
+  `pull -o` tells you — and a save based on anything but the latest is
+  refused (`precondition_failed`, exit 3) with nothing saved: pull, merge,
+  push again. A document equal to the latest version (whatever its key
+  order or spacing) saves nothing (`unchanged`), so a push on every
+  merge is safe.
+- `bind` is idempotent too: binding the same definition for the same
+  selector again is `unchanged`; the selector bound to another
+  definition is `workflow_binding_exists` and names it. `unbind <name>`
+  removes the definition's one binding (with several, `--locales` and
+  `--namespace` pick one, or `--binding <id>`).
+- `instances` and `log` read what the runner did: which version an
+  instance runs on, the state it is in, and every event it received —
+  the guards it evaluated, the actions it ran and as whom, `ignored` when
+  the world had moved on, `refused` when an action was not allowed.
+- A name both the tenant and the project define is
+  `workflow_ambiguous`: pass the ID.
+
+**Credentials.** Reading workflows needs a token with the `read` scope.
+Saving and binding need `workflows.manage`, which an API token holds
+only with the opt-in **`workflows` scope** — no other scope implies it —
+and a GitHub Actions credential never holds: such a refusal is
+`workflows_scope_required` and says exactly that.
+
+**Assignments** are a batch of translation units given to a member, a
+role, a group or a vendor (RFC 0006 §3.1). `glossa assignments` is my
+work; `complete` is a claim, not a decision — no review state changes,
+the project's workflow decides what follows. Assignment work belongs to
+people, and the CLI signs in with API tokens, which are not members:
+
+- a token's `glossa assignments` is always empty, and `show`, `accept`,
+  `complete` and `decline` of a person's assignment are `not_found`
+  (someone else's assignment does not exist to you) — the message says
+  so;
+- `create` and `--all` need `assignments.manage`, a person's permission
+  (owner, admin) that no token scope grants:
+  `assignments_manage_required`.
+
+Until the CLI can sign in as a person, these commands do their work for
+a credential that is one; Studio's My work is where people act on
+assignments today.
+
 ## Knowledge and AI
 
 The termbase, translation memory and style guides (RFC 0003 §2) and AI
@@ -937,6 +1091,57 @@ host; then the endpoint is yours to trust.
 
 Attached, capture owns only the tabs it opens: each is closed after its
 capture, and the browser keeps running afterwards.
+
+## Audit
+
+An audit export (RFC 0006 §6.2) is a directory holding `entries.jsonl`
+— one hash-chained, content-free entry per line — and `manifest.json`,
+which signs the range, the chain's two ends, the entry count and the
+file's SHA-256 with the deployment's audit key. The format is written
+out in `platform/README.md`, *Audit export format*. Export jobs write
+them (RFC 0006 wave 5); `glossa audit list` and `glossa audit export`
+follow in wave 6.
+
+`glossa audit verify` needs nothing but the files and a public key you
+trust. It reads no glossa.yaml, no token and no network, so an auditor
+runs it on a copy without an account:
+
+```sh
+# once: save the deployment's audit keys and keep them (pin them)
+curl -fsS https://glossa.example.com/.well-known/glossa-audit-keys.json > audit-keys.json
+
+glossa audit verify ./audit-2026-10 --public-key audit-keys.json
+glossa audit verify ./audit-2026-10/manifest.json --public-key audit-2026=Base64PublicKey…
+```
+
+```text
+✓ audit export verified: 1204 entries, sequences 3311–4514 of tenant 0190a1b2-…
+  signed with audit-2026 at 2026-10-02T12:00:00.000000Z
+  last hash 7ca45202…
+
+✗ audit export does not verify: line 3 (sequence 3313): hash does not match the entry's content [hash_mismatch]
+  2 entries verified before it
+```
+
+- `--public-key` is required and repeatable: a `glossa.audit.keys/1`
+  document (`{format, keys: [{key_id, algorithm, public_key, active}]}`)
+  or `keyId=base64` for one key. The key is never taken from the export:
+  a signature checked against a key that travels with the file proves
+  nothing. Retired keys stay in the document, so old exports keep
+  verifying after a rotation.
+- It stops at the first thing that fails and names it: `manifest_invalid`,
+  `unknown_key`, `signature_invalid`, `entries_unreadable`,
+  `line_invalid` (a truncated last line among them), `line_not_canonical`,
+  `tenant_mismatch`, `sequence_gap` (a removed or reordered line),
+  `prev_hash_mismatch`, `hash_mismatch` (an edited line),
+  `range_mismatch` (lines missing at the end, extra lines, an entry
+  outside the export's time range) or `digest_mismatch`.
+- Consecutive exports join: one's `range.last_hash` is the next one's
+  `range.first_prev_hash`.
+- What it proves: the export is what the deployment's audit key signed,
+  and its entries form an unbroken chain. What it cannot: that the
+  database was not rewritten by its superuser before the export was
+  made (RFC 0006 §9.5).
 
 ## Known limits
 

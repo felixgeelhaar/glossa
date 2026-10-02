@@ -5,6 +5,7 @@ package m5_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -43,6 +44,20 @@ const bucket = "glossa-m5"
 const signingKeyID = "m5-2026"
 
 var signingSeed = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32))
+
+// auditKeyID and auditSeed sign the audit exports of §12.5: a key of
+// its own, not the release key (RFC 0006 §6.2). The harness verifies
+// with the public half it derives here, never with a key the platform
+// hands it, so a platform signing with something else fails §12.5.
+const auditKeyID = "m5-audit-2026"
+
+var auditSeed = bytes.Repeat([]byte{6}, 32)
+
+// auditPublicKey is the --public-key `glossa audit verify` trusts.
+func auditPublicKey() string {
+	pub := ed25519.NewKeyFromSeed(auditSeed).Public().(ed25519.PublicKey)
+	return auditKeyID + "=" + base64.StdEncoding.EncodeToString(pub)
+}
 
 // studioURL is where the links this server mails point. Nothing in §12
 // opens Studio; the links are followed by the test, not a browser.
@@ -169,9 +184,13 @@ func deploy(t *testing.T) *deployment {
 		"GLOSSA_MAIL_FROM":            mailFrom,
 		"GLOSSA_STUDIO_URL":           studioURL,
 		"GLOSSA_RELEASE_SIGNING_KEYS": signingKeyID + "=" + signingSeed,
-		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
-		"GLOSSA_OUTBOX_BATCH_SIZE":    "200",
-		"GLOSSA_AI_POLL_INTERVAL":     "100ms",
+		// §12.5 exports the run's audit range: exports on, with their
+		// own key.
+		"GLOSSA_AUDIT_EXPORTS_ENABLED": "true",
+		"GLOSSA_AUDIT_SIGNING_KEY":     auditKeyID + "=" + base64.StdEncoding.EncodeToString(auditSeed),
+		"GLOSSA_OUTBOX_POLL_INTERVAL":  "50ms",
+		"GLOSSA_OUTBOX_BATCH_SIZE":     "200",
+		"GLOSSA_AI_POLL_INTERVAL":      "100ms",
 		// §12.2 sweeps the MCP read tools as the vendor member.
 		"GLOSSA_MCP_ENABLED": "true",
 		// The fixture's AI provider is the fake on loopback

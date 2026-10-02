@@ -11,6 +11,7 @@ import (
 	"github.com/klarlabs-studio/auth-go/aesgcm"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
 	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	contextapi "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/httpapi"
@@ -48,6 +49,7 @@ type apiServer struct {
 	*qualityAPI
 	*previewAPI
 	*workflowAPI
+	*auditAPI
 	*metaAPI
 }
 
@@ -64,6 +66,7 @@ type (
 	qualityAPI      = qualityapi.API
 	previewAPI      = previewapi.API
 	workflowAPI     = workflowapi.API
+	auditAPI        = auditapi.API
 )
 
 var _ apiv1.StrictServerInterface = apiServer{}
@@ -86,7 +89,8 @@ var _ apiv1.StrictServerInterface = apiServer{}
 func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handler) func(*http.ServeMux) {
 	server := apiServer{API: identity, catalogAPI: c.catalogAPI, localizationAPI: c.localizationAPI, releaseAPI: c.releaseAPI,
 		knowledgeAPI: c.knowledgeAPI, intelligenceAPI: c.intelligenceAPI, integrationAPI: c.integrationAPI,
-		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, workflowAPI: c.workflowAPI, metaAPI: meta}
+		previewAPI: c.previewAPI, contextAPI: c.contextAPI, qualityAPI: c.qualityAPI, workflowAPI: c.workflowAPI, auditAPI: c.auditAPI,
+		metaAPI: meta}
 	return func(mux *http.ServeMux) {
 		if mcp != nil {
 			mux.Handle(mcpgo.Path, mcp)

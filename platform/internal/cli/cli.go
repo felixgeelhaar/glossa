@@ -97,7 +97,10 @@ func commands() []command {
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},
 		{"translate", "Fill locales with AI suggestions", runTranslate},
 		{"review", "Review AI suggestions: list, accept, reject", runReview},
+		{"workflow", "Lint, push, pull and bind workflow definitions; list instances and their log", runWorkflow},
+		{"assignments", "My work: list, show, accept, complete, decline; create assignments", runAssignments},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
+		{"audit", "Verify a signed audit export offline (glossa.audit/v1)", runAudit},
 		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
 	}
 }
@@ -155,7 +158,7 @@ Usage: glossa <command> [flags]
 Commands:
 `)
 	for _, c := range commands() {
-		fmt.Fprintf(w, "  %-10s %s\n", c.name, c.summary)
+		fmt.Fprintf(w, "  %-11s %s\n", c.name, c.summary)
 	}
 	fmt.Fprint(w, `
 Flags every command takes:

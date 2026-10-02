@@ -155,6 +155,20 @@ tags:
       Immutable, signed snapshots of a project's text: one
       content-addressed artifact per locale and namespace, described by
       a manifest glossa-edge serves (runtimes/SPEC.md §1).
+  - name: release-requests
+    description: |
+      Release approvals (RFC 0006 §5.1). An environment with an
+      `approval` requirement holds every publish and promote into it as
+      a release request and moves no pointer; the request is deployed
+      once enough people other than the requester have granted it.
+      Force overrides the publish gate, never the approval. Rollback is
+      never held.
+  - name: rollouts
+    description: |
+      Staged rollouts (RFC 0006 §5.2, runtimes/SPEC.md §1.4): a
+      candidate release served to a stable share of an environment's
+      installations, beside the release the environment points at, until
+      a person completes or aborts it.
   - name: delivery-keys
     description: |
       Publishable, project-scoped, revocable keys runtimes fetch
@@ -260,6 +274,11 @@ tags:
       Sign-offs (RFC 0006 §3.2): n distinct eligible people granting a
       subject. Deciding is a person's act — no API token or agent can,
       and the author of the text cannot approve it (four-eyes).
+  - name: audit
+    description: |
+      The tenant's audit trail (RFC 0006 §6): a hash-chained,
+      content-free record of who did what. It never holds message or
+      translation text.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -2687,11 +2706,30 @@ paths:
     patch:
       operationId: updateEnvironment
       tags: [environments]
-      summary: Change an environment's eligibility policy
+      summary: Change an environment's eligibility policy or approval requirement
       description: |
         The policy decides what the next publish ships and which
         releases may be promoted here; the release served keeps serving.
-        Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+
+        `approval` requires every publish and promote into the
+        environment to be approved by `n` distinct people of `from`, none
+        of them the requester (RFC 0006 §5.1): such a move answers `202`
+        with a release request and moves no pointer. `clear_approval`
+        switches the requirement off; leaving both out keeps it as it
+        is. Changing who must approve is governance, not publishing, so
+        it also needs `workflows.manage` (owner and admin by default). A
+        request already pending keeps showing the requirement it was made
+        under; its deploy must also meet the environment's requirement of
+        the moment. Policy and approval change together, under one
+        `If-Match`.
+
+        Needs `releases.publish`. Problem codes: `invalid_policy`,
+        `invalid_request` (400: `approval` together with
+        `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+        exactly one of `member`, `role` or `group`, or
+        `distinct_from_requester` not true — self-approval is not
+        offered), `approval_on_branch` (422: a branch environment's
+        policy is fixed).
       security:
         - session: []
           csrf: []
@@ -2718,6 +2756,7 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
   /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions:
     parameters:
@@ -2747,10 +2786,20 @@ paths:
         `policy_not_met` and can be overridden with `force` and a
         `force_reason`, which the deployment records.
 
+        An environment with an `approval` requirement holds the promote
+        as a release request: the answer is `202` with the request, no
+        pointer moves, and the release is deployed once the requirement
+        is met (see `release-requests`). A forced promote waits too:
+        `force` overrides the completeness requirement, never the
+        approval. A promote into an environment with an active staged
+        rollout is refused (`rollout_active`): it would replace the
+        stable side under installations the rollout compares with it;
+        complete or abort the rollout first.
+
         Needs `releases.publish`. Problem codes: `force_reason_required`,
         `invalid_force_reason` (400), `release_not_found` (404),
         `release_ineligible`, `branch_release_not_promotable`,
-        `policy_not_met` (409), `storage_unavailable` (503).
+        `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
       security:
         - session: []
           csrf: []
@@ -2768,6 +2817,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Environment" }
+        "202":
+          description: |
+            Held for approval: a release request was made and no pointer
+            moved. `Location` is the request.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseHeld" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -2878,6 +2936,382 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── rollouts (RFC 0006 §5.2) ─────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    get:
+      operationId: listRollouts
+      tags: [rollouts]
+      summary: The environment's staged rollouts
+      description: |
+        Newest first: the active one, if any, and the history of ended
+        ones. Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of rollouts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RolloutList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: startRollout
+      tags: [rollouts]
+      summary: Start serving a candidate release to a share of installations
+      description: |
+        The environment's manifest gains a signed `rollout` member
+        (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+        salt fixed for the rollout's life; a runtime activates the
+        candidate when its installation's cohort falls below `percent`,
+        and every other installation — and every runtime that predates
+        rollouts — keeps the release the environment points at. The
+        pointer does not move until the rollout is completed.
+
+        The candidate is held to what a promote into the environment is
+        held to: a main-catalog release of the project the environment's
+        policy covers, through the completeness requirement or forced
+        with a `force_reason` that the completing deployment records.
+        The environment must already serve a release with the same
+        source locale, and may have one active rollout at a time. A
+        rollout ends by itself only at `max_duration_seconds` (default 14 days),
+        when it is aborted. An environment that requires release
+        approvals refuses rollouts (`rollout_needs_approval`) until a
+        release request can carry one; publish or promote there instead.
+
+        Needs `releases.publish`. Problem codes: `invalid_percent`,
+        `invalid_max_duration`, `force_reason_required`,
+        `invalid_force_reason`, `invalid_idempotency_key` (400),
+        `release_not_found` (404), `rollout_active`,
+        `rollout_no_stable`, `rollout_candidate_served`,
+        `rollout_branch_environment`, `rollout_source_locale`,
+        `rollout_needs_approval`, `release_ineligible`,
+        `branch_release_not_promotable`, `policy_not_met` (409),
+        `idempotency_key_reused` (422), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartRollout" }
+      responses:
+        "201":
+          description: The rollout, active.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    get:
+      operationId: getRollout
+      tags: [rollouts]
+      summary: A rollout
+      description: Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The rollout.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: advanceRollout
+      tags: [rollouts]
+      summary: Change the share of installations in the candidate
+      description: |
+        Any percent may follow any other, down as well as up (RFC 0006
+        §15 Q5); the salt stays, so the installations in the candidate
+        at a lower percent are among those at a higher one. Advancing
+        needs no approval. Needs `releases.publish`. Problem codes:
+        `invalid_percent` (400), `rollout_ended` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdvanceRollout" }
+      responses:
+        "200":
+          description: The rollout.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    post:
+      operationId: completeRollout
+      tags: [rollouts]
+      summary: Make the candidate the environment's release
+      description: |
+        The pointer moves to the candidate as a promote moves it — the
+        deployment records the force the rollout started with, if any —
+        and the manifest drops `rollout`. The completeness requirement
+        is not asked again: it was asked when the rollout started, about
+        the same immutable release. Completing an ended rollout is
+        `rollout_ended`. Needs `releases.publish`. Problem codes:
+        `rollout_ended` (409), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "200":
+          description: The rollout, completed.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    post:
+      operationId: abortRollout
+      tags: [rollouts]
+      summary: End the rollout and keep the environment's release
+      description: |
+        The manifest drops `rollout` and every installation returns to
+        the release the environment points at on its next refresh.
+        Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+        A rollback of the environment aborts its rollout too. Needs
+        `releases.publish`. Problem codes: `rollout_ended` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "200":
+          description: The rollout, aborted.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  # ── release requests (RFC 0006 §5.1) ────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/release-requests:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listReleaseRequests
+      tags: [release-requests]
+      summary: A project's release requests
+      description: |
+        Newest first, optionally in one `environment` and one `state`.
+        Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: environment, in: query, required: false, schema: { $ref: "#/components/schemas/EnvironmentName" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/ReleaseRequestState" } }
+      responses:
+        "200":
+          description: A page of release requests.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequestList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    get:
+      operationId: getReleaseRequest
+      tags: [release-requests]
+      summary: A release request
+      description: |
+        What it would deploy, where, who asked, the requirement its
+        approvers were asked for, what the completeness requirement said
+        when it was made, and whether the requester forced it and why.
+        Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The release request.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    post:
+      operationId: decideReleaseRequest
+      x-glossa-idempotency: A person's repeated grant records nothing and answers the approval as it is; one person counts once.
+      tags: [release-requests]
+      summary: Grant or deny a release request
+      description: |
+        A person's decision on the request's current approval — the one
+        the project's release-approval workflow asked for — recorded as
+        `POST …/approvals/{approval}/decisions` records it. Once enough
+        distinct people other than the requester have granted it, the
+        workflow deploys the release as the last of them: Release checks
+        the requirement itself, runs the completeness requirement again
+        and moves the pointer, and the edge serves it within seconds. A
+        denial closes the request; nothing moves.
+
+        Human-only: an API token or an MCP agent is refused
+        (`person_required`, 403) — no scope grants `approvals.decide`.
+        The caller needs `approvals.decide` in the request's environment,
+        must be of the requirement's party (`not_eligible`, 403), and
+        must not be the requester (`own_text`, 403: four-eyes). Problem
+        codes: `approval_not_requested` (409: the workflow has not asked
+        for the approval yet; retry shortly), `release_request_closed`
+        (409: deployed, denied, withdrawn or refused), `approval_closed`,
+        `approval_superseded` (409), `invalid_approval` (422: a reason
+        over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApprovalDecision" }
+      responses:
+        "201":
+          description: The approval with the decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    post:
+      operationId: withdrawReleaseRequest
+      tags: [release-requests]
+      summary: Take a pending release request back
+      description: |
+        Its requester, or anyone who may publish to the project. No
+        pointer moves. A newer publish or promote into the same
+        environment withdraws the pending request by itself. Needs
+        `releases.publish`. Problem codes: `invalid_withdraw_reason`
+        (400), `release_request_closed` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReleaseRequestWithdrawal" }
+      responses:
+        "200":
+          description: The release request, withdrawn.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # ── releases ────────────────────────────────────────────────────────
   /v1/tenants/{tenant}/projects/{project}/releases:
     parameters:
@@ -2927,10 +3361,22 @@ paths:
         no reason is `force_reason_required` and a reason with no
         override is `invalid_force_reason`.
 
+        An environment with an `approval` requirement holds the publish
+        as a release request: the release is built and recorded, but the
+        answer is `202` with the release's `id` and the request, and the
+        environment keeps serving what it served. The release is deployed
+        once the requirement is met (see `release-requests`). A forced
+        publish waits too: `force` overrides the completeness
+        requirement, never the approval, and the approvers see that it
+        was forced and why. A retry with the same `Idempotency-Key`
+        answers the same request. A publish into an environment with an
+        active staged rollout is refused (`rollout_active`); complete or
+        abort the rollout first.
+
         Needs `releases.publish`. Problem codes: `invalid_environment`,
         `invalid_note`, `force_reason_required`, `invalid_force_reason`
-        (400), `policy_not_met` (409), `not_releasable` (422),
-        `storage_unavailable` (503).
+        (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+        (422), `storage_unavailable` (503).
       security:
         - session: []
           csrf: []
@@ -2951,6 +3397,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Release" }
+        "202":
+          description: |
+            Held for approval: the release was recorded and a release
+            request made; no pointer moved. `Location` is the request.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseHeld" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -8713,6 +9169,59 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
+  # ── audit (RFC 0006 §6, §7.2) ───────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/audit-imports:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: importV0History
+      x-glossa-idempotency: Each row is recorded once by its `v0_id`; a repeated import answers it under `existing` and records nothing.
+      tags: [audit]
+      summary: Record v0.3's history as imported audit entries
+      description: |
+        `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+        from a restored backup, in batches (RFC 0006 §7.2). Each row
+        becomes an imported audit entry `v0.translation.changed` in the
+        tenant's audit trail, in its own chain segment marked as
+        imported, with actor `v0:<user id>` — never a member of this
+        platform — and a reference to the imported translation. History
+        is carried as history: nothing is replayed as a revision, and no
+        provenance is fabricated.
+
+        **No text.** A row carries a translation's before and after only
+        as SHA-256 digests of their UTF-8 bytes: an audit entry never
+        holds message or translation text (§6.1). The body has no member
+        that could carry one, and a member it does not name is ignored.
+
+        Writing the tenant's audit trail is the owner's: it needs
+        `audit.export`, which only an owner holds by default and no API
+        token scope grants, in the project. Every row is recorded under
+        the project in the path. Answers `audit_import_unavailable`
+        (503) on a server that does not run the importer. Problem codes:
+        `invalid_request` (400), `audit_import_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/V0HistoryImport" }
+      responses:
+        "200":
+          description: What the import recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V0HistoryReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     session:
@@ -8848,6 +9357,18 @@ components:
       in: path
       required: true
       description: A release `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ReleaseRequestPath:
+      name: release_request
+      in: path
+      required: true
+      description: A release request `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    RolloutPath:
+      name: rollout
+      in: path
+      required: true
+      description: A rollout `id`.
       schema: { $ref: "#/components/schemas/Id" }
     PasskeyPath:
       name: passkey
@@ -10408,6 +10929,9 @@ components:
           $ref: "#/components/schemas/BranchName"
           description: The branch a `branch` environment previews; absent for a standard one.
         policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        approval:
+          $ref: "#/components/schemas/EnvironmentApproval"
+          description: Present when a publish or promote here needs approval (RFC 0006 §5.1).
         current_release_id: { $ref: "#/components/schemas/Id" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
@@ -10450,6 +10974,12 @@ components:
       required: [policy]
       properties:
         policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        approval:
+          $ref: "#/components/schemas/EnvironmentApproval"
+          description: Sets the approval requirement; omitted keeps it as it is.
+        clear_approval:
+          type: boolean
+          description: Switches the approval requirement off. Not together with `approval`.
     Promotion:
       type: object
       required: [release_id]
@@ -10494,6 +11024,184 @@ components:
           type: string
           maxLength: 1000
           description: Why it went ahead; present exactly when `forced`.
+    # ── release approvals (RFC 0006 §5.1) ───────────────────────────
+    EnvironmentApprovalParty:
+      type: object
+      description: |
+        Exactly one of `member` (a member `id`), `role` or `group` (a
+        group `id` or name, lower-case) — who may approve. A vendor
+        delivers work and does not sign it off, so it is not a party
+        here.
+      properties:
+        member: { type: string, minLength: 1, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        group: { type: string, minLength: 1, maxLength: 128 }
+    EnvironmentApproval:
+      type: object
+      required: [n, from, distinct_from_requester]
+      description: |
+        `n` distinct people of `from`, none of them the requester, must
+        grant a publish or promote into the environment before its
+        pointer moves. `distinct_from_requester` is always true:
+        self-approval is not offered (RFC 0006 §15 q6).
+      properties:
+        n: { type: integer, minimum: 1, maximum: 10 }
+        from: { $ref: "#/components/schemas/EnvironmentApprovalParty" }
+        distinct_from_requester: { type: boolean }
+    ReleaseRequestState:
+      type: string
+      enum: [pending, deployed, denied, withdrawn, refused]
+      description: |
+        `pending` waits for approvals; the others are final. `refused`:
+        approved, but the completeness requirement, run again at deploy
+        time, refused it — `reason` says why.
+    GateVerdict:
+      type: object
+      required: [met]
+      description: What the environment's completeness requirement said when the request was made.
+      properties:
+        met: { type: boolean }
+        unmet:
+          type: array
+          description: What the requirement asked for and the release lacks; absent when met.
+          items: { type: string }
+    ReleaseRequest:
+      type: object
+      required: [id, environment, release_id, action, requester, approval, gate, forced, state, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        release_id: { $ref: "#/components/schemas/Id" }
+        action: { type: string, enum: [publish, promote], description: What the deploy records. }
+        requester: { type: string, description: "Who asked (`person:…`, `token:…`). They never count toward the approval." }
+        approval: { $ref: "#/components/schemas/EnvironmentApproval" }
+        gate: { $ref: "#/components/schemas/GateVerdict" }
+        forced:
+          type: boolean
+          description: |
+            The requester overrode the completeness requirement. Force
+            overrides the gate, never the approval: the approvers see it.
+        force_reason: { type: string, maxLength: 1000, description: Why; present exactly when `forced`. }
+        state: { $ref: "#/components/schemas/ReleaseRequestState" }
+        decided_by: { type: string, description: "Who closed it: the last approver, the denier, or who withdrew it." }
+        decided_at: { $ref: "#/components/schemas/Timestamp" }
+        reason: { type: string, description: Why it was refused or withdrawn. }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    ReleaseRequestList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReleaseRequest" }
+        next_page_token: { type: string }
+    ReleaseHeld:
+      type: object
+      required: [id, release_request_id, release_request]
+      description: A publish or promote held for approval. No pointer moved.
+      properties:
+        id: { $ref: "#/components/schemas/Id", description: "The release the request would deploy: the one just recorded by a publish, or the one a promote named." }
+        release_request_id: { $ref: "#/components/schemas/Id" }
+        release_request: { $ref: "#/components/schemas/ReleaseRequest" }
+    ReleaseRequestWithdrawal:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 1000 }
+    # ── staged rollouts (RFC 0006 §5.2) ─────────────────────────────
+    Rollout:
+      type: object
+      required: [id, environment, release_id, stable_release_id, percent, status, max_duration_seconds, expires_at, forced, started_by, started_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        release_id: { $ref: "#/components/schemas/Id", description: The candidate. }
+        stable_release_id: { $ref: "#/components/schemas/Id", description: What the environment served when the rollout started. }
+        percent: { type: integer, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [active, completed, aborted] }
+        end: { type: string, enum: [completed, aborted, expired, rolled_back], description: How an ended rollout ended. }
+        max_duration_seconds: { type: integer, minimum: 3600 }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        forced: { type: boolean, description: The candidate was started past the completeness requirement. }
+        force_reason: { type: string, maxLength: 1000, description: Why; present exactly when `forced`. }
+        started_by: { type: string }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        ended_by: { type: string }
+        ended_at: { $ref: "#/components/schemas/Timestamp" }
+    RolloutList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Rollout" }
+        next_page_token: { type: string }
+    StartRollout:
+      type: object
+      required: [release_id, percent]
+      properties:
+        release_id: { $ref: "#/components/schemas/Id" }
+        percent: { type: integer, description: "The share of installations in the candidate, 0–100 (`invalid_percent`)." }
+        max_duration_seconds:
+          type: integer
+          description: |
+            When the rollout is aborted unless a person ended it first:
+            one hour to 90 days (`invalid_max_duration`); 14 days when
+            omitted.
+        force:
+          type: boolean
+          description: |
+            Start although the environment's completeness requirement
+            refuses the candidate (`policy_not_met`). It needs a
+            `force_reason`, which the completing deployment records.
+        force_reason:
+          type: string
+          maxLength: 1000
+          description: Required with `force` (`force_reason_required`) and refused without it (`invalid_force_reason`).
+    AdvanceRollout:
+      type: object
+      required: [percent]
+      properties:
+        percent: { type: integer, description: "0–100 (`invalid_percent`)." }
+    # ── v0.3 history (RFC 0006 §7.2) ────────────────────────────────
+    V0HistoryEntry:
+      type: object
+      required: [v0_id, action, actor, occurred_at]
+      description: |
+        One row of v0.3's `audit_log`. No text: the translation's before
+        and after are SHA-256 digests of their UTF-8 bytes.
+      properties:
+        v0_id: { type: string, minLength: 1, maxLength: 64, description: "v0.3's `audit_log` id: the idempotency key." }
+        action: { type: string, pattern: "^v0\\.[a-z][a-z0-9_.]{0,62}$", description: "As the plan names it (`v0.translation.changed`)." }
+        actor:
+          type: string
+          minLength: 4
+          maxLength: 128
+          pattern: "^v0:"
+          description: "`v0:<uuid>`, `v0:ai:<label>`, `v0:system:<label>` or `v0:unknown`; never a member of this platform."
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        key: { $ref: "#/components/schemas/MessageKey", description: "The translation's message, when the row still resolves to one." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        unresolved: { type: string, maxLength: 200, description: Why the row resolves to no translation. }
+        before_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        after_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+    V0HistoryImport:
+      type: object
+      required: [restore, restore_sha256, entries]
+      properties:
+        restore: { type: string, minLength: 1, maxLength: 255, description: "The dump the rows were read from, as the restore marker names it." }
+        restore_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/V0HistoryEntry" }
+    V0HistoryReport:
+      type: object
+      required: [recorded, existing]
+      properties:
+        recorded: { type: integer, minimum: 0 }
+        existing: { type: integer, minimum: 0, description: Rows an earlier import recorded already (same `v0_id`). }
     DeploymentList:
       type: object
       required: [items]

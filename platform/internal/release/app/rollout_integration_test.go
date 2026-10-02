@@ -17,6 +17,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 	identitydomain "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/metrics"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
@@ -172,9 +173,22 @@ func TestRolloutWritesTheManifestMemberAndEnds(t *testing.T) {
 	}
 	h.drain(t) // the subscriber writes the same manifest again
 
-	list, err := h.svc.ListRollouts(ctx, p, "production")
-	if err != nil || len(list) != 2 || list[0].ID != second.ID || list[1].ID != ro.ID {
-		t.Errorf("rollouts %+v, %v", list, err)
+	list, next, err := h.svc.ListRollouts(ctx, p, "production", pagination.Page{Size: 50})
+	if err != nil || len(list) != 2 || list[0].ID != second.ID || list[1].ID != ro.ID || next != nil {
+		t.Errorf("rollouts %+v, %v, %v", list, next, err)
+	}
+	// A page of one, then the next: the cursor walks newest first.
+	first, token, err := h.svc.ListRollouts(ctx, p, "production", pagination.Page{Size: 1})
+	if err != nil || len(first) != 1 || first[0].ID != second.ID || token == nil {
+		t.Fatalf("first page %+v, %v, %v", first, token, err)
+	}
+	page, err := pagination.Parse(ptr(1), token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rest, end, err := h.svc.ListRollouts(ctx, p, "production", page)
+	if err != nil || len(rest) != 1 || rest[0].ID != ro.ID || end != nil {
+		t.Errorf("second page %+v, %v, %v", rest, end, err)
 	}
 	want := []string{
 		"release.rollout.started " + by, "release.rollout.advanced " + by, "release.rollout.advanced " + by,
@@ -249,7 +263,7 @@ func TestAnotherTenantSeesNoRollout(t *testing.T) {
 	if _, err := h.svc.GetRollout(octx, p, ro.ID); err == nil {
 		t.Error("another tenant read the rollout")
 	}
-	if _, err := h.svc.ListRollouts(octx, p, "production"); err == nil {
+	if _, _, err := h.svc.ListRollouts(octx, p, "production", pagination.Page{Size: 50}); err == nil {
 		t.Error("another tenant listed the rollouts")
 	}
 	if _, err := h.svc.AbortRollout(octx, p, "production", ro.ID, nil); err == nil {
@@ -351,7 +365,7 @@ func TestARolloutIntoAnApprovalEnvironmentIsRefused(t *testing.T) {
 	if _, _, err := h.svc.StartRollout(h.as("developer"), p, "production", app.RolloutInput{Release: v2.ID, Percent: 10}, ""); !errors.Is(err, domain.ErrRolloutNeedsApproval) {
 		t.Fatalf("starting a rollout into an environment that needs approval: err = %v, want ErrRolloutNeedsApproval", err)
 	}
-	if rs, err := h.svc.ListRollouts(h.owner(), p, "production"); err != nil || len(rs) != 0 {
+	if rs, _, err := h.svc.ListRollouts(h.owner(), p, "production", pagination.Page{Size: 50}); err != nil || len(rs) != 0 {
 		t.Fatalf("rollouts = %+v, %v; want none", rs, err)
 	}
 	if after := h.current(t, p, "production"); after != before {

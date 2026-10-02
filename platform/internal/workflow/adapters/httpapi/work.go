@@ -353,3 +353,26 @@ func (a *API) DecideApproval(ctx context.Context, req apiv1.DecideApprovalReques
 	}
 	return apiv1.DecideApproval201JSONResponse(toApproval(x)), nil
 }
+
+// DecideReleaseRequest is decideApproval reached by the release request
+// (RFC 0006 §5.1, §8): the decision is on the request's current
+// approval, which Workflow keeps, so the operation is Workflow's even
+// though its path is under the project's release requests.
+func (a *API) DecideReleaseRequest(ctx context.Context, req apiv1.DecideReleaseRequestRequestObject) (apiv1.DecideReleaseRequestResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	request, err := pathID(req.ReleaseRequest, app.ErrNotFound)
+	if err != nil {
+		return nil, err
+	}
+	if req.Body == nil {
+		return nil, problem.New(http.StatusBadRequest, problem.CodeInvalidRequest, "the body is a decision")
+	}
+	x, err := a.work.DecideReleaseRequest(ctx, project, request, domain.Verdict(req.Body.Decision), deref(req.Body.Reason))
+	if err != nil {
+		return nil, mapError(err, problem.New(http.StatusConflict, problem.CodeConflict, "the approval changed meanwhile; retry"))
+	}
+	return apiv1.DecideReleaseRequest201JSONResponse(toApproval(x)), nil
+}

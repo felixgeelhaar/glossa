@@ -37,6 +37,13 @@ var (
 	// ErrSuperseded is a decision on an approval a newer request for the
 	// same subject has replaced.
 	ErrSuperseded = errors.New("workflow: a newer approval request replaced this one")
+	// ErrApprovalNotRequested is a decision on a release request whose
+	// workflow has not asked for its approval yet: the instance starts
+	// from release_request.created, a moment after the publish answered.
+	ErrApprovalNotRequested = errors.New("workflow: the release request's approval has not been asked for yet; retry shortly")
+	// ErrReleaseRequestClosed is a decision on a release request that is
+	// no longer pending: deployed, denied, withdrawn or refused.
+	ErrReleaseRequestClosed = errors.New("workflow: the release request is no longer pending")
 	// ErrUnsupportedSubject is an assign action on a subject that is
 	// not a translation unit: assignments are batches of translation
 	// units (§3.1).
