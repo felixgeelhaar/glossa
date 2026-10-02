@@ -305,22 +305,34 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 // getJob reads a job of one direction for someone with
 // integration.read.
 func (s *Service) getJob(ctx context.Context, id uuid.UUID, dir domain.Direction) (domain.Job, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	var j domain.Job
+	err := authz.RequireRow(ctx, authz.IntegrationRead, func() (uuid.UUID, error) {
+		err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			j, err = st.Job(ctx, id)
+			return err
+		})
+		if err == nil && j.Direction != dir {
+			err = ErrNotFound
+		}
+		if err == nil && jobScope(ctx, j.ProjectID) != nil {
+			err = ErrNotFound
+		}
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if j.ProjectID == nil {
+			// A tenant-wide job: jobScope has hidden it from a caller
+			// limited to some projects, and uuid.Nil is in the scope of
+			// every caller who is not.
+			return uuid.Nil, nil
+		}
+		return *j.ProjectID, nil
+	})
+	if err != nil {
 		return domain.Job{}, err
 	}
-	var j domain.Job
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		var err error
-		j, err = st.Job(ctx, id)
-		return err
-	})
-	if err == nil && j.Direction != dir {
-		err = ErrNotFound
-	}
-	if err == nil && jobScope(ctx, j.ProjectID) != nil {
-		err = ErrNotFound
-	}
-	return j, err
+	return j, nil
 }
 
 // newJobScope is jobScope for a job being made: a tenant-wide one is

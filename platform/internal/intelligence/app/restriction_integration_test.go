@@ -49,6 +49,9 @@ func TestIntelligenceRestrictions(t *testing.T) {
 	cov := &authztest.Coverage{}
 	vendor, member := authztest.Assigned(context.Background(), w.tenant, cov, "de")
 	cov.Assign(member, p, uuid.New(), "de")
+	elsewhereCov := &authztest.Coverage{}
+	elsewhere, other := authztest.Assigned(context.Background(), w.tenant, elsewhereCov, "de")
+	elsewhereCov.Assign(other, uuid.New(), uuid.New(), "de")
 
 	for _, tc := range []struct {
 		name string
@@ -65,6 +68,14 @@ func TestIntelligenceRestrictions(t *testing.T) {
 		{"scoped: the review queue out of scope", func() error { _, _, err := w.svc.ReviewQueue(scoped, p, nil, page); return err }, "not found"},
 		{"scoped: project settings out of scope", func() error { _, err := w.svc.GetProjectSettings(scoped, p); return err }, "not found"},
 
+		// Read by its id, a fill or job of a project no assignment of
+		// theirs is in is not there — the answer for an id that does not
+		// exist — rather than a refusal that says it is (§12.2's sweep
+		// found the 403); in a project they work in, it is refused.
+		{"assigned elsewhere: a fill", func() error { _, err := w.svc.GetFill(elsewhere, fill.Fill.ID); return err }, "not found"},
+		{"assigned elsewhere: a job", func() error { _, err := w.svc.GetJob(elsewhere, jobs[0].ID); return err }, "not found"},
+		{"assigned: a fill of their project", func() error { _, err := w.svc.GetFill(vendor, fill.Fill.ID); return err }, "denied"},
+		{"assigned: a job of their project", func() error { _, err := w.svc.GetJob(vendor, jobs[0].ID); return err }, "denied"},
 		{"assigned: lists jobs", func() error { _, _, err := w.svc.ListJobs(vendor, app.JobFilter{}, page); return err }, "denied"},
 		{"assigned: lists suggestions", func() error {
 			_, _, err := w.svc.ListSuggestions(vendor, app.SuggestionFilter{}, page)

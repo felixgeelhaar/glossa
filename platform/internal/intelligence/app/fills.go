@@ -146,17 +146,15 @@ func fillWarnings(settings domain.TenantSettings, providers []StoredProvider) []
 
 // GetFill returns a fill with its jobs' states. Needs intelligence.read.
 func (s *Service) GetFill(ctx context.Context, id uuid.UUID) (FillResult, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
-		return FillResult{}, err
-	}
-	f, found, err := s.existingFill(ctx, id)
-	if err != nil {
-		return FillResult{}, err
-	}
-	if !found {
-		return FillResult{}, ErrNotFound
-	}
-	if err := authz.InProject(ctx, f.ProjectID); err != nil {
+	var f Fill
+	if err := authz.RequireRow(ctx, authz.IntelligenceRead, func() (uuid.UUID, error) {
+		var found bool
+		var err error
+		if f, found, err = s.existingFill(ctx, id); err != nil || !found {
+			return uuid.Nil, errors.Join(err, notFoundUnless(found))
+		}
+		return f.ProjectID, nil
+	}); err != nil {
 		return FillResult{}, err
 	}
 	return s.fillResult(ctx, f)
@@ -440,19 +438,15 @@ func (s *Service) ListJobs(ctx context.Context, f JobFilter, page pagination.Pag
 
 // GetJob returns a job with its audit ledger. Needs intelligence.read.
 func (s *Service) GetJob(ctx context.Context, id uuid.UUID) (JobView, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
-		return JobView{}, err
-	}
 	var v JobView
-	err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		var err error
-		v, err = st.Job(ctx, id)
-		return err
-	})
-	if err == nil {
-		err = authz.InProject(ctx, v.ProjectID)
-	}
-	if err != nil {
+	if err := authz.RequireRow(ctx, authz.IntelligenceRead, func() (uuid.UUID, error) {
+		err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			v, err = st.Job(ctx, id)
+			return err
+		})
+		return v.ProjectID, err
+	}); err != nil {
 		return JobView{}, err
 	}
 	return v, nil

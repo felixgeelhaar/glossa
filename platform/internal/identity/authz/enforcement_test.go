@@ -15,7 +15,7 @@ import (
 // scope or assignment visibility (RFC 0006 §3.3, §4.1).
 var projectAware = []string{
 	"RequireIn", "RequireForIn", "RequireUnit", "RequireMessage", "RequireProject", "RequireLocaleIn",
-	"Visible", "InProject", "Projects", "RequireUnscoped", "RequireInEnvironment",
+	"Visible", "InProject", "Projects", "RequireUnscoped", "RequireInEnvironment", "RequireRow",
 }
 
 // appMethods parses one context's application layer and reports, for

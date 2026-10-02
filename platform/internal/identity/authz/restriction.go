@@ -369,3 +369,50 @@ func inProject(ctx context.Context, project uuid.UUID) (Principal, error) {
 	}
 	return p, nil
 }
+
+// RequireRow is the check for a project-owned row a use case reads by
+// its own id, under no project in the path — an AI fill, job or
+// suggestion, a Git connection, an import or export job — whose project
+// decides what the caller may know of it (RFC 0006 §3.3, §4.1). load
+// reads the row and returns its project.
+//
+// For a caller who sees the whole tenant it is Require before the load,
+// as it always was, so a caller without the permission learns nothing
+// about which ids exist. For one limited to part of the tenant — a
+// project scope, or visibility `assigned` — the row is read first, so
+// that a row of a project the caller cannot see is ErrNotVisible, the
+// answer for a row that does not exist, and not a refusal that says it
+// is there: the order every project-addressed check has (RequireIn).
+// An `assigned` member cannot see a project no assignment of theirs
+// covers a unit in, as with Visible; inside one, they are refused.
+func RequireRow(ctx context.Context, perm Permission, load func() (uuid.UUID, error)) error {
+	p, err := inTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !p.Assigned() && p.Projects.All() {
+		if err := Require(ctx, perm); err != nil {
+			return err
+		}
+	}
+	project, err := load()
+	if err != nil {
+		return err
+	}
+	if !p.InProject(project) {
+		return ErrNotVisible
+	}
+	if p.Assigned() {
+		if p.Coverage == nil {
+			return ErrNotVisible
+		}
+		set, err := p.Coverage.Covered(ctx, p.Member, project)
+		if err != nil {
+			return fmt.Errorf("authz: coverage: %w", err)
+		}
+		if set.Len() == 0 {
+			return ErrNotVisible
+		}
+	}
+	return RequireIn(ctx, perm, project)
+}
