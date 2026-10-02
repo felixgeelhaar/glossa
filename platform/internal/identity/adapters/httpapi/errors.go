@@ -18,6 +18,10 @@ import (
 // than project ids, or too many of them.
 const codeInvalidProjectScope problem.Code = "invalid_project_scope"
 
+// codeAccessAndRestriction is a member PATCH that changes both access
+// and restriction.
+const codeAccessAndRestriction problem.Code = "access_and_restriction"
+
 type mapping struct {
 	status int
 	code   problem.Code
@@ -77,6 +81,22 @@ var problems = []struct {
 	{domain.ErrInvalidTokenName, mapping{400, "invalid_token_name", "1-100 characters"}},
 	{domain.ErrInvalidTokenExpiry, mapping{400, "invalid_token_expiry", "expires_at must be in the future"}},
 	{domain.ErrTooManyProjects, mapping{400, codeInvalidProjectScope, ""}},
+	// Restrictions, groups and vendors (RFC 0006 §3.3, §4).
+	{domain.ErrInvalidVisibility, mapping{400, "invalid_visibility", ""}},
+	{domain.ErrVendorMemberVisibility, mapping{400, "vendor_member_visibility",
+		"a vendor's member sees only their assignments: send visibility assigned"}},
+	{domain.ErrAssignedVisibilityRole, mapping{400, "assigned_visibility_role",
+		"a member who sees only their assignments can only be a translator"}},
+	{domain.ErrOwnerProjectScoped, mapping{400, "owner_project_scoped",
+		"an owner answers for every project and cannot be limited to some"}},
+	{domain.ErrInvalidGroupName, mapping{400, "invalid_group_name", "1-100 characters"}},
+	{domain.ErrGroupFull, mapping{409, "group_full", ""}},
+	{domain.ErrNotInGroup, mapping{404, "not_in_group", "the member is not in the group"}},
+	{domain.ErrMemberOfAnotherTenant, mapping{404, problem.CodeNotFound, "no such resource"}},
+	{domain.ErrInvalidVendorName, mapping{400, "invalid_vendor_name", "1-100 characters"}},
+	{domain.ErrInvalidVendorContact, mapping{400, "invalid_vendor_contact", "at most 200 characters"}},
+	{domain.ErrVendorHasMembers, mapping{409, "vendor_has_members",
+		"the vendor still has members: take them off it, or remove them, first"}},
 	// In-context grants and preview origins (RFC 0004 §5.2).
 	{domain.ErrOriginNotBound, mapping{401, "origin_not_bound",
 		"this grant was minted for another origin"}},

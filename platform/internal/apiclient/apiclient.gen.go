@@ -2148,6 +2148,24 @@ func (e UsagesDocumentSchema) Valid() bool {
 	}
 }
 
+// Defines values for Visibility.
+const (
+	VisibilityAll      Visibility = "all"
+	VisibilityAssigned Visibility = "assigned"
+)
+
+// Valid indicates whether the value is a known member of the Visibility enum.
+func (e Visibility) Valid() bool {
+	switch e {
+	case VisibilityAll:
+		return true
+	case VisibilityAssigned:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WaiverScope.
 const (
 	WaiverScopeBranch  WaiverScope = "branch"
@@ -3055,7 +3073,23 @@ type AddLocale struct {
 type AddMember struct {
 	Email   Email     `json:"email"`
 	Locales *[]Locale `json:"locales,omitempty"`
-	Roles   []Role    `json:"roles"`
+
+	// Projects Limits the member's roles to these projects (RFC 0006 §4.1).
+	// Omitted or empty, every project — or, for an inviter limited
+	// to some, exactly theirs. An owner is never limited.
+	Projects *[]Id  `json:"projects,omitempty"`
+	Roles    []Role `json:"roles"`
+
+	// VendorId Invites the person as this vendor's member; they must be `visibility: assigned`.
+	VendorId *Id `json:"vendor_id,omitempty"`
+
+	// Visibility `all` (the default) reads whatever the member's roles allow;
+	// `assigned` reads only the translation units of assignments given
+	// to them — open, or completed within 30 days — and what
+	// translating them needs, and writes translations in those units
+	// and nothing else (RFC 0006 §3.3). Only a translator can be
+	// `assigned`, and a vendor's member always is.
+	Visibility *Visibility `json:"visibility,omitempty"`
 }
 
 // Application defines model for Application.
@@ -4246,6 +4280,13 @@ type CreateToken struct {
 	Scopes   []Scope `json:"scopes"`
 }
 
+// CreateVendor defines model for CreateVendor.
+type CreateVendor struct {
+	Contact *string   `json:"contact,omitempty"`
+	Locales *[]Locale `json:"locales,omitempty"`
+	Name    string    `json:"name"`
+}
+
 // CreateWaiver A finding to accept. The reason is required and non-empty.
 type CreateWaiver struct {
 	// ExpiresAt When the daily sweep retires it; absent, never. A time in the past is refused.
@@ -4924,6 +4965,33 @@ type GitHubRepository struct {
 	RepositoryId int64 `json:"repository_id"`
 }
 
+// Group defines model for Group.
+type Group struct {
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Members Member `id`s, sorted.
+	Members []Id   `json:"members"`
+	Name    string `json:"name"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// GroupList defines model for GroupList.
+type GroupList struct {
+	Items         []Group `json:"items"`
+	NextPageToken *string `json:"next_page_token,omitempty"`
+}
+
+// GroupName defines model for GroupName.
+type GroupName struct {
+	Name string `json:"name"`
+}
+
 // Id An opaque identifier.
 type Id = string
 
@@ -5423,12 +5491,26 @@ type Member struct {
 	Locales []Locale `json:"locales"`
 
 	// PersonId Set once the invitation is accepted.
-	PersonId *Id          `json:"person_id,omitempty"`
+	PersonId *Id `json:"person_id,omitempty"`
+
+	// Projects The projects the member's roles apply to (RFC 0006 §4.1); empty means every project.
+	Projects []Id         `json:"projects"`
 	Roles    []Role       `json:"roles"`
 	Status   MemberStatus `json:"status"`
 
 	// UpdatedAt RFC 3339, UTC.
 	UpdatedAt Timestamp `json:"updated_at"`
+
+	// VendorId The vendor the member works for (RFC 0006 §3.3); absent for the organization's own people.
+	VendorId *Id `json:"vendor_id,omitempty"`
+
+	// Visibility `all` (the default) reads whatever the member's roles allow;
+	// `assigned` reads only the translation units of assignments given
+	// to them — open, or completed within 30 days — and what
+	// translating them needs, and writes translations in those units
+	// and nothing else (RFC 0006 §3.3). Only a translator can be
+	// `assigned`, and a vendor's member always is.
+	Visibility Visibility `json:"visibility"`
 }
 
 // MemberStatus defines model for Member.Status.
@@ -7730,10 +7812,26 @@ type UpdateEnvironment struct {
 	Policy EnvironmentPolicy `json:"policy"`
 }
 
-// UpdateMember defines model for UpdateMember.
+// UpdateMember The member's access (`roles`, `locales`) or their restriction
+// (`projects`, `vendor_id`, `visibility`) — one or the other per
+// request.
 type UpdateMember struct {
 	Locales *[]Locale `json:"locales,omitempty"`
-	Roles   *[]Role   `json:"roles,omitempty"`
+
+	// Projects The member's project scope; empty means every project.
+	Projects *[]Id   `json:"projects,omitempty"`
+	Roles    *[]Role `json:"roles,omitempty"`
+
+	// VendorId A vendor `id`, or the empty string to take the member off their vendor.
+	VendorId *string `json:"vendor_id,omitempty"`
+
+	// Visibility `all` (the default) reads whatever the member's roles allow;
+	// `assigned` reads only the translation units of assignments given
+	// to them — open, or completed within 30 days — and what
+	// translating them needs, and writes translations in those units
+	// and nothing else (RFC 0006 §3.3). Only a translator can be
+	// `assigned`, and a vendor's member always is.
+	Visibility *Visibility `json:"visibility,omitempty"`
 }
 
 // UpdateMessage defines model for UpdateMessage.
@@ -7752,6 +7850,13 @@ type UpdateProject struct {
 	Name     *string          `json:"name,omitempty"`
 	Settings *ProjectSettings `json:"settings,omitempty"`
 	Slug     *Slug            `json:"slug,omitempty"`
+}
+
+// UpdateVendor Members omitted keep their value.
+type UpdateVendor struct {
+	Contact *string   `json:"contact,omitempty"`
+	Locales *[]Locale `json:"locales,omitempty"`
+	Name    *string   `json:"name,omitempty"`
 }
 
 // UpsertBranch defines model for UpsertBranch.
@@ -7831,6 +7936,39 @@ type UsagesTool struct {
 	// Version A semantic version.
 	Version string `json:"version"`
 }
+
+// Vendor defines model for Vendor.
+type Vendor struct {
+	// Contact Free text — a name, an address. Shown, never mailed to.
+	Contact *string `json:"contact,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locales The locales the vendor offers. They describe it and grant nothing.
+	Locales []Locale `json:"locales"`
+	Name    string   `json:"name"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// VendorList defines model for VendorList.
+type VendorList struct {
+	Items         []Vendor `json:"items"`
+	NextPageToken *string  `json:"next_page_token,omitempty"`
+}
+
+// Visibility `all` (the default) reads whatever the member's roles allow;
+// `assigned` reads only the translation units of assignments given
+// to them — open, or completed within 30 days — and what
+// translating them needs, and writes translations in those units
+// and nothing else (RFC 0006 §3.3). Only a translator can be
+// `assigned`, and a vendor's member always is.
+type Visibility string
 
 // Waiver One accepted finding, and why.
 type Waiver struct {
@@ -8253,6 +8391,9 @@ type EnvironmentPath = EnvironmentName
 // ExportJobPath An opaque identifier.
 type ExportJobPath = Id
 
+// GroupPath An opaque identifier.
+type GroupPath = Id
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -8317,6 +8458,9 @@ type TenantPath = Id
 
 // TokenPath An opaque identifier.
 type TokenPath = Id
+
+// VendorPath An opaque identifier.
+type VendorPath = Id
 
 // WaiverPath An opaque identifier.
 type WaiverPath = Id
@@ -8593,6 +8737,25 @@ type ListGitHubInstallationsParams struct {
 
 	// PageToken The `next_page_token` of the previous page.
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListGroupsParams defines parameters for ListGroups.
+type ListGroupsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateGroupParams defines parameters for CreateGroup.
+type CreateGroupParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RenameGroupParams defines parameters for RenameGroup.
+type RenameGroupParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
 }
 
 // ListImportJobsParams defines parameters for ListImportJobs.
@@ -9409,6 +9572,25 @@ type CreateTokenParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ListVendorsParams defines parameters for ListVendors.
+type ListVendorsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateVendorParams defines parameters for CreateVendor.
+type CreateVendorParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateVendorParams defines parameters for UpdateVendor.
+type UpdateVendorParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
 // ListWorkflowDefinitionsParams defines parameters for ListWorkflowDefinitions.
 type ListWorkflowDefinitionsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -9514,6 +9696,12 @@ type UpdateGitConnectionJSONRequestBody = GitConnectionChange
 
 // CompleteGitHubInstallJSONRequestBody defines body for CompleteGitHubInstall for application/json ContentType.
 type CompleteGitHubInstallJSONRequestBody = GitHubInstallCallback
+
+// CreateGroupJSONRequestBody defines body for CreateGroup for application/json ContentType.
+type CreateGroupJSONRequestBody = GroupName
+
+// RenameGroupJSONRequestBody defines body for RenameGroup for application/json ContentType.
+type RenameGroupJSONRequestBody = GroupName
 
 // CreateImportJobJSONRequestBody defines body for CreateImportJob for application/json ContentType.
 type CreateImportJobJSONRequestBody = ImportJobRequest
@@ -9673,6 +9861,12 @@ type LookupTranslationMemoryJSONRequestBody = TMLookup
 
 // CreateTokenJSONRequestBody defines body for CreateToken for application/json ContentType.
 type CreateTokenJSONRequestBody = CreateToken
+
+// CreateVendorJSONRequestBody defines body for CreateVendor for application/json ContentType.
+type CreateVendorJSONRequestBody = CreateVendor
+
+// UpdateVendorJSONRequestBody defines body for UpdateVendor for application/json ContentType.
+type UpdateVendorJSONRequestBody = UpdateVendor
 
 // LintWorkflowDefinitionJSONRequestBody defines body for LintWorkflowDefinition for application/json ContentType.
 type LintWorkflowDefinitionJSONRequestBody = WorkflowDocument
@@ -11018,6 +11212,87 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
 	ForgetGitHubInstallation(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListGroups The organization's groups
+	//
+	// Each with its members. Needs `members.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/groups (the `ListGroups` operationId).
+	ListGroups(ctx context.Context, tenant TenantPath, params *ListGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGroupWithBody Create a group
+	//
+	// An empty group; add members with `putGroupMember`. Needs
+	// `members.manage`. Problem codes: `invalid_group_name` (400),
+	// `individual_tenant` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+	CreateGroupWithBody(ctx context.Context, tenant TenantPath, params *CreateGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGroup Create a group
+	//
+	// An empty group; add members with `putGroupMember`. Needs
+	// `members.manage`. Problem codes: `invalid_group_name` (400),
+	// `individual_tenant` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+	CreateGroup(ctx context.Context, tenant TenantPath, params *CreateGroupParams, body CreateGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGroup Delete a group
+	//
+	// Its members stay members. Assignments and approvals that named
+	// the group keep naming it and reach nobody. Needs
+	// `members.manage`.
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group} (the `DeleteGroup` operationId).
+	DeleteGroup(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroup A group
+	//
+	// Needs `members.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/groups/{group} (the `GetGroup` operationId).
+	GetGroup(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenameGroupWithBody Rename a group
+	//
+	// Needs `members.manage`. Problem codes: `invalid_group_name`
+	// (400).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+	RenameGroupWithBody(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenameGroup Rename a group
+	//
+	// Needs `members.manage`. Problem codes: `invalid_group_name`
+	// (400).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+	RenameGroup(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, body RenameGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveGroupMember Take a member out of a group
+	//
+	// Needs `members.manage`. Problem codes: `not_in_group` (404).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group}/members/{member} (the `RemoveGroupMember` operationId).
+	RemoveGroupMember(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutGroupMember Put a member into a group
+	//
+	// Idempotent: a member already in the group stays, and the group
+	// is answered as it is. Needs `members.manage`. Problem codes:
+	// `group_full` (409).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/groups/{group}/members/{member} (the `PutGroupMember` operationId).
+	PutGroupMember(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListImportJobs Import jobs
 	//
 	// Newest first. Needs `integration.read`.
@@ -11203,10 +11478,19 @@ type ClientInterface interface {
 	// AddMemberWithBody Invite someone by email
 	//
 	// Opens an invitation that becomes an active membership when the
-	// address's owner signs in. Needs `members.manage`; the `owner`
-	// role needs `owners.manage`. Problem codes: `already_member`
-	// (409), `individual_tenant` (409), `owner_change_forbidden`
-	// (403), `locales_need_locale_role` (400).
+	// address's owner signs in. `projects`, `vendor_id` and
+	// `visibility` restrict the member from the start (RFC 0006 §3.3,
+	// §4.1): a vendor's translator is invited with `vendor_id`,
+	// `visibility: assigned` and, usually, the projects they work on.
+	// Needs `members.manage`; the `owner` role needs `owners.manage`,
+	// naming a vendor `vendors.manage`, and an inviter limited to some
+	// projects invites only within them. Problem codes:
+	// `already_member` (409), `individual_tenant` (409),
+	// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+	// project outside the inviter's), `locales_need_locale_role`,
+	// `invalid_visibility`, `vendor_member_visibility`,
+	// `assigned_visibility_role`, `owner_project_scoped`,
+	// `too_many_projects` (400), `not_found` (404: no such vendor).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -11216,10 +11500,19 @@ type ClientInterface interface {
 	// AddMember Invite someone by email
 	//
 	// Opens an invitation that becomes an active membership when the
-	// address's owner signs in. Needs `members.manage`; the `owner`
-	// role needs `owners.manage`. Problem codes: `already_member`
-	// (409), `individual_tenant` (409), `owner_change_forbidden`
-	// (403), `locales_need_locale_role` (400).
+	// address's owner signs in. `projects`, `vendor_id` and
+	// `visibility` restrict the member from the start (RFC 0006 §3.3,
+	// §4.1): a vendor's translator is invited with `vendor_id`,
+	// `visibility: assigned` and, usually, the projects they work on.
+	// Needs `members.manage`; the `owner` role needs `owners.manage`,
+	// naming a vendor `vendors.manage`, and an inviter limited to some
+	// projects invites only within them. Problem codes:
+	// `already_member` (409), `individual_tenant` (409),
+	// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+	// project outside the inviter's), `locales_need_locale_role`,
+	// `invalid_visibility`, `vendor_member_visibility`,
+	// `assigned_visibility_role`, `owner_project_scoped`,
+	// `too_many_projects` (400), `not_found` (404: no such vendor).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -11244,10 +11537,17 @@ type ClientInterface interface {
 
 	// UpdateMemberWithBody Change a member's roles or locales
 	//
-	// Members omitted from the body keep their value. Needs
-	// `members.manage`; anything touching the `owner` role needs
-	// `owners.manage`. Problem codes: `last_owner` (409),
-	// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+	// Members omitted from the body keep their value. A request changes
+	// the member's access (`roles`, `locales`) or their restriction
+	// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+	// both: each is its own event and version. A restriction takes
+	// effect on the member's next request. Needs `members.manage`;
+	// anything touching the `owner` role needs `owners.manage`, and
+	// setting or clearing a vendor `vendors.manage`. Problem codes:
+	// `last_owner` (409), `owner_change_forbidden`,
+	// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+	// `access_and_restriction` (400: both in one request), and the
+	// restriction codes of `addMember` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -11256,10 +11556,17 @@ type ClientInterface interface {
 
 	// UpdateMember Change a member's roles or locales
 	//
-	// Members omitted from the body keep their value. Needs
-	// `members.manage`; anything touching the `owner` role needs
-	// `owners.manage`. Problem codes: `last_owner` (409),
-	// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+	// Members omitted from the body keep their value. A request changes
+	// the member's access (`roles`, `locales`) or their restriction
+	// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+	// both: each is its own event and version. A restriction takes
+	// effect on the member's next request. Needs `members.manage`;
+	// anything touching the `owner` role needs `owners.manage`, and
+	// setting or clearing a vendor `vendors.manage`. Problem codes:
+	// `last_owner` (409), `owner_change_forbidden`,
+	// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+	// `access_and_restriction` (400: both in one request), and the
+	// restriction codes of `addMember` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -14302,6 +14609,76 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetToken(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListVendors The organization's vendors
+	//
+	// Needs `members.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/vendors (the `ListVendors` operationId).
+	ListVendors(ctx context.Context, tenant TenantPath, params *ListVendorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVendorWithBody Add a vendor
+	//
+	// A vendor is a named group of members inside this tenant, not a
+	// tenant of its own (RFC 0006 §3.3); invite its people with
+	// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+	// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+	// `invalid_locale` (400), `individual_tenant` (409).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+	CreateVendorWithBody(ctx context.Context, tenant TenantPath, params *CreateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVendor Add a vendor
+	//
+	// A vendor is a named group of members inside this tenant, not a
+	// tenant of its own (RFC 0006 §3.3); invite its people with
+	// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+	// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+	// `invalid_locale` (400), `individual_tenant` (409).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+	CreateVendor(ctx context.Context, tenant TenantPath, params *CreateVendorParams, body CreateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVendor Delete a vendor nobody works for any more
+	//
+	// A vendor that still has members is refused: taking each of them
+	// off it, or removing them, is a decision about that person.
+	// Needs `vendors.manage`. Problem codes: `vendor_has_members`
+	// (409).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/vendors/{vendor} (the `DeleteVendor` operationId).
+	DeleteVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVendor A vendor
+	//
+	// Needs `members.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/vendors/{vendor} (the `GetVendor` operationId).
+	GetVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVendorWithBody Change a vendor's details
+	//
+	// Members omitted from the body keep their value. Needs
+	// `vendors.manage`. Problem codes: as `createVendor`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+	UpdateVendorWithBody(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVendor Change a vendor's details
+	//
+	// Members omitted from the body keep their value. Needs
+	// `vendors.manage`. Problem codes: as `createVendor`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+	UpdateVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, body UpdateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LintWorkflowDefinitionWithBody Lint a workflow document without saving it
 	//
 	// What `glossa workflow lint` and the editor ask before a save: the
@@ -16547,6 +16924,177 @@ func (c *Client) ForgetGitHubInstallation(ctx context.Context, tenant TenantPath
 	return c.Client.Do(req)
 }
 
+// ListGroups The organization's groups
+//
+// Each with its members. Needs `members.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/groups (the `ListGroups` operationId).
+func (c *Client) ListGroups(ctx context.Context, tenant TenantPath, params *ListGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGroupsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateGroupWithBody Create a group
+//
+// An empty group; add members with `putGroupMember`. Needs
+// `members.manage`. Problem codes: `invalid_group_name` (400),
+// `individual_tenant` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+func (c *Client) CreateGroupWithBody(ctx context.Context, tenant TenantPath, params *CreateGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateGroup Create a group
+//
+// An empty group; add members with `putGroupMember`. Needs
+// `members.manage`. Problem codes: `invalid_group_name` (400),
+// `individual_tenant` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+func (c *Client) CreateGroup(ctx context.Context, tenant TenantPath, params *CreateGroupParams, body CreateGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteGroup Delete a group
+//
+// Its members stay members. Assignments and approvals that named
+// the group keep naming it and reach nobody. Needs
+// `members.manage`.
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group} (the `DeleteGroup` operationId).
+func (c *Client) DeleteGroup(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGroupRequest(c.Server, tenant, group)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetGroup A group
+//
+// Needs `members.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/groups/{group} (the `GetGroup` operationId).
+func (c *Client) GetGroup(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupRequest(c.Server, tenant, group)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RenameGroupWithBody Rename a group
+//
+// Needs `members.manage`. Problem codes: `invalid_group_name`
+// (400).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+func (c *Client) RenameGroupWithBody(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGroupRequestWithBody(c.Server, tenant, group, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RenameGroup Rename a group
+//
+// Needs `members.manage`. Problem codes: `invalid_group_name`
+// (400).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+func (c *Client) RenameGroup(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, body RenameGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGroupRequest(c.Server, tenant, group, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemoveGroupMember Take a member out of a group
+//
+// Needs `members.manage`. Problem codes: `not_in_group` (404).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group}/members/{member} (the `RemoveGroupMember` operationId).
+func (c *Client) RemoveGroupMember(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveGroupMemberRequest(c.Server, tenant, group, member)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutGroupMember Put a member into a group
+//
+// Idempotent: a member already in the group stays, and the group
+// is answered as it is. Needs `members.manage`. Problem codes:
+// `group_full` (409).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/groups/{group}/members/{member} (the `PutGroupMember` operationId).
+func (c *Client) PutGroupMember(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGroupMemberRequest(c.Server, tenant, group, member)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListImportJobs Import jobs
 //
 // Newest first. Needs `integration.read`.
@@ -16812,10 +17360,19 @@ func (c *Client) ListMembers(ctx context.Context, tenant TenantPath, params *Lis
 // AddMemberWithBody Invite someone by email
 //
 // Opens an invitation that becomes an active membership when the
-// address's owner signs in. Needs `members.manage`; the `owner`
-// role needs `owners.manage`. Problem codes: `already_member`
-// (409), `individual_tenant` (409), `owner_change_forbidden`
-// (403), `locales_need_locale_role` (400).
+// address's owner signs in. `projects`, `vendor_id` and
+// `visibility` restrict the member from the start (RFC 0006 §3.3,
+// §4.1): a vendor's translator is invited with `vendor_id`,
+// `visibility: assigned` and, usually, the projects they work on.
+// Needs `members.manage`; the `owner` role needs `owners.manage`,
+// naming a vendor `vendors.manage`, and an inviter limited to some
+// projects invites only within them. Problem codes:
+// `already_member` (409), `individual_tenant` (409),
+// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+// project outside the inviter's), `locales_need_locale_role`,
+// `invalid_visibility`, `vendor_member_visibility`,
+// `assigned_visibility_role`, `owner_project_scoped`,
+// `too_many_projects` (400), `not_found` (404: no such vendor).
 //
 // Takes any type of body and a specified content type.
 //
@@ -16835,10 +17392,19 @@ func (c *Client) AddMemberWithBody(ctx context.Context, tenant TenantPath, param
 // AddMember Invite someone by email
 //
 // Opens an invitation that becomes an active membership when the
-// address's owner signs in. Needs `members.manage`; the `owner`
-// role needs `owners.manage`. Problem codes: `already_member`
-// (409), `individual_tenant` (409), `owner_change_forbidden`
-// (403), `locales_need_locale_role` (400).
+// address's owner signs in. `projects`, `vendor_id` and
+// `visibility` restrict the member from the start (RFC 0006 §3.3,
+// §4.1): a vendor's translator is invited with `vendor_id`,
+// `visibility: assigned` and, usually, the projects they work on.
+// Needs `members.manage`; the `owner` role needs `owners.manage`,
+// naming a vendor `vendors.manage`, and an inviter limited to some
+// projects invites only within them. Problem codes:
+// `already_member` (409), `individual_tenant` (409),
+// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+// project outside the inviter's), `locales_need_locale_role`,
+// `invalid_visibility`, `vendor_member_visibility`,
+// `assigned_visibility_role`, `owner_project_scoped`,
+// `too_many_projects` (400), `not_found` (404: no such vendor).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -16893,10 +17459,17 @@ func (c *Client) GetMember(ctx context.Context, tenant TenantPath, member Member
 
 // UpdateMemberWithBody Change a member's roles or locales
 //
-// Members omitted from the body keep their value. Needs
-// `members.manage`; anything touching the `owner` role needs
-// `owners.manage`. Problem codes: `last_owner` (409),
-// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+// Members omitted from the body keep their value. A request changes
+// the member's access (`roles`, `locales`) or their restriction
+// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+// both: each is its own event and version. A restriction takes
+// effect on the member's next request. Needs `members.manage`;
+// anything touching the `owner` role needs `owners.manage`, and
+// setting or clearing a vendor `vendors.manage`. Problem codes:
+// `last_owner` (409), `owner_change_forbidden`,
+// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+// `access_and_restriction` (400: both in one request), and the
+// restriction codes of `addMember` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -16915,10 +17488,17 @@ func (c *Client) UpdateMemberWithBody(ctx context.Context, tenant TenantPath, me
 
 // UpdateMember Change a member's roles or locales
 //
-// Members omitted from the body keep their value. Needs
-// `members.manage`; anything touching the `owner` role needs
-// `owners.manage`. Problem codes: `last_owner` (409),
-// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+// Members omitted from the body keep their value. A request changes
+// the member's access (`roles`, `locales`) or their restriction
+// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+// both: each is its own event and version. A restriction takes
+// effect on the member's next request. Needs `members.manage`;
+// anything touching the `owner` role needs `owners.manage`, and
+// setting or clearing a vendor `vendors.manage`. Problem codes:
+// `last_owner` (409), `owner_change_forbidden`,
+// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+// `access_and_restriction` (400: both in one request), and the
+// restriction codes of `addMember` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -21861,6 +22441,146 @@ func (c *Client) GetToken(ctx context.Context, tenant TenantPath, token TokenPat
 	return c.Client.Do(req)
 }
 
+// ListVendors The organization's vendors
+//
+// Needs `members.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/vendors (the `ListVendors` operationId).
+func (c *Client) ListVendors(ctx context.Context, tenant TenantPath, params *ListVendorsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVendorsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVendorWithBody Add a vendor
+//
+// A vendor is a named group of members inside this tenant, not a
+// tenant of its own (RFC 0006 §3.3); invite its people with
+// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+// `invalid_locale` (400), `individual_tenant` (409).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+func (c *Client) CreateVendorWithBody(ctx context.Context, tenant TenantPath, params *CreateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVendorRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateVendor Add a vendor
+//
+// A vendor is a named group of members inside this tenant, not a
+// tenant of its own (RFC 0006 §3.3); invite its people with
+// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+// `invalid_locale` (400), `individual_tenant` (409).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+func (c *Client) CreateVendor(ctx context.Context, tenant TenantPath, params *CreateVendorParams, body CreateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVendorRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteVendor Delete a vendor nobody works for any more
+//
+// A vendor that still has members is refused: taking each of them
+// off it, or removing them, is a decision about that person.
+// Needs `vendors.manage`. Problem codes: `vendor_has_members`
+// (409).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/vendors/{vendor} (the `DeleteVendor` operationId).
+func (c *Client) DeleteVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVendorRequest(c.Server, tenant, vendor)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetVendor A vendor
+//
+// Needs `members.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/vendors/{vendor} (the `GetVendor` operationId).
+func (c *Client) GetVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVendorRequest(c.Server, tenant, vendor)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVendorWithBody Change a vendor's details
+//
+// Members omitted from the body keep their value. Needs
+// `vendors.manage`. Problem codes: as `createVendor`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+func (c *Client) UpdateVendorWithBody(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVendorRequestWithBody(c.Server, tenant, vendor, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateVendor Change a vendor's details
+//
+// Members omitted from the body keep their value. Needs
+// `vendors.manage`. Problem codes: as `createVendor`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+func (c *Client) UpdateVendor(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, body UpdateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVendorRequest(c.Server, tenant, vendor, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // LintWorkflowDefinitionWithBody Lint a workflow document without saving it
 //
 // What `glossa workflow lint` and the editor ask before a save: the
@@ -25479,6 +26199,386 @@ func NewForgetGitHubInstallationRequest(server string, tenant TenantPath, instal
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGroupsRequest constructs an http.Request for the ListGroups method
+func NewListGroupsRequest(server string, tenant TenantPath, params *ListGroupsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGroupRequest calls the generic CreateGroup builder with application/json body
+func NewCreateGroupRequest(server string, tenant TenantPath, params *CreateGroupParams, body CreateGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGroupRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateGroupRequestWithBody constructs an http.Request for the CreateGroup method, with any body, and a specified content type
+func NewCreateGroupRequestWithBody(server string, tenant TenantPath, params *CreateGroupParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteGroupRequest constructs an http.Request for the DeleteGroup method
+func NewDeleteGroupRequest(server string, tenant TenantPath, group GroupPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "group", group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGroupRequest constructs an http.Request for the GetGroup method
+func NewGetGroupRequest(server string, tenant TenantPath, group GroupPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "group", group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRenameGroupRequest calls the generic RenameGroup builder with application/json body
+func NewRenameGroupRequest(server string, tenant TenantPath, group GroupPath, params *RenameGroupParams, body RenameGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenameGroupRequestWithBody(server, tenant, group, params, "application/json", bodyReader)
+}
+
+// NewRenameGroupRequestWithBody constructs an http.Request for the RenameGroup method, with any body, and a specified content type
+func NewRenameGroupRequestWithBody(server string, tenant TenantPath, group GroupPath, params *RenameGroupParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "group", group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewRemoveGroupMemberRequest constructs an http.Request for the RemoveGroupMember method
+func NewRemoveGroupMemberRequest(server string, tenant TenantPath, group GroupPath, member MemberPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "group", group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "member", member, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups/%s/members/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutGroupMemberRequest constructs an http.Request for the PutGroupMember method
+func NewPutGroupMemberRequest(server string, tenant TenantPath, group GroupPath, member MemberPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "group", group, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "member", member, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/groups/%s/members/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -36007,6 +37107,290 @@ func NewGetTokenRequest(server string, tenant TenantPath, token TokenPath) (*htt
 	return req, nil
 }
 
+// NewListVendorsRequest constructs an http.Request for the ListVendors method
+func NewListVendorsRequest(server string, tenant TenantPath, params *ListVendorsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/vendors", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVendorRequest calls the generic CreateVendor builder with application/json body
+func NewCreateVendorRequest(server string, tenant TenantPath, params *CreateVendorParams, body CreateVendorJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVendorRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateVendorRequestWithBody constructs an http.Request for the CreateVendor method, with any body, and a specified content type
+func NewCreateVendorRequestWithBody(server string, tenant TenantPath, params *CreateVendorParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/vendors", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteVendorRequest constructs an http.Request for the DeleteVendor method
+func NewDeleteVendorRequest(server string, tenant TenantPath, vendor VendorPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "vendor", vendor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/vendors/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVendorRequest constructs an http.Request for the GetVendor method
+func NewGetVendorRequest(server string, tenant TenantPath, vendor VendorPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "vendor", vendor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/vendors/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateVendorRequest calls the generic UpdateVendor builder with application/json body
+func NewUpdateVendorRequest(server string, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, body UpdateVendorJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVendorRequestWithBody(server, tenant, vendor, params, "application/json", bodyReader)
+}
+
+// NewUpdateVendorRequestWithBody constructs an http.Request for the UpdateVendor method, with any body, and a specified content type
+func NewUpdateVendorRequestWithBody(server string, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "vendor", vendor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/vendors/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewLintWorkflowDefinitionRequest calls the generic LintWorkflowDefinition builder with application/json body
 func NewLintWorkflowDefinitionRequest(server string, tenant TenantPath, body LintWorkflowDefinitionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -37805,6 +39189,97 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/tenants/{tenant}/github/installations/{installation} (the `ForgetGitHubInstallation` operationId).
 	ForgetGitHubInstallationWithResponse(ctx context.Context, tenant TenantPath, installation InstallationPath, reqEditors ...RequestEditorFn) (*ForgetGitHubInstallationResponse, error)
 
+	// ListGroupsWithResponse The organization's groups
+	//
+	// Each with its members. Needs `members.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/groups (the `ListGroups` operationId).
+	ListGroupsWithResponse(ctx context.Context, tenant TenantPath, params *ListGroupsParams, reqEditors ...RequestEditorFn) (*ListGroupsResponse, error)
+
+	// CreateGroupWithBodyWithResponse Create a group
+	//
+	// An empty group; add members with `putGroupMember`. Needs
+	// `members.manage`. Problem codes: `invalid_group_name` (400),
+	// `individual_tenant` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+	CreateGroupWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupResponse, error)
+
+	// CreateGroupWithResponse Create a group
+	//
+	// An empty group; add members with `putGroupMember`. Needs
+	// `members.manage`. Problem codes: `invalid_group_name` (400),
+	// `individual_tenant` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+	CreateGroupWithResponse(ctx context.Context, tenant TenantPath, params *CreateGroupParams, body CreateGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupResponse, error)
+
+	// DeleteGroupWithResponse Delete a group
+	//
+	// Its members stay members. Assignments and approvals that named
+	// the group keep naming it and reach nobody. Needs
+	// `members.manage`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group} (the `DeleteGroup` operationId).
+	DeleteGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*DeleteGroupResponse, error)
+
+	// GetGroupWithResponse A group
+	//
+	// Needs `members.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/groups/{group} (the `GetGroup` operationId).
+	GetGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*GetGroupResponse, error)
+
+	// RenameGroupWithBodyWithResponse Rename a group
+	//
+	// Needs `members.manage`. Problem codes: `invalid_group_name`
+	// (400).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+	RenameGroupWithBodyWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGroupResponse, error)
+
+	// RenameGroupWithResponse Rename a group
+	//
+	// Needs `members.manage`. Problem codes: `invalid_group_name`
+	// (400).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+	RenameGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, body RenameGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGroupResponse, error)
+
+	// RemoveGroupMemberWithResponse Take a member out of a group
+	//
+	// Needs `members.manage`. Problem codes: `not_in_group` (404).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group}/members/{member} (the `RemoveGroupMember` operationId).
+	RemoveGroupMemberWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*RemoveGroupMemberResponse, error)
+
+	// PutGroupMemberWithResponse Put a member into a group
+	//
+	// Idempotent: a member already in the group stays, and the group
+	// is answered as it is. Needs `members.manage`. Problem codes:
+	// `group_full` (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/tenants/{tenant}/groups/{group}/members/{member} (the `PutGroupMember` operationId).
+	PutGroupMemberWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*PutGroupMemberResponse, error)
+
 	// ListImportJobsWithResponse Import jobs
 	//
 	// Newest first. Needs `integration.read`.
@@ -38000,10 +39475,19 @@ type ClientWithResponsesInterface interface {
 	// AddMemberWithBodyWithResponse Invite someone by email
 	//
 	// Opens an invitation that becomes an active membership when the
-	// address's owner signs in. Needs `members.manage`; the `owner`
-	// role needs `owners.manage`. Problem codes: `already_member`
-	// (409), `individual_tenant` (409), `owner_change_forbidden`
-	// (403), `locales_need_locale_role` (400).
+	// address's owner signs in. `projects`, `vendor_id` and
+	// `visibility` restrict the member from the start (RFC 0006 §3.3,
+	// §4.1): a vendor's translator is invited with `vendor_id`,
+	// `visibility: assigned` and, usually, the projects they work on.
+	// Needs `members.manage`; the `owner` role needs `owners.manage`,
+	// naming a vendor `vendors.manage`, and an inviter limited to some
+	// projects invites only within them. Problem codes:
+	// `already_member` (409), `individual_tenant` (409),
+	// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+	// project outside the inviter's), `locales_need_locale_role`,
+	// `invalid_visibility`, `vendor_member_visibility`,
+	// `assigned_visibility_role`, `owner_project_scoped`,
+	// `too_many_projects` (400), `not_found` (404: no such vendor).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -38013,10 +39497,19 @@ type ClientWithResponsesInterface interface {
 	// AddMemberWithResponse Invite someone by email
 	//
 	// Opens an invitation that becomes an active membership when the
-	// address's owner signs in. Needs `members.manage`; the `owner`
-	// role needs `owners.manage`. Problem codes: `already_member`
-	// (409), `individual_tenant` (409), `owner_change_forbidden`
-	// (403), `locales_need_locale_role` (400).
+	// address's owner signs in. `projects`, `vendor_id` and
+	// `visibility` restrict the member from the start (RFC 0006 §3.3,
+	// §4.1): a vendor's translator is invited with `vendor_id`,
+	// `visibility: assigned` and, usually, the projects they work on.
+	// Needs `members.manage`; the `owner` role needs `owners.manage`,
+	// naming a vendor `vendors.manage`, and an inviter limited to some
+	// projects invites only within them. Problem codes:
+	// `already_member` (409), `individual_tenant` (409),
+	// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+	// project outside the inviter's), `locales_need_locale_role`,
+	// `invalid_visibility`, `vendor_member_visibility`,
+	// `assigned_visibility_role`, `owner_project_scoped`,
+	// `too_many_projects` (400), `not_found` (404: no such vendor).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -38045,10 +39538,17 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateMemberWithBodyWithResponse Change a member's roles or locales
 	//
-	// Members omitted from the body keep their value. Needs
-	// `members.manage`; anything touching the `owner` role needs
-	// `owners.manage`. Problem codes: `last_owner` (409),
-	// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+	// Members omitted from the body keep their value. A request changes
+	// the member's access (`roles`, `locales`) or their restriction
+	// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+	// both: each is its own event and version. A restriction takes
+	// effect on the member's next request. Needs `members.manage`;
+	// anything touching the `owner` role needs `owners.manage`, and
+	// setting or clearing a vendor `vendors.manage`. Problem codes:
+	// `last_owner` (409), `owner_change_forbidden`,
+	// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+	// `access_and_restriction` (400: both in one request), and the
+	// restriction codes of `addMember` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -38057,10 +39557,17 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateMemberWithResponse Change a member's roles or locales
 	//
-	// Members omitted from the body keep their value. Needs
-	// `members.manage`; anything touching the `owner` role needs
-	// `owners.manage`. Problem codes: `last_owner` (409),
-	// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+	// Members omitted from the body keep their value. A request changes
+	// the member's access (`roles`, `locales`) or their restriction
+	// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+	// both: each is its own event and version. A restriction takes
+	// effect on the member's next request. Needs `members.manage`;
+	// anything touching the `owner` role needs `owners.manage`, and
+	// setting or clearing a vendor `vendors.manage`. Problem codes:
+	// `last_owner` (409), `owner_change_forbidden`,
+	// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+	// `access_and_restriction` (400: both in one request), and the
+	// restriction codes of `addMember` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -41282,6 +42789,82 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/tokens/{token} (the `GetToken` operationId).
 	GetTokenWithResponse(ctx context.Context, tenant TenantPath, token TokenPath, reqEditors ...RequestEditorFn) (*GetTokenResponse, error)
+
+	// ListVendorsWithResponse The organization's vendors
+	//
+	// Needs `members.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/vendors (the `ListVendors` operationId).
+	ListVendorsWithResponse(ctx context.Context, tenant TenantPath, params *ListVendorsParams, reqEditors ...RequestEditorFn) (*ListVendorsResponse, error)
+
+	// CreateVendorWithBodyWithResponse Add a vendor
+	//
+	// A vendor is a named group of members inside this tenant, not a
+	// tenant of its own (RFC 0006 §3.3); invite its people with
+	// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+	// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+	// `invalid_locale` (400), `individual_tenant` (409).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+	CreateVendorWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVendorResponse, error)
+
+	// CreateVendorWithResponse Add a vendor
+	//
+	// A vendor is a named group of members inside this tenant, not a
+	// tenant of its own (RFC 0006 §3.3); invite its people with
+	// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+	// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+	// `invalid_locale` (400), `individual_tenant` (409).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+	CreateVendorWithResponse(ctx context.Context, tenant TenantPath, params *CreateVendorParams, body CreateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVendorResponse, error)
+
+	// DeleteVendorWithResponse Delete a vendor nobody works for any more
+	//
+	// A vendor that still has members is refused: taking each of them
+	// off it, or removing them, is a decision about that person.
+	// Needs `vendors.manage`. Problem codes: `vendor_has_members`
+	// (409).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/tenants/{tenant}/vendors/{vendor} (the `DeleteVendor` operationId).
+	DeleteVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*DeleteVendorResponse, error)
+
+	// GetVendorWithResponse A vendor
+	//
+	// Needs `members.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/vendors/{vendor} (the `GetVendor` operationId).
+	GetVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*GetVendorResponse, error)
+
+	// UpdateVendorWithBodyWithResponse Change a vendor's details
+	//
+	// Members omitted from the body keep their value. Needs
+	// `vendors.manage`. Problem codes: as `createVendor`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+	UpdateVendorWithBodyWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVendorResponse, error)
+
+	// UpdateVendorWithResponse Change a vendor's details
+	//
+	// Members omitted from the body keep their value. Needs
+	// `vendors.manage`. Problem codes: as `createVendor`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+	UpdateVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, body UpdateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVendorResponse, error)
 
 	// LintWorkflowDefinitionWithBodyWithResponse Lint a workflow document without saving it
 	//
@@ -45707,6 +47290,498 @@ func (r ForgetGitHubInstallationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ForgetGitHubInstallationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GroupList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListGroupsResponse) GetJSON200() *GroupList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListGroupsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListGroupsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListGroupsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListGroupsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListGroupsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateGroupResponse201Headers the declared response headers of an HTTP 201 response for CreateGroup
+type CreateGroupResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Group
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateGroupResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateGroupResponse) GetJSON201() *Group {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateGroupResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateGroupResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateGroupResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateGroupResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateGroupResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteGroupResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteGroupResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteGroupResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetGroupResponse200Headers the declared response headers of an HTTP 200 response for GetGroup
+type GetGroupResponse200Headers struct {
+	ETag *string
+}
+
+type GetGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Group
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetGroupResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetGroupResponse) GetJSON200() *Group {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetGroupResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetGroupResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetGroupResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RenameGroupResponse200Headers the declared response headers of an HTTP 200 response for RenameGroup
+type RenameGroupResponse200Headers struct {
+	ETag *string
+}
+
+type RenameGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Group
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RenameGroupResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RenameGroupResponse) GetJSON200() *Group {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r RenameGroupResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r RenameGroupResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RenameGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenameGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RenameGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RemoveGroupMemberResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RemoveGroupMemberResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RemoveGroupMemberResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RemoveGroupMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// PutGroupMemberResponse200Headers the declared response headers of an HTTP 200 response for PutGroupMember
+type PutGroupMemberResponse200Headers struct {
+	ETag *string
+}
+
+type PutGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Group
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *PutGroupMemberResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutGroupMemberResponse) GetJSON200() *Group {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r PutGroupMemberResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r PutGroupMemberResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r PutGroupMemberResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r PutGroupMemberResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r PutGroupMemberResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutGroupMemberResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56726,6 +58801,374 @@ func (r GetTokenResponse) ContentType() string {
 	return ""
 }
 
+type ListVendorsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VendorList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListVendorsResponse) GetJSON200() *VendorList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListVendorsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListVendorsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListVendorsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListVendorsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVendorsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVendorsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVendorsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateVendorResponse201Headers the declared response headers of an HTTP 201 response for CreateVendor
+type CreateVendorResponse201Headers struct {
+	ETag               *string
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateVendorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Vendor
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateVendorResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateVendorResponse) GetJSON201() *Vendor {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateVendorResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateVendorResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateVendorResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateVendorResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateVendorResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateVendorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVendorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVendorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateVendorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVendorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DeleteVendorResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DeleteVendorResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DeleteVendorResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DeleteVendorResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteVendorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVendorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVendorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVendorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetVendorResponse200Headers the declared response headers of an HTTP 200 response for GetVendor
+type GetVendorResponse200Headers struct {
+	ETag *string
+}
+
+type GetVendorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Vendor
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetVendorResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetVendorResponse) GetJSON200() *Vendor {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetVendorResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetVendorResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetVendorResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetVendorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVendorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVendorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetVendorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateVendorResponse200Headers the declared response headers of an HTTP 200 response for UpdateVendor
+type UpdateVendorResponse200Headers struct {
+	ETag *string
+}
+
+type UpdateVendorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Vendor
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateVendorResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateVendorResponse) GetJSON200() *Vendor {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r UpdateVendorResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateVendorResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVendorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVendorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateVendorResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type LintWorkflowDefinitionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -59106,6 +61549,151 @@ func (c *ClientWithResponses) ForgetGitHubInstallationWithResponse(ctx context.C
 	return ParseForgetGitHubInstallationResponse(rsp)
 }
 
+// ListGroupsWithResponse The organization's groups
+//
+// Each with its members. Needs `members.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/groups (the `ListGroups` operationId).
+func (c *ClientWithResponses) ListGroupsWithResponse(ctx context.Context, tenant TenantPath, params *ListGroupsParams, reqEditors ...RequestEditorFn) (*ListGroupsResponse, error) {
+	rsp, err := c.ListGroups(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGroupsResponse(rsp)
+}
+
+// CreateGroupWithBodyWithResponse Create a group
+//
+// An empty group; add members with `putGroupMember`. Needs
+// `members.manage`. Problem codes: `invalid_group_name` (400),
+// `individual_tenant` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+func (c *ClientWithResponses) CreateGroupWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupResponse, error) {
+	rsp, err := c.CreateGroupWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupResponse(rsp)
+}
+
+// CreateGroupWithResponse Create a group
+//
+// An empty group; add members with `putGroupMember`. Needs
+// `members.manage`. Problem codes: `invalid_group_name` (400),
+// `individual_tenant` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/groups (the `CreateGroup` operationId).
+func (c *ClientWithResponses) CreateGroupWithResponse(ctx context.Context, tenant TenantPath, params *CreateGroupParams, body CreateGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupResponse, error) {
+	rsp, err := c.CreateGroup(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupResponse(rsp)
+}
+
+// DeleteGroupWithResponse Delete a group
+//
+// Its members stay members. Assignments and approvals that named
+// the group keep naming it and reach nobody. Needs
+// `members.manage`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group} (the `DeleteGroup` operationId).
+func (c *ClientWithResponses) DeleteGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*DeleteGroupResponse, error) {
+	rsp, err := c.DeleteGroup(ctx, tenant, group, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGroupResponse(rsp)
+}
+
+// GetGroupWithResponse A group
+//
+// Needs `members.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/groups/{group} (the `GetGroup` operationId).
+func (c *ClientWithResponses) GetGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, reqEditors ...RequestEditorFn) (*GetGroupResponse, error) {
+	rsp, err := c.GetGroup(ctx, tenant, group, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupResponse(rsp)
+}
+
+// RenameGroupWithBodyWithResponse Rename a group
+//
+// Needs `members.manage`. Problem codes: `invalid_group_name`
+// (400).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+func (c *ClientWithResponses) RenameGroupWithBodyWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGroupResponse, error) {
+	rsp, err := c.RenameGroupWithBody(ctx, tenant, group, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGroupResponse(rsp)
+}
+
+// RenameGroupWithResponse Rename a group
+//
+// Needs `members.manage`. Problem codes: `invalid_group_name`
+// (400).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/groups/{group} (the `RenameGroup` operationId).
+func (c *ClientWithResponses) RenameGroupWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, params *RenameGroupParams, body RenameGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGroupResponse, error) {
+	rsp, err := c.RenameGroup(ctx, tenant, group, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGroupResponse(rsp)
+}
+
+// RemoveGroupMemberWithResponse Take a member out of a group
+//
+// Needs `members.manage`. Problem codes: `not_in_group` (404).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/groups/{group}/members/{member} (the `RemoveGroupMember` operationId).
+func (c *ClientWithResponses) RemoveGroupMemberWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*RemoveGroupMemberResponse, error) {
+	rsp, err := c.RemoveGroupMember(ctx, tenant, group, member, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveGroupMemberResponse(rsp)
+}
+
+// PutGroupMemberWithResponse Put a member into a group
+//
+// Idempotent: a member already in the group stays, and the group
+// is answered as it is. Needs `members.manage`. Problem codes:
+// `group_full` (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/tenants/{tenant}/groups/{group}/members/{member} (the `PutGroupMember` operationId).
+func (c *ClientWithResponses) PutGroupMemberWithResponse(ctx context.Context, tenant TenantPath, group GroupPath, member MemberPath, reqEditors ...RequestEditorFn) (*PutGroupMemberResponse, error) {
+	rsp, err := c.PutGroupMember(ctx, tenant, group, member, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutGroupMemberResponse(rsp)
+}
+
 // ListImportJobsWithResponse Import jobs
 //
 // Newest first. Needs `integration.read`.
@@ -59349,10 +61937,19 @@ func (c *ClientWithResponses) ListMembersWithResponse(ctx context.Context, tenan
 // AddMemberWithBodyWithResponse Invite someone by email
 //
 // Opens an invitation that becomes an active membership when the
-// address's owner signs in. Needs `members.manage`; the `owner`
-// role needs `owners.manage`. Problem codes: `already_member`
-// (409), `individual_tenant` (409), `owner_change_forbidden`
-// (403), `locales_need_locale_role` (400).
+// address's owner signs in. `projects`, `vendor_id` and
+// `visibility` restrict the member from the start (RFC 0006 §3.3,
+// §4.1): a vendor's translator is invited with `vendor_id`,
+// `visibility: assigned` and, usually, the projects they work on.
+// Needs `members.manage`; the `owner` role needs `owners.manage`,
+// naming a vendor `vendors.manage`, and an inviter limited to some
+// projects invites only within them. Problem codes:
+// `already_member` (409), `individual_tenant` (409),
+// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+// project outside the inviter's), `locales_need_locale_role`,
+// `invalid_visibility`, `vendor_member_visibility`,
+// `assigned_visibility_role`, `owner_project_scoped`,
+// `too_many_projects` (400), `not_found` (404: no such vendor).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -59368,10 +61965,19 @@ func (c *ClientWithResponses) AddMemberWithBodyWithResponse(ctx context.Context,
 // AddMemberWithResponse Invite someone by email
 //
 // Opens an invitation that becomes an active membership when the
-// address's owner signs in. Needs `members.manage`; the `owner`
-// role needs `owners.manage`. Problem codes: `already_member`
-// (409), `individual_tenant` (409), `owner_change_forbidden`
-// (403), `locales_need_locale_role` (400).
+// address's owner signs in. `projects`, `vendor_id` and
+// `visibility` restrict the member from the start (RFC 0006 §3.3,
+// §4.1): a vendor's translator is invited with `vendor_id`,
+// `visibility: assigned` and, usually, the projects they work on.
+// Needs `members.manage`; the `owner` role needs `owners.manage`,
+// naming a vendor `vendors.manage`, and an inviter limited to some
+// projects invites only within them. Problem codes:
+// `already_member` (409), `individual_tenant` (409),
+// `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+// project outside the inviter's), `locales_need_locale_role`,
+// `invalid_visibility`, `vendor_member_visibility`,
+// `assigned_visibility_role`, `owner_project_scoped`,
+// `too_many_projects` (400), `not_found` (404: no such vendor).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -59418,10 +62024,17 @@ func (c *ClientWithResponses) GetMemberWithResponse(ctx context.Context, tenant 
 
 // UpdateMemberWithBodyWithResponse Change a member's roles or locales
 //
-// Members omitted from the body keep their value. Needs
-// `members.manage`; anything touching the `owner` role needs
-// `owners.manage`. Problem codes: `last_owner` (409),
-// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+// Members omitted from the body keep their value. A request changes
+// the member's access (`roles`, `locales`) or their restriction
+// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+// both: each is its own event and version. A restriction takes
+// effect on the member's next request. Needs `members.manage`;
+// anything touching the `owner` role needs `owners.manage`, and
+// setting or clearing a vendor `vendors.manage`. Problem codes:
+// `last_owner` (409), `owner_change_forbidden`,
+// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+// `access_and_restriction` (400: both in one request), and the
+// restriction codes of `addMember` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -59436,10 +62049,17 @@ func (c *ClientWithResponses) UpdateMemberWithBodyWithResponse(ctx context.Conte
 
 // UpdateMemberWithResponse Change a member's roles or locales
 //
-// Members omitted from the body keep their value. Needs
-// `members.manage`; anything touching the `owner` role needs
-// `owners.manage`. Problem codes: `last_owner` (409),
-// `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+// Members omitted from the body keep their value. A request changes
+// the member's access (`roles`, `locales`) or their restriction
+// (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+// both: each is its own event and version. A restriction takes
+// effect on the member's next request. Needs `members.manage`;
+// anything touching the `owner` role needs `owners.manage`, and
+// setting or clearing a vendor `vendors.manage`. Problem codes:
+// `last_owner` (409), `owner_change_forbidden`,
+// `scope_exceeds_grant` (403), `locales_need_locale_role`,
+// `access_and_restriction` (400: both in one request), and the
+// restriction codes of `addMember` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -63802,6 +66422,124 @@ func (c *ClientWithResponses) GetTokenWithResponse(ctx context.Context, tenant T
 	return ParseGetTokenResponse(rsp)
 }
 
+// ListVendorsWithResponse The organization's vendors
+//
+// Needs `members.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/vendors (the `ListVendors` operationId).
+func (c *ClientWithResponses) ListVendorsWithResponse(ctx context.Context, tenant TenantPath, params *ListVendorsParams, reqEditors ...RequestEditorFn) (*ListVendorsResponse, error) {
+	rsp, err := c.ListVendors(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVendorsResponse(rsp)
+}
+
+// CreateVendorWithBodyWithResponse Add a vendor
+//
+// A vendor is a named group of members inside this tenant, not a
+// tenant of its own (RFC 0006 §3.3); invite its people with
+// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+// `invalid_locale` (400), `individual_tenant` (409).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+func (c *ClientWithResponses) CreateVendorWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVendorResponse, error) {
+	rsp, err := c.CreateVendorWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVendorResponse(rsp)
+}
+
+// CreateVendorWithResponse Add a vendor
+//
+// A vendor is a named group of members inside this tenant, not a
+// tenant of its own (RFC 0006 §3.3); invite its people with
+// `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+// codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+// `invalid_locale` (400), `individual_tenant` (409).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/vendors (the `CreateVendor` operationId).
+func (c *ClientWithResponses) CreateVendorWithResponse(ctx context.Context, tenant TenantPath, params *CreateVendorParams, body CreateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVendorResponse, error) {
+	rsp, err := c.CreateVendor(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVendorResponse(rsp)
+}
+
+// DeleteVendorWithResponse Delete a vendor nobody works for any more
+//
+// A vendor that still has members is refused: taking each of them
+// off it, or removing them, is a decision about that person.
+// Needs `vendors.manage`. Problem codes: `vendor_has_members`
+// (409).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/tenants/{tenant}/vendors/{vendor} (the `DeleteVendor` operationId).
+func (c *ClientWithResponses) DeleteVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*DeleteVendorResponse, error) {
+	rsp, err := c.DeleteVendor(ctx, tenant, vendor, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVendorResponse(rsp)
+}
+
+// GetVendorWithResponse A vendor
+//
+// Needs `members.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/vendors/{vendor} (the `GetVendor` operationId).
+func (c *ClientWithResponses) GetVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, reqEditors ...RequestEditorFn) (*GetVendorResponse, error) {
+	rsp, err := c.GetVendor(ctx, tenant, vendor, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVendorResponse(rsp)
+}
+
+// UpdateVendorWithBodyWithResponse Change a vendor's details
+//
+// Members omitted from the body keep their value. Needs
+// `vendors.manage`. Problem codes: as `createVendor`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+func (c *ClientWithResponses) UpdateVendorWithBodyWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVendorResponse, error) {
+	rsp, err := c.UpdateVendorWithBody(ctx, tenant, vendor, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVendorResponse(rsp)
+}
+
+// UpdateVendorWithResponse Change a vendor's details
+//
+// Members omitted from the body keep their value. Needs
+// `vendors.manage`. Problem codes: as `createVendor`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/tenants/{tenant}/vendors/{vendor} (the `UpdateVendor` operationId).
+func (c *ClientWithResponses) UpdateVendorWithResponse(ctx context.Context, tenant TenantPath, vendor VendorPath, params *UpdateVendorParams, body UpdateVendorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVendorResponse, error) {
+	rsp, err := c.UpdateVendor(ctx, tenant, vendor, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVendorResponse(rsp)
+}
+
 // LintWorkflowDefinitionWithBodyWithResponse Lint a workflow document without saving it
 //
 // What `glossa workflow lint` and the editor ask before a save: the
@@ -67554,6 +70292,435 @@ func ParseForgetGitHubInstallationResponse(rsp *http.Response) (*ForgetGitHubIns
 		}
 		response.ApplicationproblemJSON503 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseListGroupsResponse parses an HTTP response from a ListGroupsWithResponse call
+func ParseListGroupsResponse(rsp *http.Response) (*ListGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GroupList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGroupResponse parses an HTTP response from a CreateGroupWithResponse call
+func ParseCreateGroupResponse(rsp *http.Response) (*CreateGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Group
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateGroupResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGroupResponse parses an HTTP response from a DeleteGroupWithResponse call
+func ParseDeleteGroupResponse(rsp *http.Response) (*DeleteGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupResponse parses an HTTP response from a GetGroupWithResponse call
+func ParseGetGroupResponse(rsp *http.Response) (*GetGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Group
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetGroupResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRenameGroupResponse parses an HTTP response from a RenameGroupWithResponse call
+func ParseRenameGroupResponse(rsp *http.Response) (*RenameGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenameGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Group
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RenameGroupResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRemoveGroupMemberResponse parses an HTTP response from a RemoveGroupMemberWithResponse call
+func ParseRemoveGroupMemberResponse(rsp *http.Response) (*RemoveGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutGroupMemberResponse parses an HTTP response from a PutGroupMemberWithResponse call
+func ParsePutGroupMemberResponse(rsp *http.Response) (*PutGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Group
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers PutGroupMemberResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil
@@ -76836,6 +80003,332 @@ func ParseGetTokenResponse(rsp *http.Response) (*GetTokenResponse, error) {
 		}
 		response.ApplicationproblemJSON404 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseListVendorsResponse parses an HTTP response from a ListVendorsWithResponse call
+func ParseListVendorsResponse(rsp *http.Response) (*ListVendorsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVendorsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VendorList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVendorResponse parses an HTTP response from a CreateVendorWithResponse call
+func ParseCreateVendorResponse(rsp *http.Response) (*CreateVendorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVendorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Vendor
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateVendorResponse201Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVendorResponse parses an HTTP response from a DeleteVendorWithResponse call
+func ParseDeleteVendorResponse(rsp *http.Response) (*DeleteVendorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVendorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVendorResponse parses an HTTP response from a GetVendorWithResponse call
+func ParseGetVendorResponse(rsp *http.Response) (*GetVendorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVendorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Vendor
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetVendorResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVendorResponse parses an HTTP response from a UpdateVendorWithResponse call
+func ParseUpdateVendorResponse(rsp *http.Response) (*UpdateVendorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVendorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Vendor
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateVendorResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

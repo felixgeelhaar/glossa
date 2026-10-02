@@ -259,6 +259,9 @@ export const Member = z.object({
   status: z.enum(["invited", "active"]),
   roles: z.array(Role),
   locales: z.array(z.string()),
+  projects: z.array(id),
+  vendor_id: id.optional(),
+  visibility: z.enum(["all", "assigned"]),
   created_at: timestamp,
   updated_at: timestamp,
 });

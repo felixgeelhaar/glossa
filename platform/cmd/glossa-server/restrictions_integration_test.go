@@ -214,35 +214,27 @@ func newRestrictedFixture(t *testing.T) restrictedFixture {
 	var pay struct{ ID string }
 	s.do(call{method: "GET", path: a + "/messages/pay", cookie: ada.cookie}).decode(t, &pay)
 
-	token := func(name string) string {
+	token := func(name string, projects ...string) string {
 		var tok struct {
 			Secret string `json:"secret"`
 		}
 		r := s.do(call{method: "POST", path: base + "/tokens", cookie: ada.cookie, csrf: ada.csrf,
-			body: map[string]any{"name": name, "scopes": []string{"read"}}})
+			body: map[string]any{"name": name, "scopes": []string{"read"}, "projects": projects}})
 		r.want(t, http.StatusCreated, "")
 		r.decode(t, &tok)
 		return tok.Secret
 	}
-	scoped, ro := token("scoped"), token("everything")
-	// The API that sets a token's project scope and a member's
-	// visibility is wave 3's (RFC 0006 §13); until then the fixture
-	// writes the restriction where Identity stores it.
-	ctx := context.Background()
-	if _, err := s.db.Super.Exec(ctx, `UPDATE identity_api_tokens SET projects = ARRAY[$1::uuid] WHERE name = 'scoped'`, aID); err != nil {
-		t.Fatal(err)
-	}
-	s.do(call{method: "POST", path: base + "/members", cookie: ada.cookie, csrf: ada.csrf,
-		body: map[string]any{"email": "vera@lingo.example", "roles": []string{"translator"}, "locales": []string{"de", "fr"}}}).
-		want(t, http.StatusCreated, "")
+	// The restriction is set through the API that sets it (RFC 0006 §13
+	// wave 3): a token's project scope, a member's visibility.
+	scoped, ro := token("scoped", aID), token("everything")
+	var member struct{ ID string }
+	r := s.do(call{method: "POST", path: base + "/members", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"email": "vera@lingo.example", "roles": []string{"translator"}, "locales": []string{"de", "fr"},
+			"visibility": "assigned"}})
+	r.want(t, http.StatusCreated, "")
+	r.decode(t, &member)
 	vera := s.signIn("vera@lingo.example")
-	var member uuid.UUID
-	if err := s.db.Super.QueryRow(ctx,
-		`UPDATE identity_members SET visibility = 'assigned' WHERE email = 'vera@lingo.example' AND tenant_id = $1 RETURNING id`,
-		org.ID).Scan(&member); err != nil {
-		t.Fatal(err)
-	}
-	cov.Assign(identity.MemberID(member), uuid.MustParse(aID), uuid.MustParse(pay.ID), "de")
+	cov.Assign(identity.MemberID(uuid.MustParse(member.ID)), uuid.MustParse(aID), uuid.MustParse(pay.ID), "de")
 	return restrictedFixture{s: s, ada: ada, base: base, a: a, b: b, tenant: org.ID, aID: aID, bID: bID,
 		scopedToken: scoped, ownerRO: ro, vera: vera}
 }

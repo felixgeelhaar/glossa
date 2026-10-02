@@ -464,7 +464,18 @@ func (a *API) AddMember(ctx context.Context, req apiv1.AddMemberRequestObject) (
 	if req.Body.Locales != nil {
 		locales = *req.Body.Locales
 	}
-	m, replayed, err := a.svc.AddMember(ctx, string(req.Body.Email), fromRoles(req.Body.Roles), locales, deref(req.Params.IdempotencyKey))
+	projects, err := projectScope(req.Body.Projects)
+	if err != nil {
+		return nil, err
+	}
+	inv := app.Invitation{
+		Email: string(req.Body.Email), Roles: fromRoles(req.Body.Roles), Locales: locales, Projects: projects,
+		Vendor: deref(req.Body.VendorId),
+	}
+	if req.Body.Visibility != nil {
+		inv.Visibility = string(*req.Body.Visibility)
+	}
+	m, replayed, err := a.svc.InviteMember(ctx, inv, deref(req.Params.IdempotencyKey))
 	if err != nil {
 		return nil, err
 	}
@@ -498,16 +509,46 @@ func (a *API) UpdateMember(ctx context.Context, req apiv1.UpdateMemberRequestObj
 	if err != nil {
 		return nil, err
 	}
-	var change app.MemberChange
-	if req.Body.Roles != nil {
-		change.Roles = ptr(fromRoles(*req.Body.Roles))
+	b := req.Body
+	access := b.Roles != nil || b.Locales != nil
+	restriction := b.Projects != nil || b.VendorId != nil || b.Visibility != nil
+	var m app.MemberView
+	switch {
+	case access && restriction:
+		return nil, badRequest(codeAccessAndRestriction,
+			"change roles and locales, or projects, vendor_id and visibility — one or the other per request")
+	case restriction:
+		m, err = a.restrictMember(ctx, id, version, b)
+	default:
+		var change app.MemberChange
+		if b.Roles != nil {
+			change.Roles = ptr(fromRoles(*b.Roles))
+		}
+		change.Locales = b.Locales
+		m, err = a.svc.UpdateMember(ctx, id, version, change)
 	}
-	change.Locales = req.Body.Locales
-	m, err := a.svc.UpdateMember(ctx, id, version, change)
 	if err != nil {
 		return nil, err
 	}
 	return apiv1.UpdateMember200JSONResponse{Body: toMember(m), Headers: apiv1.UpdateMember200ResponseHeaders{ETag: ptr(etag(m.Version))}}, nil
+}
+
+// restrictMember changes a member's project scope, vendor and
+// visibility (RFC 0006 §3.3, §4.1).
+func (a *API) restrictMember(ctx context.Context, id domain.MemberID, version int, b *apiv1.UpdateMemberJSONRequestBody) (app.MemberView, error) {
+	var c app.RestrictionChange
+	if b.Projects != nil {
+		projects, err := projectScope(b.Projects)
+		if err != nil {
+			return app.MemberView{}, err
+		}
+		c.Projects = &projects
+	}
+	c.Vendor = b.VendorId
+	if b.Visibility != nil {
+		c.Visibility = ptr(string(*b.Visibility))
+	}
+	return a.svc.RestrictMember(ctx, id, version, c)
 }
 
 func (a *API) RemoveMember(ctx context.Context, req apiv1.RemoveMemberRequestObject) (apiv1.RemoveMemberResponseObject, error) {

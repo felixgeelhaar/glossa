@@ -235,6 +235,23 @@ var restrictions = map[string]restriction{
 	"POST /v1/tenants/{tenant}/import-jobs":                               rowsDenied,
 	"POST /v1/tenants/{tenant}/import-jobs/{import_job}/cancellation":     rowsDenied,
 	"POST /v1/tenants/{tenant}/members":                                   tenantDenied,
+	// Groups and vendors (RFC 0006 §3.3, §4.3) are the organization's
+	// people, in no project, like members: members.read reads them,
+	// members.manage and vendors.manage change them, and an assigned
+	// member is refused all of it — a vendor's translator does not read
+	// who else works for the customer.
+	"GET /v1/tenants/{tenant}/groups":                             tenantDenied,
+	"POST /v1/tenants/{tenant}/groups":                            tenantDenied,
+	"GET /v1/tenants/{tenant}/groups/{group}":                     tenantDenied,
+	"PATCH /v1/tenants/{tenant}/groups/{group}":                   tenantDenied,
+	"DELETE /v1/tenants/{tenant}/groups/{group}":                  tenantDenied,
+	"PUT /v1/tenants/{tenant}/groups/{group}/members/{member}":    tenantDenied,
+	"DELETE /v1/tenants/{tenant}/groups/{group}/members/{member}": tenantDenied,
+	"GET /v1/tenants/{tenant}/vendors":                            tenantDenied,
+	"POST /v1/tenants/{tenant}/vendors":                           tenantDenied,
+	"GET /v1/tenants/{tenant}/vendors/{vendor}":                   tenantDenied,
+	"PATCH /v1/tenants/{tenant}/vendors/{vendor}":                 tenantDenied,
+	"DELETE /v1/tenants/{tenant}/vendors/{vendor}":                tenantDenied,
 	// Workflow (RFC 0006 §2). A definition belongs to one project or to
 	// the tenant: reads of one answer not found outside the scope, and
 	// the tenant's own are changed only by a principal limited to none

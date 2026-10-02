@@ -100,6 +100,17 @@ tags:
     description: People in an organization, their roles and locales.
   - name: tokens
     description: Tenant API tokens for the CLI, CI and agents.
+  - name: groups
+    description: |
+      Named sets of an organization's members ("de reviewers", "legal")
+      that assignments and approvals can name (RFC 0006 §4.3). A group
+      carries no permissions; roles do.
+  - name: vendors
+    description: |
+      Agencies and freelancers working inside the organization's tenant
+      (RFC 0006 §3.3). A vendor's member is an ordinary member with the
+      vendor set and `visibility: assigned`: they see their assignments
+      and nothing else.
   - name: projects
     description: |
       A product's localizable surface: its source locale, applications,
@@ -869,10 +880,19 @@ paths:
       summary: Invite someone by email
       description: |
         Opens an invitation that becomes an active membership when the
-        address's owner signs in. Needs `members.manage`; the `owner`
-        role needs `owners.manage`. Problem codes: `already_member`
-        (409), `individual_tenant` (409), `owner_change_forbidden`
-        (403), `locales_need_locale_role` (400).
+        address's owner signs in. `projects`, `vendor_id` and
+        `visibility` restrict the member from the start (RFC 0006 §3.3,
+        §4.1): a vendor's translator is invited with `vendor_id`,
+        `visibility: assigned` and, usually, the projects they work on.
+        Needs `members.manage`; the `owner` role needs `owners.manage`,
+        naming a vendor `vendors.manage`, and an inviter limited to some
+        projects invites only within them. Problem codes:
+        `already_member` (409), `individual_tenant` (409),
+        `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+        project outside the inviter's), `locales_need_locale_role`,
+        `invalid_visibility`, `vendor_member_visibility`,
+        `assigned_visibility_role`, `owner_project_scoped`,
+        `too_many_projects` (400), `not_found` (404: no such vendor).
       security:
         - session: []
           csrf: []
@@ -928,10 +948,17 @@ paths:
       tags: [members]
       summary: Change a member's roles or locales
       description: |
-        Members omitted from the body keep their value. Needs
-        `members.manage`; anything touching the `owner` role needs
-        `owners.manage`. Problem codes: `last_owner` (409),
-        `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+        Members omitted from the body keep their value. A request changes
+        the member's access (`roles`, `locales`) or their restriction
+        (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+        both: each is its own event and version. A restriction takes
+        effect on the member's next request. Needs `members.manage`;
+        anything touching the `owner` role needs `owners.manage`, and
+        setting or clearing a vendor `vendors.manage`. Problem codes:
+        `last_owner` (409), `owner_change_forbidden`,
+        `scope_exceeds_grant` (403), `locales_need_locale_role`,
+        `access_and_restriction` (400: both in one request), and the
+        restriction codes of `addMember` (400).
       security:
         - session: []
           csrf: []
@@ -1073,6 +1100,319 @@ paths:
         - bearer: []
       responses:
         "204": { description: Revoked. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ── groups (RFC 0006 §4.3) ──────────────────────────────────────────
+  /v1/tenants/{tenant}/groups:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: The organization's groups
+      description: Each with its members. Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of groups.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create a group
+      description: |
+        An empty group; add members with `putGroupMember`. Needs
+        `members.manage`. Problem codes: `invalid_group_name` (400),
+        `individual_tenant` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupName" }
+      responses:
+        "201":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/groups/{group}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/GroupPath"
+    get:
+      operationId: getGroup
+      tags: [groups]
+      summary: A group
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: renameGroup
+      tags: [groups]
+      summary: Rename a group
+      description: |
+        Needs `members.manage`. Problem codes: `invalid_group_name`
+        (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupName" }
+      responses:
+        "200":
+          description: The renamed group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteGroup
+      tags: [groups]
+      summary: Delete a group
+      description: |
+        Its members stay members. Assignments and approvals that named
+        the group keep naming it and reach nobody. Needs
+        `members.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/groups/{group}/members/{member}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/GroupPath"
+      - $ref: "#/components/parameters/MemberPath"
+    put:
+      operationId: putGroupMember
+      tags: [groups]
+      summary: Put a member into a group
+      description: |
+        Idempotent: a member already in the group stays, and the group
+        is answered as it is. Needs `members.manage`. Problem codes:
+        `group_full` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: removeGroupMember
+      tags: [groups]
+      summary: Take a member out of a group
+      description: |
+        Needs `members.manage`. Problem codes: `not_in_group` (404).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── vendors (RFC 0006 §3.3) ─────────────────────────────────────────
+  /v1/tenants/{tenant}/vendors:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: The organization's vendors
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of vendors.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Add a vendor
+      description: |
+        A vendor is a named group of members inside this tenant, not a
+        tenant of its own (RFC 0006 §3.3); invite its people with
+        `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+        codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+        `invalid_locale` (400), `individual_tenant` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateVendor" }
+      responses:
+        "201":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/vendors/{vendor}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/VendorPath"
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: A vendor
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Change a vendor's details
+      description: |
+        Members omitted from the body keep their value. Needs
+        `vendors.manage`. Problem codes: as `createVendor`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateVendor" }
+      responses:
+        "200":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor nobody works for any more
+      description: |
+        A vendor that still has members is refused: taking each of them
+        off it, or removing them, is a decision about that person.
+        Needs `vendors.manage`. Problem codes: `vendor_has_members`
+        (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -8086,6 +8426,18 @@ components:
       required: true
       description: An API token `id` (never its secret).
       schema: { $ref: "#/components/schemas/Id" }
+    GroupPath:
+      name: group
+      in: path
+      required: true
+      description: A group `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    VendorPath:
+      name: vendor
+      in: path
+      required: true
+      description: A vendor `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     ProjectPath:
       name: project
       in: path
@@ -8660,7 +9012,7 @@ components:
 
     Member:
       type: object
-      required: [id, email, status, roles, locales, created_at, updated_at]
+      required: [id, email, status, roles, locales, projects, visibility, created_at, updated_at]
       properties:
         id: { $ref: "#/components/schemas/Id" }
         email: { $ref: "#/components/schemas/Email" }
@@ -8676,8 +9028,26 @@ components:
           type: array
           description: Locales a translator or reviewer works on; empty means all.
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          description: The projects the member's roles apply to (RFC 0006 §4.1); empty means every project.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          $ref: "#/components/schemas/Id"
+          description: The vendor the member works for (RFC 0006 §3.3); absent for the organization's own people.
+        visibility: { $ref: "#/components/schemas/Visibility" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    Visibility:
+      type: string
+      enum: [all, assigned]
+      description: |
+        `all` (the default) reads whatever the member's roles allow;
+        `assigned` reads only the translation units of assignments given
+        to them — open, or completed within 30 days — and what
+        translating them needs, and writes translations in those units
+        and nothing else (RFC 0006 §3.3). Only a translator can be
+        `assigned`, and a vendor's member always is.
     MemberList:
       type: object
       required: [items]
@@ -8699,8 +9069,24 @@ components:
           type: array
           maxItems: 200
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          maxItems: 100
+          description: |
+            Limits the member's roles to these projects (RFC 0006 §4.1).
+            Omitted or empty, every project — or, for an inviter limited
+            to some, exactly theirs. An owner is never limited.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          $ref: "#/components/schemas/Id"
+          description: "Invites the person as this vendor's member; they must be `visibility: assigned`."
+        visibility: { $ref: "#/components/schemas/Visibility" }
     UpdateMember:
       type: object
+      description: |
+        The member's access (`roles`, `locales`) or their restriction
+        (`projects`, `vendor_id`, `visibility`) — one or the other per
+        request.
       properties:
         roles:
           type: array
@@ -8710,6 +9096,16 @@ components:
           type: array
           maxItems: 200
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          maxItems: 100
+          description: The member's project scope; empty means every project.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          type: string
+          maxLength: 64
+          description: A vendor `id`, or the empty string to take the member off their vendor.
+        visibility: { $ref: "#/components/schemas/Visibility" }
 
     Token:
       type: object
@@ -8758,6 +9154,72 @@ components:
             outside the creator's own is `scope_exceeds_grant` (403).
           items: { $ref: "#/components/schemas/Id" }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
+    Group:
+      type: object
+      required: [id, name, members, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        members:
+          type: array
+          description: Member `id`s, sorted.
+          items: { $ref: "#/components/schemas/Id" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    GroupList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Group" }
+        next_page_token: { type: string }
+    GroupName:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+    Vendor:
+      type: object
+      required: [id, name, locales, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        contact: { type: string, description: "Free text — a name, an address. Shown, never mailed to." }
+        locales:
+          type: array
+          description: The locales the vendor offers. They describe it and grant nothing.
+          items: { $ref: "#/components/schemas/Locale" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    VendorList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Vendor" }
+        next_page_token: { type: string }
+    CreateVendor:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        contact: { type: string, maxLength: 200 }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+    UpdateVendor:
+      type: object
+      description: Members omitted keep their value.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        contact: { type: string, maxLength: 200 }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
     CreatedToken:
       type: object
       required: [token]

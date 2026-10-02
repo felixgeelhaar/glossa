@@ -566,10 +566,19 @@ export interface paths {
         /**
          * Invite someone by email
          * @description Opens an invitation that becomes an active membership when the
-         *     address's owner signs in. Needs `members.manage`; the `owner`
-         *     role needs `owners.manage`. Problem codes: `already_member`
-         *     (409), `individual_tenant` (409), `owner_change_forbidden`
-         *     (403), `locales_need_locale_role` (400).
+         *     address's owner signs in. `projects`, `vendor_id` and
+         *     `visibility` restrict the member from the start (RFC 0006 §3.3,
+         *     §4.1): a vendor's translator is invited with `vendor_id`,
+         *     `visibility: assigned` and, usually, the projects they work on.
+         *     Needs `members.manage`; the `owner` role needs `owners.manage`,
+         *     naming a vendor `vendors.manage`, and an inviter limited to some
+         *     projects invites only within them. Problem codes:
+         *     `already_member` (409), `individual_tenant` (409),
+         *     `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+         *     project outside the inviter's), `locales_need_locale_role`,
+         *     `invalid_visibility`, `vendor_member_visibility`,
+         *     `assigned_visibility_role`, `owner_project_scoped`,
+         *     `too_many_projects` (400), `not_found` (404: no such vendor).
          */
         post: operations["addMember"];
         delete?: never;
@@ -608,10 +617,17 @@ export interface paths {
         head?: never;
         /**
          * Change a member's roles or locales
-         * @description Members omitted from the body keep their value. Needs
-         *     `members.manage`; anything touching the `owner` role needs
-         *     `owners.manage`. Problem codes: `last_owner` (409),
-         *     `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+         * @description Members omitted from the body keep their value. A request changes
+         *     the member's access (`roles`, `locales`) or their restriction
+         *     (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+         *     both: each is its own event and version. A restriction takes
+         *     effect on the member's next request. Needs `members.manage`;
+         *     anything touching the `owner` role needs `owners.manage`, and
+         *     setting or clearing a vendor `vendors.manage`. Problem codes:
+         *     `last_owner` (409), `owner_change_forbidden`,
+         *     `scope_exceeds_grant` (403), `locales_need_locale_role`,
+         *     `access_and_restriction` (400: both in one request), and the
+         *     restriction codes of `addMember` (400).
          */
         patch: operations["updateMember"];
         trace?: never;
@@ -673,6 +689,172 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The organization's groups
+         * @description Each with its members. Needs `members.read`.
+         */
+        get: operations["listGroups"];
+        put?: never;
+        /**
+         * Create a group
+         * @description An empty group; add members with `putGroupMember`. Needs
+         *     `members.manage`. Problem codes: `invalid_group_name` (400),
+         *     `individual_tenant` (409).
+         */
+        post: operations["createGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/groups/{group}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A group
+         * @description Needs `members.read`.
+         */
+        get: operations["getGroup"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a group
+         * @description Its members stay members. Assignments and approvals that named
+         *     the group keep naming it and reach nobody. Needs
+         *     `members.manage`.
+         */
+        delete: operations["deleteGroup"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a group
+         * @description Needs `members.manage`. Problem codes: `invalid_group_name`
+         *     (400).
+         */
+        patch: operations["renameGroup"];
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/groups/{group}/members/{member}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+                /** @description A member `id`. */
+                member: components["parameters"]["MemberPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put a member into a group
+         * @description Idempotent: a member already in the group stays, and the group
+         *     is answered as it is. Needs `members.manage`. Problem codes:
+         *     `group_full` (409).
+         */
+        put: operations["putGroupMember"];
+        post?: never;
+        /**
+         * Take a member out of a group
+         * @description Needs `members.manage`. Problem codes: `not_in_group` (404).
+         */
+        delete: operations["removeGroupMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The organization's vendors
+         * @description Needs `members.read`.
+         */
+        get: operations["listVendors"];
+        put?: never;
+        /**
+         * Add a vendor
+         * @description A vendor is a named group of members inside this tenant, not a
+         *     tenant of its own (RFC 0006 §3.3); invite its people with
+         *     `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+         *     codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+         *     `invalid_locale` (400), `individual_tenant` (409).
+         */
+        post: operations["createVendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/vendors/{vendor}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A vendor `id`. */
+                vendor: components["parameters"]["VendorPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A vendor
+         * @description Needs `members.read`.
+         */
+        get: operations["getVendor"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a vendor nobody works for any more
+         * @description A vendor that still has members is refused: taking each of them
+         *     off it, or removing them, is a decision about that person.
+         *     Needs `vendors.manage`. Problem codes: `vendor_has_members`
+         *     (409).
+         */
+        delete: operations["deleteVendor"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a vendor's details
+         * @description Members omitted from the body keep their value. Needs
+         *     `vendors.manage`. Problem codes: as `createVendor`.
+         */
+        patch: operations["updateVendor"];
         trace?: never;
     };
     "/v1/tenants/{tenant}/projects": {
@@ -5871,9 +6053,24 @@ export interface components {
             roles: components["schemas"]["Role"][];
             /** @description Locales a translator or reviewer works on; empty means all. */
             locales: components["schemas"]["Locale"][];
+            /** @description The projects the member's roles apply to (RFC 0006 §4.1); empty means every project. */
+            projects: components["schemas"]["Id"][];
+            /** @description The vendor the member works for (RFC 0006 §3.3); absent for the organization's own people. */
+            vendor_id?: components["schemas"]["Id"];
+            visibility: components["schemas"]["Visibility"];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
         };
+        /**
+         * @description `all` (the default) reads whatever the member's roles allow;
+         *     `assigned` reads only the translation units of assignments given
+         *     to them — open, or completed within 30 days — and what
+         *     translating them needs, and writes translations in those units
+         *     and nothing else (RFC 0006 §3.3). Only a translator can be
+         *     `assigned`, and a vendor's member always is.
+         * @enum {string}
+         */
+        Visibility: "all" | "assigned";
         MemberList: {
             items: components["schemas"]["Member"][];
             next_page_token?: string;
@@ -5882,10 +6079,29 @@ export interface components {
             email: components["schemas"]["Email"];
             roles: components["schemas"]["Role"][];
             locales?: components["schemas"]["Locale"][];
+            /**
+             * @description Limits the member's roles to these projects (RFC 0006 §4.1).
+             *     Omitted or empty, every project — or, for an inviter limited
+             *     to some, exactly theirs. An owner is never limited.
+             */
+            projects?: components["schemas"]["Id"][];
+            /** @description Invites the person as this vendor's member; they must be `visibility: assigned`. */
+            vendor_id?: components["schemas"]["Id"];
+            visibility?: components["schemas"]["Visibility"];
         };
+        /**
+         * @description The member's access (`roles`, `locales`) or their restriction
+         *     (`projects`, `vendor_id`, `visibility`) — one or the other per
+         *     request.
+         */
         UpdateMember: {
             roles?: components["schemas"]["Role"][];
             locales?: components["schemas"]["Locale"][];
+            /** @description The member's project scope; empty means every project. */
+            projects?: components["schemas"]["Id"][];
+            /** @description A vendor `id`, or the empty string to take the member off their vendor. */
+            vendor_id?: string;
+            visibility?: components["schemas"]["Visibility"];
         };
         Token: {
             id: components["schemas"]["Id"];
@@ -5918,6 +6134,46 @@ export interface components {
              */
             projects?: components["schemas"]["Id"][];
             expires_at?: components["schemas"]["Timestamp"];
+        };
+        Group: {
+            id: components["schemas"]["Id"];
+            name: string;
+            /** @description Member `id`s, sorted. */
+            members: components["schemas"]["Id"][];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        GroupList: {
+            items: components["schemas"]["Group"][];
+            next_page_token?: string;
+        };
+        GroupName: {
+            name: string;
+        };
+        Vendor: {
+            id: components["schemas"]["Id"];
+            name: string;
+            /** @description Free text — a name, an address. Shown, never mailed to. */
+            contact?: string;
+            /** @description The locales the vendor offers. They describe it and grant nothing. */
+            locales: components["schemas"]["Locale"][];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        VendorList: {
+            items: components["schemas"]["Vendor"][];
+            next_page_token?: string;
+        };
+        CreateVendor: {
+            name: string;
+            contact?: string;
+            locales?: components["schemas"]["Locale"][];
+        };
+        /** @description Members omitted keep their value. */
+        UpdateVendor: {
+            name?: string;
+            contact?: string;
+            locales?: components["schemas"]["Locale"][];
         };
         CreatedToken: {
             token: components["schemas"]["Token"];
@@ -9704,6 +9960,10 @@ export interface components {
         MemberPath: components["schemas"]["Id"];
         /** @description An API token `id` (never its secret). */
         TokenPath: components["schemas"]["Id"];
+        /** @description A group `id`. */
+        GroupPath: components["schemas"]["Id"];
+        /** @description A vendor `id`. */
+        VendorPath: components["schemas"]["Id"];
         /** @description A project `id`. */
         ProjectPath: components["schemas"]["Id"];
         /** @description An application `id`. */
@@ -10681,6 +10941,389 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listGroups: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of groups. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createGroup: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupName"];
+            };
+        };
+        responses: {
+            /** @description The group. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The group. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupName"];
+            };
+        };
+        responses: {
+            /** @description The renamed group. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    putGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+                /** @description A member `id`. */
+                member: components["parameters"]["MemberPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The group. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A group `id`. */
+                group: components["parameters"]["GroupPath"];
+                /** @description A member `id`. */
+                member: components["parameters"]["MemberPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVendors: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of vendors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createVendor: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVendor"];
+            };
+        };
+        responses: {
+            /** @description The vendor. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A vendor `id`. */
+                vendor: components["parameters"]["VendorPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The vendor. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A vendor `id`. */
+                vendor: components["parameters"]["VendorPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateVendor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A vendor `id`. */
+                vendor: components["parameters"]["VendorPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVendor"];
+            };
+        };
+        responses: {
+            /** @description The vendor. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
         };
     };
     listProjects: {

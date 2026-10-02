@@ -106,6 +106,8 @@ func (s *scenario) addressable() {
 	}, http.StatusCreated, nil)
 	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/export-jobs"),
 		map[string]any{"project_id": s.projectA, "format": "xliff"}, http.StatusAccepted, nil)
+	// A group (RFC 0006 §4.3), so the group reads have one to address.
+	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/groups"), map[string]any{"name": "de reviewers"}, http.StatusCreated, nil)
 }
 
 func (s *scenario) newProject(slug, name string) string {
@@ -174,11 +176,12 @@ func (s *scenario) seedCatalog(project, prefix, sourceCanary, translationCanary 
 
 func unitKey(prefix string, i int) string { return fmt.Sprintf("%s.unit.%02d", prefix, i) }
 
-// vendorMember makes the vendor of §3.3 and its translator. Today the
-// platform has neither vendors nor assignment-scoped visibility; the
-// fixture then invites the same person as an ordinary `de` translator,
-// so §12.2's sweep still runs and shows what such a member can read.
-// That fallback is a gap of §12.2, never a pass.
+// vendorMember makes the vendor of §3.3 and its translator: a member
+// with the vendor, visibility `assigned` and project B's scope, each of
+// which the API must give back. A platform that refuses the invitation
+// gets the same person as an ordinary `de` translator, so §12.2's sweep
+// still runs and shows what such a member can read. That fallback is a
+// gap of §12.2, never a pass.
 func (s *scenario) vendorMember() {
 	var vendor struct {
 		ID string `json:"id"`
@@ -195,12 +198,13 @@ func (s *scenario) vendorMember() {
 		"visibility": visibilityAssigned, "projects": []string{s.projectB},
 	}
 	if s.vendorID != "" {
-		invite["vendor"] = s.vendorID
+		invite["vendor_id"] = s.vendorID
 	}
 	var member struct {
-		ID         string `json:"id"`
-		Visibility string `json:"visibility"`
-		Vendor     string `json:"vendor"`
+		ID         string   `json:"id"`
+		Visibility string   `json:"visibility"`
+		Vendor     string   `json:"vendor_id"`
+		Projects   []string `json:"projects"`
 	}
 	_, err := s.owner.try(http.MethodPost, s.tenantPath("/members"), invite, http.StatusCreated, &member)
 	switch {
@@ -208,11 +212,17 @@ func (s *scenario) vendorMember() {
 		s.gap("12.2", "inviting the vendor's translator with `visibility: assigned` and project B's scope — refused: %v", err)
 		delete(invite, "visibility")
 		delete(invite, "projects")
-		delete(invite, "vendor")
+		delete(invite, "vendor_id")
 		s.owner.do(http.MethodPost, s.tenantPath("/members"), invite, http.StatusCreated, &member)
 	case member.Visibility != visibilityAssigned:
 		s.gap("12.2", "the vendor's translator was invited, but the member the API returned has visibility %q, "+
 			"not %q: the field was dropped, so the platform restricts nothing", member.Visibility, visibilityAssigned)
+	case s.vendorID != "" && member.Vendor != s.vendorID:
+		s.gap("12.2", "the vendor's translator was invited, but the member the API returned works for vendor %q, not %s",
+			member.Vendor, s.vendorID)
+	case len(member.Projects) != 1 || member.Projects[0] != s.projectB:
+		s.gap("12.2", "the vendor's translator was invited, but the member the API returned is scoped to projects %v, "+
+			"not project B alone: the scope was dropped", member.Projects)
 	default:
 		s.vendorAsVendor = true
 	}
