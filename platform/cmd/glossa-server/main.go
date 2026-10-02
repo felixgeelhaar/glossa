@@ -160,6 +160,10 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 type buildOption func(*contexts)
 
 func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc, opts ...buildOption) (*app, error) {
+	auditKeys, err := newAuditKeys(cfg)
+	if err != nil {
+		return nil, err
+	}
 	tp, shutdownTP, err := observability.NewTracerProvider(ctx, cfg.OTel, version())
 	if err != nil {
 		return nil, err
@@ -179,7 +183,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	audit, err := newAudit(pool, events, logger)
+	audit, err := newAudit(pool, events, auditKeys, logger)
 	if err != nil {
 		pool.Close()
 		return nil, err

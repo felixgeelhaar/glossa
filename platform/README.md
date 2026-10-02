@@ -164,6 +164,9 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_S3_PATH_STYLE` / `_INSECURE` / `_TIMEOUT` | `false` / `false` / `10s` | Path-style requests (MinIO), plain HTTP (local only), per-operation budget. |
 | `GLOSSA_RELEASE_SIGNING_KEYS` | derived | `keyId=base64(32-byte Ed25519 seed)`, comma-separated. Every manifest is signed with each. Unset: one key derived from `GLOSSA_AUTH_SECRET` (development only; a warning is logged). |
 | `GLOSSA_RELEASE_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: still published for verification, no longer signing. |
+| `GLOSSA_AUDIT_EXPORTS_ENABLED` | `false` | Audit export jobs (RFC 0006 §6.2). `true` without `GLOSSA_AUDIT_SIGNING_KEY` refuses to start. |
+| `GLOSSA_AUDIT_SIGNING_KEY` | — | Exactly one `keyId=base64(32-byte Ed25519 seed)`: the audit export key. Its own key — the server refuses a seed that is also a release signing key, and there is no key derived from `GLOSSA_AUTH_SECRET`. See *Audit export format*. |
+| `GLOSSA_AUDIT_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: earlier audit keys, published so the exports they signed keep verifying. |
 | `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
 | `GLOSSA_AI_WORKERS_ENABLED` | `true` | Run AI translation job workers in this process. |
 | `GLOSSA_AI_WORKERS` | `2` | Jobs this process runs at once. Tenants' own caps (`max_concurrent_jobs`) apply across replicas. |
@@ -1767,6 +1770,95 @@ row, which the entry points at by id).
 
 The read API and export jobs are RFC 0006 wave 5; the export format and
 `glossa audit verify` are wave 4.
+
+### Audit export format
+
+An export (`glossa.audit/v1`, `audit/domain/export.go`) is a directory
+of two files. It is verifiable offline with nothing but the files and a
+trusted public key: `glossa audit verify <dir> --public-key …`.
+
+```text
+<export>/
+  entries.jsonl   one line per entry, in sequence order
+  manifest.json   what the lines are, signed with the audit key
+```
+
+**`entries.jsonl`** is UTF-8, one entry per line, every line ending in
+`\n` (the last one too), no blank lines. A line is the RFC 8785 (JCS)
+form of the entry's canonical object — `glossa.audit.entry/1`, the
+object its hash covers — with two more members, `prev_hash` and `hash`,
+as 64 lowercase hex digits:
+
+```json
+{"action":"localization.translation.revised","actor":"person:0190…","aggregate_id":"0190…","aggregate_type":"translation","event_id":"0190…","format":"glossa.audit.entry/1","hash":"2d52…","locale":"de-CH","occurred_at":"2026-10-01T09:30:00.123456Z","prev_hash":"0000…","project_id":"0190…","request_id":null,"sequence":1,"source":"outbox","summary":{"revision":3,"state":"needs_review","text":"string(len=12)"},"tenant_id":"0190…","trace_id":"4bf9…"}
+```
+
+Every member is always present (an absent optional is `null`). To check
+a line without Glossa: remove `prev_hash` and `hash`, canonicalize what
+is left (it already is canonical), and `hash` must equal
+`sha256(bytes(prev_hash) ‖ that)`; each line's `prev_hash` is the
+previous line's `hash`, and `sequence` goes up by one. A line has
+exactly one spelling — the verifier refuses one that is not byte for
+byte the JCS of its own content. `TestExportLineIsPinned` pins a golden
+line; changing the line is a new format, never an edit to this one.
+
+**`manifest.json`** is the JCS form of:
+
+| Member | |
+|---|---|
+| `format` | `"glossa.audit/v1"` |
+| `tenant_id` | The chain's tenant. |
+| `range.first_sequence`, `range.last_sequence` | The sequences of the first and last line. An empty export has `last_sequence = first_sequence − 1`. |
+| `range.first_prev_hash` | The hash of the entry before the range — 32 zero bytes when it starts at 1. Where the export joins the rest of the chain. |
+| `range.last_hash` | The last line's hash (`first_prev_hash` when empty): the head an auditor compares with the next export's `first_prev_hash`. |
+| `occurred` | `{from, to}`, the `[from, to)` time range the export job was asked for, or `null` for a sequence range. Every entry falls inside it. |
+| `entry_count` | `last_sequence − first_sequence + 1`. |
+| `entries` | `{path: "entries.jsonl", sha256, bytes}`: the lines file, pinned. |
+| `created_at` | When the export was made, UTC with microseconds. |
+| `key_id` | The audit key that signed it. |
+| `signature` | `{algorithm: "Ed25519", value}`: base64url (no padding) Ed25519 signature over the JCS of the manifest **without** `signature` — the pattern of release manifests (runtimes/SPEC.md §1.3), with the one key. |
+
+Why a directory of two files and not one file or a tar: the lines stay
+plain JSON Lines that `jq`, `grep` and a spreadsheet import read as they
+are, and stream in constant memory; the manifest's signature already
+binds the lines through their digest and both chain ends, so an
+envelope would add a format without adding integrity. The export jobs
+(wave 5) store and serve the same two objects.
+
+**Verification** (`domain.VerifyExport`) reports the first thing that
+fails, as a stable code: `manifest_invalid` (not a manifest, or one that
+contradicts itself), `unknown_key`, `signature_invalid` (the manifest was
+changed after signing, or another key signed it), then line by line
+`line_invalid` (including a truncated last line), `line_not_canonical`,
+`tenant_mismatch`, `sequence_gap` (a removed or reordered line),
+`prev_hash_mismatch`, `hash_mismatch` (an edited line), then
+`range_mismatch` (lines missing at the end, extra lines, another last
+hash, an entry outside `occurred`) and `digest_mismatch`. The chain says
+where an edit is; the digest, which the signature covers, catches
+anything the chain could not. `TestEveryAlteredByteFails` flips every
+byte of an export in turn and none verifies.
+
+**The audit key** (`GLOSSA_AUDIT_SIGNING_KEY`, one `keyId=base64(seed)`)
+is not the release signing key: a release key is trusted by every runtime
+in the field and rotates on the delivery plane's schedule, an audit key
+is trusted by auditors and must verify exports for as long as the tenant
+exists. The server refuses a seed that is also a release key, and there
+is no development key derived from the auth secret: exports stay off
+(`GLOSSA_AUDIT_EXPORTS_ENABLED=false`) until a key is configured, and on
+without a key the server does not start. Generate one with
+`audit-2026=$(openssl rand -base64 32)` into a Secret; never commit it.
+**Rotation**: configure a new key, and move the old key's public key to
+`GLOSSA_AUDIT_RETIRED_KEYS` — never drop it while an export it signed may
+still need verifying (`TestRetiredKeysStillVerify`).
+
+**Public keys** are distributed as a `glossa.audit.keys/1` document,
+`{format, keys: [{key_id, algorithm: "Ed25519", public_key (base64url),
+active}]}`, the active key first. glossa-server serves it at
+`GET /.well-known/glossa-audit-keys.json` (wave 5, with the export jobs;
+public, no token — it holds public keys only). The verifier never takes
+a key from the export it is checking: `glossa audit verify` requires
+`--public-key`, either that document saved once and pinned, or
+`keyId=base64` from wherever the operator published it.
 
 ## Release
 
