@@ -38,10 +38,23 @@ const (
 	// an MCP tool call — written through the Recorder. Its EventID is the
 	// act's own id (the MCP ledger row's, the sign-in attempt's).
 	SourceDirect Source = "direct"
+	// SourceImport is history that happened before this platform: v0.3's
+	// audit_log, imported once (RFC 0006 §7.2). Its EventID is derived
+	// from the v0.3 row's id (V0EventID), its actor is a v0.3 actor
+	// ("v0:<uuid>", "v0:ai:<label>"…), never a platform one, and its
+	// occurred_at is v0.3's. It is chained like any entry, so it sits at
+	// the sequence it was appended at: a chain is ordered by append, not
+	// by occurred_at.
+	//
+	// A third source is a new value of the canonical form's "source"
+	// member, not a change to the canonical form: an entry recorded
+	// before it existed encodes, and hashes, exactly as it did, so
+	// CanonicalFormat stays glossa.audit.entry/1.
+	SourceImport Source = "import"
 )
 
-// Valid reports whether s is one of the two sources.
-func (s Source) Valid() bool { return s == SourceOutbox || s == SourceDirect }
+// Valid reports whether s is one of the three sources.
+func (s Source) Valid() bool { return s == SourceOutbox || s == SourceDirect || s == SourceImport }
 
 // Draft is an entry before the chain places it: everything that is
 // recorded, without its position or its hashes. It is what a projection
@@ -161,8 +174,8 @@ func (d Draft) Validate() error {
 	if len(d.Action) > maxNameLen || !actionPattern.MatchString(d.Action) {
 		errs = append(errs, fmt.Errorf("action %q", d.Action))
 	}
-	if d.Actor != string(outbox.ActorUnknown) && outbox.Actor(d.Actor).Validate() != nil {
-		errs = append(errs, fmt.Errorf("actor %q", d.Actor))
+	if err := d.validateActor(); err != nil {
+		errs = append(errs, err)
 	}
 	if d.OccurredAt.IsZero() {
 		errs = append(errs, errors.New("no time"))
@@ -186,6 +199,23 @@ func (d Draft) Validate() error {
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%w: %w", ErrInvalidEntry, errors.Join(errs...))
+	}
+	return nil
+}
+
+// validateActor holds each source to its own actors: an imported entry
+// names a v0.3 actor and only an imported entry may, so a v0.3 actor can
+// never be passed off as having acted here, nor a platform actor as
+// having acted in v0.3.
+func (d Draft) validateActor() error {
+	if d.Source == SourceImport {
+		if !ValidV0Actor(d.Actor) {
+			return fmt.Errorf("actor %q is not a v0.3 actor", d.Actor)
+		}
+		return nil
+	}
+	if d.Actor != string(outbox.ActorUnknown) && outbox.Actor(d.Actor).Validate() != nil {
+		return fmt.Errorf("actor %q", d.Actor)
 	}
 	return nil
 }

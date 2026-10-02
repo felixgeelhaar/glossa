@@ -59,8 +59,15 @@ type V0HistoryReport struct {
 }
 
 // V0HistoryImporter records v0.3's history as audit entries. The use
-// case requires audit.export's sibling the importer holds — see the
-// implementing slice — and is idempotent on V0ID.
+// case requires audit.import — held by an owner only, reached by no API
+// token scope and never given to a background principal (RFC 0006 §7.2,
+// amended in wave 4) — in a principal limited to no project, because it
+// writes the tenant's trail, not one project's. It is idempotent on
+// V0ID: a row already recorded is counted as Existing, not recorded
+// again. Errors: authz's for the permission; one wrapping
+// domain.ErrInvalidEntry (a 422) naming the first rows that are not
+// shaped like v0.3 history, in which case nothing is recorded; and
+// ErrTooManyV0Entries for a call over MaxV0HistoryEntries.
 type V0HistoryImporter interface {
 	ImportV0History(ctx context.Context, in V0HistoryImport) (V0HistoryReport, error)
 }

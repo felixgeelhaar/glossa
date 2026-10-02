@@ -105,6 +105,9 @@ const (
 	VendorsManage     = domain.PermVendorsManage
 	AuditRead         = domain.PermAuditRead
 	AuditExport       = domain.PermAuditExport
+	// AuditImport writes v0.3's history into the trail (RFC 0006 §7.2):
+	// owner-only, no token scope, never background.
+	AuditImport = domain.PermAuditImport
 )
 
 var (
@@ -216,7 +219,7 @@ func Authenticated(ctx context.Context) (Principal, error) {
 // moved it and holds no approval of its own.
 var neverBackground = []Permission{
 	domain.PermTenantManage, domain.PermMembersManage, domain.PermOwnersManage, domain.PermTokensManage,
-	domain.PermVendorsManage, domain.PermApprovalsDecide,
+	domain.PermVendorsManage, domain.PermApprovalsDecide, domain.PermAuditImport,
 }
 
 // Background returns ctx acting as a bounded context's background

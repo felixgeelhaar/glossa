@@ -77,6 +77,13 @@ const (
 	// PermAuditExport exports the audit log; only an owner holds it by
 	// default.
 	PermAuditExport Permission = "audit.export"
+	// PermAuditImport writes entries into the tenant's audit trail that
+	// no act on this platform caused: v0.3's history (RFC 0006 §7.2,
+	// amended in wave 4). Only an owner holds it, no token scope reaches
+	// it and no background principal is given it — an entry attributed
+	// to someone else is the one thing a tamper-evident trail must not
+	// take from anyone less.
+	PermAuditImport Permission = "audit.import"
 )
 
 // AllPermissions lists every permission, sorted.
@@ -84,7 +91,7 @@ func AllPermissions() []Permission {
 	return []Permission{
 		PermApprovalsDecide,
 		PermAssignmentsManage, PermAssignmentsRead,
-		PermAuditExport, PermAuditRead,
+		PermAuditExport, PermAuditImport, PermAuditRead,
 		PermCatalogRead, PermCatalogWrite,
 		PermIntegrationImport, PermIntegrationManage, PermIntegrationRead,
 		PermIntelligenceManage, PermIntelligenceRead, PermIntelligenceTranslate,
@@ -141,9 +148,10 @@ var readAll = []Permission{
 // rolePermissions is the role matrix; TestRolePermissionMatrix pins it.
 var rolePermissions = map[Role][]Permission{
 	RoleOwner: AllPermissions(),
-	// Only an owner manages owners and, by default, exports the audit log.
+	// Only an owner manages owners and, by default, exports the audit log
+	// or imports history into it.
 	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool {
-		return p == PermOwnersManage || p == PermAuditExport
+		return p == PermOwnersManage || p == PermAuditExport || p == PermAuditImport
 	}),
 	RoleDeveloper: append(slices.Clone(readAll),
 		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish,
