@@ -19,4 +19,3 @@ Pick the affected packages, the bump level, and write a one-line summary. Commit
 
 ## Skipping a package
 
-`@felixgeelhaar/glossa-admin` is in the `ignore` list — it's an internal SPA, never published to npm. Changesets that affect it alone are no-ops.

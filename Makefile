@@ -1,7 +1,8 @@
-.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3 system-m4 system-m4-studio system-m5 system-m5-deps system
+.PHONY: help api packages test lint fmt migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3 system-m4 system-m4-studio system-m5 system-m5-deps system
 
-# Go modules of the rewrite (RFC 0002). apps/api is v0.3 and keeps its
-# own targets until it's retired.
+# Go modules of the rewrite (RFC 0002). apps/api and packages/format are the
+# last of v0.3: fixtures of the importer's tests and of the M5 exit test
+# (RFC 0006 §7.3, §12.6), not a product. They get no other work.
 PLATFORM_MODULES := messageformat platform runtimes/go runtimes/go/examples/pdf
 
 help: ## Show this help.
@@ -14,14 +15,11 @@ api: ## Run the Go API locally (requires Postgres at $DATABASE_URL).
 api-test: ## Run Go tests.
 	cd apps/api && go test ./...
 
-# ── Web (admin + packages) ──────────────────────────────────────────
-admin: ## Run the Lit admin UI in dev mode.
-	pnpm --filter @glossa/admin dev
-
+# ── Web (packages) ──────────────────────────────────────────────────
 packages: ## Build every TS package (topological order).
 	pnpm -r --filter "./packages/*" --filter "./messageformat/js" --filter "./runtimes/js/*" build
 
-web-test: ## Run vitest across packages + admin.
+web-test: ## Run vitest across the JS workspaces.
 	pnpm -r test
 
 # ── Platform (rewrite) ──────────────────────────────────────────────
@@ -70,13 +68,6 @@ fmt: ## gofmt + prettier across the monorepo.
 	cd apps/api && gofmt -w .
 	@for m in $(PLATFORM_MODULES); do (cd $$m && gofmt -w .); done
 	pnpm -r format
-
-# ── Docker compose ──────────────────────────────────────────────────
-up: ## Bring up the dev Postgres + API + admin via compose.
-	docker compose up -d
-
-down:
-	docker compose down
 
 # ── DB / codegen (placeholders until apps/api lands) ────────────────
 migrate-up: ## Apply DB migrations.

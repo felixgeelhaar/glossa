@@ -150,7 +150,7 @@ Rollback: point the product back at v0.3 (step 7's rollback). Nothing is lost.
 2. `kubectl -n glossa scale deploy/api deploy/admin --replicas=0` and leave it for 30 days.
 3. Remove the IngressRoute and the DNS record for `glossa.felixgeelhaar.de`; delete the `glossa` namespace.
 4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`).
-5. Merge the deletion PR (branch `m5/retire-v0`; it must not merge before steps 1–9 have run for every former v0.3 project). Afterwards the exit test's v0.3 half (`apps/api` build, `packages/format`) is gone: see the PR description for what replaces it.
+5. Merge the deletion PR (branch `m5/retire-v0`; it must not merge before steps 1–9 have run for every former v0.3 project). The PR also removes v0.3's `.rollops/*.yaml` (namespace `glossa`), so merge it only after step 3. Afterwards the exit test's v0.3 half (`apps/api` build, `packages/format`) is gone: see the PR description for what replaces it.
 6. Export the organisation's audit trail as an owner and verify it offline: `glossa audit verify <export> --public-key glossa-audit-keys.json --json` (the key document is served at `/.well-known/glossa-audit-keys.json`).
 
 Rollback: before 3, `kubectl -n glossa scale deploy/api deploy/admin --replicas=1`. After 3, rebuild from the archived dump with `platform/scripts/v0-restore.sh` and the git history of the deletion PR; that is why the dump is kept for a year.

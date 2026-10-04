@@ -312,16 +312,10 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
-      # Workspace deps need to be built before consumers can lint.
-      # Order matters: ui ships its own .d.ts that admin consumes;
-      # elements depends on sdk; admin depends on all four.
-      - name: build packages (in dep order)
-        run: |
-          pnpm --filter @felixgeelhaar/glossa-format build
-          pnpm --filter @felixgeelhaar/glossa-sdk build
-          pnpm --filter @felixgeelhaar/glossa-ui build
-          pnpm --filter @felixgeelhaar/glossa-elements build
-          pnpm --filter @felixgeelhaar/glossa-cli build
+      # v0.3's formatter is the one v0.3 package left: `glossa import --from
+      # v0 --verify` and the M5 exit test render with it (RFC 0006 §7.3).
+      - name: build v0.3's formatter
+        run: pnpm --filter @felixgeelhaar/glossa-format build
       - name: build rewrite packages (topological)
         run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
       - name: lint (tsc --noEmit)
@@ -337,8 +331,6 @@ jobs:
       # loader's guards against production releases (RFC 0004 §5).
       - name: in-product editor in Chromium (Playwright)
         run: pnpm --filter @glossa/overlay test:browser
-      - name: admin build (vite)
-        run: pnpm --filter @felixgeelhaar/glossa-admin build
 
   studio-e2e:
     name: Studio e2e

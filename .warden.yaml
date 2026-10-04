@@ -8,7 +8,7 @@
 #     → CI "Go API" unit tests + "JS workspaces" test step (the Docker-bound
 #       RLS integration suite stays CI-only).
 #   - `make packages` builds the TS packages in pnpm's topological dep order;
-#     it MUST run before the typecheck because sdk/elements/admin consume the
+#     it MUST run before the typecheck because studio and the runtimes consume the
 #     built .d.ts of their workspace deps (a bare `pnpm -r lint` fails otherwise).
 #
 # pre-commit stays fast (gofmt check only — no TS build needed); pre-push runs

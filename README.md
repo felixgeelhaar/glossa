@@ -2,7 +2,7 @@
 
 > **For product teams who want every new language to be configuration, not an engineering project, Glossa is open-source localization infrastructure: one typed message model for web and backend, AI translation grounded in your terminology and translation memory, and immutable releases delivered to every runtime.** Unlike file-centric translation tools, Glossa treats translations as versioned product data you own: self-hosted, with your own LLM keys.
 
-**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. The feature list below describes what ships today (v0.3).
+**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. The feature list and architecture below describe v0.3, which is retired (see *Roadmap*); the platform's own docs are `platform/README.md` and `platform/cmd/glossa/README.md`.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
@@ -57,39 +57,9 @@ Glossa is the localization backbone for [Brotwerk](https://brotwerk.felixgeelhaa
 
 ---
 
-## Quick start (Docker)
+## Running v0.3
 
-```bash
-git clone https://github.com/felixgeelhaar/glossa
-cd glossa
-docker compose up --build
-```
-
-Boots Postgres 16, runs migrations, starts the API, and serves the admin at <http://localhost:5173>. The first run bootstraps a `demo` tenant with admin `felix@example.com` / `hunter2hunter2`.
-
-To enable the AI translator, the dev compose file already provides a non-secret `GLOSSA_SECRETS_KEY`. Add a provider in the **AI translation** tab and any source-locale (project default) write will fan out.
-
-## Install on Kubernetes (Helm)
-
-```bash
-helm install glossa oci://ghcr.io/felixgeelhaar/charts/glossa \
-  --version 0.1.0 \
-  --namespace glossa --create-namespace \
-  --values my-values.yaml
-```
-
-The chart serves one Glossa instance behind any number of hostnames — each gets its own cert-manager `Certificate` and `IngressRoute`. Tenants are inferred per-request from the API key or JWT, so the host is purely routing / branding:
-
-```yaml
-ingress:
-  hosts:
-    - host: glossa.example.com
-      tls: { secretName: glossa-example-com-tls }
-    - host: glossa.other-tenant.com
-      tls: { secretName: glossa-other-tenant-com-tls }
-```
-
-Full chart docs: [`deploy/charts/glossa/README.md`](./deploy/charts/glossa/README.md). Raw kustomize manifests for a hand-rolled install live in [`deploy/k3s/glossa/`](./deploy/k3s/glossa/).
+v0.3's admin SPA, container images, Helm chart, k3s manifests and compose stack were deleted when it was retired (RFC 0006 §7). They are in the history before the commit that merged `m5/retire-v0`. The platform deploys from [`deploy/charts/glossa-platform`](./deploy/charts/glossa-platform).
 
 ---
 
@@ -97,26 +67,11 @@ Full chart docs: [`deploy/charts/glossa/README.md`](./deploy/charts/glossa/READM
 
 ```
 glossa/
-├── apps/
-│   ├── api/                    # Go service: hex arch (domain → app → interfaces → infra)
-│   │   ├── cmd/api/            # binary entry
-│   │   ├── db/migrations/      # numbered SQL migrations (run via `migrate`)
-│   │   ├── db/queries/         # sqlc input
-│   │   └── internal/
-│   │       ├── domain/         # aggregates + repository ports
-│   │       ├── app/            # use cases (per-feature subpackage)
-│   │       ├── interfaces/     # gin handlers
-│   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
-│   └── admin/                  # Lit SPA, served by nginx in compose
-├── packages/
-│   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
-│   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
-│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components
-│   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
-│   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
-├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
-├── docs/                       # product intent, positioning, design doc, RFCs
-└── docker-compose.yml          # one-command dev stack
+├── apps/api/                   # v0.3's Go service, kept only as the importer's and the M5 exit test's fixture
+├── packages/format/            # @felixgeelhaar/glossa-format: v0.3's ICU formatter, what `glossa import --from v0 --verify` compares against
+├── platform/  messageformat/  runtimes/  studio/  site/   # the rewrite (RFC 0002)
+├── deploy/charts/glossa-platform/   # the platform's chart
+└── docs/                       # product intent, positioning, design doc, RFCs, runbooks
 ```
 
 ---
@@ -160,22 +115,13 @@ glossa/
 cd apps/api
 go test ./...
 sqlc generate
-
-# Admin SPA
-cd apps/admin
-pnpm install
-pnpm dev   # http://localhost:5173 against running compose api
-
-# Design system
-cd packages/ui
-pnpm build
 ```
 
 ---
 
 ## Roadmap
 
-Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes. Moving a project off v0.3 and retiring it: [`docs/runbooks/retire-v0.md`](./docs/runbooks/retire-v0.md).
+Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 is retired by [the runbook](./docs/runbooks/retire-v0.md); this change deleted its admin, SDKs, charts, manifests and compose stack once every former project had moved. `apps/api` and `packages/format` stay as test fixtures for the importer and the M5 exit test (RFC 0006 §7.3, §12.6) and receive no other work. Moving a project off v0.3 and retiring it: [`docs/runbooks/retire-v0.md`](./docs/runbooks/retire-v0.md).
 
 | Milestone | Delivers | Done when |
 |---|---|---|

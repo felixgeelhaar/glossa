@@ -577,8 +577,8 @@ by mistake are under `…/deleted/<timestamp>/`.
 
 ## Deploying with RollOps
 
-Klarlabs rolls Glossa out with RollOps, as it does v0.3 (`.rollops/*.yaml`
-at the repository root); the chart carries no Keel or other rollout-tool
+Klarlabs rolls Glossa out with RollOps, as it did v0.3 (whose `.rollops/*.yaml`
+were deleted with it); the chart carries no Keel or other rollout-tool
 annotations. RollOps RolloutConfigs are **generated from `helm template`
 output**, one per rendered resource, each embedding the manifest as
 `spec.target.spec.manifest` (and `spec.target.spec.image` for workloads),

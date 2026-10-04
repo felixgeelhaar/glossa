@@ -10,7 +10,7 @@ Rules that come up most often:
 
 - Messages, not files. JSON, XLIFF and PO are import/export formats, never the model.
 - Standards first: BCP 47 tags, CLDR data through `Intl.*` and `golang.org/x/text`, the Unicode MessageFormat 2 data model (ICU MF1 as an authoring syntax).
-- The rewrite lives in `platform/`, `messageformat/`, `runtimes/`, `studio/` and `site/`. `apps/` and `packages/` are v0.3: security and data-loss fixes only until it's retired.
+- The rewrite lives in `platform/`, `messageformat/`, `runtimes/`, `studio/` and `site/`. `apps/api` and `packages/format` are what is left of v0.3: fixtures for `glossa import --from v0` and the M5 exit test, no other work.
 - Follow the Klarlabs product standard: Go DDD/hexagonal, Postgres with forced RLS, `auth-go`, Vue + `@klarlabs-studio/ui`, first-party libraries.
 - Important state is versioned. Translations carry provenance, and releases are immutable.
 - Anything that matters is reachable through the API, not only through the admin UI.

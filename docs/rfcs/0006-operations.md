@@ -351,6 +351,8 @@ Per product, in the dogfood phase: dry-run the import; import from a restored ba
 
 After the last product: a final v0.3 backup archived for one year; v0.3 scaled to zero for 30 days; then its IngressRoute and DNS removed and the `glossa` namespace deleted; the npm packages deprecated with a pointer to the new ones; and the deletion PR merged. The namespace deletion, DNS change and npm deprecation are the owner's (destructive, publishing). The deletion PR is prepared in M5 and left unmerged (§13 wave 6).
 
+*Amended during wave 6.* The deletion is branch `m5/retire-v0`. It removes `apps/admin`, `packages/{cli,elements,sdk,ui}`, the root `api/openapi.yaml`, `deploy/charts/glossa`, `deploy/k3s`, `.rollops/`, `docker-compose.yml`, v0.3's image and chart workflows and the npm-package build steps. It **keeps `apps/api` and `packages/format`**: the M5 exit test builds v0.3 from `apps/api` and renders with `packages/format` (§12.6), `glossa import --from v0 --verify` loads `packages/format` by default, and the importer's integration tests apply `apps/api`'s migrations. Removing those two is a decision about retiring §12.6 and the importer itself, which the owner takes after the last project has moved; it is not part of the deletion PR.
+
 ## 8. Surfaces
 
 - **API** (one slice per wave touches `platform/api/openapi.yaml`, §13): workflow definitions (create, versions, lint-on-save, bindings) and instances (read, transitions, rebase); assignments, approvals, groups and vendors; release requests, approvals and rollouts; audit entries and export jobs.
