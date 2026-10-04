@@ -176,19 +176,25 @@ func (s *scenario) exportAudit(dir string, from time.Time) error {
 	// The range starts at the fixture: every call of §12.1–§12.4 is in
 	// it. 31 days is §9.6's limit; this is minutes.
 	var job struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+		ID    string `json:"id"`
+		State string `json:"state"`
+		// FailureCode and FailureMessage say why a job failed.
+		FailureCode    string `json:"failure_code"`
+		FailureMessage string `json:"failure_message"`
 	}
 	if _, err := s.owner.try(http.MethodPost, s.auditExportJobsPath(), map[string]any{
 		"from": from.Add(-time.Hour).UTC().Format(time.RFC3339), "to": time.Now().Add(time.Minute).UTC().Format(time.RFC3339),
-	}, http.StatusAccepted, &job); err != nil {
+	}, http.StatusCreated, &job); err != nil {
 		return missing("starting an audit export job (POST "+s.auditExportJobsPath()+")", err)
 	}
 	ok, state := softly(60*time.Second, func() (bool, string) {
 		if _, err := s.owner.try(http.MethodGet, s.auditExportJob(job.ID), nil, http.StatusOK, &job); err != nil {
 			return false, err.Error()
 		}
-		return job.Status == "succeeded", job.Status
+		if job.State == "failed" {
+			return false, fmt.Sprintf("failed: %s: %s", job.FailureCode, job.FailureMessage)
+		}
+		return job.State == "succeeded", job.State
 	})
 	if !ok {
 		return fmt.Errorf("the export job never succeeded: %s", state)
