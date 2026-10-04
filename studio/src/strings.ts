@@ -706,7 +706,6 @@ export const strings = {
     insert: "Insert",
     sourceDiff: "Its source, compared with this one:",
     from: (key: string) => `From ${key}`,
-    imported: "Imported",
     scopeProject: "this project",
     scopeTenant: "workspace-wide",
     variablesKept: "a variable kept its name — check it",
@@ -913,6 +912,7 @@ export const strings = {
   ai: {
     title: "AI suggestion",
     none: "No AI suggestion for this message yet. “Fill with AI” asks for one.",
+    outdated: "The source has changed since this suggestion was made.",
     status: { pending: "Pending", accepted: "Accepted", rejected: "Rejected", auto_applied: "Auto-applied", superseded: "Superseded" } as Record<string, string>,
     band: { very_high: "Very high confidence", high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as Record<string, string>,
     score: (x: string) => `score ${x}`,

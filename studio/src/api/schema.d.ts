@@ -1544,6 +1544,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Translation-memory matches for one unit
+         * @description The memory's matches for one translation unit — the message the
+         *     key names, in the locale — scored as `lookupTranslationMemory`
+         *     scores them, from the tenant-wide units and the project's own,
+         *     best first. It is the translation workspace's read, and the only
+         *     one a member with visibility `assigned` has (RFC 0006 §3.3): the
+         *     unit must be in an assignment of theirs, and anything else —
+         *     another unit, another project — is `404`. A match is text and a
+         *     score, never the matched unit: for an `assigned` member no id or
+         *     key of the remembered unit is returned (`message_key` is omitted),
+         *     so the memory does not tell a vendor what else is in the
+         *     project. It records no hit. Needs `knowledge.read`. Problem
+         *     codes: `invalid_query`, `invalid_syntax` (400).
+         */
+        get: operations["listUnitTMMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI suggestions for one unit
+         * @description The newest suggestions (at most 5) for one translation unit — the
+         *     message the key names, in the locale — as its workspace shows
+         *     them: the text, its score with the explanation, the routed
+         *     action, risks and findings. It is the read a member with
+         *     visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+         *     assignment of theirs, and anything else is `404`. The job,
+         *     provider, model, calls, cost and the translation-memory units it
+         *     drew on are not part of it; they stay with
+         *     `getAISuggestion`. `decidable` is false for an `assigned`
+         *     member, who writes the translation instead of accepting a
+         *     suggestion. Needs `intelligence.read`.
+         */
+        get: operations["listUnitAISuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions": {
         parameters: {
             query?: never;
@@ -8640,6 +8719,56 @@ export interface components {
             source_normalized: string;
             matches: components["schemas"]["TMMatch"][];
         };
+        /** @description A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`. */
+        UnitTMMatch: {
+            score: number;
+            /** @enum {string} */
+            kind: "context" | "exact" | "fuzzy";
+            /** @description The remembered source, normalized: what a fuzzy match is compared with. */
+            source_normalized: string;
+            /** @description The remembered target in MF2, its variables renamed to the unit's by position. */
+            target: string;
+            /** @description The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it. */
+            target_text: string;
+            target_syntax: components["schemas"]["Syntax"];
+            target_syntax_fallback: boolean;
+            /** @description False when a target variable had no counterpart and kept its name. */
+            variables_adapted: boolean;
+            /** @description True for a unit the project owns, false for a tenant-wide one. */
+            project_scoped: boolean;
+            /** @description The key of the message the match was learned from. Never returned to a member with visibility `assigned`. */
+            message_key?: components["schemas"]["MessageKey"];
+        };
+        UnitTMMatches: {
+            /** @description The unit's own source, normalized. */
+            source_normalized: string;
+            items: components["schemas"]["UnitTMMatch"][];
+        };
+        /** @description An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it. */
+        UnitAISuggestion: {
+            id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+            source_revision: number;
+            /** @description The translation in canonical MF2 syntax. */
+            message: string;
+            findings: components["schemas"]["QAFinding"][];
+            term_findings: components["schemas"]["AITermFinding"][];
+            /** Format: double */
+            score: number;
+            explanation: components["schemas"]["AIConfidenceFactor"][];
+            action: components["schemas"]["AIAction"];
+            action_note?: string;
+            risk_tags: string[];
+            status: components["schemas"]["AISuggestionStatus"];
+            /** @description The message's source has been revised since the suggestion was made. */
+            outdated: boolean;
+            /** @description Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`. */
+            decidable: boolean;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        UnitAISuggestions: {
+            items: components["schemas"]["UnitAISuggestion"][];
+        };
         TMConcordanceMatch: {
             /** @description Trigram word similarity of the phrase to the side searched. */
             similarity: number;
@@ -14060,6 +14189,76 @@ export interface operations {
             412: components["responses"]["PreconditionFailed"];
             422: components["responses"]["StructuralQAFailed"];
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listUnitTMMatches: {
+        parameters: {
+            query?: {
+                limit?: number;
+                min_score?: number;
+                /** @description The syntax of each `target_text`; by default the one the message's source is written in. */
+                target_syntax?: components["schemas"]["Syntax"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTMMatches"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listUnitAISuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unit's suggestions, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitAISuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listTranslationRevisions: {
