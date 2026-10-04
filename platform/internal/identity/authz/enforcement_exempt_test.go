@@ -24,6 +24,7 @@ var notProjectAddressed = map[string]string{
 	"audit.Service.Backfill":       background,
 	"audit.Service.HandleEvent":    background,
 	"audit.Service.Subscribe":      wiring,
+	"audit.Service.Metrics":        "returns the recorder wired at startup; it reads no data",
 	"audit.Service.RecordSignIn":   "records a sign-in, before any tenant's project is in play, as the system; it reads nothing back",
 	"audit.Service.RecordToolCall": "records an MCP call after the tool's own application service checked the project; it reads nothing back",
 	"audit.Service.Verify": "the tenant's hash chain, which belongs to no project; reached by no route until RFC 0006 " +
