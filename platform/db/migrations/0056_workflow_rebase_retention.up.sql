@@ -16,12 +16,14 @@ GRANT UPDATE (version) ON workflow_instances TO glossa_app;
 -- application role: no DELETE on it). What the instance did stays in
 -- the audit trail, which is fed by the events, not by these rows.
 --
--- The application role may delete only finished instances: a
--- restrictive policy, so no permissive policy added later can widen it.
--- A running instance is work in flight, and nothing deletes it.
+-- Only finished instances can be deleted: a restrictive policy, so no
+-- permissive policy added later can widen it. A running instance is work
+-- in flight, and nothing deletes it. (It applies to every role, as the
+-- tenant policy does, and repeats the tenant: only the system policies
+-- the RLS guard lists may name a role.)
 GRANT DELETE ON workflow_instances TO glossa_app;
 CREATE POLICY workflow_instances_delete_finished ON workflow_instances
-    AS RESTRICTIVE FOR DELETE TO glossa_app USING (status = 'finished');
+    AS RESTRICTIVE FOR DELETE USING (tenant_id = app_current_tenant() AND status = 'finished');
 
 -- The sweep finds the oldest finished instances first.
 CREATE INDEX workflow_instances_finished ON workflow_instances (finished_at) WHERE status = 'finished';
