@@ -28,7 +28,7 @@ import { getPref, setPref } from "../../lib/prefs";
 import { matchNumber, useShortcuts } from "../../lib/shortcuts";
 import { unitLocales } from "../../lib/work";
 import { coverageOf, matches, namespacesOf, statusOf, type Coverage, type CoverageFilter, type MessageRow } from "../../lib/workspace";
-import { allowsFor } from "../../session/permissions";
+import { allows, allowsFor } from "../../session/permissions";
 import { useSession } from "../../session/session";
 import { problemText, strings } from "../../strings";
 import { useProject } from "./context";
@@ -289,6 +289,8 @@ const terminology = useTerminology({
   draft,
 });
 const assist = useTemplateRef<InstanceType<typeof AssistPanel>>("assist");
+/** The unit's workflow instances (RFC 0006 §8) are offered to whoever may read workflows. */
+const canReadWorkflows = computed(() => allows(grant.value, "workflows.read"));
 const canFill = computed(() => !!localeCode.value && allowsFor(grant.value, "intelligence.translate", localeCode.value));
 const fillOpen = ref(false);
 /** A search narrows the fill to the keys it shows (the server takes at most 500). */
@@ -469,7 +471,18 @@ function onSearchKey(e: KeyboardEvent): void {
           :term-findings="terminology.findings.value"
           @changed="onChanged"
           @draft="draft = $event"
-        />
+        >
+          <template v-if="canReadWorkflows" #history-extra>
+            <p>
+              <RouterLink
+                :to="{ name: 'workflow-instances', params: { tenant, project: projectId }, query: { message: selected.key, locale: target.code } }"
+                data-testid="workflow-instances-link"
+              >
+                {{ strings.instances.fromTranslation }}
+              </RouterLink>
+            </p>
+          </template>
+        </TranslationEditor>
         <p v-else class="page muted">{{ s.selectMessage }}</p>
       </section>
       <aside v-if="selected && target && source" class="assist-col" :aria-label="strings.assist.label">

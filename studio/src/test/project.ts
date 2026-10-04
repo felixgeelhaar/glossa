@@ -15,6 +15,9 @@ import { QUALITY_SUMMARY, type QualitySummaryPort } from "../api/quality-summary
 import type { QualitySummary } from "../api/quality-summary-schemas";
 import { RELEASES, type ReleasesPort } from "../api/releases";
 import { WORK, type WorkPort } from "../api/work";
+import { DIRECTORY, type DirectoryPort } from "../api/directory";
+import { RELEASE_OPS, type ReleaseOpsPort } from "../api/release-ops";
+import { WORKFLOWS, type WorkflowsPort } from "../api/workflows";
 import type { Project, ProjectLocale, Role } from "../api/schemas";
 import { grantFor } from "../session/permissions";
 import { refreshSession } from "../session/session";
@@ -27,6 +30,12 @@ const ROUTE_NAMES: Record<string, string> = {
   "files/imports/:job": "import-job",
   "quality/policy": "check-policy",
   "quality/waivers": "waivers",
+  "releases/requests": "release-requests",
+  "releases/requests/:request": "release-request",
+  "releases/environments/:environment": "environment",
+  workflow: "project-workflow",
+  "workflow/instances": "workflow-instances",
+  "workflow/instances/:instance": "workflow-instance",
 };
 
 const ME = {
@@ -88,6 +97,9 @@ export interface ScreenOptions {
   health?: QualitySummary;
   context?: ContextPort;
   work?: WorkPort;
+  workflows?: WorkflowsPort;
+  directory?: DirectoryPort;
+  releaseOps?: ReleaseOpsPort;
   roles?: Role[];
   /** Locale scope of the member (translators, reviewers). */
   memberLocales?: string[];
@@ -99,6 +111,8 @@ export interface ScreenOptions {
   path?: string;
   /** Answers for fetch calls that don't go through a port (by path). */
   fetch?: (path: string) => unknown;
+  /** Anything else to provide, by injection key (a chart renderer, say). */
+  provide?: Record<symbol, unknown>;
 }
 
 export async function mountProjectScreen(component: Component, options: ScreenOptions): Promise<VueWrapper> {
@@ -116,7 +130,13 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
     history: createMemoryHistory(),
     routes: [
       "releases",
+      "releases/requests",
+      "releases/requests/:request",
+      "releases/environments/:environment",
       "releases/:release",
+      "workflow",
+      "workflow/instances",
+      "workflow/instances/:instance",
       "settings",
       "translate",
       "review",
@@ -135,6 +155,8 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
         { path: "/t/:tenant", name: "projects", component: Empty },
         { path: "/t/:tenant/settings/knowledge", name: "workspace-knowledge", component: Empty },
         { path: "/t/:tenant/work", name: "my-work", component: Empty },
+        { path: "/t/:tenant/settings/workflows", name: "workflows", component: Empty },
+        { path: "/t/:tenant/settings/workflows/:definition", name: "workflow", component: Empty },
       ]),
   });
   await router.push(options.path ?? "/t/t/p/p/releases");
@@ -152,6 +174,10 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.inContext) provide[IN_CONTEXT as symbol] = options.inContext;
   if (options.work) provide[WORK as symbol] = options.work;
+  if (options.workflows) provide[WORKFLOWS as symbol] = options.workflows;
+  if (options.directory) provide[DIRECTORY as symbol] = options.directory;
+  if (options.releaseOps) provide[RELEASE_OPS as symbol] = options.releaseOps;
+  Object.assign(provide, options.provide);
   const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
   await flushPromises();
   return w;
@@ -160,6 +186,8 @@ export async function mountProjectScreen(component: Component, options: ScreenOp
 export interface TenantScreenOptions {
   integration?: IntegrationPort;
   work?: WorkPort;
+  workflows?: WorkflowsPort;
+  directory?: DirectoryPort;
   /** Locale scope of the member (translators, reviewers). */
   locales?: string[];
   github?: GitHubPort;
@@ -168,6 +196,10 @@ export interface TenantScreenOptions {
   path: string;
   /** Answers for the stubbed fetch, by path; the default is an empty page. */
   responses?: Record<string, unknown>;
+  /** Anything else to provide, by injection key (a chart renderer, say). */
+  provide?: Record<symbol, unknown>;
+  /** Props for the screen itself (a shorter debounce, say). */
+  props?: Record<string, unknown>;
 }
 
 /** Mount a workspace (tenant-level) screen: the member's grant comes from the session, as in the app. */
@@ -203,6 +235,12 @@ export async function mountTenantScreen(component: Component, options: TenantScr
       { path: "/t/:tenant/settings/github", name: "workspace-github", component: Empty },
       { path: "/t/:tenant/work", name: "my-work", component: Empty },
       { path: "/t/:tenant/approvals", name: "approvals", component: Empty },
+      { path: "/t/:tenant/settings/workflows", name: "workflows", component: Empty },
+      { path: "/t/:tenant/settings/workflows/new", name: "workflow-new", component: Empty },
+      { path: "/t/:tenant/settings/workflows/:definition", name: "workflow", component: Empty },
+      { path: "/t/:tenant/settings/groups", name: "groups", component: Empty },
+      { path: "/t/:tenant/settings/vendors", name: "vendors", component: Empty },
+      { path: "/t/:tenant/settings/vendors/:vendor", name: "vendor", component: Empty },
     ],
   });
   await router.push(options.path);
@@ -211,7 +249,10 @@ export async function mountTenantScreen(component: Component, options: TenantScr
   if (options.github) provide[GITHUB as symbol] = options.github;
   if (options.qualitySummary) provide[QUALITY_SUMMARY as symbol] = options.qualitySummary;
   if (options.work) provide[WORK as symbol] = options.work;
-  const w = mount(component, { attachTo: document.body, global: { plugins: [router], provide } });
+  if (options.workflows) provide[WORKFLOWS as symbol] = options.workflows;
+  if (options.directory) provide[DIRECTORY as symbol] = options.directory;
+  Object.assign(provide, options.provide);
+  const w = mount(component, { attachTo: document.body, props: options.props ?? {}, global: { plugins: [router], provide } });
   await flushPromises();
   return w;
 }

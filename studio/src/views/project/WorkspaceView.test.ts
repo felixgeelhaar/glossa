@@ -85,3 +85,12 @@ describe("WorkspaceView scoped to an assignment", () => {
     expect(work.calls.filter((c) => c[0] === "assignment")).toEqual([]);
   });
 });
+
+describe("WorkspaceView and the unit's workflow", () => {
+  it("links the selected translation's history to its workflow instances (RFC 0006 §8)", async () => {
+    const w = await screen(createFakeWork(), "?locale=de&key=a.two");
+    const link = w.get("[data-testid=workflow-instances-link]");
+    expect(link.text()).toBe("Workflow history of this translation");
+    expect(link.attributes("href")).toBe("/t/t/p/p/workflow/instances?message=a.two&locale=de");
+  });
+});

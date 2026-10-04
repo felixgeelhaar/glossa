@@ -46,6 +46,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("./views/workspace/GitHubView.vue"),
         meta: { title: "GitHub" },
       },
+      // RFC 0006 §8: the workflow editor, and the organization's groups and vendors.
+      { path: "t/:tenant/settings/workflows", name: "workflows", component: () => import("./views/workflow/WorkflowsView.vue"), meta: { title: "Workflows" } },
+      { path: "t/:tenant/settings/workflows/new", name: "workflow-new", component: () => import("./views/workflow/WorkflowEditorView.vue"), meta: { title: "New workflow" } },
+      { path: "t/:tenant/settings/workflows/:definition", name: "workflow", component: () => import("./views/workflow/WorkflowEditorView.vue"), meta: { title: "Workflow" } },
+      { path: "t/:tenant/settings/groups", name: "groups", component: () => import("./views/directory/GroupsView.vue"), meta: { title: "Groups" } },
+      { path: "t/:tenant/settings/vendors", name: "vendors", component: () => import("./views/directory/VendorsView.vue"), meta: { title: "Vendors" } },
+      { path: "t/:tenant/settings/vendors/:vendor", name: "vendor", component: () => import("./views/directory/VendorView.vue"), meta: { title: "Vendor" } },
       {
         path: "t/:tenant/settings/knowledge/imports/:job",
         name: "workspace-import-job",
@@ -68,7 +75,15 @@ export const routes: RouteRecordRaw[] = [
           { path: "quality/policy", name: "check-policy", component: () => import("./views/project/CheckPolicyView.vue"), meta: { title: "Check policy" } },
           { path: "quality/waivers", name: "waivers", component: () => import("./views/project/WaiversView.vue"), meta: { title: "Waivers" } },
           { path: "releases", name: "releases", component: () => import("./views/project/ReleasesView.vue"), meta: { title: "Releases" } },
+          // RFC 0006 §5: release requests, and an environment's approval requirement and rollouts.
+          { path: "releases/requests", name: "release-requests", component: () => import("./views/project/ReleaseRequestsView.vue"), meta: { title: "Release requests" } },
+          { path: "releases/requests/:request", name: "release-request", component: () => import("./views/project/ReleaseRequestView.vue"), meta: { title: "Release request" } },
+          { path: "releases/environments/:environment", name: "environment", component: () => import("./views/project/EnvironmentView.vue"), meta: { title: "Environment" } },
           { path: "releases/:release", name: "release", component: () => import("./views/project/ReleaseDetailView.vue"), meta: { title: "Release" } },
+          // RFC 0006 §2: the project's workflow bindings, and the instances that run under them.
+          { path: "workflow", name: "project-workflow", component: () => import("./views/project/WorkflowBindingsView.vue"), meta: { title: "Workflow" } },
+          { path: "workflow/instances", name: "workflow-instances", component: () => import("./views/project/InstancesView.vue"), meta: { title: "Workflow instances" } },
+          { path: "workflow/instances/:instance", name: "workflow-instance", component: () => import("./views/project/InstanceView.vue"), meta: { title: "Workflow instance" } },
           { path: "files", name: "files", component: () => import("./views/project/ImportExportView.vue"), meta: { title: "Import & export" } },
           { path: "files/import", name: "import", component: () => import("./views/project/ImportView.vue"), meta: { title: "Import a file" } },
           { path: "files/imports/:job", name: "import-job", component: () => import("./views/project/ImportJobView.vue"), meta: { title: "Import" } },

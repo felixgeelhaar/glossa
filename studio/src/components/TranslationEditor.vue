@@ -472,6 +472,8 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
 
     <div v-show="tab === 'history'" id="panel-history" role="tabpanel" aria-labelledby="tab-history" class="panel">
       <HistoryList :revisions="revisions" :lang="locale.code" :dir="locale.direction" :self-id="selfId" />
+      <!-- What the host adds under the history, e.g. the unit's workflow instances (RFC 0006 §8). -->
+      <slot name="history-extra" />
     </div>
   </article>
 </template>

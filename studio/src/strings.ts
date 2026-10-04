@@ -4,6 +4,10 @@
  * mechanical change later: these keys become messages.
  */
 import { ApiError } from "./api/errors";
+import { directoryProblems, directoryStrings } from "./strings-directory";
+import { instanceProblems, instanceStrings } from "./strings-instances";
+import { releaseOpsProblems, releaseOpsStrings } from "./strings-release-ops";
+import { workflowProblems, workflowStrings } from "./strings-workflows";
 
 export const strings = {
   app: {
@@ -48,6 +52,10 @@ export const strings = {
     work: "Your work",
     myWork: "My work",
     approvals: "Approvals",
+    workflow: "Workflow",
+    workflows: "Workflows",
+    groups: "Groups",
+    vendors: "Vendors",
   },
   tenantSettings: {
     knowledgeLink: "Translation memory & termbase",
@@ -1855,6 +1863,11 @@ export const strings = {
     superseded: "Replaced: a newer approval request for this text took its place. The list has been read again.",
     retry: "Read again",
   },
+  // RFC 0006 wave 5: the workflow editor and instances, vendors and groups, release requests and rollouts.
+  workflows: workflowStrings,
+  instances: instanceStrings,
+  directory: directoryStrings,
+  releaseOps: releaseOpsStrings,
   shortcuts: {
     title: "Keyboard shortcuts",
     lead: "Studio is built for the keyboard. Chords use ⌘ on macOS and Ctrl elsewhere.",
@@ -1953,6 +1966,10 @@ export const strings = {
     assignment_state: "Already moved on: this assignment was completed, declined or expired meanwhile.",
     invalid_assignment: "That isn't possible for this assignment (a reason is at most 2,000 characters).",
     invalid_approval: "That decision isn't valid (a reason is at most 2,000 characters).",
+    ...workflowProblems,
+    ...instanceProblems,
+    ...directoryProblems,
+    ...releaseOpsProblems,
   } as Record<string, string>,
 };
 

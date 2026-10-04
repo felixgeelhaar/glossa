@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setCsrfToken } from "./client";
-import { apiReleases } from "./releases";
+import { apiReleases, isHeld } from "./releases";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(status === 204 ? null : JSON.stringify(body), {
@@ -38,13 +38,34 @@ describe("apiReleases", () => {
     setCsrfToken("csrf-1");
     const fetch = mockFetch(json(201, release));
     const r = await apiReleases.publish(p, { environment: "staging", note: "Spring" }, "idem-1");
-    expect(r.version).toBe(1);
+    expect(isHeld(r) ? undefined : r.version).toBe(1);
     const req = fetch.mock.calls[0]![0];
     expect(req.method).toBe("POST");
     expect(new URL(req.url).pathname).toBe("/v1/tenants/t/projects/p/releases");
     expect(req.headers.get("Idempotency-Key")).toBe("idem-1");
     expect(req.headers.get("X-CSRF-Token")).toBe("csrf-1");
     expect(await req.json()).toEqual({ environment: "staging", note: "Spring" });
+  });
+
+  it("says when a publish or promote was held for approval, rather than failing to parse it (RFC 0006 §5.1)", async () => {
+    const request = {
+      id: "rr1",
+      environment: "production",
+      release_id: "r1",
+      action: "publish",
+      requester: "person:me",
+      approval: { n: 2, from: { role: "reviewer" }, distinct_from_requester: true },
+      gate: { met: true },
+      forced: false,
+      state: "pending",
+      created_at: "2026-09-19T08:00:00Z",
+    };
+    const held = { id: "r1", release_request_id: "rr1", release_request: request };
+    mockFetch(json(202, held, { Location: "/v1/tenants/t/projects/p/release-requests/rr1" }), json(202, { ...held, release_request: { ...request, action: "promote" } }));
+    const published = await apiReleases.publish(p, { environment: "production" }, "idem-3");
+    expect(isHeld(published) && published.release_request.approval.n).toBe(2);
+    const promoted = await apiReleases.promote(p, "production", "r1");
+    expect(isHeld(promoted) && promoted.release_request.action).toBe("promote");
   });
 
   it("changes a policy with If-Match and returns the ETag on read", async () => {

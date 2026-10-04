@@ -29,6 +29,9 @@ const tenant = computed(() => String(route.params.tenant));
 const grant = useGrant(() => tenant.value);
 const canCreate = computed(() => allows(grant.value, "catalog.write"));
 const tenantName = computed(() => membershipFor(tenant.value)?.tenant.name ?? "");
+/** RFC 0006: workflows are read with `workflows.read`; groups and vendors exist only in an organization (an individual tenant is refused `individual_tenant`). */
+const canReadWorkflows = computed(() => allows(grant.value, "workflows.read"));
+const isOrganization = computed(() => membershipFor(tenant.value)?.tenant.kind === "organization" && allows(grant.value, "members.read"));
 
 const list = ref<Project[]>([]);
 const loading = ref(true);
@@ -119,6 +122,15 @@ async function create(): Promise<void> {
         </RouterLink>
         <RouterLink class="btn" :to="{ name: 'workspace-github', params: { tenant } }" :title="strings.tenantSettings.settingsLead">
           {{ strings.nav.workspaceSettings }}: {{ strings.tenantSettings.githubLink }}
+        </RouterLink>
+        <RouterLink v-if="canReadWorkflows" class="btn" :to="{ name: 'workflows', params: { tenant } }" :title="strings.tenantSettings.settingsLead" data-testid="nav-workflows">
+          {{ strings.nav.workspaceSettings }}: {{ strings.nav.workflows }}
+        </RouterLink>
+        <RouterLink v-if="isOrganization" class="btn" :to="{ name: 'groups', params: { tenant } }" :title="strings.tenantSettings.settingsLead" data-testid="nav-groups">
+          {{ strings.nav.workspaceSettings }}: {{ strings.nav.groups }}
+        </RouterLink>
+        <RouterLink v-if="isOrganization" class="btn" :to="{ name: 'vendors', params: { tenant } }" :title="strings.tenantSettings.settingsLead" data-testid="nav-vendors">
+          {{ strings.nav.workspaceSettings }}: {{ strings.nav.vendors }}
         </RouterLink>
         <button v-if="canCreate && !creating" type="button" class="btn btn-primary" @click="creating = true">{{ strings.projects.create }}</button>
       </div>
