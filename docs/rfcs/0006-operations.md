@@ -342,6 +342,8 @@ The criterion that matters is not "the rows arrived" but "the product says the s
 
 ### 7.4 The retirement runbook
 
+*The step-by-step runbook, with commands, rollbacks, roles and evidence, is [`docs/runbooks/retire-v0.md`](../runbooks/retire-v0.md) (wave 6).*
+
 Per product, in the dogfood phase: dry-run the import; import from a restored backup; `--verify` to zero mismatches; switch the product's runtime to the platform; watch it for 14 days with v0.3 still running; set the v0.3 project read-only.
 
 After the last product: a final v0.3 backup archived for one year; v0.3 scaled to zero for 30 days; then its IngressRoute and DNS removed and the `glossa` namespace deleted; the npm packages deprecated with a pointer to the new ones; and the deletion PR merged. The namespace deletion, DNS change and npm deprecation are the owner's (destructive, publishing). The deletion PR is prepared in M5 and left unmerged (§13 wave 6).
