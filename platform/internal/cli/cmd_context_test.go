@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-// pluginUsages is .glossa/usages.json as @glossa/unplugin writes it.
+// pluginUsages is .glossa/usages.json as @felixgeelhaar/glossa-unplugin writes it.
 const pluginUsages = `{
   "schema": "glossa.usages/v1",
   "application": "web",
   "commit": "` + testCommit + `",
   "branch": "feat/copy",
-  "tool": { "name": "@glossa/unplugin", "version": "0.1.0" },
+  "tool": { "name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0" },
   "usages": [
     { "key": "cart.items", "file": "src/Cart.vue", "line": 3, "column": 9, "component": "Cart", "route": "/cart", "kind": "t" },
     { "key": "cart.gone", "file": "src/Cart.vue", "line": 7, "column": 9, "component": "Cart", "route": "/cart", "kind": "t" }
@@ -48,7 +48,7 @@ func TestContextPushUploadsThePluginsDocument(t *testing.T) {
 		}
 	}
 	ups := srv.ctx.uploads
-	if len(ups) != 1 || ups[0].source != "plugin" || len(ups[0].doc.Usages) != 2 || ups[0].doc.Tool.Name != "@glossa/unplugin" {
+	if len(ups) != 1 || ups[0].source != "plugin" || len(ups[0].doc.Usages) != 2 || ups[0].doc.Tool.Name != "@felixgeelhaar/glossa-unplugin" {
 		t.Fatalf("uploaded = %+v", ups)
 	}
 
@@ -64,7 +64,7 @@ func TestContextPushUploadsThePluginsDocument(t *testing.T) {
 func TestContextPushTakesTheSourceFromTheToolOrTheFlag(t *testing.T) {
 	srv := newFakeServer(t)
 	w := newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN})
-	w.write("extract.json", strings.Replace(pluginUsages, `"name": "@glossa/unplugin", "version": "0.1.0"`, `"name": "glossa", "version": "0.4.0"`, 1))
+	w.write("extract.json", strings.Replace(pluginUsages, `"name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0"`, `"name": "glossa", "version": "0.4.0"`, 1))
 	w.write("runtime.json", strings.Replace(pluginUsages, "feat/copy", "main", 1))
 	w.run("context", "push", "extract.json").want(t, ExitOK)
 	w.run("context", "push", "runtime.json", "--source", "runtime").want(t, ExitOK)

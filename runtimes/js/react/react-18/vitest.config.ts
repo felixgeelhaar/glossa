@@ -1,8 +1,8 @@
 /**
- * @glossa/react's own test files, run against React 18.3 instead of 19.
+ * @felixgeelhaar/glossa-react's own test files, run against React 18.3 instead of 19.
  *
  * A package of its own because pnpm resolves `react-dom`'s peer `react` from
- * the depending package: in @glossa/react an aliased `react-dom@18` would
+ * the depending package: in @felixgeelhaar/glossa-react an aliased `react-dom@18` would
  * still get React 19. Here both are 18.3, and the aliases point the tests'
  * and the sources' `react` / `react-dom` imports at them.
  */
@@ -25,7 +25,7 @@ export default defineConfig({
   test: {
     name: "react-18",
     include: ["src/**/*.test.ts", "react-18/*.test.ts"],
-    // As in @glossa/react: plain Node, and jsdom where a test file opts in.
+    // As in @felixgeelhaar/glossa-react: plain Node, and jsdom where a test file opts in.
     environment: "node",
   },
 });

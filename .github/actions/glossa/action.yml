@@ -48,7 +48,7 @@ inputs:
   usages:
     description: >-
       A `glossa.usages/v1` document to upload, such as
-      @glossa/unplugin's `.glossa/usages.json`. Empty: `glossa extract
+      @felixgeelhaar/glossa-unplugin's `.glossa/usages.json`. Empty: `glossa extract
       --upload` collects the usages instead.
     required: false
     default: ''

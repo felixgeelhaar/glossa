@@ -31,7 +31,7 @@ func (v *verifyFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&v.environment, "environment", "", "--verify: the environment whose release the runtime loads")
 	fs.StringVar(&v.keyEnv, "delivery-key-env", "GLOSSA_DELIVERY_KEY", "--verify: environment variable holding a delivery key for it")
 	fs.StringVar(&v.formatModule, "format-module", "", "--verify: the @felixgeelhaar/glossa-format package directory (default: found from here)")
-	fs.StringVar(&v.runtimeModule, "runtime-module", "", "--verify: the @glossa/runtime package directory (default: found from here)")
+	fs.StringVar(&v.runtimeModule, "runtime-module", "", "--verify: the @felixgeelhaar/glossa-runtime package directory (default: found from here)")
 	fs.StringVar(&v.node, "node", "node", "--verify: the Node.js (22 or later) to render with")
 }
 
@@ -60,7 +60,7 @@ type verifyJSON struct {
 // importV0Verify is `glossa import --from v0 --verify` (RFC 0006 §7.3):
 // it reads v0.3's text — from a restored backup (--v0-db) or the v0.3
 // API (--v0-url) — and renders every key in every locale twice, with
-// v0.3's own formatter and with @glossa/runtime over the release the
+// v0.3's own formatter and with @felixgeelhaar/glossa-runtime over the release the
 // edge serves, comparing the outputs. It writes nothing anywhere. Exit
 // 0 when every rendering matches or differs only by v0.3's known
 // apostrophe defect (reported and counted), 1 on any other difference.
@@ -194,7 +194,7 @@ func (inv *invocation) verifyConfig(vf verifyFlags) (v0.VerifyConfig, error) {
 	if cfg.FormatModule, err = findModule(inv.env.Dir, vf.formatModule, "@felixgeelhaar/glossa-format", "packages/format"); err != nil {
 		return cfg, err
 	}
-	if cfg.RuntimeModule, err = findModule(inv.env.Dir, vf.runtimeModule, "@glossa/runtime", "runtimes/js/runtime"); err != nil {
+	if cfg.RuntimeModule, err = findModule(inv.env.Dir, vf.runtimeModule, "@felixgeelhaar/glossa-runtime", "runtimes/js/runtime"); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
@@ -242,7 +242,7 @@ func findModule(dir, flagValue, pkg, repoPath string) (string, error) {
 }
 
 func moduleFlag(pkg string) string {
-	if pkg == "@glossa/runtime" {
+	if pkg == "@felixgeelhaar/glossa-runtime" {
 		return "runtime-module"
 	}
 	return "format-module"
