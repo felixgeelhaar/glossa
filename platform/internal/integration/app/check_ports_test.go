@@ -106,10 +106,9 @@ func (m *memChecks) Wake(_ context.Context, repositories []int64, branch string,
 	return n, nil
 }
 
-func (m *memChecks) Claim(_ context.Context, lease time.Duration) (domain.Check, bool, error) {
+func (m *memChecks) Claim(_ context.Context, now time.Time, lease time.Duration) (domain.Check, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	now := m.now()
 	for _, k := range slices.SortedFunc(maps.Keys(m.rows), func(a, b checkKey) int {
 		if a.repository != b.repository {
 			return cmp.Compare(a.repository, b.repository)
@@ -141,7 +140,7 @@ func (m *memChecks) Save(_ context.Context, in domain.Check, available time.Time
 	return nil
 }
 
-func (m *memChecks) Retry(_ context.Context, in domain.Check, delay time.Duration, failure string) error {
+func (m *memChecks) Retry(_ context.Context, in domain.Check, now time.Time, delay time.Duration, failure string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, ok := m.rows[checkKey{in.RepositoryID, in.PullRequest}]
@@ -149,7 +148,7 @@ func (m *memChecks) Retry(_ context.Context, in domain.Check, delay time.Duratio
 		return nil
 	}
 	row.ClaimToken, row.Failure = uuid.Nil, failure
-	row.AvailableAt = m.now().Add(delay)
+	row.AvailableAt = now.Add(delay)
 	return nil
 }
 

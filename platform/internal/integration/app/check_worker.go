@@ -137,7 +137,7 @@ func (w *CheckWorker) RunOnce(ctx context.Context) (worked bool, err error) {
 	if !w.s.checksEnabled() {
 		return false, nil
 	}
-	c, ok, err := w.s.checks.Claim(ctx, w.cfg.Lease)
+	c, ok, err := w.s.checks.Claim(ctx, w.s.now(), w.cfg.Lease)
 	if err != nil || !ok {
 		return false, err
 	}
@@ -183,7 +183,7 @@ func (s *GitHubService) handleCheck(ctx context.Context, c domain.Check) error {
 				slog.Int("attempts", c.Attempts), slog.Any("error", err))
 			return s.checks.Save(ctx, c, c.Deadline())
 		}
-		return s.checks.Retry(ctx, c, domain.RetryDelay(c.Attempts), shortFailure(err.Error()))
+		return s.checks.Retry(ctx, c, s.now(), domain.RetryDelay(c.Attempts), shortFailure(err.Error()))
 	}
 	c.Failure = ""
 	// A check still waiting looks again at its deadline, so a commit
