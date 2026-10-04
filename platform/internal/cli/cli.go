@@ -106,7 +106,7 @@ func commands() []command {
 		{"approve", "Approve a release request or a translation (a person's session); list what waits", runApprove},
 		{"deny", "Deny a release request or a translation, with a reason", runDeny},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
-		{"audit", "Verify a signed audit export offline (glossa.audit/v1)", runAudit},
+		{"audit", "The audit trail: list, export, CSV; verify an export offline (glossa.audit/v1)", runAudit},
 		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
 	}
 }

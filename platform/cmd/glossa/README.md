@@ -198,6 +198,9 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `translate` | `--locale L [--namespace --key-prefix] [--missing\|--outdated] [--dry-run] [--wait]`: fills locales with AI suggestions. |
 | `review` | The AI review queue: `list [--locale]`, `accept <id\|key> [--text]`, `reject <id\|key> [--reason]`. |
 | `ai status` | Provider consent, the monthly budget and spend, providers (never their keys), and the project's auto-translate locales, namespace tags and review routing. |
+| `audit list [--from T --to T --actor A --action X --project P --source S --limit N] [--json\|--csv]` | The tenant's audit entries, newest first, paged through up to `--limit` (default 100, 0: all). Needs `audit.read` (owner, admin; no token scope). See *Audit*. |
+| `audit export (--from T --to T \| --first-sequence N [--last-sequence M]) --out <dir> [--public-key K] [--no-wait] [--job <id>] [--force]` | Creates an audit export job, waits, downloads `entries.jsonl` and `manifest.json` into `<dir>` (each checked against its SHA-256) and, with `--public-key`, verifies them like `audit verify`. Owner only. |
+| `audit csv <export dir\|entries.jsonl> [--out file]` | Converts an export's lines to CSV, offline. |
 | `audit verify <export> --public-key <key>` | Checks a signed `glossa.audit/v1` export **offline** — no server, no glossa.yaml, no token: the manifest's signature, every line's hash and link, no gaps, and that the file is exactly what the manifest signs. Exit 1 at the first thing that fails, named (see *Audit*). |
 | `mcp` | Speaks MCP on stdin and stdout, proxying to `glossa-server`'s `/mcp` endpoint with the stored token, so an editor that speaks only stdio gets the same tools without a second server (RFC 0005 §7.1). It is framing only — it registers no tool and validates no argument, so it cannot diverge from the endpoint. Read-only unless you ask: `--allow-write` offers the write tools (needs a token with the `write` scope), `--allow-publish` the release tools (needs `publish`). The two are alternatives, not a pair. Asking is not getting: the server still checks the token's scopes and refuses a session it may not open. See `internal/mcp/README.md`. |
 
@@ -401,8 +404,8 @@ layer a locale cannot run never reads as a clean one (intent §41).
 | Code | Meaning |
 |---|---|
 | 0 | OK |
-| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `import --from v0 --verify` (a rendering differs other than by v0.3's known apostrophe defect: `renderings_differ`), `workflow lint` (a save would be refused), `audit verify` (the export does not verify, including one missing a file) |
-| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`), `deny` without `--reason` (`reason_required`), a decision or withdrawal the server refuses as invalid (`invalid_approval`, `invalid_withdraw_reason`), a rollout start or advance the server refuses as invalid (`invalid_percent`, `invalid_max_duration`, `force_reason_required`, `invalid_force_reason`, `invalid_idempotency_key`) |
+| 1 | A check failed: `check`, `terms check`, `diff --exit-code`, `generate --check`, `extract --strict`, `release publish --dry-run` (not releasable), `translate --dry-run` (a refusal: consent off, no budget, no provider), `import --format` (conflicts or invalid items, dry run or not), `jobs show --wait` (the same for an import), `import --from v0 --verify` (a rendering differs other than by v0.3's known apostrophe defect: `renderings_differ`), `workflow lint` (a save would be refused), `audit verify`, or `audit export --public-key` (the export does not verify, including one missing a file) |
+| 2 | Usage or configuration: bad flags, missing/invalid glossa.yaml, catalog or style file, unavailable command, `audit verify` without a usable `--public-key` (`public_key_required`, `invalid_public_key`) or with an export path that isn't there (`export_unreadable`), an `audit export` without a usable range or `--out` (or into files that exist: `output_exists`), `range_not_contiguous`, `range_too_long`, `sequence_out_of_range`, input the server rejects as invalid (`invalid_environment`, `invalid_note`, `invalid_key_name`, `idempotency_key_reused`, and every 400 of the Knowledge and Intelligence APIs, e.g. `invalid_locale`, `duplicate_term`), `locale_not_found`, an ambiguous term or key (`term_ambiguous`, `suggestion_ambiguous`), a Git connection the flags can't name (`unknown_repository`, `repository_ambiguous`, `unknown_installation`, `unknown_application`, `project_not_found`, `invalid_connection`), `check` with an unknown `--layer` or a cached policy it can't read (`invalid_policy_cache`), `waive` with no reason (`waiver_needs_a_reason`) or something that isn't a fingerprint, a policy file that can't be read or isn't a document (`policy_file_unreadable`, `invalid_policy_file`), and a policy the server refuses as invalid (`invalid_check_policy`, `invalid_severity`, `unknown_layer`, `advisory_layer`, `unknown_locale`, `invalid_environment`, `invalid_waiver`), a workflow file that can't be read or isn't a document (`workflow_file_unreadable`, `invalid_workflow_file`, `workflow_file_unwritable`), a workflow document the server refuses (`invalid_workflow`, with its findings), a definition or binding the arguments can't name (`workflow_not_found`, `workflow_ambiguous`, `workflow_not_bound`, `binding_ambiguous`), a binding or assignment the server refuses as invalid (`invalid_workflow_binding`, `workflow_definition_out_of_scope`, `invalid_assignment`, `unknown_party`), `deny` without `--reason` (`reason_required`), a decision or withdrawal the server refuses as invalid (`invalid_approval`, `invalid_withdraw_reason`), a rollout start or advance the server refuses as invalid (`invalid_percent`, `invalid_max_duration`, `force_reason_required`, `invalid_force_reason`, `invalid_idempotency_key`) |
 | 3 | Network or auth: server unreachable, token missing or refused, forbidden, not found (`term_not_found`, `suggestion_not_found`), server error, or the server refusing the operation (`release_ineligible`, `no_rollback_target`, `not_in_history`, `not_releasable`, `key_revoked`, `storage_unavailable`, `suggestion_decided`, `suggestion_outdated`, `translation_conflict`, `translation_rejected`, `precondition_failed`, `job_not_cancellable`, `upload_not_expected`, `export_not_ready`, `file_expired`, `github_not_configured`, `github_unavailable`, `repository_not_visible`, `application_not_found`, `connection_exists`, `installation_revoked`, `workflows_scope_required`, `assignments_manage_required`, `workflow_definition_exists`, `workflow_binding_exists`, `workflow_limit_reached`, `workflow_instances_unavailable`, `assignment_state`, `policy_not_met`, `branch_release_not_promotable`, `rollout_active`, `rollout_no_stable`, `rollout_candidate_served`, `rollout_branch_environment`, `rollout_source_locale`, `rollout_needs_approval`, `rollout_ended`, `no_active_rollout`, `precondition_failed` on a rollout someone changed since it was read, `person_required` (an API token deciding an approval), `own_text`, `not_eligible`, `approval_not_requested`, `release_request_closed`, `approval_closed`, `approval_superseded`, `approval_not_found`), `translate --wait`, `import`, `export` or `jobs show --wait` giving up (`wait_timeout`), a transfer that doesn't check out (`upload_corrupted`, `download_corrupted`, `download_interrupted`). Import/export input the server rejects (`invalid_format`, `invalid_options`, `empty_file`, `file_too_large`, …) is 2. `check` only gets here when there is no cached policy either: with `.glossa/policy.json` it runs against the local catalogs and exits 0 or 1; `waive --revoke` on a waiver that isn't there (`waiver_not_found`), `policy show`/`export` against a server whose Quality context predates the endpoint (`no_check_policy`) |
 | 4 | Partial failure: `check` ran some layers and couldn't run others (they're named in the output, never dropped in silence); `push` or `import --from v0` went through but some items failed; `translate --wait`: some jobs failed; `import --format`, `export`, `jobs show --wait`: the job failed or was cancelled |
 | 5 | Held for approval (`release_held`): `release publish` or `release promote` into an environment that requires approvals went through, but nothing was deployed — the release is recorded and a release request waits for people to approve it (`glossa approve <request>`). The `--json` document is the command's own, with `held: true` and the `release_request`, not an error |
@@ -489,6 +492,9 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.review.list/v1` | `{suggestions: [Suggestion]}` (riskiest first) |
 | `glossa.cli.review.decision/v1` | `{decision: accepted \| rejected, edited, suggestion: Suggestion}` |
 | `glossa.cli.ai.status/v1` | `{consent: {enabled, changed_at?, changed_by?}, max_concurrent_jobs, budget: {monthly_micro_usd, spent_micro_usd, remaining_micro_usd, month_start, calls, by_provider: [{provider, model, calls, cost_micro_usd, input_tokens, output_tokens}]}, providers: [{name, kind, enabled, api_key_set, base_url?, models}], project: {auto_translate_locales, namespace_tags: {namespace: [tag]}, review: {auto_approve, auto_approve_min, recommend_min, auto_approve_environments?, force_review?}}}` |
+| `glossa.cli.audit.list/v1` | `{tenant, filter: {from, to, actor?, action?, project?, source?}, count, limit, more, entries: [AuditEntry]}` (the API's entries, as served) |
+| `glossa.cli.audit.export/v1` | `{job: {id, state, from?, to?, first_sequence?, last_sequence?, entry_count?, key_id?, failure_code?, expires_at}, waited, dir?, files: [{name, path, size, sha256, verified}], verification: <audit.verify document> \| null}` |
+| `glossa.cli.audit.csv/v1` | `{source, out, rows, columns}` (with `--out`) |
 | `glossa.cli.audit.verify/v1` | `{path, ok, tenant_id?, key_id?, created_at?, first_sequence?, last_sequence?, last_hash?, entry_count, verified, failure: {check, line?, sequence?, reason} \| null}`; `check` is one of the codes under *Audit*, and the manifest's fields are absent when it did not parse |
 
 The import and export shapes share:
@@ -1241,8 +1247,82 @@ An audit export (RFC 0006 §6.2) is a directory holding `entries.jsonl`
 which signs the range, the chain's two ends, the entry count and the
 file's SHA-256 with the deployment's audit key. The format is written
 out in `platform/README.md`, *Audit export format*. Export jobs write
-them (RFC 0006 wave 5); `glossa audit list` and `glossa audit export`
-follow in wave 6.
+them (RFC 0006 wave 5); `glossa audit list`, `export` and `csv` read
+and convert them, and `verify` checks them.
+
+### list
+
+```sh
+glossa audit list --limit 20
+glossa audit list --action release.published --from 2026-10-01 --to 2026-10-08 --json
+glossa audit list --actor system:audit.exporter --limit 0 --csv > exports.csv
+```
+
+Reads `GET …/audit-entries`, newest first, following the cursor until
+`--limit` entries (default 100; `0` is all of them — a long trail is
+many requests). `--from`/`--to` take RFC 3339 or a date (UTC) and mean
+`[from, to)`; `--actor`, `--action`, `--source` (`outbox`, `direct`,
+`import`) are exact; `--project` takes a slug or ID. It needs
+`audit.read` (owner and admin, no API token scope). A credential limited
+to some projects sees only those projects' entries, never the tenant's
+own (sign-ins, members, tokens, exports). `--csv` prints the columns
+below instead of a table; `--json` prints `glossa.cli.audit.list/v1`
+(`more` says the trail goes past `--limit`). Entries are content-free:
+identifiers, selectors and the shape of everything else
+(`"string(len=12)"`), never text.
+
+### export
+
+```sh
+glossa audit export --from 2026-10-01 --to 2026-10-08 --out ./audit-2026-10 --public-key audit-keys.json
+glossa audit export --first-sequence 3311 --out ./audit-2026-10          # to the chain's head
+glossa audit export --first-sequence 1 --no-wait                        # queue it, download later
+glossa audit export --job 0190… --out ./audit-2026-10 --public-key audit-keys.json
+```
+
+Creates the job (`POST …/audit-export-jobs` with an `Idempotency-Key`),
+polls it (`--timeout`, `--poll-interval`), downloads both files into
+`--out`, and refuses to overwrite files already there without `--force`.
+A download whose SHA-256 differs from the server's (`ETag` and the job)
+writes nothing (`download_corrupted`). Only the owner exports; the range
+is either a time range (at most 31 days) or a sequence range (at most
+1,000,000 entries) and always the tenant's whole trail, never one
+project's.
+
+With `--public-key` (same values as `verify`) the downloaded export is
+verified at once, offline, by the same code as `audit verify`; the exit
+is 1 when it does not verify, and `--json` has the verification in
+`verification`. Without it the command says so and prints how to pin the
+deployment's keys (`/.well-known/glossa-audit-keys.json`) and verify.
+The digests the server reports prove the download, not the export.
+
+Messages worth knowing: `audit_export_unavailable` (the deployment has
+no audit signing key or has exports off; exit 3; an operator sets
+`GLOSSA_AUDIT_SIGNING_KEY` and `GLOSSA_AUDIT_EXPORTS_ENABLED`),
+`range_not_contiguous` (exit 2: imported v0.3 history sits inside the
+time range; export by `--first-sequence`/`--last-sequence`), 403 (needs
+`audit.export`, owner, by a credential limited to no project),
+`range_too_long`, `sequence_out_of_range` (exit 2), `file_expired` (the
+files are kept 7 days by default; make a new export).
+
+### csv
+
+```sh
+glossa audit csv ./audit-2026-10 --out audit-2026-10.csv
+glossa audit csv ./audit-2026-10/entries.jsonl > audit.csv
+```
+
+Converts locally, with no network and no verification (run `verify`
+for that). One header row, then one row per line, columns in this
+order — new columns are only ever added at the end:
+
+`sequence, occurred_at, source, action, actor, aggregate_type, aggregate_id, project_id, locale, event_id, request_id, trace_id, summary, prev_hash, hash`
+
+`occurred_at` is UTC with six fractional digits, as in the export; a
+member that is absent or `null` is an empty cell; `summary` is the
+object as compact JSON with sorted keys. `audit list --csv` writes the
+same columns. Entries hold no text, so neither do rows. With `--out` and
+`--json`, `glossa.cli.audit.csv/v1` (`{source, out, rows, columns}`).
 
 `glossa audit verify` needs nothing but the files and a public key you
 trust. It reads no glossa.yaml, no token and no network, so an auditor
