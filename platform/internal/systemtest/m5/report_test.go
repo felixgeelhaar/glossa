@@ -173,7 +173,8 @@ func (s *scenario) reportSweep(b *bytes.Buffer) {
 	w("Every GET operation of `platform/api/openapi.yaml`, called as the vendor's translator — inside the\n")
 	w("assignment (project B, an assigned unit) and, where the operation is addressed by a project or a\n")
 	w("message, outside it (project A, an unassigned unit, which must answer 404). **%d hold, %d show something\n", ok, leaks)
-	w("outside the assignment or answer undocumented, %d have no verdict** (no fixture id to address them).\n\n", unexercised)
+	w("outside the assignment or answer undocumented, %d have no verdict** (no fixture id to address them).\n", unexercised)
+	w("An operation of the spec with no row at all, or a row marked ∅, fails §12.2.\n\n")
 	w("| | Operation | Inside | Outside | Why |\n|---|---|---|---|---|\n")
 	for _, r := range s.sweep {
 		mark, why := "✅", r.Why
@@ -189,11 +190,14 @@ func (s *scenario) reportSweep(b *bytes.Buffer) {
 	if len(s.mcpSweep) > 0 {
 		w("The MCP read tools, as the same member:\n\n| | Tool | Answer | Why |\n|---|---|---|---|\n")
 		for _, r := range s.mcpSweep {
-			mark := "✅"
-			if !r.OK {
+			mark, why := "✅", r.Why
+			switch {
+			case r.Unexercised != "":
+				mark, why = "∅", r.Unexercised
+			case !r.OK:
 				mark = "❌"
 			}
-			w("| %s | `%s` | %s | %s |\n", mark, r.Operation, orDash(r.Inside), oneLine(r.Why))
+			w("| %s | `%s` | %s | %s |\n", mark, r.Operation, orDash(r.Inside), oneLine(why))
 		}
 		w("\n")
 	}
