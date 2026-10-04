@@ -163,6 +163,15 @@ var (
 		By: "by",
 	}
 	workflowTimer = Projection{Project: "project_id", Selectors: []string{"instance_id", "project_id", "state"}}
+	// A rebase (RFC 0006 §2.3): which instance moved between which
+	// versions of which definition, and the state it kept — a name in
+	// the definition, like a timer's.
+	workflowRebase = Projection{
+		Project: "project_id", Locale: "locale",
+		Selectors: []string{
+			"instance_id", "project_id", "definition_id", "subject_kind", "locale", "from_version", "to_version", "state",
+		},
+	}
 )
 
 var Projections = map[string]Projection{
@@ -174,6 +183,7 @@ var Projections = map[string]Projection{
 	"workflow.approval.requested": workflowApproval, "workflow.approval.granted": workflowApproval,
 	"workflow.approval.denied":    workflowApproval,
 	"workflow.instance.timer_due": workflowTimer, "workflow.instance.timer_overdue": workflowTimer,
+	"workflow.instance.rebased": workflowRebase,
 
 	"catalog.project.created": catalogProject, "catalog.project.updated": catalogProject,
 	"catalog.project.deleted": catalogProject,

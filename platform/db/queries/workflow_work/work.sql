@@ -12,6 +12,17 @@ VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.narg(inst
         sqlc.arg(permission), sqlc.narg(due_at), sqlc.arg(state), sqlc.arg(version), sqlc.arg(created_by),
         sqlc.arg(created_at), sqlc.arg(created_at));
 
+-- name: LockAssignee :exec
+-- Serializes the assignments made to one assignee in this tenant, so
+-- the limit of open assignments (RFC 0006 §9.6) holds under concurrent
+-- assigning: the count below is read under this lock.
+SELECT pg_advisory_xact_lock(hashtextextended(
+    'workflow.assignee:' || app_current_tenant()::text || ':' || sqlc.arg(assignee)::text, 0));
+
+-- name: CountLiveAssignmentsOf :one
+SELECT count(*)::integer FROM workflow_assignments
+WHERE assignee = sqlc.arg(assignee) AND state IN ('open', 'accepted');
+
 -- name: InsertAssignmentUnits :exec
 INSERT INTO workflow_assignment_units (tenant_id, assignment_id, message_id, locale)
 SELECT app_current_tenant(), sqlc.arg(assignment_id), u.message_id, u.locale

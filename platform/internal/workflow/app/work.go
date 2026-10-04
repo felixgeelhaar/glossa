@@ -200,6 +200,14 @@ func (s *WorkService) assign(ctx context.Context, id, instance, project uuid.UUI
 		if err != nil {
 			return err
 		}
+		live, err := st.LiveAssignmentsOf(ctx, assignee)
+		if err != nil {
+			return err
+		}
+		if live >= domain.MaxOpenAssignments {
+			return fmt.Errorf("%w: %s already holds %d open assignments; at most %d per assignee",
+				ErrLimit, assignee, live, domain.MaxOpenAssignments)
+		}
 		a, err := domain.NewAssignment(project, units, assignee, perm, due, actor.String(), s.now().UTC())
 		if err != nil {
 			return err
