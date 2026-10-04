@@ -34,7 +34,10 @@ name: Release packages
 
 on:
   push:
-    branches: [main]
+    # release/v0.3 carries v0.3's packages once main publishes the new
+    # runtimes under the same scope (glossa-elements 0.4 replaces 0.3):
+    # security and data-loss fixes to 0.3.x are released from here.
+    branches: [main, release/v0.3]
   workflow_dispatch:
 
 permissions:
