@@ -58,6 +58,10 @@ export const routes: RouteRecordRaw[] = [
       { path: "t/:tenant/settings/groups", name: "groups", component: () => import("./views/directory/GroupsView.vue"), meta: { title: "Groups" } },
       { path: "t/:tenant/settings/vendors", name: "vendors", component: () => import("./views/directory/VendorsView.vue"), meta: { title: "Vendors" } },
       { path: "t/:tenant/settings/vendors/:vendor", name: "vendor", component: () => import("./views/directory/VendorView.vue"), meta: { title: "Vendor" } },
+      // RFC 0006 §6, wave 6: the audit log, one entry, and the exports.
+      { path: "t/:tenant/settings/audit", name: "audit-log", component: () => import("./views/audit/AuditLogView.vue"), meta: { title: "Audit log" } },
+      { path: "t/:tenant/settings/audit/exports", name: "audit-exports", component: () => import("./views/audit/AuditExportsView.vue"), meta: { title: "Audit exports" } },
+      { path: "t/:tenant/settings/audit/entries/:sequence(\\d+)", name: "audit-entry", component: () => import("./views/audit/AuditEntryView.vue"), meta: { title: "Audit entry" } },
       {
         path: "t/:tenant/settings/knowledge/imports/:job",
         name: "workspace-import-job",

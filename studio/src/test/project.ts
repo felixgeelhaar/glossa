@@ -15,6 +15,7 @@ import { QUALITY_SUMMARY, type QualitySummaryPort } from "../api/quality-summary
 import type { QualitySummary } from "../api/quality-summary-schemas";
 import { RELEASES, type ReleasesPort } from "../api/releases";
 import { WORK, type WorkPort } from "../api/work";
+import { AUDIT, type AuditPort } from "../api/audit";
 import { DIRECTORY, type DirectoryPort } from "../api/directory";
 import { RELEASE_OPS, type ReleaseOpsPort } from "../api/release-ops";
 import { WORKFLOWS, type WorkflowsPort } from "../api/workflows";
@@ -188,6 +189,7 @@ export interface TenantScreenOptions {
   work?: WorkPort;
   workflows?: WorkflowsPort;
   directory?: DirectoryPort;
+  audit?: AuditPort;
   /** Locale scope of the member (translators, reviewers). */
   locales?: string[];
   github?: GitHubPort;
@@ -241,6 +243,9 @@ export async function mountTenantScreen(component: Component, options: TenantScr
       { path: "/t/:tenant/settings/groups", name: "groups", component: Empty },
       { path: "/t/:tenant/settings/vendors", name: "vendors", component: Empty },
       { path: "/t/:tenant/settings/vendors/:vendor", name: "vendor", component: Empty },
+      { path: "/t/:tenant/settings/audit", name: "audit-log", component: Empty },
+      { path: "/t/:tenant/settings/audit/exports", name: "audit-exports", component: Empty },
+      { path: "/t/:tenant/settings/audit/entries/:sequence", name: "audit-entry", component: Empty },
     ],
   });
   await router.push(options.path);
@@ -251,6 +256,7 @@ export async function mountTenantScreen(component: Component, options: TenantScr
   if (options.work) provide[WORK as symbol] = options.work;
   if (options.workflows) provide[WORKFLOWS as symbol] = options.workflows;
   if (options.directory) provide[DIRECTORY as symbol] = options.directory;
+  if (options.audit) provide[AUDIT as symbol] = options.audit;
   Object.assign(provide, options.provide);
   const w = mount(component, { attachTo: document.body, props: options.props ?? {}, global: { plugins: [router], provide } });
   await flushPromises();

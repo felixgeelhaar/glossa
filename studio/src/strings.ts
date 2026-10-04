@@ -4,6 +4,7 @@
  * mechanical change later: these keys become messages.
  */
 import { ApiError } from "./api/errors";
+import { auditProblems, auditStrings } from "./strings-audit";
 import { directoryProblems, directoryStrings } from "./strings-directory";
 import { instanceProblems, instanceStrings } from "./strings-instances";
 import { releaseOpsProblems, releaseOpsStrings } from "./strings-release-ops";
@@ -56,6 +57,7 @@ export const strings = {
     workflows: "Workflows",
     groups: "Groups",
     vendors: "Vendors",
+    audit: "Audit log",
   },
   tenantSettings: {
     knowledgeLink: "Translation memory & termbase",
@@ -1895,6 +1897,7 @@ export const strings = {
   workflows: workflowStrings,
   instances: instanceStrings,
   directory: directoryStrings,
+  audit: auditStrings,
   releaseOps: releaseOpsStrings,
   shortcuts: {
     title: "Keyboard shortcuts",
@@ -1998,6 +2001,7 @@ export const strings = {
     ...workflowProblems,
     ...instanceProblems,
     ...directoryProblems,
+    ...auditProblems,
     ...releaseOpsProblems,
   } as Record<string, string>,
 };
