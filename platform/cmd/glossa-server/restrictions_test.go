@@ -311,6 +311,10 @@ var restrictions = map[string]restriction{
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances":                                 pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}":             pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions": pathDenied,
+	// A rebase (wave 6) moves one instance of the project in the path:
+	// workflows.manage through authz.RequireIn there, which an assigned
+	// member never holds.
+	"POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase": pathDenied,
 	// Release requests and rollouts (RFC 0006 §5): Release's, under
 	// {project}. Reading takes releases.read in the project
 	// (checkProject → RequireIn); withdrawing and every rollout change

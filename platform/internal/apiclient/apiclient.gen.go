@@ -7407,6 +7407,12 @@ type QualityUnmeasured struct {
 // QualityUnmeasuredNumber defines model for QualityUnmeasured.Number.
 type QualityUnmeasuredNumber string
 
+// RebaseWorkflowInstance defines model for RebaseWorkflowInstance.
+type RebaseWorkflowInstance struct {
+	// Version The version to move to; the definition's latest when absent.
+	Version *int `json:"version,omitempty"`
+}
+
 // Registration defines model for Registration.
 type Registration struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -10588,6 +10594,12 @@ type ListWorkflowInstancesParams struct {
 	SubjectId *Id `form:"subject_id,omitempty" json:"subject_id,omitempty"`
 }
 
+// RebaseWorkflowInstanceParams defines parameters for RebaseWorkflowInstance.
+type RebaseWorkflowInstanceParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
+}
+
 // ListWorkflowTransitionsParams defines parameters for ListWorkflowTransitions.
 type ListWorkflowTransitionsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -11081,6 +11093,9 @@ type CreateWaiverJSONRequestBody = CreateWaiver
 
 // CreateWorkflowBindingJSONRequestBody defines body for CreateWorkflowBinding for application/json ContentType.
 type CreateWorkflowBindingJSONRequestBody = CreateWorkflowBinding
+
+// RebaseWorkflowInstanceJSONRequestBody defines body for RebaseWorkflowInstance for application/json ContentType.
+type RebaseWorkflowInstanceJSONRequestBody = RebaseWorkflowInstance
 
 // CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
 type CreateStyleGuideJSONRequestBody = CreateStyleGuide
@@ -12396,8 +12411,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12416,8 +12433,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -16202,12 +16221,77 @@ type ClientInterface interface {
 
 	// GetWorkflowInstance A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkflowTransitions An instance's transition log
 	//
@@ -18943,8 +19027,10 @@ func (c *Client) ListAssignments(ctx context.Context, tenant TenantPath, params 
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type.
 //
@@ -18973,8 +19059,10 @@ func (c *Client) CreateAssignmentWithBody(ctx context.Context, tenant TenantPath
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -24909,13 +24997,98 @@ func (c *Client) ListWorkflowInstances(ctx context.Context, tenant TenantPath, p
 
 // GetWorkflowInstance A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 func (c *Client) GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequestWithBody(c.Server, tenant, project, workflowInstance, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -40419,6 +40592,80 @@ func NewGetWorkflowInstanceRequest(server string, tenant TenantPath, project Pro
 	return req, nil
 }
 
+// NewRebaseWorkflowInstanceRequest calls the generic RebaseWorkflowInstance builder with application/json body
+func NewRebaseWorkflowInstanceRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRebaseWorkflowInstanceRequestWithBody(server, tenant, project, workflowInstance, params, "application/json", bodyReader)
+}
+
+// NewRebaseWorkflowInstanceRequestWithBody constructs an http.Request for the RebaseWorkflowInstance method, with any body, and a specified content type
+func NewRebaseWorkflowInstanceRequestWithBody(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_instance", workflowInstance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances/%s/rebase", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewListWorkflowTransitionsRequest constructs an http.Request for the ListWorkflowTransitions method
 func NewListWorkflowTransitionsRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *ListWorkflowTransitionsParams) (*http.Request, error) {
 	var err error
@@ -44728,8 +44975,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44748,8 +44997,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -48746,14 +48997,79 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowInstanceWithResponse A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*GetWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
 
 	// ListWorkflowTransitionsWithResponse An instance's transition log
 	//
@@ -53416,6 +53732,8 @@ type CreateAssignmentResponse struct {
 	ApplicationproblemJSON403 *Forbidden
 	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
 	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *UnprocessableEntity
 	// Headers201 the parsed response headers for an HTTP 201 response
@@ -53445,6 +53763,11 @@ func (r CreateAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
 // GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
 func (r CreateAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
 	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
 }
 
 // GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
@@ -65479,6 +65802,11 @@ func (r ListWorkflowInstancesResponse) ContentType() string {
 	return ""
 }
 
+// GetWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for GetWorkflowInstance
+type GetWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
 type GetWorkflowInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -65492,6 +65820,8 @@ type GetWorkflowInstanceResponse struct {
 	ApplicationproblemJSON404 *NotFound
 	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
 	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetWorkflowInstanceResponse200Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -65542,6 +65872,117 @@ func (r GetWorkflowInstanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetWorkflowInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RebaseWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for RebaseWorkflowInstance
+type RebaseWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
+type RebaseWorkflowInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowInstance
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *Problem
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RebaseWorkflowInstanceResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RebaseWorkflowInstanceResponse) GetJSON200() *WorkflowInstance {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON422() *Problem {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r RebaseWorkflowInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RebaseWorkflowInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RebaseWorkflowInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RebaseWorkflowInstanceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70467,8 +70908,10 @@ func (c *ClientWithResponses) ListAssignmentsWithResponse(ctx context.Context, t
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -70493,8 +70936,10 @@ func (c *ClientWithResponses) CreateAssignmentWithBodyWithResponse(ctx context.C
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -75781,9 +76226,10 @@ func (c *ClientWithResponses) ListWorkflowInstancesWithResponse(ctx context.Cont
 
 // GetWorkflowInstanceWithResponse A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -75794,6 +76240,82 @@ func (c *ClientWithResponses) GetWorkflowInstanceWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstanceWithBody(ctx, tenant, project, workflowInstance, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstance(ctx, tenant, project, workflowInstance, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
 }
 
 // ListWorkflowTransitionsWithResponse An instance's transition log
@@ -80154,6 +80676,13 @@ func ParseCreateAssignmentResponse(rsp *http.Response) (*CreateAssignmentRespons
 			return nil, err
 		}
 		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest UnprocessableEntity
@@ -90438,6 +90967,121 @@ func ParseGetWorkflowInstanceResponse(rsp *http.Response) (*GetWorkflowInstanceR
 		}
 		response.ApplicationproblemJSON503 = &dest
 
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRebaseWorkflowInstanceResponse parses an HTTP response from a RebaseWorkflowInstanceWithResponse call
+func ParseRebaseWorkflowInstanceResponse(rsp *http.Response) (*RebaseWorkflowInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RebaseWorkflowInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RebaseWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

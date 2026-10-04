@@ -8901,21 +8901,92 @@ paths:
       tags: [workflows]
       summary: A workflow instance
       description: |
-        Its definition version, subject, state and status. Needs
-        `workflows.read`. Problem codes: `workflow_instances_unavailable`
-        (503).
+        Its definition version, subject, state and status. The `ETag` is
+        the definition version the instance runs on: what a rebase's
+        `If-Match` names. Needs `workflows.read`. Problem codes:
+        `workflow_instances_unavailable` (503).
       security:
         - session: []
         - bearer: []
       responses:
         "200":
           description: The instance.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WorkflowInstance" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowInstancePath"
+    post:
+      operationId: rebaseWorkflowInstance
+      x-glossa-idempotency: If-Match names the version the instance runs on, so a retry of a rebase that landed answers 412 rather than moving it twice.
+      tags: [workflows]
+      summary: Move a running instance to a newer version of its definition
+      description: |
+        A running instance stays on the version it started with until a
+        workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+        instance's state by name: the target version — `version`, or the
+        definition's latest when the body names none — must be newer, and
+        must have that state as one an instance can wait in. A rebase
+        changes what happens next, never what already happened: it runs
+        no entry action again (the assignments and approvals the state
+        asked for stand), and a pending due date keeps its time. An
+        instance that has not started yet starts on the new version at
+        its next event.
+
+        The rebase is recorded in the instance's transition log as event
+        `rebase` (its one action says which versions), and published as
+        `workflow.instance.rebased` naming who did it. `If-Match` is the
+        instance's `ETag`: the version it runs on.
+
+        Needs `workflows.manage` in the project. Problem codes:
+        `workflow_instance_finished` (409: nothing left to run),
+        `invalid_workflow_rebase` (422: the version is not newer, or the
+        definition has no such version), `workflow_rebase_state_missing`
+        (422: the target has no such state), `workflow_rebase_state_final`
+        (422: the state is final in the target), `precondition_failed`
+        (412), `precondition_required` (428),
+        `workflow_instances_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RebaseWorkflowInstance" }
+      responses:
+        "200":
+          description: The instance on its new version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowInstance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422":
+          description: The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions:
@@ -9010,8 +9081,10 @@ paths:
         `invalid_assignment` (422: no units, too many, a key the
         project does not have, a due date in the past),
         `unknown_party` (422: no such member, group or vendor),
-        `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-        `not_found` (404: the project).
+        `workflow_limit_reached` (409: the assignee already holds 1,000
+        open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+        (422), `invalid_idempotency_key` (400), `not_found` (404: the
+        project).
       security:
         - session: []
           csrf: []
@@ -9037,6 +9110,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
   /v1/tenants/{tenant}/assignment-reports:
@@ -15505,6 +15579,11 @@ components:
         status: { $ref: "#/components/schemas/WorkflowInstanceStatus" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    RebaseWorkflowInstance:
+      type: object
+      additionalProperties: false
+      properties:
+        version: { type: integer, minimum: 2, description: "The version to move to; the definition's latest when absent." }
     WorkflowInstanceList:
       type: object
       required: [items]

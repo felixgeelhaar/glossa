@@ -6262,13 +6262,64 @@ export interface paths {
         };
         /**
          * A workflow instance
-         * @description Its definition version, subject, state and status. Needs
-         *     `workflows.read`. Problem codes: `workflow_instances_unavailable`
-         *     (503).
+         * @description Its definition version, subject, state and status. The `ETag` is
+         *     the definition version the instance runs on: what a rebase's
+         *     `If-Match` names. Needs `workflows.read`. Problem codes:
+         *     `workflow_instances_unavailable` (503).
          */
         get: operations["getWorkflowInstance"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a running instance to a newer version of its definition
+         * @description A running instance stays on the version it started with until a
+         *     workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+         *     instance's state by name: the target version — `version`, or the
+         *     definition's latest when the body names none — must be newer, and
+         *     must have that state as one an instance can wait in. A rebase
+         *     changes what happens next, never what already happened: it runs
+         *     no entry action again (the assignments and approvals the state
+         *     asked for stand), and a pending due date keeps its time. An
+         *     instance that has not started yet starts on the new version at
+         *     its next event.
+         *
+         *     The rebase is recorded in the instance's transition log as event
+         *     `rebase` (its one action says which versions), and published as
+         *     `workflow.instance.rebased` naming who did it. `If-Match` is the
+         *     instance's `ETag`: the version it runs on.
+         *
+         *     Needs `workflows.manage` in the project. Problem codes:
+         *     `workflow_instance_finished` (409: nothing left to run),
+         *     `invalid_workflow_rebase` (422: the version is not newer, or the
+         *     definition has no such version), `workflow_rebase_state_missing`
+         *     (422: the target has no such state), `workflow_rebase_state_final`
+         *     (422: the state is final in the target), `precondition_failed`
+         *     (412), `precondition_required` (428),
+         *     `workflow_instances_unavailable` (503).
+         */
+        post: operations["rebaseWorkflowInstance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6348,8 +6399,10 @@ export interface paths {
          *     `invalid_assignment` (422: no units, too many, a key the
          *     project does not have, a due date in the past),
          *     `unknown_party` (422: no such member, group or vendor),
-         *     `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-         *     `not_found` (404: the project).
+         *     `workflow_limit_reached` (409: the assignee already holds 1,000
+         *     open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+         *     (422), `invalid_idempotency_key` (400), `not_found` (404: the
+         *     project).
          */
         post: operations["createAssignment"];
         delete?: never;
@@ -11292,6 +11345,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        RebaseWorkflowInstance: {
+            /** @description The version to move to; the definition's latest when absent. */
+            version?: number;
         };
         WorkflowInstanceList: {
             items: components["schemas"]["WorkflowInstance"][];
@@ -19853,6 +19910,7 @@ export interface operations {
             /** @description The instance. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -19862,6 +19920,58 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rebaseWorkflowInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebaseWorkflowInstance"];
+            };
+        };
+        responses: {
+            /** @description The instance on its new version. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInstance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            /** @description The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -19973,6 +20083,7 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
         };
     };

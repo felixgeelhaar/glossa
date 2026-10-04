@@ -22,6 +22,11 @@ const (
 	codeOutOfScope           problem.Code = "workflow_definition_out_of_scope"
 	codeInstancesUnavailable problem.Code = "workflow_instances_unavailable"
 	codeInvalidQuery         problem.Code = "invalid_query"
+	// Rebase (RFC 0006 §2.3).
+	codeInstanceFinished   problem.Code = "workflow_instance_finished"
+	codeInvalidRebase      problem.Code = "invalid_workflow_rebase"
+	codeRebaseStateMissing problem.Code = "workflow_rebase_state_missing"
+	codeRebaseStateFinal   problem.Code = "workflow_rebase_state_final"
 	// Assignments and approvals (RFC 0006 §3).
 	codeInvalidAssignment  problem.Code = "invalid_assignment"
 	codeInvalidApproval    problem.Code = "invalid_approval"
@@ -37,6 +42,7 @@ const (
 	codeReleaseRequestClosed     problem.Code = "release_request_closed"
 	detailInvalidWorkflow                     = "the workflow definition does not compile or lint; see findings"
 	detailStaleDefinitionVersion              = "the definition has a newer version; read it and retry with its ETag"
+	detailStaleInstanceVersion                = "the instance runs on another version now; read it and retry with its ETag"
 )
 
 // problems maps Workflow's errors to the codes documented in
@@ -56,6 +62,11 @@ var problems = []struct {
 	{app.ErrOutOfScope, http.StatusUnprocessableEntity, codeOutOfScope, ""},
 	{domain.ErrInvalidBinding, http.StatusUnprocessableEntity, codeInvalidBinding, ""},
 	{app.ErrInvalidQuery, http.StatusBadRequest, codeInvalidQuery, ""},
+	{domain.ErrInstanceFinished, http.StatusConflict, codeInstanceFinished, "the instance has finished; there is nothing left to rebase"},
+	{domain.ErrRebaseNotNewer, http.StatusUnprocessableEntity, codeInvalidRebase, ""},
+	{app.ErrRebaseVersion, http.StatusUnprocessableEntity, codeInvalidRebase, ""},
+	{domain.ErrRebaseStateMissing, http.StatusUnprocessableEntity, codeRebaseStateMissing, ""},
+	{domain.ErrRebaseStateFinal, http.StatusUnprocessableEntity, codeRebaseStateFinal, ""},
 	// A server without an instance store says so, rather than answering
 	// an empty list that would read as "nothing is in flight".
 	{app.ErrInstancesUnavailable, http.StatusServiceUnavailable, codeInstancesUnavailable, ""},
