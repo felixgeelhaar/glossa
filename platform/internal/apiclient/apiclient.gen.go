@@ -2382,6 +2382,27 @@ func (e TranslationRevisionKind) Valid() bool {
 	}
 }
 
+// Defines values for UnitTMMatchKind.
+const (
+	UnitTMMatchKindContext UnitTMMatchKind = "context"
+	UnitTMMatchKindExact   UnitTMMatchKind = "exact"
+	UnitTMMatchKindFuzzy   UnitTMMatchKind = "fuzzy"
+)
+
+// Valid indicates whether the value is a known member of the UnitTMMatchKind enum.
+func (e UnitTMMatchKind) Valid() bool {
+	switch e {
+	case UnitTMMatchKindContext:
+		return true
+	case UnitTMMatchKindExact:
+		return true
+	case UnitTMMatchKindFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageKind.
 const (
 	UsageKindAccessor  UsageKind = "accessor"
@@ -8761,6 +8782,85 @@ type TranslationTerminologyFindings struct {
 	TargetText string `json:"target_text"`
 }
 
+// UnitAISuggestion An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it.
+type UnitAISuggestion struct {
+	Action     AIAction `json:"action"`
+	ActionNote *string  `json:"action_note,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Decidable Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`.
+	Decidable   bool                 `json:"decidable"`
+	Explanation []AIConfidenceFactor `json:"explanation"`
+	Findings    []QAFinding          `json:"findings"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Message The translation in canonical MF2 syntax.
+	Message string `json:"message"`
+
+	// Outdated The message's source has been revised since the suggestion was made.
+	Outdated       bool               `json:"outdated"`
+	RiskTags       []string           `json:"risk_tags"`
+	Score          float64            `json:"score"`
+	SourceRevision int                `json:"source_revision"`
+	Status         AISuggestionStatus `json:"status"`
+	TermFindings   []AITermFinding    `json:"term_findings"`
+}
+
+// UnitAISuggestions defines model for UnitAISuggestions.
+type UnitAISuggestions struct {
+	Items []UnitAISuggestion `json:"items"`
+}
+
+// UnitTMMatch A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`.
+type UnitTMMatch struct {
+	Kind UnitTMMatchKind `json:"kind"`
+
+	// MessageKey The key of the message the match was learned from. Never returned to a member with visibility `assigned`.
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+
+	// ProjectScoped True for a unit the project owns, false for a tenant-wide one.
+	ProjectScoped bool `json:"project_scoped"`
+	Score         int  `json:"score"`
+
+	// SourceNormalized The remembered source, normalized: what a fuzzy match is compared with.
+	SourceNormalized string `json:"source_normalized"`
+
+	// Target The remembered target in MF2, its variables renamed to the unit's by position.
+	Target string `json:"target"`
+
+	// TargetSyntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	TargetSyntax         Syntax `json:"target_syntax"`
+	TargetSyntaxFallback bool   `json:"target_syntax_fallback"`
+
+	// TargetText The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it.
+	TargetText string `json:"target_text"`
+
+	// VariablesAdapted False when a target variable had no counterpart and kept its name.
+	VariablesAdapted bool `json:"variables_adapted"`
+}
+
+// UnitTMMatchKind defines model for UnitTMMatch.Kind.
+type UnitTMMatchKind string
+
+// UnitTMMatches defines model for UnitTMMatches.
+type UnitTMMatches struct {
+	Items []UnitTMMatch `json:"items"`
+
+	// SourceNormalized The unit's own source, normalized.
+	SourceNormalized string `json:"source_normalized"`
+}
+
 // UnusedMessage defines model for UnusedMessage.
 type UnusedMessage struct {
 	// Id An opaque identifier.
@@ -10388,6 +10488,15 @@ type ListTranslationRevisionsParams struct {
 
 	// PageToken The `next_page_token` of the previous page.
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// ListUnitTMMatchesParams defines parameters for ListUnitTMMatches.
+type ListUnitTMMatchesParams struct {
+	Limit    *int `form:"limit,omitempty" json:"limit,omitempty"`
+	MinScore *int `form:"min_score,omitempty" json:"min_score,omitempty"`
+
+	// TargetSyntax The syntax of each `target_text`; by default the one the message's source is written in.
+	TargetSyntax *Syntax `form:"target_syntax,omitempty" json:"target_syntax,omitempty"`
 }
 
 // ListMessageUsagesParams defines parameters for ListMessageUsages.
@@ -15521,6 +15630,23 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslation(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListUnitAISuggestions AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ReviewTranslationWithBody Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -15553,6 +15679,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUnitTMMatches Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMessageUsages Where a message appears (its current usages)
 	//
@@ -23897,6 +24041,33 @@ func (c *Client) PutTranslation(ctx context.Context, tenant TenantPath, project 
 	return c.Client.Do(req)
 }
 
+// ListUnitAISuggestions AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *Client) ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitAISuggestionsRequest(c.Server, tenant, project, message, locale)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ReviewTranslationWithBody Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -23950,6 +24121,34 @@ func (c *Client) ReviewTranslation(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTranslationRevisionsRequest(c.Server, tenant, project, message, locale, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListUnitTMMatches Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *Client) ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitTMMatchesRequest(c.Server, tenant, project, message, locale, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38056,6 +38255,61 @@ func NewPutTranslationRequestWithBody(server string, tenant TenantPath, project 
 	return req, nil
 }
 
+// NewListUnitAISuggestionsRequest constructs an http.Request for the ListUnitAISuggestions method
+func NewListUnitAISuggestionsRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/ai-suggestions", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewReviewTranslationRequest calls the generic ReviewTranslation builder with application/json body
 func NewReviewTranslationRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ReviewTranslationParams, body ReviewTranslationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -38208,6 +38462,112 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 		if params.PageToken != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUnitTMMatchesRequest constructs an http.Request for the ListUnitTMMatches method
+func NewListUnitTMMatchesRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/tm-matches", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MinScore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "min_score", *params.MinScore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetSyntax != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_syntax", *params.TargetSyntax, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -48249,6 +48609,25 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutTranslationResponse, error)
 
+	// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error)
+
 	// ReviewTranslationWithBodyWithResponse Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -48283,6 +48662,26 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
+
+	// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error)
 
 	// ListMessageUsagesWithResponse Where a message appears (its current usages)
 	//
@@ -63514,6 +63913,68 @@ func (r PutTranslationResponse) ContentType() string {
 	return ""
 }
 
+type ListUnitAISuggestionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitAISuggestions
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitAISuggestionsResponse) GetJSON200() *UnitAISuggestions {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitAISuggestionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitAISuggestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitAISuggestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitAISuggestionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // ReviewTranslationResponse200Headers the declared response headers of an HTTP 200 response for ReviewTranslation
 type ReviewTranslationResponse200Headers struct {
 	ETag *string
@@ -63674,6 +64135,75 @@ func (r ListTranslationRevisionsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListTranslationRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListUnitTMMatchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitTMMatches
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitTMMatchesResponse) GetJSON200() *UnitTMMatches {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitTMMatchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitTMMatchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitTMMatchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitTMMatchesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -75238,6 +75768,31 @@ func (c *ClientWithResponses) PutTranslationWithResponse(ctx context.Context, te
 	return ParsePutTranslationResponse(rsp)
 }
 
+// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *ClientWithResponses) ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error) {
+	rsp, err := c.ListUnitAISuggestions(ctx, tenant, project, message, locale, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitAISuggestionsResponse(rsp)
+}
+
 // ReviewTranslationWithBodyWithResponse Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -75289,6 +75844,32 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTranslationRevisionsResponse(rsp)
+}
+
+// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *ClientWithResponses) ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error) {
+	rsp, err := c.ListUnitTMMatches(ctx, tenant, project, message, locale, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitTMMatchesResponse(rsp)
 }
 
 // ListMessageUsagesWithResponse Where a message appears (its current usages)
@@ -89050,6 +89631,53 @@ func ParsePutTranslationResponse(rsp *http.Response) (*PutTranslationResponse, e
 	return response, nil
 }
 
+// ParseListUnitAISuggestionsResponse parses an HTTP response from a ListUnitAISuggestionsWithResponse call
+func ParseListUnitAISuggestionsResponse(rsp *http.Response) (*ListUnitAISuggestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitAISuggestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitAISuggestions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseReviewTranslationResponse parses an HTTP response from a ReviewTranslationWithResponse call
 func ParseReviewTranslationResponse(rsp *http.Response) (*ReviewTranslationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -89154,6 +89782,60 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUnitTMMatchesResponse parses an HTTP response from a ListUnitTMMatchesWithResponse call
+func ParseListUnitTMMatchesResponse(rsp *http.Response) (*ListUnitTMMatchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitTMMatchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitTMMatches
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

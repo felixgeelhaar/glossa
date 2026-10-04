@@ -340,7 +340,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		return contexts{}, err
 	}
 	knowledge := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(localization, catalog),
-		knowledgesources.NewProjects(catalog), knowledgeapp.WithLogger(deps.logger))
+		knowledgesources.NewProjects(catalog), knowledgeapp.WithMessages(knowledgesources.NewMessages(catalog)), knowledgeapp.WithLogger(deps.logger))
 	if err := knowledge.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
