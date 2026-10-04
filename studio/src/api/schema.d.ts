@@ -6358,6 +6358,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/assignment-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Vendors' quality report
+         * @description The quality numbers of completed assignments, by assignee and
+         *     locale (RFC 0006 §3.4), computed on read from the assignments,
+         *     the catalog, the translations' revision logs and the findings,
+         *     as the caller: it says nothing they could not read unit by unit.
+         *     At most 2000 assignments and 5000 units are read; `truncated`
+         *     says a bound stopped it. Filters: `project`, `vendor` (a vendor
+         *     `id`) and `since` (assignments completed at or after it).
+         *     Needs `assignments.read` in the project scope; a member whose
+         *     visibility is `assigned` is refused. Problem codes:
+         *     `invalid_query` (400), `workflow_instances_unavailable` (503, a
+         *     server built without the contexts a report reads).
+         */
+        get: operations["getAssignmentReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/assignments/{assignment}": {
         parameters: {
             query?: never;
@@ -11085,6 +11118,55 @@ export interface components {
             /** @description The member, group or vendor; absent for a role. */
             id?: components["schemas"]["Id"];
             role?: components["schemas"]["Role"];
+        };
+        AssignmentReport: {
+            since?: components["schemas"]["Timestamp"];
+            generated_at: components["schemas"]["Timestamp"];
+            /** @description A bound stopped the report; its numbers cover only what was read before it. */
+            truncated: boolean;
+            rows: components["schemas"]["AssignmentReportRow"][];
+        };
+        /** @description One assignee's completed work in one locale (RFC 0006 §3.4). */
+        AssignmentReportRow: {
+            /** @description As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`. */
+            assignee: string;
+            locale: components["schemas"]["Locale"];
+            assignments: number;
+            on_time: number;
+            late: number;
+            no_due: number;
+            units: number;
+            /** @description Units whose facts could not be read. */
+            unavailable: number;
+            source_words: number;
+            /** @description Source words delivered from translation memory, by match band (`exact`). */
+            tm_words: {
+                [key: string]: number;
+            };
+            approved: number;
+            rejected: number;
+            needs_review: number;
+            draft: number;
+            unreviewed: number;
+            changed_after_delivery: number;
+            /** Format: double */
+            mean_edit_distance: number;
+            /** Format: double */
+            mean_edit_ratio: number;
+            /** @description Open findings by layer. */
+            findings: {
+                [key: string]: number;
+            };
+            /** Format: double */
+            findings_per_unit: number;
+            reworked: number;
+            /** Format: double */
+            rework_rate: number;
+            /**
+             * Format: double
+             * @description On time over the assignments that had a due date.
+             */
+            on_time_rate: number;
         };
         /**
          * @description `open` and `accepted` are live; the others are final.
@@ -19892,6 +19974,41 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getAssignmentReport: {
+        parameters: {
+            query?: {
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                /** @description A vendor `id`. */
+                vendor?: components["schemas"]["Id"];
+                /** @description Only assignments completed at or after this time. */
+                since?: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows, sorted by assignee and locale. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getAssignment: {

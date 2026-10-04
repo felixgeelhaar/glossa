@@ -191,7 +191,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
 | `workflow` | Workflow definitions as files (RFC 0006 §2): `lint <file>` (the server's compile and lint, every finding with its rule, severity and path; exit 1 when a save would be refused), `push <file> [--project P] [--if-version N]` (create, or save the next version under `If-Match`; an unchanged document saves nothing), `pull <name> [--version N] [-o file]`, `list`, `show <name>`, `bind <name> [--locales de,fr] [--namespace ns]`, `unbind <name> \| --binding <id>`, `bindings`, `instances [--status --definition --locale --message]`, `log <instance-id>` (see *Workflows and assignments*). |
-| `assignments` | My work (RFC 0006 §3.1): `list` (the default; `--all` for everyone's, `--project --state --locale --message`), `show <id>`, `accept <id>`, `complete <id>`, `decline <id> [--reason]`, `create --to member:<id\|email>\|role:<role>\|group:<name>\|vendor:<name> --units key@locale,… [--project P] [--due T] [--permission P]` (see *Workflows and assignments*). |
+| `assignments` | My work (RFC 0006 §3.1): `list` (the default; `--all` for everyone's, `--project --state --locale --message`), `show <id>`, `accept <id>`, `complete <id>`, `decline <id> [--reason]`, `create --to member:<id\|email>\|role:<role>\|group:<name>\|vendor:<name> --units key@locale,… [--project P] [--due T] [--permission P]`, `report [--vendor ID] [--project P] [--since T]` (per-vendor quality numbers, RFC 0006 §3.4) (see *Workflows and assignments*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
 | `style` | `show [--locale --namespace]`: the effective style guide; `edit --file style.yaml`: create or replace one. |
@@ -434,7 +434,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.github.connections.add/v1` | `{connection: Connection}` |
 | `glossa.cli.github.connections.remove/v1` | `{connection_id}` |
 | `glossa.cli.workflow/v1` | Every `workflow` action, with `action` naming it: `lint` `{file, valid, errors, warnings, findings: [Finding]}`; `push` `{file, result (created \| saved \| unchanged \| invalid), definition: Definition \| null, findings: [Finding]}` (with `invalid`, exit 2 and the findings that refused it); `pull` with `-o` `{file, definition: Definition, version}` (without `-o` it prints the document itself, which is what `push` reads); `list` `{project_id, definitions: [Definition]}`; `show` `{definition: Definition, version, document, versions: [{version, created_by, created_at}], project_id, bindings: [Binding]}`; `bind`, `unbind` `{result (created \| unchanged \| removed), binding: Binding}`; `bindings` `{project_id, bindings: [Binding]}`; `instances` `{project_id, instances: [Instance]}`; `log` `{instance: Instance, transitions: [Transition]}` |
-| `glossa.cli.assignments/v1` | Every `assignments` action, with `action` naming it: `list` `{mine (false only with --all), assignments: [Assignment]}`; `show`, `accept`, `complete`, `decline` `{assignment: Assignment}`; `create` `{replayed?, assignment: Assignment}` |
+| `glossa.cli.assignments/v1` | Every `assignments` action, with `action` naming it: `list` `{mine (false only with --all), assignments: [Assignment]}`; `show`, `accept`, `complete`, `decline` `{assignment: Assignment}`; `create` `{replayed?, assignment: Assignment}`; `report` `{project?, vendor?, since?, generated_at, truncated, rows: [AssignmentReportRow]}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
 | `glossa.cli.context.push/v1` | `{file, source, replayed, build: {id, application_id, commit, branch, on_default_branch, source, tool: {name, version}, digest, usages, unknown_keys, created_by, created_at}}` (the API's `ContextBuild`) |
@@ -1109,7 +1109,18 @@ people, and the CLI signs in with API tokens, which are not members:
   (owner, admin) that no token scope grants:
   `assignments_manage_required`.
 
-Until the CLI can sign in as a person, these commands do their work for
+`glossa assignments report [--vendor ID] [--project P] [--since T]
+[--json]` is the vendors' quality report (RFC 0006 §3.4), the server's
+numbers as it computes them on read — on time and late, source words and
+words delivered from translation memory, review outcomes now, the
+reviewers' mean edit on the vendor's text, open findings per unit and
+rework — by assignee and locale. `--vendor` is a vendor's ID, `--since`
+an RFC 3339 time or a duration back from now (`720h`), and with no
+filter it covers every project the credential may read. It takes
+`assignments.read` (not `assignments.manage`), and a vendor's member,
+who sees only their own work, is refused. A bound on the work read (`truncated`) is said in the output.
+
+Until the CLI can sign in as a person, the other commands do their work for
 a credential that is one; Studio's My work is where people act on
 assignments today.
 

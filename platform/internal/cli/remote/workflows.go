@@ -23,6 +23,8 @@ type (
 	WorkflowInstance          = apiclient.WorkflowInstance
 	WorkflowTransition        = apiclient.WorkflowTransition
 	Assignment                = apiclient.Assignment
+	AssignmentReport          = apiclient.AssignmentReport
+	AssignmentReportRow       = apiclient.AssignmentReportRow
 	Party                     = apiclient.Party
 	Role                      = apiclient.Role
 )
@@ -249,6 +251,23 @@ func (c *Client) Assignments(ctx context.Context, tenant string, f AssignmentFil
 		}
 		return r.JSON200.Items, r.JSON200.NextPageToken, nil
 	})
+}
+
+// AssignmentReportFilter narrows AssignmentReport; an empty field
+// doesn't. Vendor is a vendor's id.
+type AssignmentReportFilter struct {
+	Project, Vendor string
+	Since           *time.Time
+}
+
+// AssignmentReport reads the per-vendor quality numbers (RFC 0006 §3.4).
+func (c *Client) AssignmentReport(ctx context.Context, tenant string, f AssignmentReportFilter) (AssignmentReport, error) {
+	params := apiclient.GetAssignmentReportParams{Project: optional(f.Project), Vendor: optional(f.Vendor), Since: f.Since}
+	r, err := c.api.GetAssignmentReportWithResponse(ctx, tenant, &params)
+	if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/assignment-reports")); err != nil {
+		return AssignmentReport{}, err
+	}
+	return *r.JSON200, nil
 }
 
 // Assignment reads one assignment.

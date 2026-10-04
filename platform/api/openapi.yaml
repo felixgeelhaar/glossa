@@ -9039,6 +9039,43 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
+  /v1/tenants/{tenant}/assignment-reports:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAssignmentReport
+      tags: [assignments]
+      summary: Vendors' quality report
+      description: |
+        The quality numbers of completed assignments, by assignee and
+        locale (RFC 0006 §3.4), computed on read from the assignments,
+        the catalog, the translations' revision logs and the findings,
+        as the caller: it says nothing they could not read unit by unit.
+        At most 2000 assignments and 5000 units are read; `truncated`
+        says a bound stopped it. Filters: `project`, `vendor` (a vendor
+        `id`) and `since` (assignments completed at or after it).
+        Needs `assignments.read` in the project scope; a member whose
+        visibility is `assigned` is refused. Problem codes:
+        `invalid_query` (400), `workflow_instances_unavailable` (503, a
+        server built without the contexts a report reads).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: vendor, in: query, required: false, description: A vendor `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: since, in: query, required: false, description: Only assignments completed at or after this time., schema: { $ref: "#/components/schemas/Timestamp" } }
+      responses:
+        "200":
+          description: The rows, sorted by assignee and locale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /v1/tenants/{tenant}/assignments/{assignment}:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -15289,6 +15326,44 @@ components:
         kind: { type: string, enum: [member, role, group, vendor] }
         id: { $ref: "#/components/schemas/Id", description: "The member, group or vendor; absent for a role." }
         role: { $ref: "#/components/schemas/Role" }
+    AssignmentReport:
+      type: object
+      required: [generated_at, rows, truncated]
+      properties:
+        since: { $ref: "#/components/schemas/Timestamp" }
+        generated_at: { $ref: "#/components/schemas/Timestamp" }
+        truncated: { type: boolean, description: A bound stopped the report; its numbers cover only what was read before it. }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentReportRow" }
+    AssignmentReportRow:
+      type: object
+      description: One assignee's completed work in one locale (RFC 0006 §3.4).
+      required: [assignee, locale, assignments, on_time, late, no_due, units, unavailable, source_words, tm_words, approved, rejected, needs_review, draft, unreviewed, changed_after_delivery, mean_edit_distance, mean_edit_ratio, findings, findings_per_unit, reworked, rework_rate, on_time_rate]
+      properties:
+        assignee: { type: string, description: "As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        assignments: { type: integer }
+        on_time: { type: integer }
+        late: { type: integer }
+        no_due: { type: integer }
+        units: { type: integer }
+        unavailable: { type: integer, description: Units whose facts could not be read. }
+        source_words: { type: integer }
+        tm_words: { type: object, additionalProperties: { type: integer }, description: "Source words delivered from translation memory, by match band (`exact`)." }
+        approved: { type: integer }
+        rejected: { type: integer }
+        needs_review: { type: integer }
+        draft: { type: integer }
+        unreviewed: { type: integer }
+        changed_after_delivery: { type: integer }
+        mean_edit_distance: { type: number, format: double }
+        mean_edit_ratio: { type: number, format: double }
+        findings: { type: object, additionalProperties: { type: integer }, description: Open findings by layer. }
+        findings_per_unit: { type: number, format: double }
+        reworked: { type: integer }
+        rework_rate: { type: number, format: double }
+        on_time_rate: { type: number, format: double, description: On time over the assignments that had a due date. }
     AssignmentState:
       type: string
       enum: [open, accepted, done, declined, expired]

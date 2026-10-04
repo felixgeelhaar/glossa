@@ -166,6 +166,53 @@ func (a *API) ListAssignments(ctx context.Context, req apiv1.ListAssignmentsRequ
 	return out, nil
 }
 
+// GetAssignmentReport serves the per-vendor quality numbers (RFC 0006
+// §3.4) from the same service method the assignments_report tool calls;
+// the permission, project scope and the refusal of an `assigned` member
+// are that method's.
+func (a *API) GetAssignmentReport(ctx context.Context, req apiv1.GetAssignmentReportRequestObject) (apiv1.GetAssignmentReportResponseObject, error) {
+	q := app.ReportQuery{}
+	if req.Params.Project != nil {
+		p, err := projectID(*req.Params.Project)
+		if err != nil {
+			return nil, err
+		}
+		q.Project = p
+	}
+	if req.Params.Vendor != nil {
+		v, err := uuid.Parse(*req.Params.Vendor)
+		if err != nil {
+			return nil, mapError(errQuery("vendor %q is not a vendor id", *req.Params.Vendor), nil)
+		}
+		q.Assignee = domain.Assignee{Kind: domain.AssigneeVendor, ID: v}.String()
+	}
+	if req.Params.Since != nil {
+		q.Since = *req.Params.Since
+	}
+	r, err := a.work.QualityReport(ctx, q)
+	if err != nil {
+		return nil, mapError(err, nil)
+	}
+	return toAssignmentReport(r), nil
+}
+
+func toAssignmentReport(r app.QualityReport) apiv1.GetAssignmentReport200JSONResponse {
+	out := apiv1.GetAssignmentReport200JSONResponse{
+		GeneratedAt: r.GeneratedAt.UTC(), Since: r.Since, Truncated: r.Truncated, Rows: make([]apiv1.AssignmentReportRow, len(r.Rows)),
+	}
+	for i, x := range r.Rows {
+		out.Rows[i] = apiv1.AssignmentReportRow{
+			Assignee: x.Assignee, Locale: x.Locale, Assignments: x.Assignments, OnTime: x.OnTime, Late: x.Late,
+			NoDue: x.NoDue, Units: x.Units, Unavailable: x.Unavailable, SourceWords: x.SourceWords, TmWords: x.TMWords,
+			Approved: x.Approved, Rejected: x.Rejected, NeedsReview: x.InReview, Draft: x.Draft, Unreviewed: x.Unreviewed,
+			ChangedAfterDelivery: x.Changed, MeanEditDistance: x.MeanEditDistance, MeanEditRatio: x.MeanEditRatio,
+			Findings: x.Findings, FindingsPerUnit: x.FindingsPerUnit, Reworked: x.Reworked, ReworkRate: x.ReworkRate,
+			OnTimeRate: x.OnTimeRate,
+		}
+	}
+	return out
+}
+
 // CreateAssignment gives a batch of units, named by key, to a party.
 func (a *API) CreateAssignment(ctx context.Context, req apiv1.CreateAssignmentRequestObject) (apiv1.CreateAssignmentResponseObject, error) {
 	if req.Body == nil {

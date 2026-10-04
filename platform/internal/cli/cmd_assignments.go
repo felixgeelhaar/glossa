@@ -88,6 +88,13 @@ Actions:
                       member:<id|email>, role:<role>, group:<name|id> or vendor:<name|id>;
                       --due is RFC 3339 or a duration from now (72h)
 
+  report [--vendor ID] [--project P] [--since T]
+                      the quality numbers of completed assignments by assignee and locale
+                      (on time, words from TM, review outcomes, edit, findings, rework);
+                      needs assignments.read and a member who is not limited to their own
+                      work. --vendor is a vendor's ID; --since is RFC 3339 or a duration
+                      back from now (720h)
+
 Assignments are a person's work: accepting, completing and declining take the assignee
 signed in, and creating one takes assignments.manage, which no API token scope grants.`
 
@@ -97,6 +104,7 @@ type assignmentsArgs struct {
 	project, state, locale   string
 	message, reason, to, due string
 	permission               string
+	vendor, since            string
 	units                    listFlag
 }
 
@@ -106,7 +114,9 @@ func parseAssignmentsArgs(inv *invocation, args []string) (assignmentsArgs, erro
 	fs := inv.flags(assignmentsUsage)
 	var a assignmentsArgs
 	fs.BoolVar(&a.all, "all", false, "list: everyone's assignments, not only mine (needs assignments.manage)")
-	fs.StringVar(&a.project, "project", "", "list: only this project's; create: the project (default glossa.yaml's)")
+	fs.StringVar(&a.project, "project", "", "list, report: only this project's; create: the project (default glossa.yaml's)")
+	fs.StringVar(&a.vendor, "vendor", "", "report: only this vendor's (its ID)")
+	fs.StringVar(&a.since, "since", "", "report: only assignments completed since, RFC 3339 or a duration back (720h)")
 	fs.StringVar(&a.state, "state", "", "list: only assignments in this state")
 	fs.StringVar(&a.locale, "locale", "", "list: only assignments with a unit in this locale")
 	fs.StringVar(&a.message, "message", "", "list: only assignments with a unit of this message (by key)")
@@ -136,6 +146,8 @@ func parseAssignmentsArgs(inv *invocation, args []string) (assignmentsArgs, erro
 			a.locale = l
 		}
 		return a, noMore(inv, pos)
+	case "report":
+		return a, noMore(inv, pos)
 	case "show", "accept", "complete", "decline":
 		if len(pos) == 0 {
 			return a, usageError(inv.name, "%s takes an assignment ID (`glossa assignments` lists yours)", a.action)
@@ -151,7 +163,7 @@ func parseAssignmentsArgs(inv *invocation, args []string) (assignmentsArgs, erro
 		}
 		return a, noMore(inv, pos)
 	}
-	return a, usageError(inv.name, "unknown action %q (list, show, accept, complete, decline, create)", a.action)
+	return a, usageError(inv.name, "unknown action %q (list, show, accept, complete, decline, create, report)", a.action)
 }
 
 func runAssignments(ctx context.Context, inv *invocation, args []string) error {
@@ -165,11 +177,21 @@ func runAssignments(ctx context.Context, inv *invocation, args []string) error {
 			return err
 		}
 	}
+	var since *time.Time
+	if a.action == "report" && a.since != "" {
+		t, err := parseReportSince(a.since, time.Now())
+		if err != nil {
+			return usageError(inv.name, "--since %q is neither RFC 3339 (2026-09-01T00:00:00Z) nor a duration back from now (720h)", a.since)
+		}
+		since = &t
+	}
 	p, err := inv.connect(ctx)
 	if err != nil {
 		return err
 	}
 	switch a.action {
+	case "report":
+		return inv.assignmentsReport(ctx, p, a, since)
 	case "list":
 		return inv.assignmentsList(ctx, p, a)
 	case "show":

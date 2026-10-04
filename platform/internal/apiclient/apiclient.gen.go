@@ -3575,6 +3575,62 @@ type AssignmentList struct {
 	NextPageToken *string      `json:"next_page_token,omitempty"`
 }
 
+// AssignmentReport defines model for AssignmentReport.
+type AssignmentReport struct {
+	// GeneratedAt RFC 3339, UTC.
+	GeneratedAt Timestamp             `json:"generated_at"`
+	Rows        []AssignmentReportRow `json:"rows"`
+
+	// Since RFC 3339, UTC.
+	Since *Timestamp `json:"since,omitempty"`
+
+	// Truncated A bound stopped the report; its numbers cover only what was read before it.
+	Truncated bool `json:"truncated"`
+}
+
+// AssignmentReportRow One assignee's completed work in one locale (RFC 0006 §3.4).
+type AssignmentReportRow struct {
+	Approved int `json:"approved"`
+
+	// Assignee As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`.
+	Assignee             string `json:"assignee"`
+	Assignments          int    `json:"assignments"`
+	ChangedAfterDelivery int    `json:"changed_after_delivery"`
+	Draft                int    `json:"draft"`
+
+	// Findings Open findings by layer.
+	Findings        map[string]int `json:"findings"`
+	FindingsPerUnit float64        `json:"findings_per_unit"`
+	Late            int            `json:"late"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale           Locale  `json:"locale"`
+	MeanEditDistance float64 `json:"mean_edit_distance"`
+	MeanEditRatio    float64 `json:"mean_edit_ratio"`
+	NeedsReview      int     `json:"needs_review"`
+	NoDue            int     `json:"no_due"`
+	OnTime           int     `json:"on_time"`
+
+	// OnTimeRate On time over the assignments that had a due date.
+	OnTimeRate  float64 `json:"on_time_rate"`
+	Rejected    int     `json:"rejected"`
+	ReworkRate  float64 `json:"rework_rate"`
+	Reworked    int     `json:"reworked"`
+	SourceWords int     `json:"source_words"`
+
+	// TmWords Source words delivered from translation memory, by match band (`exact`).
+	TmWords map[string]int `json:"tm_words"`
+
+	// Unavailable Units whose facts could not be read.
+	Unavailable int `json:"unavailable"`
+	Units       int `json:"units"`
+	Unreviewed  int `json:"unreviewed"`
+}
+
 // AssignmentState `open` and `accepted` are live; the others are final.
 type AssignmentState string
 
@@ -9724,6 +9780,18 @@ type ListApprovalsParams struct {
 	State   *ApprovalState   `form:"state,omitempty" json:"state,omitempty"`
 }
 
+// GetAssignmentReportParams defines parameters for GetAssignmentReport.
+type GetAssignmentReportParams struct {
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Vendor A vendor `id`.
+	Vendor *Id `form:"vendor,omitempty" json:"vendor,omitempty"`
+
+	// Since Only assignments completed at or after this time.
+	Since *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
 // ListAssignmentsParams defines parameters for ListAssignments.
 type ListAssignmentsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -12282,6 +12350,23 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
 	DecideApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAssignmentReport Vendors' quality report
+	//
+	// The quality numbers of completed assignments, by assignee and
+	// locale (RFC 0006 §3.4), computed on read from the assignments,
+	// the catalog, the translations' revision logs and the findings,
+	// as the caller: it says nothing they could not read unit by unit.
+	// At most 2000 assignments and 5000 units are read; `truncated`
+	// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+	// `id`) and `since` (assignments completed at or after it).
+	// Needs `assignments.read` in the project scope; a member whose
+	// visibility is `assigned` is refused. Problem codes:
+	// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+	// server built without the contexts a report reads).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+	GetAssignmentReport(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAssignments Assignments, or my work
 	//
@@ -18783,6 +18868,33 @@ func (c *Client) DecideApprovalWithBody(ctx context.Context, tenant TenantPath, 
 // Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
 func (c *Client) DecideApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDecideApprovalRequest(c.Server, tenant, approval, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAssignmentReport Vendors' quality report
+//
+// The quality numbers of completed assignments, by assignee and
+// locale (RFC 0006 §3.4), computed on read from the assignments,
+// the catalog, the translations' revision logs and the findings,
+// as the caller: it says nothing they could not read unit by unit.
+// At most 2000 assignments and 5000 units are read; `truncated`
+// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+// `id`) and `since` (assignments completed at or after it).
+// Needs `assignments.read` in the project scope; a member whose
+// visibility is `assigned` is refused. Problem codes:
+// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+// server built without the contexts a report reads).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+func (c *Client) GetAssignmentReport(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssignmentReportRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -29115,6 +29227,91 @@ func NewDecideApprovalRequestWithBody(server string, tenant TenantPath, approval
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetAssignmentReportRequest constructs an http.Request for the GetAssignmentReport method
+func NewGetAssignmentReportRequest(server string, tenant TenantPath, params *GetAssignmentReportParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignment-reports", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Vendor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "vendor", *params.Vendor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -44482,6 +44679,25 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
 	DecideApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error)
 
+	// GetAssignmentReportWithResponse Vendors' quality report
+	//
+	// The quality numbers of completed assignments, by assignee and
+	// locale (RFC 0006 §3.4), computed on read from the assignments,
+	// the catalog, the translations' revision logs and the findings,
+	// as the caller: it says nothing they could not read unit by unit.
+	// At most 2000 assignments and 5000 units are read; `truncated`
+	// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+	// `id`) and `since` (assignments completed at or after it).
+	// Needs `assignments.read` in the project scope; a member whose
+	// visibility is `assigned` is refused. Problem codes:
+	// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+	// server built without the contexts a report reads).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+	GetAssignmentReportWithResponse(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*GetAssignmentReportResponse, error)
+
 	// ListAssignmentsWithResponse Assignments, or my work
 	//
 	// What the caller may see. With `assignments.manage`, every
@@ -53036,6 +53252,82 @@ func (r DecideApprovalResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DecideApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAssignmentReportResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AssignmentReport
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAssignmentReportResponse) GetJSON200() *AssignmentReport {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAssignmentReportResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAssignmentReportResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAssignmentReportResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAssignmentReportResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70114,6 +70406,31 @@ func (c *ClientWithResponses) DecideApprovalWithResponse(ctx context.Context, te
 	return ParseDecideApprovalResponse(rsp)
 }
 
+// GetAssignmentReportWithResponse Vendors' quality report
+//
+// The quality numbers of completed assignments, by assignee and
+// locale (RFC 0006 §3.4), computed on read from the assignments,
+// the catalog, the translations' revision logs and the findings,
+// as the caller: it says nothing they could not read unit by unit.
+// At most 2000 assignments and 5000 units are read; `truncated`
+// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+// `id`) and `since` (assignments completed at or after it).
+// Needs `assignments.read` in the project scope; a member whose
+// visibility is `assigned` is refused. Problem codes:
+// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+// server built without the contexts a report reads).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+func (c *ClientWithResponses) GetAssignmentReportWithResponse(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*GetAssignmentReportResponse, error) {
+	rsp, err := c.GetAssignmentReport(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAssignmentReportResponse(rsp)
+}
+
 // ListAssignmentsWithResponse Assignments, or my work
 //
 // What the caller may see. With `assignments.manage`, every
@@ -79675,6 +79992,67 @@ func ParseDecideApprovalResponse(rsp *http.Response) (*DecideApprovalResponse, e
 			return nil, err
 		}
 		response.ApplicationproblemJSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAssignmentReportResponse parses an HTTP response from a GetAssignmentReportWithResponse call
+func ParseGetAssignmentReportResponse(rsp *http.Response) (*GetAssignmentReportResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAssignmentReportResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AssignmentReport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 

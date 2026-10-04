@@ -290,6 +290,10 @@ var restrictions = map[string]restriction{
 	// else (assignedOwn). Approvals are workflows.read and
 	// approvals.decide, which an assigned member never holds: a vendor
 	// delivers work, it does not sign it off.
+	// The vendor quality report (§3.4) is assignments.read in the
+	// project scope, cut to it in the query, and refused to an assigned
+	// member: the numbers are about vendors, and a vendor delivers work.
+	"GET /v1/tenants/{tenant}/assignment-reports":                                                    rowsDenied,
 	"GET /v1/tenants/{tenant}/assignments":                                                           rowsOwn,
 	"POST /v1/tenants/{tenant}/assignments":                                                          rowsDenied,
 	"GET /v1/tenants/{tenant}/assignments/{assignment}":                                              rowsOwn,

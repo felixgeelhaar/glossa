@@ -31,6 +31,11 @@ type fakeWorkflows struct {
 	noInstances bool
 	// mine is the assignee the caller is, for "my work".
 	mine string
+	// reportRows are the quality report's rows; lastReportQuery the raw
+	// query the last report sent.
+	reportRows      []map[string]any
+	reportTruncated bool
+	lastReportQuery string
 	// lastListMine is the mine parameter the last list sent.
 	lastListMine string
 	saves        int
@@ -69,6 +74,7 @@ func (f *fakeServer) routeWorkflows(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+p+"/workflow-instances", f.wfInstances)
 	mux.HandleFunc("GET "+p+"/workflow-instances/{id}", f.wfInstance)
 	mux.HandleFunc("GET "+p+"/workflow-instances/{id}/transitions", f.wfTransitions)
+	mux.HandleFunc("GET "+t+"/assignment-reports", f.asReport)
 	mux.HandleFunc("GET "+t+"/assignments", f.asList)
 	mux.HandleFunc("POST "+t+"/assignments", f.asCreate)
 	mux.HandleFunc("GET "+t+"/assignments/{id}", f.asGet)
@@ -453,6 +459,35 @@ func (a *fakeAssignment) assignee() string {
 		return "role:" + who["role"].(string)
 	}
 	return who["kind"].(string) + ":" + who["id"].(string)
+}
+
+// asReport serves the quality report: the rows in wf.reportRows, cut to
+// the vendor asked for, and the query it saw in wf.lastReportQuery. An
+// `assigned` caller (refuseAssign) is refused, as the service does.
+func (f *fakeServer) asReport(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.wf.lastReportQuery = r.URL.RawQuery
+	if f.wf.refuseAssign {
+		problemResp(w, 403, "forbidden", "missing permission assignments.read")
+		return
+	}
+	if v := q.Get("vendor"); v != "" && !strings.HasPrefix(v, "ven_") {
+		problemResp(w, 400, "invalid_query", "vendor is not a vendor id")
+		return
+	}
+	rows := []map[string]any{}
+	for _, row := range f.wf.reportRows {
+		if v := q.Get("vendor"); v == "" || row["assignee"] == "vendor:"+v {
+			rows = append(rows, row)
+		}
+	}
+	doc := map[string]any{"generated_at": fakeWorkflowTime, "rows": rows, "truncated": f.wf.reportTruncated}
+	if s := q.Get("since"); s != "" {
+		doc["since"] = s
+	}
+	writeJSONResp(w, 200, doc)
 }
 
 func (f *fakeServer) asList(w http.ResponseWriter, r *http.Request) {

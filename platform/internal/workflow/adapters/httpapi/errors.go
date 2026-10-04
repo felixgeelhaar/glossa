@@ -59,6 +59,7 @@ var problems = []struct {
 	// A server without an instance store says so, rather than answering
 	// an empty list that would read as "nothing is in flight".
 	{app.ErrInstancesUnavailable, http.StatusServiceUnavailable, codeInstancesUnavailable, ""},
+	{app.ErrReportUnavailable, http.StatusServiceUnavailable, codeInstancesUnavailable, ""},
 	// Who is deciding (§3.2, §9.3) — each is also authz.ErrForbidden,
 	// and answered with its own code rather than the generic one.
 	{domain.ErrNotHuman, http.StatusForbidden, codePersonRequired,
