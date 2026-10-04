@@ -653,11 +653,17 @@ func (v *v03Server) seed(keys []v03Key) error {
 			return err
 		}
 	}
-	var audit []json.RawMessage
-	if err := v.call(http.MethodGet, "/admin/audit?limit=10000", nil, &audit); err != nil {
+	// Counted in v0.3's database, not through /admin/audit, which caps
+	// a page at 100 rows: the bulk writes above log one row per
+	// translation, so the history is far longer than one page.
+	conn, err := pgx.Connect(context.Background(), v.dsn("v03"))
+	if err != nil {
 		return err
 	}
-	v.audit = len(audit)
+	defer conn.Close(context.Background())
+	if err := conn.QueryRow(context.Background(), "SELECT count(*) FROM audit_log").Scan(&v.audit); err != nil {
+		return fmt.Errorf("count v0.3's audit_log: %w", err)
+	}
 	// What v0.3 serves its consumers: the bundles §12.6 renders the v0.3
 	// side from.
 	v.bundles = map[string]map[string]string{}
