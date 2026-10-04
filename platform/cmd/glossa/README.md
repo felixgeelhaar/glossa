@@ -190,7 +190,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `branch` | `status [<name>]`: what the branch proposes — new keys, source proposals, removed keys, key conflicts with other open branches, and the translations per locale merging it will make outdated (exit 1 on a conflict). `close [<name>]`: closes an unmerged branch, which destroys its preview environment; its proposed messages become obsolete 14 days later unless it is reopened. Without `<name>`, the branch comes from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME`. |
 | `preview register --url <url>` | Records where CI deployed the branch's preview (`--branch`, else the CI environment's). Studio and the pull request comment link to it. |
 | `github connections` | Git connections — which repository feeds which project and application (RFC 0004 §6.1): `list [--project P \| --all-projects] [--installation I]`, `add --repository <id\|owner/name> --application A [--project P] [--path apps/web] [--branch main] [--installation I]`, `remove <connection-id>` (see *Git connections*). |
-| `workflow` | Workflow definitions as files (RFC 0006 §2): `lint <file>` (the server's compile and lint, every finding with its rule, severity and path; exit 1 when a save would be refused), `push <file> [--project P] [--if-version N]` (create, or save the next version under `If-Match`; an unchanged document saves nothing), `pull <name> [--version N] [-o file]`, `list`, `show <name>`, `bind <name> [--locales de,fr] [--namespace ns]`, `unbind <name> \| --binding <id>`, `bindings`, `instances [--status --definition --locale --message]`, `log <instance-id>` (see *Workflows and assignments*). |
+| `workflow` | Workflow definitions as files (RFC 0006 §2): `lint <file>` (the server's compile and lint, every finding with its rule, severity and path; exit 1 when a save would be refused), `push <file> [--project P] [--if-version N]` (create, or save the next version under `If-Match`; an unchanged document saves nothing), `pull <name> [--version N] [-o file]`, `export <name> [--version N] [-o file]` and `import <file> [--project P] [--if-version N]` (the same two by their portable names: the document alone, to move a definition between tenants or servers), `list`, `show <name>`, `bind <name> [--locales de,fr] [--namespace ns]`, `unbind <name> \| --binding <id>`, `bindings`, `instances [--status --definition --locale --message]`, `log <instance-id>`, `rebase <instance-id> [--version N]` (move a running instance to a newer version, keeping its state) (see *Workflows and assignments*). |
 | `assignments` | My work (RFC 0006 §3.1): `list` (the default; `--all` for everyone's, `--project --state --locale --message`), `show <id>`, `accept <id>`, `complete <id>`, `decline <id> [--reason]`, `create --to member:<id\|email>\|role:<role>\|group:<name>\|vendor:<name> --units key@locale,… [--project P] [--due T] [--permission P]`, `report [--vendor ID] [--project P] [--since T]` (per-vendor quality numbers, RFC 0006 §3.4) (see *Workflows and assignments*). |
 | `tm` | Translation memory: `search <text> --to L`, `concordance <text>`, `units [--locale-pair de:en] [--retire <id>]` (see *Knowledge and AI*); `export` / `import <file>`: TMX (`export`/`import --format tmx`). |
 | `terms` | Termbase: `list`, `show`, `add`, `edit`, `deprecate`, `forbid`, and `check`, terminology QA over the project's translations; `export` / `import <file>`: TBX (`export`/`import --format tbx`). |
@@ -436,7 +436,7 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.github.connections.list/v1` | `{project_id (null: the whole workspace), connections: [Connection]}` |
 | `glossa.cli.github.connections.add/v1` | `{connection: Connection}` |
 | `glossa.cli.github.connections.remove/v1` | `{connection_id}` |
-| `glossa.cli.workflow/v1` | Every `workflow` action, with `action` naming it: `lint` `{file, valid, errors, warnings, findings: [Finding]}`; `push` `{file, result (created \| saved \| unchanged \| invalid), definition: Definition \| null, findings: [Finding]}` (with `invalid`, exit 2 and the findings that refused it); `pull` with `-o` `{file, definition: Definition, version}` (without `-o` it prints the document itself, which is what `push` reads); `list` `{project_id, definitions: [Definition]}`; `show` `{definition: Definition, version, document, versions: [{version, created_by, created_at}], project_id, bindings: [Binding]}`; `bind`, `unbind` `{result (created \| unchanged \| removed), binding: Binding}`; `bindings` `{project_id, bindings: [Binding]}`; `instances` `{project_id, instances: [Instance]}`; `log` `{instance: Instance, transitions: [Transition]}` |
+| `glossa.cli.workflow/v1` | Every `workflow` action, with `action` naming it: `lint` `{file, valid, errors, warnings, findings: [Finding]}`; `push` and `import` `{file, result (created \| saved \| unchanged \| invalid), definition: Definition \| null, findings: [Finding]}` (with `invalid`, exit 2 and the findings that refused it); `pull` and `export` with `-o` `{file, definition: Definition, version}` (without `-o` they print the document itself, which is what `push` and `import` read); `rebase` `{from_version, instance: Instance}`; `list` `{project_id, definitions: [Definition]}`; `show` `{definition: Definition, version, document, versions: [{version, created_by, created_at}], project_id, bindings: [Binding]}`; `bind`, `unbind` `{result (created \| unchanged \| removed), binding: Binding}`; `bindings` `{project_id, bindings: [Binding]}`; `instances` `{project_id, instances: [Instance]}`; `log` `{instance: Instance, transitions: [Transition]}` |
 | `glossa.cli.assignments/v1` | Every `assignments` action, with `action` naming it: `list` `{mine (false only with --all), assignments: [Assignment]}`; `show`, `accept`, `complete`, `decline` `{assignment: Assignment}`; `create` `{replayed?, assignment: Assignment}`; `report` `{project?, vendor?, since?, generated_at, truncated, rows: [AssignmentReportRow]}` |
 | `glossa.cli.pull/v1` | `{states, locales: [{locale, path, messages, skipped: {state: n}, outdated, changed}], release?: {dir, release_id, version, environment, locales, artifacts, bytes, removed}}` |
 | `glossa.usages/v1` | `extract --json` (with or without `--upload`): `{application, commit, branch, tool: {name, version}, usages: [{key, file, line, column, component?, route?, kind}]}`, sorted by key, file, line, column; kind is `t`, `component`, `element`, `accessor` or `template` (the schema: `runtimes/testdata/schemas/usages.v1.schema.json`) |
@@ -1094,9 +1094,29 @@ request, push it on merge.
   the world had moved on, `refused` when an action was not allowed.
 - A name both the tenant and the project define is
   `workflow_ambiguous`: pass the ID.
+- **Export and import** move a definition between tenants or servers:
+  `export <name> [--version N] [-o file]` writes the `glossa.workflow/v1`
+  document alone — no IDs, no tenant, no version number — and `import
+  <file>` creates it (tenant-wide, or the project's own with
+  `--project`) or saves it as the next version of the definition of its
+  name, with the server's findings shown, exactly as `push` does. They
+  are `pull` and `push` by the names a migration looks for; no extra
+  endpoint is involved.
+- **`rebase <instance-id> [--version N]`** moves a running instance to
+  the definition's latest (or Nth) version, keeping its state by name
+  (RFC 0006 §2.3). It is refused when that version has no such state to
+  wait in (`workflow_rebase_state_missing`) or has it as final
+  (`workflow_rebase_state_final`), when the version is not newer
+  (`invalid_workflow_rebase`), or for a finished instance
+  (`workflow_instance_finished`) — exit 2 for each, nothing changed. The
+  rebase runs nothing again: what the state asked for (an assignment, an
+  approval, a due date) stands, and `log` shows it as event `rebase`. It
+  is sent with `If-Match` on the version read just before, so a rebase
+  someone else made in between is `precondition_failed` rather than
+  repeated.
 
 **Credentials.** Reading workflows needs a token with the `read` scope.
-Saving and binding need `workflows.manage`, which an API token holds
+Saving, binding and rebasing need `workflows.manage`, which an API token holds
 only with the opt-in **`workflows` scope** — no other scope implies it —
 and a GitHub Actions credential never holds: such a refusal is
 `workflows_scope_required` and says exactly that.
