@@ -525,6 +525,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Locales:      mcpTranslations,
 		Translator:   mcpsources.NewIntelligence(intelligence),
 		Releases:     mcpsources.NewReleases(release),
+		Workflow:     mcpsources.NewWorkflow(workflow, wf.work, workflowapp.NewInstances(wf.instances, workflowCatalog), workflowCatalog),
+		ReleaseReads: mcpsources.NewReleaseReads(release),
 	})
 	return c, nil
 }

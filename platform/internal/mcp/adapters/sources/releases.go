@@ -155,3 +155,70 @@ func releaseOf(rel release.Release) tools.Release {
 	}
 	return out
 }
+
+// ReleaseReads adapts Release's request and rollout lists to
+// tools.ReleaseReads (RFC 0006 §8): the services the API lists with,
+// so releases.read, project scope and the environment's existence are
+// the context's.
+type ReleaseReads struct{ release *releaseapp.Service }
+
+// NewReleaseReads returns the adapter.
+func NewReleaseReads(s *releaseapp.Service) *ReleaseReads { return &ReleaseReads{release: s} }
+
+var _ tools.ReleaseReads = (*ReleaseReads)(nil)
+
+// ReleaseRequests implements tools.ReleaseReads.
+func (a *ReleaseReads) ReleaseRequests(
+	ctx context.Context, project uuid.UUID, environment, state, cursor string, limit int,
+) ([]tools.ReleaseRequest, string, error) {
+	pg, err := page(cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	rows, nextToken, err := a.release.ListReleaseRequests(ctx, project, environment, release.RequestState(state), pg)
+	if err != nil {
+		return nil, "", notFound(err, releaseNotFound...)
+	}
+	out := make([]tools.ReleaseRequest, len(rows))
+	for i, r := range rows {
+		out[i] = tools.ReleaseRequest{
+			ID: r.ID.String(), Environment: r.Environment, ReleaseID: r.ReleaseID.String(), Action: string(r.Action),
+			Requester: r.Requester, ApprovalsRequired: r.Approval.N, State: string(r.State), Forced: r.Override.Forced,
+			GateMet: r.Verdict.Met, GateUnmet: r.Verdict.Unmet, CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339),
+			DecidedBy: r.DecidedBy,
+		}
+		if r.Override.Forced {
+			out[i].ForceReason = r.Override.Reason
+		}
+		if r.DecidedAt != nil {
+			out[i].DecidedAt = r.DecidedAt.UTC().Format(time.RFC3339)
+		}
+	}
+	return out, next(nextToken), nil
+}
+
+// Rollouts implements tools.ReleaseReads.
+func (a *ReleaseReads) Rollouts(
+	ctx context.Context, project uuid.UUID, environment, cursor string, limit int,
+) ([]tools.Rollout, string, error) {
+	pg, err := page(cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	rows, nextToken, err := a.release.ListRollouts(ctx, project, environment, pg)
+	if err != nil {
+		return nil, "", notFound(err, releaseNotFound...)
+	}
+	out := make([]tools.Rollout, len(rows))
+	for i, r := range rows {
+		out[i] = tools.Rollout{
+			ID: r.ID.String(), Environment: r.Environment, Candidate: r.Candidate.String(), Stable: r.Stable.String(),
+			Percent: r.Percent, Status: string(r.Status), StartedBy: r.StartedBy,
+			StartedAt: r.StartedAt.UTC().Format(time.RFC3339), ExpiresAt: r.ExpiresAt.UTC().Format(time.RFC3339),
+		}
+		if !r.Active() {
+			out[i].End, out[i].EndedAt = string(r.End), r.EndedAt.UTC().Format(time.RFC3339)
+		}
+	}
+	return out, next(nextToken), nil
+}

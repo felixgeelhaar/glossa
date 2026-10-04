@@ -688,4 +688,7 @@ type Sources struct {
 	Locales      LocaleWriter
 	Translator   Translator
 	Releases     Releases
+	// Workflow and ReleaseReads are the M5 read ports (RFC 0006 §8).
+	Workflow     Workflow
+	ReleaseReads ReleaseReads
 }
