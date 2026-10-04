@@ -90,6 +90,7 @@ import (
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
 	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
+	workflowdomain "github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
 // contexts are the bounded contexts besides Identity, wired to each
@@ -248,6 +249,10 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, quali
 // within contextUploadTimeout, and a tenant uploads at most 10 a minute
 // in bursts of up to 60 (a CI run uploads a few per application).
 const contextUploadTimeout = 2 * time.Minute
+
+// assignmentBodyTimeout bounds reading and answering a createAssignment
+// whose body may run to MaxAssignmentBodyBytes.
+const assignmentBodyTimeout = time.Minute
 
 // captureUploadTimeout bounds reading a capture upload: up to
 // contextdomain.MaxCaptureUploadBytes (200 MB) of images from CI.
@@ -649,6 +654,8 @@ func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPol
 			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
 			// while it streams, with its own problem code.
 			return httpserver.BodyPolicy{Timeout: cfg.UploadTimeout}, true
+		case workflowapi.CreateAssignmentPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: workflowdomain.MaxAssignmentBodyBytes, Timeout: assignmentBodyTimeout}, true
 		case integrationapi.DownloadPath(r.Method, r.URL.Path):
 			return httpserver.BodyPolicy{MaxBytes: 1, Timeout: cfg.UploadTimeout}, true
 		}

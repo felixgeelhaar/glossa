@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -422,4 +423,13 @@ func (a *API) DecideReleaseRequest(ctx context.Context, req apiv1.DecideReleaseR
 		return nil, mapError(err, problem.New(http.StatusConflict, problem.CodeConflict, "the approval changed meanwhile; retry"))
 	}
 	return apiv1.DecideReleaseRequest201JSONResponse(toApproval(x)), nil
+}
+
+// CreateAssignmentPath reports whether a request creates an assignment,
+// whose body may carry up to domain.MaxAssignmentUnits units and so
+// outgrows the server's default body limit.
+func CreateAssignmentPath(method, path string) bool {
+	s := strings.Split(path, "/")
+	return method == http.MethodPost && len(s) == 5 && s[0] == "" && s[1] == "v1" && s[2] == "tenants" && s[3] != "" &&
+		s[4] == "assignments"
 }

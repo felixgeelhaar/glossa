@@ -42,11 +42,12 @@ const CoverageWindow = 30 * 24 * time.Hour
 
 // Bounds on an assignment.
 const (
-	// MaxAssignmentUnits bounds one assignment's batch. RFC 0006 §9.6
-	// allows 10,000; an assignment's units travel with it in every list
-	// and in My work, so the API has always taken at most 1,000 in one
-	// request (amended in wave 6).
-	MaxAssignmentUnits = 1000
+	// MaxAssignmentUnits bounds one assignment's batch (RFC 0006 §9.6).
+	MaxAssignmentUnits = 10000
+	// MaxAssignmentBodyBytes is createAssignment's request-body limit:
+	// MaxAssignmentUnits units at the longest key and locale fit with
+	// room to spare, above the server's 1 MiB default.
+	MaxAssignmentBodyBytes = 4 << 20
 	// MaxOpenAssignments bounds the live (open or accepted) assignments
 	// one assignee — a member, a role, a group or a vendor — holds at
 	// once in a tenant (RFC 0006 §9.6).
