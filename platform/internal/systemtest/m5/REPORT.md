@@ -66,19 +66,19 @@ missing; the steps after the first missing one are listed as *not reached*.
 | ✅ | B: the second reviewer's approval makes it `approved`, by that reviewer in the revision log | held |
 | ✅ | both instances reached a final state, every action ran as a person, never as Workflow's principal | held |
 
-§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.315s
+§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.283s
 
 The transition logs:
 
 ```text
-2272754f:  —translation.outdated→ reviewing (person:01a106ac-8ea4-7148-933f-7d1d3248d8a1)
-2272754f: reviewing —translation.reviewed→ reviewing (person:01a106ac-8ea4-7148-933f-7d1d3248d8a1)
-2272754f: reviewing —approval.granted→ done (person:01a106ac-8ee0-72fd-877d-709ad6a2ad13)
-eb6ab64b:  —translation.outdated→ translating (person:01a106ac-8ea4-7148-933f-7d1d3248d8a1)
-eb6ab64b: translating —translation.revised→ translating (person:01a106ac-906a-7582-861b-75a0808fb948)
-eb6ab64b: translating —assignment.completed→ reviewing (person:01a106ac-906a-7582-861b-75a0808fb948)
-eb6ab64b: reviewing —approval.granted→ reviewing (person:01a106ac-8ee0-72fd-877d-709ad6a2ad13)
-eb6ab64b: reviewing —approval.granted→ done (person:01a106ac-8f00-7655-96e3-3171ba17a1a6)
+cd4afba0:  —translation.outdated→ reviewing (person:01a1078d-b558-7ee0-a497-b7e7ec8d07b2)
+cd4afba0: reviewing —translation.reviewed→ reviewing (person:01a1078d-b558-7ee0-a497-b7e7ec8d07b2)
+cd4afba0: reviewing —approval.granted→ done (person:01a1078d-b590-7c63-a26e-ddd2036ec62e)
+26982911:  —translation.outdated→ translating (person:01a1078d-b558-7ee0-a497-b7e7ec8d07b2)
+26982911: translating —translation.revised→ translating (person:01a1078d-b6cd-7b37-ae25-8395d6b5a41e)
+26982911: translating —assignment.completed→ reviewing (person:01a1078d-b6cd-7b37-ae25-8395d6b5a41e)
+26982911: reviewing —approval.granted→ reviewing (person:01a1078d-b590-7c63-a26e-ddd2036ec62e)
+26982911: reviewing —approval.granted→ done (person:01a1078d-b5a6-7704-9c98-330eed3e5056)
 ```
 
 ## §12.2 — vendor visibility on every surface
@@ -90,16 +90,17 @@ eb6ab64b: reviewing —approval.granted→ done (person:01a106ac-8f00-7655-96e3-
 | ✅ | writes outside the assignment are refused | held |
 | ✅ | export, import and TM search are refused | held |
 
-The sweep generated 128 GET operations from platform/api/openapi.yaml.
+The sweep generated 130 GET operations from platform/api/openapi.yaml.
 
-The vendor member could not create an API token (HTTP 403: {"type":"urn:glossa:problem:forbidden","title":"Forbidden","status":403,"code":"forbidden","detail":"missing permission tokens.manage"}), so no MCP tool is reachable as them.
+The vendor member could not create an API token (HTTP 403: {"type":"urn:glossa:problem:forbidden","title":"Forbidden","status":403,"code":"forbidden","detail":"missing permission tokens.manage"}), so no MCP tool is reachable as them. Each tool is listed from an owner's session with the verdict "unreachable as the member"; none was called.
 
 ### The coverage table
 
 Every GET operation of `platform/api/openapi.yaml`, called as the vendor's translator — inside the
 assignment (project B, an assigned unit) and, where the operation is addressed by a project or a
-message, outside it (project A, an unassigned unit, which must answer 404). **128 hold, 0 show something
+message, outside it (project A, an unassigned unit, which must answer 404). **130 hold, 0 show something
 outside the assignment or answer undocumented, 0 have no verdict** (no fixture id to address them).
+An operation of the spec with no row at all, or a row marked ∅, fails §12.2.
 
 | | Operation | Inside | Outside | Why |
 |---|---|---|---|---|
@@ -186,7 +187,9 @@ outside the assignment or answer undocumented, 0 have no verdict** (no fixture i
 | ✅ | `listSourceRevisions` | 200 | 404, 404 |  |
 | ✅ | `listMessageTranslations` | 200 | 404, 404 |  |
 | ✅ | `getTranslation` | 200 | 404, 404 |  |
+| ✅ | `listUnitAISuggestions` | 200 | 404, 404 |  |
 | ✅ | `listTranslationRevisions` | 200 | 404, 404 |  |
+| ✅ | `listUnitTMMatches` | 200 | 404, 404 |  |
 | ✅ | `listMessageUsages` | 200 | 404, 404 |  |
 | ✅ | `listNamespaces` | 403 | 404 |  |
 | ✅ | `listPreviewOrigins` | 403 | 404 |  |
@@ -237,6 +240,22 @@ The MCP read tools, as the same member:
 | | Tool | Answer | Why |
 |---|---|---|---|
 | ✅ | `(connect)` | no token | refused at token creation |
+| ✅ | `assignments_list` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `assignments_report` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `catalog_search` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `check_run` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `explain_delivery` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `findings_list` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `message_get` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `release_requests_list` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `rollouts_list` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `style_rules` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `term_lookup` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `tm_search` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `translation_get` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `usages_get` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `whoami` | unreachable | the member can hold no token, so cannot open a session; not called |
+| ✅ | `workflow_state` | unreachable | the member can hold no token, so cannot open a session; not called |
 
 ## §12.3 — release approvals
 
@@ -257,8 +276,8 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 | ✅ | before approvals are required | v4 |
 | ✅ | right after the publish | previous release |
 | ✅ | after one approval | previous release |
-| ✅ | after the second approval | release 724d9ac4 |
-| ✅ | after a rollback, no approval | the earlier release, within 2.1s |
+| ✅ | after the second approval | release ed134611 |
+| ✅ | after a rollback, no approval | the earlier release, within 1.9s |
 
 ## §12.4 — staged rollout across three runtimes
 
@@ -275,7 +294,7 @@ What `glossa-edge` served for project B's `production`, read over HTTP from the 
 | ✅ | complete: the pointer moves to the candidate and the rollout member is gone | held |
 
 The generator's table (`runtimes/testdata/rollout/cohorts.json`): 10000 installation ids; under its salt `c3RhZ2VkLXJvbGxvdXQtMQ`, 1004 are in the candidate at 10 %.
-The edge's manifest carried salt `ieq-cFN6T6ptyY8dLM4Qjg`; the expected cohorts under it come from `generate.py`.
+The edge's manifest carried salt `7XVZI5VVGkpY1msLyCaoUA`; the expected cohorts under it come from `generate.py`.
 
 | | Phase | Runtime | In the candidate | Disagree with the generator | Note |
 |---|---|---|---:|---:|---|
@@ -285,15 +304,15 @@ The edge's manifest carried salt `ieq-cFN6T6ptyY8dLM4Qjg`; the expected cohorts 
 | ✅ | probe, rollout support off | js | 0 | 0 |  |
 | ✅ | probe, rollout support off | go | 0 | 0 |  |
 | ✅ | probe, rollout support off | dart | 0 | 0 |  |
-| ✅ | 10 % | js | 977 | 0 |  |
-| ✅ | 10 % | go | 977 | 0 |  |
-| ✅ | 10 % | dart | 977 | 0 |  |
+| ✅ | 10 % | js | 1046 | 0 |  |
+| ✅ | 10 % | go | 1046 | 0 |  |
+| ✅ | 10 % | dart | 1046 | 0 |  |
 | ✅ | 10 %, rollout support off | js | 0 | 0 |  |
 | ✅ | 10 %, rollout support off | go | 0 | 0 |  |
 | ✅ | 10 %, rollout support off | dart | 0 | 0 |  |
-| ✅ | 50 % | js | 5069 | 0 |  |
-| ✅ | 50 % | go | 5069 | 0 |  |
-| ✅ | 50 % | dart | 5069 | 0 |  |
+| ✅ | 50 % | js | 4972 | 0 |  |
+| ✅ | 50 % | go | 4972 | 0 |  |
+| ✅ | 50 % | dart | 4972 | 0 |  |
 | ✅ | aborted | js | 0 | 0 |  |
 | ✅ | aborted | go | 0 | 0 |  |
 | ✅ | aborted | dart | 0 | 0 |  |
@@ -310,14 +329,14 @@ The edge's manifest carried salt `ieq-cFN6T6ptyY8dLM4Qjg`; the expected cohorts 
 | ✅ | one altered byte makes `glossa audit verify` fail | held |
 | ✅ | no canary string appears anywhere in the export | held |
 
-The harness recorded 30 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.1:10 12.2:1 12.3:10 12.4:9].
+The harness recorded 31 successful mutating calls in §12.1–§12.4 itself, never from the platform: map[12.1:10 12.2:2 12.3:10 12.4:9].
 
-The export held 234 entries.
+The export held 235 entries.
 
 | § | Successful mutating calls the harness recorded |
 |---|---:|
 | 12.1 | 10 |
-| 12.2 | 1 |
+| 12.2 | 2 |
 | 12.3 | 10 |
 | 12.4 | 9 |
 
@@ -389,38 +408,38 @@ Known v0.3 defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrop
 
 ## §12.7 — earlier exits hold
 
-M2's exit test passed in 48s.
+M2's exit test passed in 36s.
 
-M3's exit test passed in 67s.
+M3's exit test passed in 71s.
 
-M4's exit test passed in 233s.
+M4's exit test passed in 96s.
 
-### M2 — **passed** in 48s
+### M2 — **passed** in 36s
 
 ```text
---- PASS: TestM2Exit (44.84s)
---- PASS: TestFixtureIsCurrent (0.38s)
---- PASS: TestFixtureShape (0.01s)
---- PASS: TestInterchangeFilesRead (0.42s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	45.443s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	1.102s
+--- PASS: TestM2Exit (34.22s)
+--- PASS: TestFixtureIsCurrent (0.11s)
+--- PASS: TestFixtureShape (0.00s)
+--- PASS: TestInterchangeFilesRead (0.03s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	34.616s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.358s
 ```
 
-### M3 — **passed** in 67s
+### M3 — **passed** in 71s
 
 ```text
---- PASS: TestM3Exit (63.75s)
+--- PASS: TestM3Exit (67.72s)
 --- PASS: TestFixtureIsCurrent (0.01s)
 --- PASS: TestFixtureShape (0.00s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	64.263s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.308s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	68.175s
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.237s
 ```
 
-### M4 — **passed** in 233s
+### M4 — **passed** in 96s
 
 ```text
---- PASS: TestM4Exit (228.45s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	229.187s
+--- PASS: TestM4Exit (93.91s)
+ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	94.305s
 **8 of the 8 exit criteria hold.**
 | § | Criterion | Verdict |
 |---|---|---|
@@ -436,5 +455,40 @@ ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	229.187s
 
 ## What this test cannot prove
 
-RFC 0006 §1.3 and §12: production rendering in real products, a real vendor's onboarding without a test
-mailer, real cohort proportions, and v0.3's shutdown. Those are the dogfood phase (§7.4).
+The first four are RFC 0006 §12's list; the rest are what this harness fakes or does not look at. All of
+it is the dogfood phase's to prove (§7.4), or another suite's.
+
+- **Production rendering in real products (RFC 0006 §1.3, §12).** The renderings compared in §12.6 are of a generated fixture of 300 keys, not of any Klarlabs product's strings, locales or arguments.
+- **A real vendor can be onboarded (§12).** The invitation, verification link and sign-in travel over SMTP to a capturing **test mailer** the harness runs. No real mail provider, spam filter, link rewriting or delay was involved.
+- **Real users land in rollout cohorts in the proportions the fixture shows (§12).** §12.4 drives the runtimes with 10,000 installation ids from a fixture through a **fake transport** over the edge's real manifest. Real installation ids, real refresh timing and real network failure were not.
+- **v0.3's namespace can be deleted without someone noticing (§12).** §12.6 imports a **seeded** v0.3 server built from `apps/api` on its own Postgres. Nothing here shuts a production v0.3 down or finds who still calls it.
+- **Anything a real GitHub does.** The Git connection of §12.2 talks to a **fake GitHub** on loopback: no App installation, webhook signature, rate limit or permission model of the real one.
+- **Anything a real AI provider does.** The AI fill of §12.2 is drafted by a **fake provider** on loopback. Quality, latency, errors and cost of a real model are untested.
+- **Studio in a browser.** This test reads the public API, the edge, the runtimes and the CLI. Studio's own end-to-end tests are a separate suite; nothing here shows a user can reach any of this through the UI.
+- **That the access surface is closed beyond what the spec and the MCP tool list say.** §12.2's sweep generates **GET** operations from `platform/api/openapi.yaml` and calls them with fixture ids; writes are checked by a fixed list. A leak through a route that is not in the spec, through an id the fixture did not make, or by timing is invisible to it. A tool that needs an argument the fixture cannot fill is marked ∅ and fails the criterion.
+- **The audit export is complete for calls the harness did not make.** §12.5 compares the export with the harness's own log of the calls *it* made in §12.1–§12.4. Entries for system actions, other callers or calls the harness did not record are not checked against anything.
+- **Behaviour under load, partial failure, clock skew or restarts.** One server, one edge, one Postgres and one bucket, started once on loopback, with no faults injected.
+- **The Dart, Go and JS runtimes on real devices.** They are run as host processes against a fake transport; no mobile OS, app lifecycle or storage is involved.
+
+## Flake review
+
+What the harness does about timing and shared state, so a red run can be told from a flaky one:
+
+- **Positive waits** (a pointer arrives, a state is reached, a service is ready) are polls with a stated deadline
+  (`softly`, `edgeServes`): 10–90 s, the last observed state in the failure. No positive claim rests on a fixed sleep.
+- **Negative claims** (the edge has *not* moved, the translation is *not yet* approved) are watched for their whole
+  window by `staysFor`, which fails on the first violation and treats a check it cannot make as a failure, not a pass.
+  The window (3 s) must cover the outbox and the edge's refresh; a window too short could only make such a step pass
+  wrongly, never fail, so it is the one place a wait is a lower bound on rigour. It is never the only evidence: each
+  is followed by the positive step that the next approval does move it.
+- **No retries.** No step is repeated until it passes; an HTTP call that fails once fails the step.
+- **Order.** §12.1–§12.4 share one server, one fixture and one `production` environment and run in that order;
+  §12.4 starts from the stable release §12.3 leaves, and §12.5 compares the export with the calls of §12.1–§12.4.
+  Each criterion records its own gaps, so a failure in one does not stop the next, but a later one that needs an
+  earlier one's state reports *not reached* with the reason. §12.7 runs first and alone, because the earlier exit
+  tests collide at sign-in with a second running server.
+- **Known platform-side flake, not fixed here.** In M3's PR-check queue, `integration_github_checks.available_at`
+  is set with the application clock but claimed with Postgres `now()`; with a skewed clock a check can be claimed
+  early or late. M5's harness does not touch that queue (§12.2 creates a check *run* through the API, not a pull-request
+  check), but §12.7 runs M3's exit test, so a red §12.7 naming a PR check is this, not M5.
+
