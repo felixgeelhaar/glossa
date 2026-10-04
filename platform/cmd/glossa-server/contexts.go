@@ -131,6 +131,12 @@ type contexts struct {
 	// import. Audit is built before the other contexts (Identity records
 	// through it), so main sets this once both exist.
 	auditAPI *auditapi.API
+	// objects is the deployment's object storage, which Audit's export
+	// jobs write to (Audit is built before the contexts that open it).
+	objects objectstore.StreamStore
+	// auditKeys serves /.well-known/glossa-audit-keys.json beside /v1,
+	// outside the contract and the Guard (RFC 0006 §6.2).
+	auditKeys http.HandlerFunc
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -302,12 +308,14 @@ func buildContexts(
 	if err != nil {
 		return contexts{}, err
 	}
-	return newContexts(pool, events, contextDeps{
+	c, err := newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
 		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
 		identity: identity,
 	})
+	c.objects = objects
+	return c, err
 }
 
 // newContexts builds Catalog, Localization and Release and subscribes

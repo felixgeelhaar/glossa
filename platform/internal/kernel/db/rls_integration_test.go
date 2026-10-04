@@ -68,6 +68,9 @@ var systemPolicies = map[string][]string{
 	// retention sweep deletes expired files, across tenants (system
 	// scope integration.jobs).
 	"integration_jobs": {"integration_jobs_system_select", "integration_jobs_system_update"},
+	// The audit export workers claim jobs and the retention sweep finds
+	// expired exports across tenants (migration 0053).
+	"audit_export_jobs": {"audit_export_jobs_system_select", "audit_export_jobs_system_update"},
 	// The GitHub webhook inbox (system scope integration.github,
 	// RFC 0004 §6.2). A delivery is stored before any tenant is known —
 	// GitHub signs it, the tenant follows from the installation — so the

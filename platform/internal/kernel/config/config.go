@@ -131,6 +131,9 @@ type Audit struct {
 	// "keyId=base64(ed25519 public key),…". Never drop one while an
 	// export it signed may still need verifying.
 	RetiredKeys string
+	// ExportRetention is how long an export job's two objects are kept;
+	// the sweep deletes them afterwards (the job stays).
+	ExportRetention time.Duration
 }
 
 // MCP configures the Model Context Protocol endpoint (RFC 0005 §7):
@@ -470,6 +473,8 @@ func (r *reader) audit() Audit {
 		ExportsEnabled: r.boolean("GLOSSA_AUDIT_EXPORTS_ENABLED", false),
 		SigningKey:     Secret{r.str("GLOSSA_AUDIT_SIGNING_KEY", "")},
 		RetiredKeys:    r.str("GLOSSA_AUDIT_RETIRED_KEYS", ""),
+		// M2's export files' default (GLOSSA_INTEGRATION_RETENTION).
+		ExportRetention: r.duration("GLOSSA_AUDIT_EXPORT_RETENTION", 7*24*time.Hour),
 	}
 	if key := a.SigningKey.Reveal(); key != "" {
 		if strings.Contains(key, ",") {

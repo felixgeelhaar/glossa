@@ -6598,13 +6598,238 @@ export interface paths {
          *     that could carry one, and a member it does not name is ignored.
          *
          *     Writing the tenant's audit trail is the owner's: it needs
-         *     `audit.export`, which only an owner holds by default and no API
-         *     token scope grants, in the project. Every row is recorded under
-         *     the project in the path. Answers `audit_import_unavailable`
-         *     (503) on a server that does not run the importer. Problem codes:
-         *     `invalid_request` (400), `audit_import_unavailable` (503).
+         *     `audit.import`, which only `owner` holds, no API token scope
+         *     grants and no background principal may be given, by a
+         *     principal limited to no project — the trail is the
+         *     organisation's, not one project's (RFC 0006 §7.2). Every row is
+         *     recorded under the project in the path. Answers
+         *     `audit_import_unavailable` (503) on a server that does not run
+         *     the importer. Problem codes: `invalid_request` (400),
+         *     `invalid_entry` (422: a row is not shaped like v0.3 history;
+         *     nothing was recorded), `audit_import_unavailable` (503).
          */
         post: operations["importV0History"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The tenant's audit entries
+         * @description The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+         *     for chain order). An entry is content-free: identifiers and
+         *     selectors verbatim, everything else as its shape; never message
+         *     or translation text, an email or a secret.
+         *
+         *     Filters, all optional and combined: `from`/`to` (when it
+         *     happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+         *     place in the chain, inclusive), `actor` (`person:<id>`,
+         *     `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+         *     `action` (an event type such as
+         *     `localization.translation.revised`, or a direct action such as
+         *     `identity.person.signed_in`), `project`, `source` (`outbox`,
+         *     `direct`, `import`), `aggregate_type` and `aggregate_id`.
+         *
+         *     Needs `audit.read` (owner and admin; no API token scope grants
+         *     it). A principal limited to some projects sees only the entries
+         *     of those projects — not the tenant-level entries (sign-ins,
+         *     members, tokens, vendors, groups), which belong to the
+         *     organisation, not to a project. A member whose visibility is
+         *     `assigned` is refused. Problem codes: `invalid_query`,
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listAuditEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-entries/{sequence}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description The entry's place in the tenant's chain. */
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One audit entry
+         * @description Needs `audit.read`. An entry outside a project-scoped caller's
+         *     projects — and a tenant-level entry, for such a caller — is not
+         *     found, exactly like one that does not exist.
+         */
+        get: operations["getAuditEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Audit export jobs
+         * @description Newest first. Needs `audit.export`, by a principal limited to no
+         *     project. Problem codes: `invalid_page_size`,
+         *     `invalid_page_token` (400).
+         */
+        get: operations["listAuditExportJobs"];
+        put?: never;
+        /**
+         * Export a range of the audit trail
+         * @description Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+         *     platform/README.md's *Audit export format*): two objects,
+         *     `entries.jsonl` and a `manifest.json` signed with the
+         *     deployment's audit key, downloadable when the job has
+         *     `succeeded` and verifiable offline with `glossa audit verify
+         *     <dir> --public-key …` (the key is published at
+         *     `/.well-known/glossa-audit-keys.json`).
+         *
+         *     The range is either a time range, `from` and `to` — the entries
+         *     that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+         *     the future is cut to now, so an export never claims a range that
+         *     has not happened yet — or a sequence range, `first_sequence`
+         *     and optionally `last_sequence` (the chain's head when omitted,
+         *     fixed when the job is made), at most 1,000,000 entries. An
+         *     export is always one unbroken segment of the tenant's chain, so
+         *     it is the tenant's whole trail for the range and never one
+         *     project's: a project's entries are not a chain on their own and
+         *     could not be verified. A time range whose entries are not one
+         *     unbroken segment — imported v0.3 history appended in the middle
+         *     of it, whose `occurred_at` lies years back — fails with
+         *     `range_not_contiguous`; export it by sequence instead.
+         *
+         *     Needs `audit.export`, which only `owner` holds by default and no
+         *     API token scope grants, by a principal limited to no project.
+         *     Making the job, and its end, are themselves recorded in the
+         *     trail (`audit.export.requested`, `audit.export.completed`).
+         *     Problem codes: `invalid_range` (400), `range_too_long`,
+         *     `sequence_out_of_range` (422: past the chain's head),
+         *     `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+         *     this deployment has no audit key, or exports are off).
+         */
+        post: operations["createAuditExportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An audit export job
+         * @description A job ends `succeeded` — with the chain segment it holds
+         *     (`first_sequence`, `last_sequence`, `entry_count`,
+         *     `first_prev_hash`, `last_hash`), the key that signed it, and
+         *     both files' digests and where to download them — or `failed`
+         *     (`failure_code`: `range_not_contiguous`, `internal`). Needs
+         *     `audit.export`, by a principal limited to no project.
+         */
+        get: operations["getAuditExportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download an audit export's entries.jsonl
+         * @description The export's lines, byte for byte, streamed from object storage,
+         *     with `Content-Disposition: attachment; filename="entries.jsonl"`
+         *     and their SHA-256 — the manifest's `entries.sha256` — as the
+         *     `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+         *     kept for the deployment's retention period
+         *     (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+         *     stays. Needs `audit.export`, by a principal limited to no
+         *     project. Problem codes: `export_not_ready` (409), `file_expired`
+         *     (410), `storage_unavailable` (503).
+         */
+        get: operations["downloadAuditExportEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download an audit export's signed manifest.json
+         * @description The signed manifest, byte for byte as the job wrote it (RFC 8785
+         *     canonical JSON), with `Content-Disposition: attachment;
+         *     filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+         *     and refused like the entries (`export_not_ready` 409,
+         *     `file_expired` 410, `storage_unavailable` 503). Needs
+         *     `audit.export`, by a principal limited to no project.
+         */
+        get: operations["downloadAuditExportManifest"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7834,6 +8059,123 @@ export interface components {
             restore: string;
             restore_sha256: string;
             entries: components["schemas"]["V0HistoryEntry"][];
+        };
+        /**
+         * @description Where an entry came from: a domain event (`outbox`), an act that
+         *     never reaches the outbox such as a sign-in or an MCP tool call
+         *     (`direct`), or v0.3's imported history (`import`).
+         * @enum {string}
+         */
+        AuditSource: "outbox" | "direct" | "import";
+        /**
+         * @description One entry of the tenant's hash chain, as its `glossa.audit/v1`
+         *     export line holds it (RFC 0006 §6.1). Content-free: `summary`
+         *     keeps identifiers and selectors verbatim and records everything
+         *     else as its shape (`"string(len=27)"`).
+         */
+        AuditEntry: {
+            /**
+             * Format: int64
+             * @description Its place in the tenant's chain.
+             */
+            sequence: number;
+            /** @description The act recorded: the outbox event's id, or a direct write's own. */
+            event_id: string;
+            source: components["schemas"]["AuditSource"];
+            /** @description The event type (`release.published`) or direct action (`identity.person.signed_in`). */
+            action: string;
+            /** @description `person:<id>`, `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor (`v0:<id>`). */
+            actor: string;
+            occurred_at: components["schemas"]["Timestamp"];
+            aggregate_type: string;
+            aggregate_id: string;
+            project_id?: components["schemas"]["Id"];
+            locale?: string;
+            /** @description The act without its content. */
+            summary: {
+                [key: string]: unknown;
+            };
+            request_id?: string;
+            trace_id?: string;
+            /** @description The previous entry's hash (64 zero digits for the first). */
+            prev_hash: string;
+            /** @description sha256(prev_hash ‖ JCS(entry)). */
+            hash: string;
+        };
+        AuditEntryList: {
+            items: components["schemas"]["AuditEntry"][];
+            next_page_token?: string;
+        };
+        /**
+         * @description Exactly one range: a time range (`from` and `to`), or a
+         *     sequence range (`first_sequence`, and `last_sequence` or the
+         *     chain's head).
+         */
+        AuditExportJobCreate: {
+            from?: components["schemas"]["Timestamp"];
+            to?: components["schemas"]["Timestamp"];
+            /** Format: int64 */
+            first_sequence?: number;
+            /** Format: int64 */
+            last_sequence?: number;
+        };
+        /** @enum {string} */
+        AuditExportJobState: "queued" | "running" | "succeeded" | "failed";
+        AuditExportFile: {
+            /** @description `entries.jsonl` or `manifest.json`. */
+            path: string;
+            sha256: string;
+            /** Format: int64 */
+            bytes: number;
+            /** @description Where to download it; present while it is kept. */
+            download_url?: string;
+        };
+        AuditExportJob: {
+            id: components["schemas"]["Id"];
+            state: components["schemas"]["AuditExportJobState"];
+            /** @description A time range's start, as asked. */
+            from?: components["schemas"]["Timestamp"];
+            /** @description A time range's end, as asked, or cut to when the job was made. */
+            to?: components["schemas"]["Timestamp"];
+            /**
+             * Format: int64
+             * @description The first entry; for a time range, once the job has run.
+             */
+            first_sequence?: number;
+            /**
+             * Format: int64
+             * @description The last entry; for a time range, once the job has run. `first_sequence − 1` for an empty export.
+             */
+            last_sequence?: number;
+            /** Format: int64 */
+            entry_count?: number;
+            /** @description Where the export joins the chain before it. */
+            first_prev_hash?: string;
+            /** @description The head the next export's `first_prev_hash` continues from. */
+            last_hash?: string;
+            /** @description The audit key that signed the manifest. */
+            key_id?: string;
+            entries?: components["schemas"]["AuditExportFile"];
+            manifest?: components["schemas"]["AuditExportFile"];
+            failure_code?: string;
+            failure_message?: string;
+            attempts: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description When retention deletes the files. */
+            expires_at: components["schemas"]["Timestamp"];
+            files_deleted_at?: components["schemas"]["Timestamp"];
+        };
+        AuditExportJobList: {
+            items: components["schemas"]["AuditExportJob"][];
+            next_page_token?: string;
+        };
+        /** @description A `glossa.audit/v1` manifest (platform/README.md, *Audit export format*), as signed. */
+        AuditExportManifest: {
+            [key: string]: unknown;
         };
         V0HistoryReport: {
             recorded: number;
@@ -11110,6 +11452,8 @@ export interface components {
         AISuggestionPath: components["schemas"]["Id"];
         /** @description An import job `id`. */
         ImportJobPath: components["schemas"]["Id"];
+        /** @description An audit export job `id`. */
+        AuditExportJobPath: components["schemas"]["Id"];
         /** @description An export job `id`. */
         ExportJobPath: components["schemas"]["Id"];
         /** @description A capture `id`. */
@@ -19839,6 +20183,240 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listAuditEntries: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description Entries that happened at or after this instant. */
+                from?: components["schemas"]["Timestamp"];
+                /** @description Entries that happened before this instant. */
+                to?: components["schemas"]["Timestamp"];
+                first_sequence?: number;
+                last_sequence?: number;
+                actor?: string;
+                action?: string;
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                source?: components["schemas"]["AuditSource"];
+                aggregate_type?: string;
+                aggregate_id?: string;
+                order?: "desc" | "asc";
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntryList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAuditEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description The entry's place in the tenant's chain. */
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAuditExportJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of audit export jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAuditExportJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditExportJobCreate"];
+            };
+        };
+        responses: {
+            /** @description The job, queued. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getAuditExportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadAuditExportEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description entries.jsonl. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="entries.jsonl"` */
+                    "Content-Disposition"?: string;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/jsonl": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    downloadAuditExportManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description manifest.json (`glossa.audit/v1`). */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="manifest.json"` */
+                    "Content-Disposition"?: string;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportManifest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
             503: components["responses"]["Unavailable"];
         };
     };

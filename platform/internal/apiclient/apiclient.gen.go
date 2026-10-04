@@ -501,6 +501,51 @@ func (e AssignmentState) Valid() bool {
 	}
 }
 
+// Defines values for AuditExportJobState.
+const (
+	AuditExportJobStateFailed    AuditExportJobState = "failed"
+	AuditExportJobStateQueued    AuditExportJobState = "queued"
+	AuditExportJobStateRunning   AuditExportJobState = "running"
+	AuditExportJobStateSucceeded AuditExportJobState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AuditExportJobState enum.
+func (e AuditExportJobState) Valid() bool {
+	switch e {
+	case AuditExportJobStateFailed:
+		return true
+	case AuditExportJobStateQueued:
+		return true
+	case AuditExportJobStateRunning:
+		return true
+	case AuditExportJobStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditSource.
+const (
+	AuditSourceDirect AuditSource = "direct"
+	AuditSourceImport AuditSource = "import"
+	AuditSourceOutbox AuditSource = "outbox"
+)
+
+// Valid indicates whether the value is a known member of the AuditSource enum.
+func (e AuditSource) Valid() bool {
+	switch e {
+	case AuditSourceDirect:
+		return true
+	case AuditSourceImport:
+		return true
+	case AuditSourceOutbox:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BranchItemResultStatus.
 const (
 	BranchItemResultStatusFailed         BranchItemResultStatus = "failed"
@@ -2514,6 +2559,24 @@ func (e WorkflowTransitionOutcome) Valid() bool {
 	}
 }
 
+// Defines values for ListAuditEntriesParamsOrder.
+const (
+	Asc  ListAuditEntriesParamsOrder = "asc"
+	Desc ListAuditEntriesParamsOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditEntriesParamsOrder enum.
+func (e ListAuditEntriesParamsOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchTranslationMemoryParamsSide.
 const (
 	SearchTranslationMemoryParamsSideSource SearchTranslationMemoryParamsSide = "source"
@@ -3527,6 +3590,152 @@ type AssignmentUnit struct {
 	// MessageId An opaque identifier.
 	MessageId Id `json:"message_id"`
 }
+
+// AuditEntry One entry of the tenant's hash chain, as its `glossa.audit/v1`
+// export line holds it (RFC 0006 §6.1). Content-free: `summary`
+// keeps identifiers and selectors verbatim and records everything
+// else as its shape (`"string(len=27)"`).
+type AuditEntry struct {
+	// Action The event type (`release.published`) or direct action (`identity.person.signed_in`).
+	Action string `json:"action"`
+
+	// Actor `person:<id>`, `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor (`v0:<id>`).
+	Actor         string `json:"actor"`
+	AggregateId   string `json:"aggregate_id"`
+	AggregateType string `json:"aggregate_type"`
+
+	// EventId The act recorded: the outbox event's id, or a direct write's own.
+	EventId string `json:"event_id"`
+
+	// Hash sha256(prev_hash ‖ JCS(entry)).
+	Hash   string  `json:"hash"`
+	Locale *string `json:"locale,omitempty"`
+
+	// OccurredAt RFC 3339, UTC.
+	OccurredAt Timestamp `json:"occurred_at"`
+
+	// PrevHash The previous entry's hash (64 zero digits for the first).
+	PrevHash string `json:"prev_hash"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id     `json:"project_id,omitempty"`
+	RequestId *string `json:"request_id,omitempty"`
+
+	// Sequence Its place in the tenant's chain.
+	Sequence int64 `json:"sequence"`
+
+	// Source Where an entry came from: a domain event (`outbox`), an act that
+	// never reaches the outbox such as a sign-in or an MCP tool call
+	// (`direct`), or v0.3's imported history (`import`).
+	Source AuditSource `json:"source"`
+
+	// Summary The act without its content.
+	Summary map[string]interface{} `json:"summary"`
+	TraceId *string                `json:"trace_id,omitempty"`
+}
+
+// AuditEntryList defines model for AuditEntryList.
+type AuditEntryList struct {
+	Items         []AuditEntry `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// AuditExportFile defines model for AuditExportFile.
+type AuditExportFile struct {
+	Bytes int64 `json:"bytes"`
+
+	// DownloadUrl Where to download it; present while it is kept.
+	DownloadUrl *string `json:"download_url,omitempty"`
+
+	// Path `entries.jsonl` or `manifest.json`.
+	Path   string `json:"path"`
+	Sha256 string `json:"sha256"`
+}
+
+// AuditExportJob defines model for AuditExportJob.
+type AuditExportJob struct {
+	Attempts int `json:"attempts"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp        `json:"created_at"`
+	CreatedBy  string           `json:"created_by"`
+	Entries    *AuditExportFile `json:"entries,omitempty"`
+	EntryCount *int64           `json:"entry_count,omitempty"`
+
+	// ExpiresAt When retention deletes the files.
+	ExpiresAt      Timestamp `json:"expires_at"`
+	FailureCode    *string   `json:"failure_code,omitempty"`
+	FailureMessage *string   `json:"failure_message,omitempty"`
+
+	// FilesDeletedAt RFC 3339, UTC.
+	FilesDeletedAt *Timestamp `json:"files_deleted_at,omitempty"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// FirstPrevHash Where the export joins the chain before it.
+	FirstPrevHash *string `json:"first_prev_hash,omitempty"`
+
+	// FirstSequence The first entry; for a time range, once the job has run.
+	FirstSequence *int64 `json:"first_sequence,omitempty"`
+
+	// From A time range's start, as asked.
+	From *Timestamp `json:"from,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// KeyId The audit key that signed the manifest.
+	KeyId *string `json:"key_id,omitempty"`
+
+	// LastHash The head the next export's `first_prev_hash` continues from.
+	LastHash *string `json:"last_hash,omitempty"`
+
+	// LastSequence The last entry; for a time range, once the job has run. `first_sequence − 1` for an empty export.
+	LastSequence *int64           `json:"last_sequence,omitempty"`
+	Manifest     *AuditExportFile `json:"manifest,omitempty"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp          `json:"started_at,omitempty"`
+	State     AuditExportJobState `json:"state"`
+
+	// To A time range's end, as asked, or cut to when the job was made.
+	To *Timestamp `json:"to,omitempty"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// AuditExportJobCreate Exactly one range: a time range (`from` and `to`), or a
+// sequence range (`first_sequence`, and `last_sequence` or the
+// chain's head).
+type AuditExportJobCreate struct {
+	FirstSequence *int64 `json:"first_sequence,omitempty"`
+
+	// From RFC 3339, UTC.
+	From         *Timestamp `json:"from,omitempty"`
+	LastSequence *int64     `json:"last_sequence,omitempty"`
+
+	// To RFC 3339, UTC.
+	To *Timestamp `json:"to,omitempty"`
+}
+
+// AuditExportJobList defines model for AuditExportJobList.
+type AuditExportJobList struct {
+	Items         []AuditExportJob `json:"items"`
+	NextPageToken *string          `json:"next_page_token,omitempty"`
+}
+
+// AuditExportJobState defines model for AuditExportJobState.
+type AuditExportJobState string
+
+// AuditExportManifest A `glossa.audit/v1` manifest (platform/README.md, *Audit export format*), as signed.
+type AuditExportManifest map[string]interface{}
+
+// AuditSource Where an entry came from: a domain event (`outbox`), an act that
+// never reaches the outbox such as a sign-in or an MCP tool call
+// (`direct`), or v0.3's imported history (`import`).
+type AuditSource string
 
 // Branch defines model for Branch.
 type Branch struct {
@@ -9164,6 +9373,9 @@ type ApprovalPath = Id
 // AssignmentPath An opaque identifier.
 type AssignmentPath = Id
 
+// AuditExportJobPath An opaque identifier.
+type AuditExportJobPath = Id
+
 // BranchPath An opaque identifier.
 type BranchPath = Id
 
@@ -9533,6 +9745,47 @@ type ListAssignmentsParams struct {
 
 // CreateAssignmentParams defines parameters for CreateAssignment.
 type CreateAssignmentParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListAuditEntriesParams defines parameters for ListAuditEntries.
+type ListAuditEntriesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// From Entries that happened at or after this instant.
+	From *Timestamp `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Entries that happened before this instant.
+	To            *Timestamp `form:"to,omitempty" json:"to,omitempty"`
+	FirstSequence *int64     `form:"first_sequence,omitempty" json:"first_sequence,omitempty"`
+	LastSequence  *int64     `form:"last_sequence,omitempty" json:"last_sequence,omitempty"`
+	Actor         *string    `form:"actor,omitempty" json:"actor,omitempty"`
+	Action        *string    `form:"action,omitempty" json:"action,omitempty"`
+
+	// Project A project `id`.
+	Project       *Id                          `form:"project,omitempty" json:"project,omitempty"`
+	Source        *AuditSource                 `form:"source,omitempty" json:"source,omitempty"`
+	AggregateType *string                      `form:"aggregate_type,omitempty" json:"aggregate_type,omitempty"`
+	AggregateId   *string                      `form:"aggregate_id,omitempty" json:"aggregate_id,omitempty"`
+	Order         *ListAuditEntriesParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// ListAuditEntriesParamsOrder defines parameters for ListAuditEntries.
+type ListAuditEntriesParamsOrder string
+
+// ListAuditExportJobsParams defines parameters for ListAuditExportJobs.
+type ListAuditExportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateAuditExportJobParams defines parameters for CreateAuditExportJob.
+type CreateAuditExportJobParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -10601,6 +10854,9 @@ type CreateAssignmentJSONRequestBody = CreateAssignment
 
 // DeclineAssignmentJSONRequestBody defines body for DeclineAssignment for application/json ContentType.
 type DeclineAssignmentJSONRequestBody = AssignmentDecline
+
+// CreateAuditExportJobJSONRequestBody defines body for CreateAuditExportJob for application/json ContentType.
+type CreateAuditExportJobJSONRequestBody = AuditExportJobCreate
 
 // CreateExportJobJSONRequestBody defines body for CreateExportJob for application/json ContentType.
 type CreateExportJobJSONRequestBody = ExportJobRequest
@@ -12136,6 +12392,166 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
 	DeclineAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAuditEntries The tenant's audit entries
+	//
+	// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+	// for chain order). An entry is content-free: identifiers and
+	// selectors verbatim, everything else as its shape; never message
+	// or translation text, an email or a secret.
+	//
+	// Filters, all optional and combined: `from`/`to` (when it
+	// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+	// place in the chain, inclusive), `actor` (`person:<id>`,
+	// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+	// `action` (an event type such as
+	// `localization.translation.revised`, or a direct action such as
+	// `identity.person.signed_in`), `project`, `source` (`outbox`,
+	// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+	//
+	// Needs `audit.read` (owner and admin; no API token scope grants
+	// it). A principal limited to some projects sees only the entries
+	// of those projects — not the tenant-level entries (sign-ins,
+	// members, tokens, vendors, groups), which belong to the
+	// organisation, not to a project. A member whose visibility is
+	// `assigned` is refused. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+	ListAuditEntries(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuditEntry One audit entry
+	//
+	// Needs `audit.read`. An entry outside a project-scoped caller's
+	// projects — and a tenant-level entry, for such a caller — is not
+	// found, exactly like one that does not exist.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+	GetAuditEntry(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAuditExportJobs Audit export jobs
+	//
+	// Newest first. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+	ListAuditExportJobs(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuditExportJobWithBody Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuditExportJob Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJob(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuditExportJob An audit export job
+	//
+	// A job ends `succeeded` — with the chain segment it holds
+	// (`first_sequence`, `last_sequence`, `entry_count`,
+	// `first_prev_hash`, `last_hash`), the key that signed it, and
+	// both files' digests and where to download them — or `failed`
+	// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+	GetAuditExportJob(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadAuditExportEntries Download an audit export's entries.jsonl
+	//
+	// The export's lines, byte for byte, streamed from object storage,
+	// with `Content-Disposition: attachment; filename="entries.jsonl"`
+	// and their SHA-256 — the manifest's `entries.sha256` — as the
+	// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+	// stays. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `export_not_ready` (409), `file_expired`
+	// (410), `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+	DownloadAuditExportEntries(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadAuditExportManifest Download an audit export's signed manifest.json
+	//
+	// The signed manifest, byte for byte as the job wrote it (RFC 8785
+	// canonical JSON), with `Content-Disposition: attachment;
+	// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+	// and refused like the entries (`export_not_ready` 409,
+	// `file_expired` 410, `storage_unavailable` 503). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+	DownloadAuditExportManifest(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 	//
 	// Every applicable guide merged field by field, the narrowest
@@ -13214,11 +13630,15 @@ type ClientInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13242,11 +13662,15 @@ type ClientInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -18558,6 +18982,246 @@ func (c *Client) DeclineAssignment(ctx context.Context, tenant TenantPath, assig
 	return c.Client.Do(req)
 }
 
+// ListAuditEntries The tenant's audit entries
+//
+// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+// for chain order). An entry is content-free: identifiers and
+// selectors verbatim, everything else as its shape; never message
+// or translation text, an email or a secret.
+//
+// Filters, all optional and combined: `from`/`to` (when it
+// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+// place in the chain, inclusive), `actor` (`person:<id>`,
+// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+// `action` (an event type such as
+// `localization.translation.revised`, or a direct action such as
+// `identity.person.signed_in`), `project`, `source` (`outbox`,
+// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+//
+// Needs `audit.read` (owner and admin; no API token scope grants
+// it). A principal limited to some projects sees only the entries
+// of those projects — not the tenant-level entries (sign-ins,
+// members, tokens, vendors, groups), which belong to the
+// organisation, not to a project. A member whose visibility is
+// `assigned` is refused. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+func (c *Client) ListAuditEntries(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuditEntriesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuditEntry One audit entry
+//
+// Needs `audit.read`. An entry outside a project-scoped caller's
+// projects — and a tenant-level entry, for such a caller — is not
+// found, exactly like one that does not exist.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+func (c *Client) GetAuditEntry(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuditEntryRequest(c.Server, tenant, sequence)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuditExportJobs Audit export jobs
+//
+// Newest first. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+func (c *Client) ListAuditExportJobs(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuditExportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuditExportJobWithBody Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *Client) CreateAuditExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuditExportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuditExportJob Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *Client) CreateAuditExportJob(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuditExportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuditExportJob An audit export job
+//
+// A job ends `succeeded` — with the chain segment it holds
+// (`first_sequence`, `last_sequence`, `entry_count`,
+// `first_prev_hash`, `last_hash`), the key that signed it, and
+// both files' digests and where to download them — or `failed`
+// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+func (c *Client) GetAuditExportJob(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuditExportJobRequest(c.Server, tenant, auditExportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadAuditExportEntries Download an audit export's entries.jsonl
+//
+// The export's lines, byte for byte, streamed from object storage,
+// with `Content-Disposition: attachment; filename="entries.jsonl"`
+// and their SHA-256 — the manifest's `entries.sha256` — as the
+// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+// stays. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `export_not_ready` (409), `file_expired`
+// (410), `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+func (c *Client) DownloadAuditExportEntries(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAuditExportEntriesRequest(c.Server, tenant, auditExportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadAuditExportManifest Download an audit export's signed manifest.json
+//
+// The signed manifest, byte for byte as the job wrote it (RFC 8785
+// canonical JSON), with `Content-Disposition: attachment;
+// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+// and refused like the entries (`export_not_ready` 409,
+// `file_expired` 410, `storage_unavailable` 503). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+func (c *Client) DownloadAuditExportManifest(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAuditExportManifestRequest(c.Server, tenant, auditExportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 //
 // Every applicable guide merged field by field, the narrowest
@@ -20326,11 +20990,15 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -20364,11 +21032,15 @@ func (c *Client) ImportV0HistoryWithBody(ctx context.Context, tenant TenantPath,
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -28815,6 +29487,510 @@ func NewDeclineAssignmentRequestWithBody(server string, tenant TenantPath, assig
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAuditEntriesRequest constructs an http.Request for the ListAuditEntries method
+func NewListAuditEntriesRequest(server string, tenant TenantPath, params *ListAuditEntriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-entries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FirstSequence != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "first_sequence", *params.FirstSequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.LastSequence != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "last_sequence", *params.LastSequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Actor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actor", *params.Actor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Action != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "action", *params.Action, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AggregateType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate_type", *params.AggregateType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AggregateId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate_id", *params.AggregateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAuditEntryRequest constructs an http.Request for the GetAuditEntry method
+func NewGetAuditEntryRequest(server string, tenant TenantPath, sequence int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sequence", sequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-entries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAuditExportJobsRequest constructs an http.Request for the ListAuditExportJobs method
+func NewListAuditExportJobsRequest(server string, tenant TenantPath, params *ListAuditExportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAuditExportJobRequest calls the generic CreateAuditExportJob builder with application/json body
+func NewCreateAuditExportJobRequest(server string, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAuditExportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateAuditExportJobRequestWithBody constructs an http.Request for the CreateAuditExportJob method, with any body, and a specified content type
+func NewCreateAuditExportJobRequestWithBody(server string, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAuditExportJobRequest constructs an http.Request for the GetAuditExportJob method
+func NewGetAuditExportJobRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadAuditExportEntriesRequest constructs an http.Request for the DownloadAuditExportEntries method
+func NewDownloadAuditExportEntriesRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s/file", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadAuditExportManifestRequest constructs an http.Request for the DownloadAuditExportManifest method
+func NewDownloadAuditExportManifestRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s/manifest", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -43423,6 +44599,178 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
 	DeclineAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error)
 
+	// ListAuditEntriesWithResponse The tenant's audit entries
+	//
+	// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+	// for chain order). An entry is content-free: identifiers and
+	// selectors verbatim, everything else as its shape; never message
+	// or translation text, an email or a secret.
+	//
+	// Filters, all optional and combined: `from`/`to` (when it
+	// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+	// place in the chain, inclusive), `actor` (`person:<id>`,
+	// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+	// `action` (an event type such as
+	// `localization.translation.revised`, or a direct action such as
+	// `identity.person.signed_in`), `project`, `source` (`outbox`,
+	// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+	//
+	// Needs `audit.read` (owner and admin; no API token scope grants
+	// it). A principal limited to some projects sees only the entries
+	// of those projects — not the tenant-level entries (sign-ins,
+	// members, tokens, vendors, groups), which belong to the
+	// organisation, not to a project. A member whose visibility is
+	// `assigned` is refused. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+	ListAuditEntriesWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*ListAuditEntriesResponse, error)
+
+	// GetAuditEntryWithResponse One audit entry
+	//
+	// Needs `audit.read`. An entry outside a project-scoped caller's
+	// projects — and a tenant-level entry, for such a caller — is not
+	// found, exactly like one that does not exist.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+	GetAuditEntryWithResponse(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*GetAuditEntryResponse, error)
+
+	// ListAuditExportJobsWithResponse Audit export jobs
+	//
+	// Newest first. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+	ListAuditExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*ListAuditExportJobsResponse, error)
+
+	// CreateAuditExportJobWithBodyWithResponse Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error)
+
+	// CreateAuditExportJobWithResponse Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error)
+
+	// GetAuditExportJobWithResponse An audit export job
+	//
+	// A job ends `succeeded` — with the chain segment it holds
+	// (`first_sequence`, `last_sequence`, `entry_count`,
+	// `first_prev_hash`, `last_hash`), the key that signed it, and
+	// both files' digests and where to download them — or `failed`
+	// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+	GetAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*GetAuditExportJobResponse, error)
+
+	// DownloadAuditExportEntriesWithResponse Download an audit export's entries.jsonl
+	//
+	// The export's lines, byte for byte, streamed from object storage,
+	// with `Content-Disposition: attachment; filename="entries.jsonl"`
+	// and their SHA-256 — the manifest's `entries.sha256` — as the
+	// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+	// stays. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `export_not_ready` (409), `file_expired`
+	// (410), `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+	DownloadAuditExportEntriesWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportEntriesResponse, error)
+
+	// DownloadAuditExportManifestWithResponse Download an audit export's signed manifest.json
+	//
+	// The signed manifest, byte for byte as the job wrote it (RFC 8785
+	// canonical JSON), with `Content-Disposition: attachment;
+	// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+	// and refused like the entries (`export_not_ready` 409,
+	// `file_expired` 410, `storage_unavailable` 503). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+	DownloadAuditExportManifestWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportManifestResponse, error)
+
 	// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 	//
 	// Every applicable guide merged field by field, the narrowest
@@ -44569,11 +45917,15 @@ type ClientWithResponsesInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44597,11 +45949,15 @@ type ClientWithResponsesInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -52131,6 +53487,513 @@ func (r DeclineAssignmentResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DeclineAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuditEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditEntryList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuditEntriesResponse) GetJSON200() *AuditEntryList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuditEntriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuditEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuditEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuditEntriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuditEntryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditEntry
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuditEntryResponse) GetJSON200() *AuditEntry {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuditEntryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuditEntryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuditEntryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuditEntryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuditExportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuditExportJobsResponse) GetJSON200() *AuditExportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuditExportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuditExportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuditExportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuditExportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateAuditExportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateAuditExportJob
+type CreateAuditExportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateAuditExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AuditExportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateAuditExportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAuditExportJobResponse) GetJSON201() *AuditExportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAuditExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAuditExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAuditExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAuditExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuditExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuditExportJobResponse) GetJSON200() *AuditExportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuditExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuditExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuditExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuditExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DownloadAuditExportEntriesResponse200Headers the declared response headers of an HTTP 200 response for DownloadAuditExportEntries
+type DownloadAuditExportEntriesResponse200Headers struct {
+	ContentDisposition *string
+	ETag               *string
+}
+
+type DownloadAuditExportEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON410 the response for an HTTP 410 `application/problem+json` response
+	ApplicationproblemJSON410 *Gone
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DownloadAuditExportEntriesResponse200Headers
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON410 returns the response for an HTTP 410 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON410() *Gone {
+	return r.ApplicationproblemJSON410
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadAuditExportEntriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadAuditExportEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadAuditExportEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadAuditExportEntriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DownloadAuditExportManifestResponse200Headers the declared response headers of an HTTP 200 response for DownloadAuditExportManifest
+type DownloadAuditExportManifestResponse200Headers struct {
+	ContentDisposition *string
+	ETag               *string
+}
+
+type DownloadAuditExportManifestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportManifest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON410 the response for an HTTP 410 `application/problem+json` response
+	ApplicationproblemJSON410 *Gone
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DownloadAuditExportManifestResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DownloadAuditExportManifestResponse) GetJSON200() *AuditExportManifest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON410 returns the response for an HTTP 410 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON410() *Gone {
+	return r.ApplicationproblemJSON410
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadAuditExportManifestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadAuditExportManifestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadAuditExportManifestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadAuditExportManifestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -68416,6 +70279,226 @@ func (c *ClientWithResponses) DeclineAssignmentWithResponse(ctx context.Context,
 	return ParseDeclineAssignmentResponse(rsp)
 }
 
+// ListAuditEntriesWithResponse The tenant's audit entries
+//
+// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+// for chain order). An entry is content-free: identifiers and
+// selectors verbatim, everything else as its shape; never message
+// or translation text, an email or a secret.
+//
+// Filters, all optional and combined: `from`/`to` (when it
+// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+// place in the chain, inclusive), `actor` (`person:<id>`,
+// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+// `action` (an event type such as
+// `localization.translation.revised`, or a direct action such as
+// `identity.person.signed_in`), `project`, `source` (`outbox`,
+// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+//
+// Needs `audit.read` (owner and admin; no API token scope grants
+// it). A principal limited to some projects sees only the entries
+// of those projects — not the tenant-level entries (sign-ins,
+// members, tokens, vendors, groups), which belong to the
+// organisation, not to a project. A member whose visibility is
+// `assigned` is refused. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+func (c *ClientWithResponses) ListAuditEntriesWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*ListAuditEntriesResponse, error) {
+	rsp, err := c.ListAuditEntries(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuditEntriesResponse(rsp)
+}
+
+// GetAuditEntryWithResponse One audit entry
+//
+// Needs `audit.read`. An entry outside a project-scoped caller's
+// projects — and a tenant-level entry, for such a caller — is not
+// found, exactly like one that does not exist.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+func (c *ClientWithResponses) GetAuditEntryWithResponse(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*GetAuditEntryResponse, error) {
+	rsp, err := c.GetAuditEntry(ctx, tenant, sequence, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuditEntryResponse(rsp)
+}
+
+// ListAuditExportJobsWithResponse Audit export jobs
+//
+// Newest first. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+func (c *ClientWithResponses) ListAuditExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*ListAuditExportJobsResponse, error) {
+	rsp, err := c.ListAuditExportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuditExportJobsResponse(rsp)
+}
+
+// CreateAuditExportJobWithBodyWithResponse Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *ClientWithResponses) CreateAuditExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error) {
+	rsp, err := c.CreateAuditExportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuditExportJobResponse(rsp)
+}
+
+// CreateAuditExportJobWithResponse Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *ClientWithResponses) CreateAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error) {
+	rsp, err := c.CreateAuditExportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuditExportJobResponse(rsp)
+}
+
+// GetAuditExportJobWithResponse An audit export job
+//
+// A job ends `succeeded` — with the chain segment it holds
+// (`first_sequence`, `last_sequence`, `entry_count`,
+// `first_prev_hash`, `last_hash`), the key that signed it, and
+// both files' digests and where to download them — or `failed`
+// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+func (c *ClientWithResponses) GetAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*GetAuditExportJobResponse, error) {
+	rsp, err := c.GetAuditExportJob(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuditExportJobResponse(rsp)
+}
+
+// DownloadAuditExportEntriesWithResponse Download an audit export's entries.jsonl
+//
+// The export's lines, byte for byte, streamed from object storage,
+// with `Content-Disposition: attachment; filename="entries.jsonl"`
+// and their SHA-256 — the manifest's `entries.sha256` — as the
+// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+// stays. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `export_not_ready` (409), `file_expired`
+// (410), `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+func (c *ClientWithResponses) DownloadAuditExportEntriesWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportEntriesResponse, error) {
+	rsp, err := c.DownloadAuditExportEntries(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadAuditExportEntriesResponse(rsp)
+}
+
+// DownloadAuditExportManifestWithResponse Download an audit export's signed manifest.json
+//
+// The signed manifest, byte for byte as the job wrote it (RFC 8785
+// canonical JSON), with `Content-Disposition: attachment;
+// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+// and refused like the entries (`export_not_ready` 409,
+// `file_expired` 410, `storage_unavailable` 503). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+func (c *ClientWithResponses) DownloadAuditExportManifestWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportManifestResponse, error) {
+	rsp, err := c.DownloadAuditExportManifest(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadAuditExportManifestResponse(rsp)
+}
+
 // GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 //
 // Every applicable guide merged field by field, the narrowest
@@ -69976,11 +72059,15 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -70010,11 +72097,15 @@ func (c *ClientWithResponses) ImportV0HistoryWithBodyWithResponse(ctx context.Co
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -77980,6 +80071,444 @@ func ParseDeclineAssignmentResponse(rsp *http.Response) (*DeclineAssignmentRespo
 	switch {
 	case rsp.StatusCode == 200:
 		var headers DeclineAssignmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListAuditEntriesResponse parses an HTTP response from a ListAuditEntriesWithResponse call
+func ParseListAuditEntriesResponse(rsp *http.Response) (*ListAuditEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuditEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditEntryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuditEntryResponse parses an HTTP response from a GetAuditEntryWithResponse call
+func ParseGetAuditEntryResponse(rsp *http.Response) (*GetAuditEntryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuditEntryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditEntry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAuditExportJobsResponse parses an HTTP response from a ListAuditExportJobsWithResponse call
+func ParseListAuditExportJobsResponse(rsp *http.Response) (*ListAuditExportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuditExportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAuditExportJobResponse parses an HTTP response from a CreateAuditExportJobWithResponse call
+func ParseCreateAuditExportJobResponse(rsp *http.Response) (*CreateAuditExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAuditExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AuditExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateAuditExportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAuditExportJobResponse parses an HTTP response from a GetAuditExportJobWithResponse call
+func ParseGetAuditExportJobResponse(rsp *http.Response) (*GetAuditExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuditExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadAuditExportEntriesResponse parses an HTTP response from a DownloadAuditExportEntriesWithResponse call
+func ParseDownloadAuditExportEntriesResponse(rsp *http.Response) (*DownloadAuditExportEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadAuditExportEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Gone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DownloadAuditExportEntriesResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDownloadAuditExportManifestResponse parses an HTTP response from a DownloadAuditExportManifestWithResponse call
+func ParseDownloadAuditExportManifestResponse(rsp *http.Response) (*DownloadAuditExportManifestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadAuditExportManifestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportManifest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Gone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DownloadAuditExportManifestResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
 		if values := rsp.Header.Values("ETag"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {

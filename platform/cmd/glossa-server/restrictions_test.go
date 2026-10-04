@@ -327,11 +327,31 @@ var restrictions = map[string]restriction{
 	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion": pathDenied,
 	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort":      pathDenied,
 	// The v0.3 history import (RFC 0006 §7.2) writes the tenant's audit
-	// trail under the project in the path: audit.export in the project
-	// (RequireIn), which only an owner holds by default and no token
-	// scope grants. An assigned member is refused it like every
-	// permission but tenant.read.
+	// trail, recording every row under the project in the path. It needs
+	// audit.import, which only an owner holds, no token scope grants and
+	// no background principal may be given, by a principal limited to
+	// no project (authz.RequireUnscoped): the trail is the
+	// organisation's. A scoped principal outside the project is not
+	// found at the edge first. An assigned member is refused it like
+	// every permission but tenant.read.
 	"POST /v1/tenants/{tenant}/projects/{project}/audit-imports": pathDenied,
+	// The trail's entries (RFC 0006 §6.2) are audit.read, owner and
+	// admin. A project-scoped principal lists only its projects' entries
+	// (authz.Projects in the query) and none of the tenant-level ones —
+	// sign-ins, members, tokens, vendors, groups, audit exports belong
+	// to the organisation, not to a project — and reads one outside its
+	// projects as not found. An assigned member is refused.
+	"GET /v1/tenants/{tenant}/audit-entries":            rowsDenied,
+	"GET /v1/tenants/{tenant}/audit-entries/{sequence}": rowsDenied,
+	// An audit export is one unbroken segment of the tenant's chain,
+	// never one project's (a project's entries are not a chain and
+	// could not be verified): audit.export, owner only, no token scope,
+	// by a principal limited to no project (authz.RequireUnscoped).
+	"GET /v1/tenants/{tenant}/audit-export-jobs":                             unscoped,
+	"POST /v1/tenants/{tenant}/audit-export-jobs":                            unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}":          unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file":     unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest": unscoped,
 
 	"POST /v1/tenants/{tenant}/projects":                                                            unscoped,
 	"POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews":                                 pathDenied,

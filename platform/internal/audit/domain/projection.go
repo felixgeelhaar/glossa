@@ -232,6 +232,13 @@ var Projections = map[string]Projection{
 
 	"integration.import.completed": integrationJob, "integration.export.completed": integrationJob,
 
+	// Audit exports are recorded in the trail they export (RFC 0006
+	// §6.1). Their payloads are identifiers, the range and the outcome.
+	// The request's by is its actor; the completion's actor is the
+	// exporter, and its by the requester, so by is not taken there.
+	EventExportRequested: withBy(auditExport, "by"),
+	EventExportCompleted: auditExport,
+
 	"knowledge.concept.created": knowledgeConcept, "knowledge.concept.updated": knowledgeConcept,
 	"knowledge.concept.deleted":     knowledgeConcept,
 	"knowledge.style_guide.created": knowledgeStyleGuide, "knowledge.style_guide.updated": knowledgeStyleGuide,
@@ -276,6 +283,11 @@ var (
 	}
 	catalogApplication = Projection{
 		Project: "project_id", Selectors: []string{"application_id", "project_id", "slug", "platform", "by"}, By: "by",
+	}
+	auditExport = Projection{
+		Selectors: []string{
+			"job_id", "state", "from", "to", "first_sequence", "last_sequence", "entry_count", "key_id", "failure_code", "by",
+		},
 	}
 )
 

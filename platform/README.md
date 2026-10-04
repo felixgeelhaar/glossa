@@ -168,6 +168,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_AUDIT_EXPORTS_ENABLED` | `false` | Audit export jobs (RFC 0006 §6.2). `true` without `GLOSSA_AUDIT_SIGNING_KEY` refuses to start. |
 | `GLOSSA_AUDIT_SIGNING_KEY` | — | Exactly one `keyId=base64(32-byte Ed25519 seed)`: the audit export key. Its own key — the server refuses a seed that is also a release signing key, and there is no key derived from `GLOSSA_AUTH_SECRET`. See *Audit export format*. |
 | `GLOSSA_AUDIT_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: earlier audit keys, published so the exports they signed keep verifying. |
+| `GLOSSA_AUDIT_EXPORT_RETENTION` | `168h` | How long an audit export job's two files are kept; the sweep deletes them afterwards (the job stays). |
 | `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
 | `GLOSSA_AI_WORKERS_ENABLED` | `true` | Run AI translation job workers in this process. |
 | `GLOSSA_AI_WORKERS` | `2` | Jobs this process runs at once. Tenants' own caps (`max_concurrent_jobs`) apply across replicas. |
@@ -1855,8 +1856,11 @@ still need verifying (`TestRetiredKeysStillVerify`).
 **Public keys** are distributed as a `glossa.audit.keys/1` document,
 `{format, keys: [{key_id, algorithm: "Ed25519", public_key (base64url),
 active}]}`, the active key first. glossa-server serves it at
-`GET /.well-known/glossa-audit-keys.json` (wave 5, with the export jobs;
-public, no token — it holds public keys only). The verifier never takes
+`GET /.well-known/glossa-audit-keys.json` (public, no token — it holds
+public keys only; 404 on a deployment without an audit key). Export jobs
+(`POST /v1/tenants/{tenant}/audit-export-jobs`, owner only) write these
+two files to object storage and serve them at `…/{job}/file` and
+`…/{job}/manifest`. The verifier never takes
 a key from the export it is checking: `glossa audit verify` requires
 `--public-key`, either that document saved once and pinned, or
 `keyId=base64` from wherever the operator published it.

@@ -1,6 +1,7 @@
 // Package httpapi is the Audit context's HTTP edge (RFC 0006 §6, §8):
-// its operations of the generated /v1 strict server. Today that is the
-// import of v0.3's history (§7.2) — the read and export API is wave 5's.
+// its operations of the generated /v1 strict server: the trail's
+// entries, its export jobs and their two files (§6.2, trail.go), and the
+// import of v0.3's history (§7.2).
 // The composition root embeds API next to the other contexts' handlers;
 // Identity's Guard has authenticated the caller and resolved the tenant
 // before any of these run, and the use case checks the permission.
@@ -42,12 +43,30 @@ var (
 // API serves Audit's operations.
 type API struct {
 	importer app.V0HistoryImporter
+	reads    Reads
+	exports  Exports
 }
+
+// Option adds a part of the API.
+type Option func(*API)
+
+// WithReads serves the trail's entries.
+func WithReads(r Reads) Option { return func(a *API) { a.reads = r } }
+
+// WithExports serves the export jobs; without it they answer
+// `audit_export_unavailable` (503).
+func WithExports(e Exports) Option { return func(a *API) { a.exports = e } }
 
 // New returns the API. importer records v0.3's history; nil makes the
 // import answer `audit_import_unavailable` (503) — a server that does
 // not run it says so rather than pretending to have recorded anything.
-func New(importer app.V0HistoryImporter) *API { return &API{importer: importer} }
+func New(importer app.V0HistoryImporter, opts ...Option) *API {
+	a := &API{importer: importer}
+	for _, o := range opts {
+		o(a)
+	}
+	return a
+}
 
 // ImportV0History records a batch of v0.3's audit_log as imported audit
 // entries of the project in the path. The body carries no text: a
@@ -72,7 +91,7 @@ func (a *API) ImportV0History(ctx context.Context, req apiv1.ImportV0HistoryRequ
 	}
 	r, err := a.importer.ImportV0History(ctx, in)
 	if err != nil {
-		return nil, err // authorization and failures: Identity's error writer
+		return nil, mapError(err) // authorization and other failures: Identity's error writer
 	}
 	return apiv1.ImportV0History200JSONResponse{Recorded: r.Recorded, Existing: r.Existing}, nil
 }

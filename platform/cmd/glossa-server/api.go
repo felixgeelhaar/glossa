@@ -97,6 +97,9 @@ func apiRoutes(identity *httpapi.API, meta *metaAPI, c contexts, mcp http.Handle
 		if mcp != nil {
 			mux.Handle(mcpgo.Path, mcp)
 		}
+		if c.auditKeys != nil {
+			mux.HandleFunc("GET "+auditKeysPath, c.auditKeys)
+		}
 		strict := apiv1.NewStrictHandlerWithOptions(server, nil, apiv1.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  identity.RequestError,
 			ResponseErrorHandlerFunc: identity.ResponseError,
