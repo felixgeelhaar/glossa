@@ -20,7 +20,9 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    # release/v0.3 builds v0.3's api and admin images once main's
+    # workspace no longer contains the admin (it moved here).
+    branches: [main, release/v0.3]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
