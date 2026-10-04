@@ -47,6 +47,7 @@ type fakeServer struct {
 	qa           *fakeQuality
 	gh           *fakeGitHub
 	ci           *fakeCI
+	dev          *fakeDevice
 	members      *fakeMembers
 	wf           *fakeWorkflows
 	audit        *fakeAuditImports
@@ -62,7 +63,7 @@ func (f *fakeServer) accepts(header string) bool {
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.ci.minted != "" && header == "Bearer "+f.ci.minted
+	return (f.ci.minted != "" && header == "Bearer "+f.ci.minted) || f.dev.accepts(header)
 }
 
 type fakeMessage struct {
@@ -97,7 +98,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, qa: newFakeQuality()}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, dev: &fakeDevice{}, qa: newFakeQuality()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -123,6 +124,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeQuality(mux, p)
 	f.routeGitHub(mux)
 	f.routeCI(mux)
+	f.routeDevice(mux)
 	f.routeMembers(mux)
 	f.routeWorkflows(mux)
 	f.routeAuditImports(mux, p)
@@ -133,7 +135,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 		f.mu.Unlock()
 		// The OIDC exchange is the one unauthenticated operation: the
 		// ID token in the body is the credential (RFC 0004 §6.3).
-		if r.URL.Path == "/v1/auth/github-oidc-exchanges" {
+		if r.URL.Path == "/v1/auth/github-oidc-exchanges" || r.URL.Path == "/v1/auth/device-authorizations" || r.URL.Path == "/v1/auth/device-sessions" {
 			mux.ServeHTTP(w, r)
 			return
 		}

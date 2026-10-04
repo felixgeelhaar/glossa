@@ -85,6 +85,20 @@ Secret Service keyring (Linux, via `secret-tool`), falling back to a
 reach the keychain tools on stdin, never on the command line.
 `glossa logout` removes it; `glossa whoami` shows what's in use.
 
+### Signing in as yourself: `glossa login --device`
+
+For what an API token may not do (importing v0.3's history writes the
+organisation's audit trail, which only an owner may), sign in as
+yourself. `glossa login --device [--client-name NAME]` prints a link and
+a code such as `BCDF-GHJK` on stderr and waits; open the link in Studio,
+check the code and the name shown, and approve. The CLI stores your own
+session as `glossa_dev_…` like any other credential (it acts with
+exactly your roles and projects, and lasts `GLOSSA_SESSION_TTL`).
+`glossa whoami` then names you and says it is a device session.
+`glossa logout` ends that session on the server as well as forgetting it
+(it still forgets it when the server cannot be reached). Codes expire
+after 15 minutes and work once; `--json` keeps stdout to one document.
+
 ### In GitHub Actions: no stored secret
 
 With `permissions: { id-token: write }`, `glossa login` needs no token
@@ -153,7 +167,7 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | Command | What it does |
 |---|---|
 | `init` | Writes glossa.yaml. Prompts on a terminal; with a token, reads the tenant and source locale from the server. `--server --project --source-locale --catalogs --typescript --vue --react --go --force` |
-| `login` / `logout` / `whoami` | Credential storage; `--server`, `--token-stdin`, `--project` (GitHub Actions OIDC; see *Authentication*) |
+| `login` / `logout` / `whoami` | Credential storage; `--server`, `--token-stdin`, `--project` (GitHub Actions OIDC), `--device`, `--client-name` (sign in as yourself; see *Authentication*) |
 | `push` | Sends the source catalog through `message-upserts` (500 per request). Reports created/revised/updated/unchanged/failed per key. `--dry-run` compares canonical models with the server instead of writing. `--translations` also imports the other catalogs as translations (provenance `import`). `--branch <name> [--pr <n>] [--commit <sha>]` pushes as a feature branch instead (RFC 0004 §4.1): the whole catalog in one request, where a new key becomes a `proposed` message the branch owns, changed source for a live key a source proposal, and nothing live changes. It answers with the branch's status report (new keys, source proposals, removed keys, conflicts, outdated per locale). Without values, the branch, commit and pull request come from the CI environment (`GITHUB_HEAD_REF`/`GITHUB_REF_NAME`, `GITHUB_SHA`, `PR_NUMBER`); `--dry-run` doesn't apply to a branch push. |
 | `pull` | Writes translations to the catalogs, sorted and deterministic. `--states approved,needs_review\|all`, `--locales`. `--release <id\|v<N>\|latest> [--environment env] [--out dir]` writes a release bundle instead (see *Release*). |
 | `extract` | Finds message usages and prints them as a `glossa.usages/v1` document (RFC 0004 §2.2; contract and fixtures: `runtimes/testdata/usages/`). Go is parsed with `go/parser`: `.T(…)` calls (`Client.T(ctx, "…")`, `l.T("…")`, `For(…).T("…")`) and the generated accessors, with the enclosing `pkg.Func` / `pkg.(*Type).Method` as component; files starting with `// Code generated … DO NOT EDIT.` are skipped. Go templates (`extract.templates`) are parsed with `text/template/parse`: `{{t}}`, `{{td}}`, `{{th}}`. Web files are scanned lexically: `t("…")`/`$t("…")`, `<glossa-text\|rich\|plural\|select key\|message>`, `<GlossaText id>`, `<T id>`, typed accessors; Vue and Astro files are their own component, Astro pages carry their route. Only literal keys count. Reports keys missing from the catalog and catalog messages nothing uses; `--strict` exits 1 on unknown keys. `--upload` sends the document to the project's context builds as an `extract` build (what `context push` does). The document's application is `--application`, `GLOSSA_APPLICATION` or `extract.application`; its commit and branch are `--commit`/`--branch`, `GLOSSA_COMMIT`/`GLOSSA_BRANCH`, GitHub Actions (a pull request's head, not its merge commit) or GitLab CI, else git. |
@@ -747,10 +761,9 @@ PGPASSWORD=… glossa import --from v0 --v0-db postgres://postgres@localhost/glo
   organisation's hash chain like any other: the chain is ordered by when
   an entry was recorded, `occurred_at` says when it happened. Only an
   **owner** may import history (`audit.import`); no API token scope
-  reaches it, so a token is refused (`forbidden`, exit 3). The CLI signs
-  in with API tokens until it can hold a person's session (RFC 0006 wave
-  5, which `glossa approve` needs too); it sends with whatever
-  credential it has, so `--history` works for an owner from then on.
+  reaches it, so a token is refused (`forbidden`, exit 3). Sign in as the
+  owner first with `glossa login --device` (see *Authentication*): the
+  device session is the owner's own and is accepted here.
   `--history` and `--dry-run` exclude each other.
 - Locale labels are reported; the platform names locales from CLDR.
 - `not_carried` lists every v0.3 field the import leaves behind, with

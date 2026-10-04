@@ -261,13 +261,32 @@ func (s *scenario) migratable() {
 	})
 	if imported {
 		// §7.2: the history goes to the audit trail with `--history`,
-		// which only an owner may do (audit.import, amended in wave 4).
-		s.step(id, "`glossa import --from v0 --v0-db --history` sends v0.3's history to the audit trail as the owner", func() error {
-			res := glossa(dir, env, append(cliImportV0DB, srv.dsn(restored), "--v0-project", v03Project, "--v0-tenant", v03Tenant,
+		// which only an owner may do (audit.import). An API token never
+		// reaches it, so the CLI signs in as the owner through the
+		// device flow (§12.6): the owner's browser session approves the
+		// code, and the CLI holds the owner's own session as a bearer.
+		s.step(id, "`glossa import --from v0 --v0-db --history` sends v0.3's history to the audit trail as the owner, signed in with `glossa login --device`", func() error {
+			historyEnv := map[string]string{}
+			for k, v := range env {
+				historyEnv[k] = v
+			}
+			delete(historyEnv, "GLOSSA_TOKEN")
+			store := &memStore{tokens: map[string]string{}}
+			login := glossaDeviceLogin(dir, historyEnv, store, func(userCode string) error {
+				_, err := s.owner.try(http.MethodPost, "/v1/auth/device-approvals",
+					map[string]any{"user_code": userCode, "decision": "approved"}, http.StatusNoContent, nil)
+				return err
+			})
+			if login.code != 0 {
+				return fmt.Errorf("glossa login --device exit %d: %s", login.code, login.String())
+			}
+			if !strings.HasPrefix(store.tokens[s.d.base], "glossa_dev_") {
+				return fmt.Errorf("login --device stored no device session for %s", s.d.base)
+			}
+			res := glossaWith(dir, historyEnv, store, append(cliImportV0DB, srv.dsn(restored), "--v0-project", v03Project, "--v0-tenant", v03Tenant,
 				"--history")...)
 			if res.code != 0 {
-				return fmt.Errorf("exit %d: %s — the CLI signs in with an API token, and no token scope reaches audit.import; "+
-					"it sends the history once it can hold the owner's session", res.code, res.String())
+				return fmt.Errorf("exit %d: %s", res.code, res.String())
 			}
 			return nil
 		})

@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
 )
@@ -48,6 +49,9 @@ type Env struct {
 	ReadSecret func(prompt string) (string, error)
 	// Version is the CLI's version, for --version and the User-Agent.
 	Version string
+	// Sleep waits between device sign-in polls (nil: sleep for real,
+	// until ctx ends).
+	Sleep func(ctx context.Context, d time.Duration) error
 }
 
 func (e *Env) getenv(k string) string {
@@ -67,8 +71,8 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"init", "Create glossa.yaml for this project", runInit},
-		{"login", "Store an API token for the server", runLogin},
-		{"logout", "Forget the stored API token", runLogout},
+		{"login", "Store an API token for the server, or sign in with --device", runLogin},
+		{"logout", "Forget the stored credential (and end a device sign-in)", runLogout},
 		{"whoami", "Show the server, token and tenant in use", runWhoami},
 		{"push", "Send the source catalog's messages to the server", runPush},
 		{"pull", "Write translations to local catalogs", runPull},
