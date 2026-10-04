@@ -237,11 +237,11 @@ type exportRig struct {
 	keys    *domain.KeySet
 }
 
-func newExportRig(t *testing.T, entries []domain.Entry, keys *domain.KeySet) exportRig {
+func newExportRig(t *testing.T, entries []domain.Entry, keys *domain.KeySet, opts ...app.ExportOption) exportRig {
 	t.Helper()
 	jobs, objects := newMemJobs(), objectstore.NewMemory()
 	svc := app.NewExportService(app.ExportConfig{Enabled: true, Retention: time.Hour}, &memTrail{entries: entries},
-		jobs, objects, keys, app.WithExportClock(func() time.Time { return trailStart.Add(24 * time.Hour) }))
+		jobs, objects, keys, append([]app.ExportOption{app.WithExportClock(func() time.Time { return trailStart.Add(24 * time.Hour) })}, opts...)...)
 	return exportRig{svc: svc, worker: app.NewExportWorker(svc, jobs, app.ExportWorkerConfig{}), jobs: jobs, objects: objects, keys: keys}
 }
 
@@ -404,7 +404,8 @@ func TestTheWorkerWritesAnExportThatVerifies(t *testing.T) {
 // entries are not one unbroken segment fails for good.
 func TestATimeRangeExportsItsSegment(t *testing.T) {
 	entries := chain(t, 10)
-	rig := newExportRig(t, entries, auditKeys(t))
+	m := &countingMetrics{}
+	rig := newExportRig(t, entries, auditKeys(t), app.WithExportMetrics(m))
 	from, to := trailStart.Add(2*time.Minute), trailStart.Add(5*time.Minute)
 	j, _, err := rig.svc.CreateExport(owner(), domain.ExportRangeRequest{From: &from, To: &to}, "")
 	if err != nil {
@@ -437,7 +438,7 @@ func TestATimeRangeExportsItsSegment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rig = newExportRig(t, append(slices.Clone(old), imported, next), auditKeys(t))
+	rig = newExportRig(t, append(slices.Clone(old), imported, next), auditKeys(t), app.WithExportMetrics(m))
 	to = trailStart.Add(7 * time.Minute)
 	j, _, err = rig.svc.CreateExport(owner(), domain.ExportRangeRequest{From: &from, To: &to}, "")
 	if err != nil {
@@ -449,6 +450,35 @@ func TestATimeRangeExportsItsSegment(t *testing.T) {
 	done, _ = rig.svc.GetExport(owner(), j.ID)
 	if done.State != domain.ExportFailed || done.FailureCode != domain.FailureRangeNotContiguous {
 		t.Errorf("a broken segment: %+v", done)
+	}
+	// glossa_audit_export_jobs_total: one succeeded, one failed for good.
+	if !slices.Equal(m.exports, []string{app.ExportSucceeded, app.ExportFailed}) {
+		t.Errorf("the ended jobs were counted as %v", m.exports)
+	}
+}
+
+// glossa_audit_export_jobs_total moves once per job that ended, by how
+// it ended (RFC 0006 §10.1): a succeeded export and one that failed for
+// good are each counted, a queued one is not.
+func TestEndedExportJobsAreCounted(t *testing.T) {
+	m := &countingMetrics{}
+	entries := chain(t, 10)
+	jobs, objects := newMemJobs(), objectstore.NewMemory()
+	svc := app.NewExportService(app.ExportConfig{Enabled: true, Retention: time.Hour}, &memTrail{entries: entries},
+		jobs, objects, auditKeys(t), app.WithExportMetrics(m), app.WithExportClock(func() time.Time { return trailStart.Add(24 * time.Hour) }))
+	worker := app.NewExportWorker(svc, jobs, app.ExportWorkerConfig{})
+
+	if _, _, err := svc.CreateExport(owner(), seqRange(2, 6), ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.exports) != 0 {
+		t.Fatalf("a queued job counted: %v", m.exports)
+	}
+	if _, err := worker.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(m.exports, []string{app.ExportSucceeded}) {
+		t.Fatalf("after a succeeded job: %v", m.exports)
 	}
 }
 

@@ -150,7 +150,8 @@ func newAuditAPI(cfg config.Audit, pool *pgxpool.Pool, svc *auditapp.Service, ob
 	store := auditpg.NewStore(uow)
 	keys := svc.ExportKeys()
 	exports := auditapp.NewExportService(auditapp.ExportConfig{Enabled: cfg.ExportsEnabled, Retention: cfg.ExportRetention},
-		store, auditpg.NewExportJobs(uow), objects, keys, auditapp.WithExportLogger(logger))
+		store, auditpg.NewExportJobs(uow), objects, keys, auditapp.WithExportLogger(logger),
+		auditapp.WithExportMetrics(svc.Metrics()))
 	if cfg.ExportsEnabled && keys != nil {
 		worker = auditapp.NewExportWorker(exports, auditpg.NewExportClaimer(uow), auditapp.ExportWorkerConfig{})
 	}

@@ -66,6 +66,7 @@ type ExportService struct {
 	objects Objects
 	keys    *domain.KeySet
 	logger  *slog.Logger
+	metrics Metrics
 	now     func() time.Time
 }
 
@@ -79,6 +80,14 @@ func WithExportLogger(l *slog.Logger) ExportOption {
 			s.logger = l
 		}
 	}
+}
+
+// WithExportMetrics records each export job that ends (ExportSucceeded
+// or ExportFailed) once its end is stored. A job that is retried, or
+// whose lease was lost to another worker, is not counted: it has not
+// ended, or the worker that ends it counts it.
+func WithExportMetrics(m Metrics) ExportOption {
+	return func(s *ExportService) { s.metrics = m }
 }
 
 // WithExportClock sets the clock (tests).
@@ -408,10 +417,20 @@ func (s *ExportService) finish(ctx context.Context, c ExportClaim, j domain.Expo
 		return nil
 	}
 	if err == nil {
+		if s.metrics != nil {
+			s.metrics.ExportJob(exportOutcome(state))
+		}
 		s.logger.InfoContext(ctx, "audit: export finished", slog.String("job_id", j.ID.String()),
 			slog.String("state", string(state)), slog.String("failure_code", code), slog.Int64("entries", j.EntryCount))
 	}
 	return err
+}
+
+func exportOutcome(state domain.ExportState) string {
+	if state == domain.ExportSucceeded {
+		return ExportSucceeded
+	}
+	return ExportFailed
 }
 
 func truncate(s string) string {
