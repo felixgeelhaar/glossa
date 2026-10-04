@@ -189,6 +189,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
+| `GLOSSA_WORKFLOW_INSTANCE_RETENTION` | `4320h` | How long a finished workflow instance and its transition log are kept (RFC 0006 §2.5; at least `24h`). The daily `workflow.retention` job, one of the purge jobs, deletes them afterwards, at most 5,000 per tenant a run; running instances are never deleted. |
 | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES` | `2147483648` | Capture images one tenant may keep in object storage (2 GiB, RFC 0004 §3.3). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); retention frees space again. |
 | `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |

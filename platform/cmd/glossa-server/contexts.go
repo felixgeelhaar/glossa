@@ -274,6 +274,7 @@ type contextDeps struct {
 	branches    config.Branches
 	context     config.Context
 	github      config.GitHub
+	workflow    config.Workflow
 	// studioURL is where the pull request's sticky comment links to the
 	// branch (GLOSSA_STUDIO_URL); edgeURL is where a branch
 	// environment's manifest is served (GLOSSA_EDGE_PUBLIC_URL, empty
@@ -311,7 +312,7 @@ func buildContexts(
 	c, err := newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
-		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		github: cfg.GitHub, workflow: cfg.Workflow, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
 		identity: identity,
 	})
 	c.objects = objects
@@ -473,6 +474,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, quality, c.githubInbox, c.githubChecks, deps.logger)
+	// Workflow's retention (RFC 0006 §2.5, wave 6): finished instances and
+	// their transition logs past GLOSSA_WORKFLOW_INSTANCE_RETENTION.
+	c.purgeJobs = append(c.purgeJobs, workflowRetentionJob(wf.runner, deps.workflow.InstanceRetention, deps.logger))
 	// The quality summary's four other sources (RFC 0005 §8). Quality is
 	// built before three of them, so this direction is wired here; it
 	// only reads, and each call is an authorized use case of the service

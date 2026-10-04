@@ -110,7 +110,27 @@ type Config struct {
 	GitHub               GitHub
 	MCP                  MCP
 	Audit                Audit
+	Workflow             Workflow
 }
+
+// Workflow configures the Workflow context's housekeeping (RFC 0006
+// §2.5, §13 wave 6).
+type Workflow struct {
+	// InstanceRetention is how long a finished workflow instance and its
+	// transition log are kept; the daily workflow.retention job (one of
+	// the Purge jobs) deletes them afterwards. Running instances are
+	// never deleted. At least a day.
+	InstanceRetention time.Duration
+}
+
+// DefaultInstanceRetention keeps a finished instance's log for half a
+// year: long enough to answer "why was this approved?" for a release
+// cycle or two; the audit trail keeps who did what for longer.
+const DefaultInstanceRetention = 180 * 24 * time.Hour
+
+// minInstanceRetention mirrors workflow/app.MinInstanceRetention, which
+// the sweep enforces too: config does not import a context.
+const minInstanceRetention = 24 * time.Hour
 
 // Audit configures the Audit context's exports (RFC 0006 §6.2).
 //
@@ -461,6 +481,9 @@ func Load(lookup LookupFunc) (Config, error) {
 		Burst: r.intRange("GLOSSA_MCP_BURST", 240, 1, 100_000),
 	}
 	cfg.Audit = r.audit()
+	cfg.Workflow = Workflow{
+		InstanceRetention: r.duration("GLOSSA_WORKFLOW_INSTANCE_RETENTION", DefaultInstanceRetention),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -520,6 +543,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Purge.PollInterval > c.Purge.Interval {
 		r.fail("GLOSSA_PURGE_POLL_INTERVAL", "must not exceed GLOSSA_PURGE_INTERVAL")
+	}
+	if c.Workflow.InstanceRetention > 0 && c.Workflow.InstanceRetention < minInstanceRetention {
+		r.fail("GLOSSA_WORKFLOW_INSTANCE_RETENTION", "must be at least 24h: a finished instance's log is kept a day at least")
 	}
 }
 

@@ -100,7 +100,7 @@ func newWorkflow(
 	// visibility `assigned` may see (RFC 0006 §3.3).
 	coverage := workflowapp.NewCoverage(workTx, directory, nil)
 	deps := workflowapp.RunnerDeps{
-		Tx: instances, Definitions: definitions, Timers: instances, Logger: logger,
+		Tx: instances, Definitions: definitions, Timers: instances, Retention: instances, Logger: logger,
 		Metrics: metrics, Workload: instances,
 		Translations: workflowsources.NewTranslations(src.catalog, src.localization),
 		Findings:     workflowsources.NewFindings(src.quality),
@@ -129,6 +129,21 @@ const (
 	workflowTimerLease    = 55 * time.Second
 	workflowTimerPoll     = 15 * time.Second
 )
+
+// workflowRetentionJob is the daily workflow.retention job, one of the
+// leased Purge jobs (RFC 0006 §2.5, §13 wave 6): it deletes the
+// instances that finished more than keep ago, with their transition
+// logs, and never a running one.
+func workflowRetentionJob(runner *workflowapp.Runner, keep time.Duration, logger *slog.Logger) scheduler.Job {
+	return scheduler.Job{Name: "workflow.retention", Run: func(ctx context.Context) error {
+		n, err := runner.SweepRetention(ctx, keep)
+		if n > 0 {
+			logger.InfoContext(ctx, "workflow: finished instances past their retention deleted",
+				slog.Int("instances", n), slog.Duration("retention", keep))
+		}
+		return err
+	}}
+}
 
 // newWorkflowTimers schedules the timer sweep on the Postgres lease so
 // one replica raises each timer. It runs where the leased periodic jobs
