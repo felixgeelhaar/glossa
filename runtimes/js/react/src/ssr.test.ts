@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement as h } from "react";
 import { renderToString } from "react-dom/server";
-import { createRuntime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 
 import { GlossaProvider, T, createGlossa, useGlossa } from "./index.js";
 import { Root, r1 } from "./testing/app.js";

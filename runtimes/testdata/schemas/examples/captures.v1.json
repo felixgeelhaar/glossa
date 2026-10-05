@@ -21,6 +21,34 @@
         { "index": 0, "kind": "text", "box": { "x": 24, "y": 1180, "width": 142.25, "height": 20 }, "visible": true },
         { "index": 1, "kind": "attribute", "attribute": "placeholder", "box": { "x": 16, "y": 960, "width": 358, "height": 44 }, "visible": true },
         { "index": 2, "kind": "text", "box": { "x": 0, "y": 0, "width": 0, "height": 0 }, "visible": false }
+      ],
+      "findings": [
+        {
+          "schema": "glossa.finding/v1",
+          "layer": "visual",
+          "code": "text-clipped",
+          "severity": "warning",
+          "locus": { "key": "cart.checkout", "region": "r_0" },
+          "message": "Clipped: 412\u00d720 px of text in 358\u00d720 px.",
+          "evidence": { "box": [358, 20], "content": [412, 20] }
+        },
+        {
+          "schema": "glossa.finding/v1",
+          "layer": "visual",
+          "code": "untranslated-on-screen",
+          "severity": "warning",
+          "locus": { "key": "checkout.card.placeholder", "locale": "de", "region": "r_2" },
+          "message": "Rendered from en on a de screen.",
+          "evidence": { "resolved_from": "en" }
+        },
+        {
+          "schema": "glossa.finding/v1",
+          "layer": "visual",
+          "code": "runtime-missing-message",
+          "severity": "warning",
+          "locus": { "key": "checkout.legal", "locale": "de" },
+          "message": "The runtime reported missing-message: no message checkout.legal in de."
+        }
       ]
     },
     {

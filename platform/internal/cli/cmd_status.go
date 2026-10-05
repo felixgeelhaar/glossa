@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
 )
 
@@ -34,10 +37,37 @@ type statusJSON struct {
 }
 
 func runStatus(ctx context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("status [--offline]")
+	fs := inv.flags("status [--offline] | status --quality [--locale L] [--environment E] [--since T]")
 	offline := fs.Bool("offline", false, "count the local catalogs instead of the server's project")
+	quality := fs.Bool("quality", false,
+		"print the seven quality numbers instead of coverage (RFC 0005 §8): the same ones the dashboard shows")
+	locale := fs.String("locale", "", "--quality: narrow the per-locale numbers to this locale")
+	environment := fs.String("environment", "", "--quality: where \"published\" means, for the lead time (default: production)")
+	since := fs.String("since", "", "--quality: the start of the window, RFC 3339 or YYYY-MM-DD (default: 30 days ago)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
+	}
+	if *quality {
+		// The seven numbers are the server's: they are computed from six
+		// contexts' tables, and the local catalogs know about one of
+		// them. An --offline answer would be a different, smaller
+		// question wearing the same name.
+		if *offline {
+			return usageError(inv.name, "--quality reads the server's summary: drop --offline")
+		}
+		q := remote.SummaryQuery{Environment: *environment}
+		var err error
+		if *locale != "" {
+			if q.Locale, err = normalizeLocale(inv, "--locale", *locale); err != nil {
+				return err
+			}
+		}
+		if *since != "" {
+			if q.Since, err = parseSince(inv, *since); err != nil {
+				return err
+			}
+		}
+		return inv.statusQuality(ctx, q)
 	}
 	cfg, err := inv.loadConfig()
 	if err != nil {
@@ -70,6 +100,20 @@ func runStatus(ctx context.Context, inv *invocation, args []string) error {
 		}
 		p.table(rows)
 	})
+}
+
+// parseSince reads --since: a date, or an RFC 3339 timestamp. A date
+// is its start, because a window that begins on the 1st begins at the
+// beginning of the 1st.
+func parseSince(inv *invocation, v string) (time.Time, error) {
+	v = strings.TrimSpace(v)
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		return t.UTC(), nil
+	}
+	if d, err := time.Parse(time.DateOnly, v); err == nil {
+		return d.UTC(), nil
+	}
+	return time.Time{}, usageError(inv.name, "--since takes a date (2026-09-01) or an RFC 3339 timestamp, not %q", v)
 }
 
 // serverStatus reads the project's per-locale stats: one request,

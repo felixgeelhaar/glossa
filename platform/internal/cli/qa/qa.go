@@ -3,16 +3,18 @@
 // and renders the result as `glossa check --json` has always rendered
 // it.
 //
-// The QA itself moved to internal/quality in M4 (RFC 0005 §14
-// decision 1): the layers, the finding and the run all live there now,
-// so `glossa check`, the Glossa pull-request check and the server's
-// jobs share one implementation and cannot disagree. What is left here
-// is the adapter — a snapshot in, the command's wire shape out.
+// The QA itself lives in internal/quality (RFC 0005 §14 decision 1):
+// the layers, the finding and the run are all there, so `glossa check`,
+// the Glossa pull-request check and the server's jobs share one
+// implementation and cannot disagree. What is left here is the
+// adapter — the CLI's snapshot in, a quality run out.
 //
-// The wire shape is deliberately unchanged. `glossa.cli.check/v1` is
-// the command's own contract, versioned on its own, and RFC 0005 §13
-// wave 3 rebuilds the command on the Quality library; until then a
-// finding prints and serializes exactly as it did in M3.
+// Nothing is flattened on the way out any more. Wave 3 rebuilt the
+// command on the library, so a run hands back app.Report and the
+// command reports domain.Finding itself: the locus, the spans and the
+// evidence that the old wire shape dropped survive to the terminal,
+// and the terminal and the pull request cannot describe one finding
+// two ways.
 package qa
 
 import (
@@ -48,30 +50,16 @@ const (
 	CodeMissingLocale       = checkpolicy.CodeMissingLocale
 )
 
-// Finding is one problem as `glossa check` prints and serializes it: a
-// flattened quality finding, with the fields the command has always
-// shown.
-type Finding struct {
-	// Check is the layer that found it, under the name the command has
-	// always printed.
-	Check    string   `json:"check"`
-	Code     string   `json:"code"`
-	Severity Severity `json:"severity"`
-	Locale   string   `json:"locale,omitempty"`
-	Key      string   `json:"key,omitempty"`
-	Subject  string   `json:"subject,omitempty"`
-	Detail   string   `json:"detail,omitempty"`
-	Message  string   `json:"message"`
-	// Where is the local file, when the finding comes from one.
-	Where string `json:"where,omitempty"`
-}
-
 // Policy decides what fails a check: `require_complete` and `fail_on`,
 // shared with the server's PR check.
 type Policy = checkpolicy.Policy
 
 // Checker is one layer of QA.
 type Checker = layers.Checker
+
+// StyleGuide is the mechanical half of a locale's effective style
+// guide, which is all the style layer grades (RFC 0005 §3.2).
+type StyleGuide = layers.StyleGuide
 
 // Default is the deterministic QA every check runs.
 func Default() []Checker { return layers.Default() }
@@ -82,43 +70,59 @@ func Precomputed(layer domain.Layer, fs []domain.Finding) Checker {
 	return layers.Precomputed(layer, fs)
 }
 
-// LocaleReport summarizes one locale.
-type LocaleReport struct {
-	Code     string `json:"code"`
-	IsSource bool   `json:"is_source"`
-	Required bool   `json:"required"`
-	Messages int    `json:"messages"`
-	// Translated counts messages with a usable translation (any review
-	// state but rejected).
-	Translated int  `json:"translated"`
-	Missing    int  `json:"missing"`
-	Outdated   int  `json:"outdated"`
-	Errors     int  `json:"errors"`
-	Warnings   int  `json:"warnings"`
-	Complete   bool `json:"complete"`
-}
+// Report is a check's result, as the Quality library sums it.
+type Report = qualityapp.Report
 
-// Report is a check's result.
-type Report struct {
-	Origin   string         `json:"origin"`
-	Messages int            `json:"messages"`
-	Invalid  int            `json:"invalid_messages"`
-	Locales  []LocaleReport `json:"locales"`
-	Findings []Finding      `json:"findings"`
-	Errors   int            `json:"errors"`
-	Warnings int            `json:"warnings"`
-	Passed   bool           `json:"passed"`
-}
-
-// Run checks s with the checkers and summarizes.
+// Run checks s with the checkers and sums what they found.
 func Run(s *snapshot.Snapshot, p Policy, checkers ...Checker) Report {
-	return render(qualityapp.Run(Project(s), p, checkers...))
+	return RunProject(Project(s), p, checkers...)
 }
 
-// Project is the snapshot as a layer sees it. The CLI's snapshot holds
-// no message IDs — it is read by key — so a finding from an offline
-// check is fingerprinted by key (domain.Fingerprint).
-func Project(s *snapshot.Snapshot) *layers.Project {
+// RunProject checks an already-built project, for a caller that needed
+// it before the run: `glossa capture --check` resolves its probe
+// findings' keys against the project (layers.Project.Identify) before it
+// promotes them, and the run must grade that very project.
+func RunProject(p *layers.Project, policy Policy, checkers ...Checker) Report {
+	return qualityapp.Run(p, policy, checkers...)
+}
+
+// Option is something a run knows about the project beyond its
+// snapshot.
+type Option func(*layers.Project)
+
+// WithStyles carries the effective style guides the run resolved, by
+// locale — what the style layer grades against, and what it has nothing
+// to say without.
+//
+// The server's own snapshot port fills the same map through its own
+// Styles port (quality/adapters/snapshot.WithStyles); this is the
+// terminal's side of it, so the two surfaces grade one project against
+// one set of guides. A locale missing from the map is a locale with no
+// mechanical guide, which the layer reads as "nothing to check against"
+// — not as a clean bill.
+func WithStyles(g map[string]StyleGuide) Option {
+	return func(p *layers.Project) {
+		if len(g) > 0 {
+			p.Styles = g
+		}
+	}
+}
+
+// Project is the snapshot as a layer sees it.
+//
+// The catalog message IDs come with it. A snapshot read from the server
+// carries one per message, and a layer puts it in the finding's locus,
+// which is what domain.Fingerprint hashes a finding's identity over: the
+// terminal and the server therefore compute the same fingerprint for the
+// same finding, and a waiver made against either matches the other.
+// A snapshot read from the local catalogs has no IDs, and there a
+// finding is fingerprinted by key — the honest answer offline, where no
+// catalog said what the key is called.
+//
+// What a snapshot cannot carry comes in as an Option: the effective
+// style guides are resolved per locale against the server, not read out
+// of the catalogs, so a run that has them hands them over here.
+func Project(s *snapshot.Snapshot, opts ...Option) *layers.Project {
 	p := &layers.Project{
 		Origin: s.Origin, SourceLocale: s.SourceLocale,
 		Translations: make(map[string]map[string]layers.Translation, len(s.Translations)),
@@ -128,8 +132,16 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 	}
 	for _, m := range s.Messages {
 		p.Messages = append(p.Messages, layers.Message{
-			Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
+			ID: m.ID, Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
 			Invalid: invalid(m.Invalid), File: m.File,
+			// The authored text, the limit and the description come with
+			// the message because the length and source layers read
+			// them: a span is in bytes of the authored text,
+			// `max-length-exceeded` is computed from the limit rather
+			// than waited for, and the source layer reads the
+			// description's absence. A local catalog carries none of the
+			// three, and there those layers report what they can.
+			Text: m.Text, MaxLength: m.MaxLength, Description: m.Description,
 		})
 	}
 	for locale, trs := range s.Translations {
@@ -138,10 +150,19 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 			out[key] = layers.Translation{
 				Key: t.Key, Locale: t.Locale, Model: t.Model, State: t.State,
 				SourceRevision: t.SourceRevision, Outdated: t.Outdated, Warnings: t.Warnings,
-				Invalid: invalid(t.Invalid), File: t.File,
+				Invalid: invalid(t.Invalid), File: t.File, Text: t.Text,
 			}
 		}
 		p.Translations[locale] = out
+	}
+	for _, o := range s.Orphans {
+		p.Orphans = append(p.Orphans, layers.Orphan{
+			MessageID: o.MessageID, Key: o.Key, Namespace: o.Namespace, Locale: o.Locale, Revision: o.Revision,
+		})
+	}
+	p.MoreOrphans = s.MoreOrphans
+	for _, o := range opts {
+		o(p)
 	}
 	return p
 }
@@ -151,40 +172,4 @@ func invalid(i *snapshot.Invalid) *layers.Invalid {
 		return nil
 	}
 	return &layers.Invalid{Code: i.Code, Detail: i.Detail}
-}
-
-// render flattens a quality run into the command's wire shape.
-func render(r qualityapp.Report) Report {
-	out := Report{
-		Origin: r.Origin, Messages: r.Messages, Invalid: r.Invalid, Findings: []Finding{},
-		Errors: r.Counts.Errors, Warnings: r.Counts.Warnings, Passed: r.Passed(),
-	}
-	for _, l := range r.Locales {
-		out.Locales = append(out.Locales, LocaleReport{
-			Code: l.Code, IsSource: l.IsSource, Required: l.Required, Messages: l.Messages,
-			Translated: l.Translated, Missing: l.Missing, Outdated: l.Outdated,
-			Errors: l.Errors, Warnings: l.Warnings, Complete: l.Complete,
-		})
-	}
-	for _, f := range r.Findings {
-		out.Findings = append(out.Findings, Finding{
-			Check: CheckName(f.Layer), Code: f.Code, Severity: f.Severity,
-			Locale: f.Locus.Locale, Key: f.Locus.Key, Subject: f.Subject, Detail: f.Detail,
-			Message: f.Message, Where: f.Locus.File,
-		})
-	}
-	return out
-}
-
-// CheckName is a layer's name in `glossa check`'s output.
-//
-// The parity layer is still spelled `arguments` there: that is what the
-// command has printed since M1, and renaming it is part of rebuilding
-// the command on the Quality library (RFC 0005 §13 wave 3), not of
-// moving the layers.
-func CheckName(l domain.Layer) string {
-	if l == domain.LayerParity {
-		return "arguments"
-	}
-	return string(l)
 }

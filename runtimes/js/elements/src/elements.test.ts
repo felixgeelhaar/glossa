@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRuntime } from "@glossa/runtime";
-import type { RuntimeError, RuntimeOptions } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import type { RuntimeError, RuntimeOptions } from "@felixgeelhaar/glossa-runtime";
 
 import "./index.js";
 import { GlossaProvider } from "./glossa-provider.js";
@@ -40,21 +40,60 @@ const testOptions = (serve: () => TestRelease | undefined = () => r1): RuntimeOp
   bidiIsolation: "none",
 });
 
-/** Let the runtime load (WebCrypto hashing is async) and Lit re-render. */
-async function settle(): Promise<void> {
+/**
+ * Let the runtime load (WebCrypto hashing is async) and Lit re-render.
+ *
+ * The five event-loop turns below are a floor for the runtime's async
+ * load, not the whole wait. Lit renders on its own queue, so a fixed
+ * number of turns is enough on an idle machine and not always enough on
+ * a loaded CI runner — which is what made this suite flake twice, once
+ * on a teardown assertion and once reading a component's shadow root
+ * before it had rendered. So after the floor we wait for the condition
+ * itself: every component's own `updateComplete`, repeated until a round
+ * reports that nothing re-rendered. `updateComplete` resolves false when
+ * the update queued another one, which is exactly the signal to wait
+ * again.
+ */
+async function settle(firstLoad = true): Promise<void> {
+  const rendering = () =>
+    Array.from(document.querySelectorAll("*")).filter(
+      (e): e is Element & { updateComplete: Promise<boolean> } => "updateComplete" in e,
+    );
   for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+  // Every provider's first load, too: what a text renders after it — a
+  // translation, or in strict mode the missing-key warning — comes from
+  // the provider publishing once its runtime is ready, which is a fetch
+  // from the test edge. Waiting only for the components to stop
+  // re-rendering returned early whenever their first render, still
+  // pending, finished before that fetch did; CI's "warns about missing
+  // keys in strict mode" failed that way while the same code passed the
+  // run before.
+  if (firstLoad) {
+    const providers = Array.from(document.querySelectorAll("glossa-provider")) as GlossaProvider[];
+    await Promise.all(providers.map((p) => p.runtime?.ready.catch(() => {})));
+  }
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+  for (let round = 0; round < 100; round++) {
+    if ((await Promise.all(rendering().map((e) => e.updateComplete))).every(Boolean)) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  throw new Error("settle: the components never stopped re-rendering");
 }
 
 async function mount(
   markup: string,
   configure: (p: GlossaProvider) => void = (p) => (p.options = testOptions()),
+  // false for a test about the state before the first load settles,
+  // whose transport never answers: it says so rather than racing a
+  // timeout, which is how this suite became flaky in the first place.
+  firstLoad = true,
 ): Promise<GlossaProvider> {
   const container = document.createElement("div");
   container.innerHTML = markup;
   const provider = container.querySelector("glossa-provider")!;
   configure(provider);
   document.body.append(container);
-  await settle();
+  await settle(firstLoad);
   return provider;
 }
 
@@ -96,6 +135,7 @@ describe("<glossa-provider> + <glossa-text>", () => {
     const p = await mount(
       `<glossa-provider ${edgeAttrs} locale="de"><glossa-text key="cart.checkout">Zur Kasse</glossa-text></glossa-provider>`,
       (p) => (p.options = { ...testOptions(), transport: () => new Promise(() => {}) }),
+      false,
     );
     const el = p.querySelector("glossa-text")!;
     expect(el.getAttribute("data-glossa-pending")).toBe("");

@@ -50,6 +50,19 @@ Map<String, Map<String, Object?>> loadFixtures(String kind) {
   };
 }
 
+/// One JSON fixture file below `runtimes/testdata`, e.g. `markup.json`.
+Map<String, Object?> loadRuntimeFixture(String relativePath) {
+  final file = File('${runtimesDir.path}/testdata/$relativePath');
+  if (!file.existsSync()) {
+    throw StateError(
+      'shared fixture missing: ${file.path}.\n'
+      'The Dart runtime is a driver over runtimes/testdata; run the tests '
+      'from runtimes/dart inside a checkout of the repository.',
+    );
+  }
+  return jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+}
+
 /// One JSON fixture file below `messageformat/testdata`.
 Map<String, Object?> loadMessageFormatFixture(String relativePath) {
   final file = File('${repoRoot.path}/messageformat/testdata/$relativePath');

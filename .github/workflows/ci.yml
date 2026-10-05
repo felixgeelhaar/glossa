@@ -205,6 +205,101 @@ jobs:
       # (RFC 0005 §6.3), never a copy of them.
       - name: dart test (shared conformance fixtures)
         run: dart test
+      # RFC 0005 §6.4, the AOT-and-web third of the budgets. `dart test`
+      # runs on the JIT VM, which forgives what neither of these does: a
+      # `dart:io` import that crept into the core breaks the first, and
+      # reflection breaks both. test/purity_test.dart names the offending
+      # import; these prove the whole package actually builds.
+      - name: dart compile js (the package builds for the web)
+        run: dart compile js -o "$RUNNER_TEMP/web_compile.js" tool/web_compile.dart
+      - name: dart compile exe (the package builds for AOT)
+        run: dart compile exe tool/startup_budget.dart -o "$RUNNER_TEMP/startup_budget"
+      # The §6.4 startup numbers. AOT, because AOT is what ships. It
+      # fails on the two properties that hold on any machine and records
+      # the wall clock, which on this runner is not the mid-range Android
+      # device §6.4 names — see the tool's own preamble.
+      - name: §6.4 startup budgets
+        run: '"$RUNNER_TEMP/startup_budget" --report "$RUNNER_TEMP/startup-budget.txt"'
+      - name: keep the startup numbers
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-startup-budget
+          path: ${{ runner.temp }}/startup-budget.txt
+          if-no-files-found: ignore
+          retention-days: 14
+      # `glossa generate --lang dart` emits code against this runtime, and
+      # TestGeneratedDartAnalyzes checks that it resolves, analyses and
+      # survives `dart format`. The Go jobs have no Dart SDK, so it used
+      # to skip silently everywhere; this job has one and asks for it by
+      # name, so a missing SDK fails here and nowhere else.
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: platform/go.mod
+          cache-dependency-path: platform/go.sum
+      - name: the generated Dart compiles against this runtime
+        working-directory: platform
+        env:
+          GLOSSA_REQUIRE_DART: "1"
+        run: go test -run TestGeneratedDart -count=1 -v ./internal/cli/codegen/...
+
+  runtimes-flutter:
+    name: Flutter runtime
+    runs-on: ubuntu-latest
+    # Three release builds of a fixture app; the rest is seconds.
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: runtimes/dart/flutter
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          # Pinned like every other toolchain here. This release carries
+          # Dart 3.13.4, the SDK runtimes-dart pins and the one both
+          # pubspecs constrain to, so the two jobs compile the same code.
+          flutter-version: "3.47.5"
+          channel: stable
+          cache: true
+      # `flutter build linux` is the release build this runner can make
+      # without a second SDK, and unlike macOS it is a single
+      # architecture, so the numbers below are per-architecture as they
+      # stand. The measurement is of Dart AOT code; glossa_flutter ships
+      # no native code and no assets, so there is nothing platform-shaped
+      # for a desktop target to miss.
+      - name: Linux desktop toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev
+      - run: flutter pub get
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+      # `flutter analyze`, not `dart analyze`: this package needs the
+      # Flutter SDK to resolve (RFC 0005 §6.1), which is why the core's
+      # analysis_options.yaml excludes it and why it gets a job of its own.
+      - name: flutter analyze
+        run: flutter analyze --fatal-infos
+      - name: flutter test
+        run: flutter test
+      # RFC 0005 §6.4: the package's contribution to a release build,
+      # from a fixture app built with and without it — which is the
+      # section's own method, so it is the thing gated. The number is the
+      # delta over a baseline that already has package:intl and an HTTP
+      # client, against 400 kB (150 kB was the original figure; nothing
+      # meets it by this method, and wave 4 replaced it). The bare-app
+      # delta, package:intl and the per-library decomposition are printed
+      # beside it, because §6.4 asks for them by name.
+      - name: §6.4 size budget
+        run: dart run tool/size_budget.dart --platform linux --report "$RUNNER_TEMP/size-budget.txt"
+      - name: keep the size numbers
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flutter-size-budget
+          path: ${{ runner.temp }}/size-budget.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
   packages:
     name: JS workspaces
@@ -218,14 +313,13 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
       # Workspace deps need to be built before consumers can lint.
-      # Order matters: ui ships its own .d.ts that admin consumes;
-      # elements depends on sdk; admin depends on all four.
+      # Legacy v0.3 packages that still build on main (v0.3 maintenance and the
+      # admin/elements live on release/v0.3). cli depends on sdk.
       - name: build packages (in dep order)
         run: |
           pnpm --filter @felixgeelhaar/glossa-format build
           pnpm --filter @felixgeelhaar/glossa-sdk build
           pnpm --filter @felixgeelhaar/glossa-ui build
-          pnpm --filter @felixgeelhaar/glossa-elements build
           pnpm --filter @felixgeelhaar/glossa-cli build
       - name: build rewrite packages (topological)
         run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
@@ -235,15 +329,13 @@ jobs:
         run: pnpm -r test
       # Capture-mode geometry needs a real layout engine (RFC 0004 §3.1).
       - name: install Chromium
-        run: pnpm --filter @glossa/capture exec playwright install --with-deps chromium
+        run: pnpm --filter @felixgeelhaar/glossa-capture exec playwright install --with-deps chromium
       - name: capture mode in Chromium (Playwright)
-        run: pnpm --filter @glossa/capture test:browser
+        run: pnpm --filter @felixgeelhaar/glossa-capture test:browser
       # Alt+click targeting, live override, axe, the preview CSP, and the
       # loader's guards against production releases (RFC 0004 §5).
       - name: in-product editor in Chromium (Playwright)
-        run: pnpm --filter @glossa/overlay test:browser
-      - name: admin build (vite)
-        run: pnpm --filter @felixgeelhaar/glossa-admin build
+        run: pnpm --filter @felixgeelhaar/glossa-overlay test:browser
 
   studio-e2e:
     name: Studio e2e
@@ -260,11 +352,11 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
-      - name: build @glossa/messageformat
-        run: pnpm --filter @glossa/messageformat build
+      - name: build @felixgeelhaar/glossa-messageformat
+        run: pnpm --filter @felixgeelhaar/glossa-messageformat build
       # Studio's build publishes this bundle at /overlay/v1/overlay.js.
-      - name: build @glossa/overlay
-        run: pnpm --filter @glossa/overlay... build
+      - name: build @felixgeelhaar/glossa-overlay
+        run: pnpm --filter @felixgeelhaar/glossa-overlay... build
       # Also clones and builds @klarlabs-studio/ui at the commit pinned in
       # studio/package.json (see studio/README.md, "Design system").
       - name: build Studio

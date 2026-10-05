@@ -108,13 +108,13 @@ func TestCheckFailsOnMissingTranslationsAndHonorsPolicy(t *testing.T) {
 	_, w := seeded(t)
 	var out checkJSON
 	w.json(&out, "check").want(t, ExitCheckFailed)
-	if out.Passed || out.Schema != "glossa.cli.check/v1" || out.Messages != 3 || out.Policy.RequireComplete != nil {
+	if out.Passed || out.Schema != "glossa.cli.check/v2" || out.Messages != 3 || out.Policy.RequireComplete != nil {
 		t.Fatalf("check = %+v", out)
 	}
 	var missing []string
 	for _, f := range out.Findings {
 		if f.Code == qa.CodeMissingTranslation {
-			missing = append(missing, f.Locale+" "+f.Key+" "+string(f.Severity))
+			missing = append(missing, f.Locus.Locale+" "+f.Locus.Key+" "+string(f.Severity))
 		}
 	}
 	if strings.Join(missing, ",") != "ja checkout.pay error" {
@@ -123,7 +123,13 @@ func TestCheckFailsOnMissingTranslationsAndHonorsPolicy(t *testing.T) {
 
 	var deOnly checkJSON
 	w.json(&deOnly, "check", "--require-complete=de").want(t, ExitOK)
-	if !deOnly.Passed || deOnly.Warnings != 1 {
+	// Four warnings: the Japanese key nobody translated, and the three
+	// the source layer has about the fixture's own copy — "Checkout" is
+	// one word with no description, and neither interpolating message
+	// says what its placeholder holds. They are warnings and the run
+	// passes, which is what RFC 0005 §3.5 asks for: source copy is the
+	// product team's call.
+	if !deOnly.Passed || deOnly.Warnings != 4 {
 		t.Errorf("de required = %+v", deOnly)
 	}
 	w.json(&checkJSON{}, "check", "--require-complete=de", "--fail-on=warning").want(t, ExitCheckFailed)
@@ -137,8 +143,12 @@ func TestCheckHumanOutputReadsLikeCI(t *testing.T) {
 	_, w := seeded(t)
 	r := w.run("check")
 	r.want(t, ExitCheckFailed)
-	for _, want := range []string{"✓ 3 messages discovered", "✓ message structures valid", "✓ arguments valid",
-		"✓ de complete", "✗ ja 1 missing", "checkout.pay  missing translation", "Localization check failed: 1 error, 0 warnings."} {
+	for _, want := range []string{"✓ 3 messages discovered", "✓ message structures valid", "✓ parity valid",
+		"✓ de complete", "✗ ja 1 missing", "checkout.pay  missing translation",
+		// The three source-layer warnings about the fixture's own copy
+		// are reported beside the error and do not change the verdict.
+		"ambiguous-short", "missing-description",
+		"Localization check failed: 1 error, 3 warnings."} {
 		if !strings.Contains(r.stdout, want) {
 			t.Errorf("output lacks %q:\n%s", want, r.stdout)
 		}
@@ -157,12 +167,12 @@ func TestCheckOfflineUsesLocalCatalogsAndTheKernel(t *testing.T) {
 	w.json(&out, "check", "--offline").want(t, ExitCheckFailed)
 	got := map[string]string{}
 	for _, f := range out.Findings {
-		got[f.Key+" "+f.Code] = string(f.Severity)
+		got[f.Locus.Key+" "+f.Code] = string(f.Severity)
 	}
 	if got["cart.items missing-argument"] != "error" || got["cart.items extra-argument"] != "error" || got["old.key unknown-key"] != "warning" {
 		t.Errorf("findings = %v", got)
 	}
-	if out.Origin != "local" || out.Findings[0].Where == "" {
+	if out.Origin != "local" || out.Findings[0].Locus.File == "" {
 		t.Errorf("report = %+v", out)
 	}
 }
@@ -201,9 +211,11 @@ func TestReadsTranslationsInBulk(t *testing.T) {
 	w.json(&checkJSON{}, "check").want(t, ExitCheckFailed)
 	w.json(&diffJSON{}, "diff").want(t, ExitOK)
 	w.json(&pullJSON{}, "pull").want(t, ExitOK)
-	// 5 translations across de and ja, 2 a page: 3 pages per command.
-	if n := srv.countRequests(p+"/translations ") - before; n != 9 {
-		t.Errorf("%d listing requests for check, diff and pull, want 9", n)
+	// 5 translations across de and ja, 2 a page: 3 pages per command,
+	// and check's one bounded page of the translations of obsolete
+	// messages (layers.MaxOrphans), which it never pages past.
+	if n := srv.countRequests(p+"/translations ") - before; n != 10 {
+		t.Errorf("%d listing requests for check, diff and pull, want 10", n)
 	}
 	if n := srv.countRequests(p + "/messages/"); n != 0 {
 		t.Errorf("%d per-message reads", n)

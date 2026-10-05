@@ -3,12 +3,13 @@
  * fixture page: two runtimes (a German page and an Arabic island), a page
  * that renders with whichever `t()` it's given, and the capture session.
  */
-import { createRuntime } from "@glossa/runtime";
-import type { BundledRelease, Runtime } from "@glossa/runtime";
-import "@glossa/elements";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import type { BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
+import "@felixgeelhaar/glossa-elements";
 
 import { startCapture } from "../src/index.js";
-import type { Capture, CaptureSession } from "../src/index.js";
+import type { CaptureSession, SessionCapture } from "../src/index.js";
+import { probe } from "../src/probes.js";
 
 declare global {
   interface Window {
@@ -29,7 +30,7 @@ export interface Fixture {
   render(): void;
   start(): void;
   stop(): void;
-  collect(): Capture;
+  collect(): SessionCapture;
   /** Every probed element's and text run's box, for the layout comparison. */
   probes(): Probe[];
   hooked(): boolean[];
@@ -80,7 +81,7 @@ function probes(): Probe[] {
 window.fixture = {
   render,
   start: () => {
-    session = startCapture([de, ar]);
+    session = startCapture([de, ar], { probe });
     render();
   },
   stop: () => session?.stop(),

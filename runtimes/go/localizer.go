@@ -50,6 +50,7 @@ type Localizer struct {
 	c         *Client
 	requested []string
 	timeZone  *time.Location // nil: UTC
+	cohortKey string         // "": the installation id
 }
 
 // For returns a Localizer for locales in priority order. Tags are
@@ -59,10 +60,31 @@ func (c *Client) For(locales ...string) *Localizer {
 	return &Localizer{c: c, requested: canonicalizeAll(locales)}
 }
 
-// Localizer returns a Localizer for the locales on ctx (see WithLocales
-// and Middleware).
+// Localizer returns a Localizer for the locales and the cohort key on ctx
+// (see WithLocales, WithCohortKey and Middleware).
 func (c *Client) Localizer(ctx context.Context) *Localizer {
-	return &Localizer{c: c, requested: LocalesFrom(ctx)}
+	return &Localizer{c: c, requested: LocalesFrom(ctx), cohortKey: CohortKeyFrom(ctx)}
+}
+
+// WithCohortKey returns a copy of l that renders from the side of a staged
+// rollout key selects (SPEC §1.4), for example one recipient's user ID in a
+// batch job. See the package-level WithCohortKey for request contexts.
+func (l *Localizer) WithCohortKey(key string) *Localizer {
+	c := *l
+	c.cohortKey = key
+	return &c
+}
+
+// snapshot is the client's active snapshot as l's cohort key sees it:
+// under a rollout and with a key, rel is the view the key selects.
+func (l *Localizer) snapshot() *snapshot {
+	snap := l.c.state.Load()
+	if snap.ro == nil || l.cohortKey == "" {
+		return snap
+	}
+	v := *snap
+	v.rel, v.cohort = snap.pick(l.cohortKey)
+	return &v
 }
 
 // T renders message id for the locales on ctx.
@@ -79,7 +101,7 @@ func (c *Client) Explain(ctx context.Context, id string) Explanation {
 // T renders message id with args.
 func (l *Localizer) T(id string, args Args, opts ...Option) string {
 	o := l.options(opts)
-	snap := l.c.state.Load()
+	snap := l.snapshot()
 	res := snap.rel.resolve(id, l.requested)
 	return renderAs(l.c, snap, res, o,
 		func(msg messageformat.Message, locale string) (string, string, error) {
@@ -107,7 +129,7 @@ func (o callOptions) formatOptions() []messageformat.FormatOption {
 
 // Explain reports how id resolves, without side effects (SPEC §6).
 func (l *Localizer) Explain(id string) Explanation {
-	snap := l.c.state.Load()
+	snap := l.snapshot()
 	return snap.rel.resolve(id, l.requested).explain(snap)
 }
 
@@ -115,7 +137,7 @@ func (l *Localizer) Explain(id string) Explanation {
 // matched, else its source locale. With nothing loaded it is the first
 // requested locale, or "".
 func (l *Localizer) Locale() string {
-	rel := l.c.state.Load().rel
+	rel := l.snapshot().rel
 	if rel == nil {
 		if len(l.requested) == 0 {
 			return ""
@@ -128,7 +150,7 @@ func (l *Localizer) Locale() string {
 // Direction returns the text direction of the active locale, for the HTML
 // dir attribute.
 func (l *Localizer) Direction() Direction {
-	rel := l.c.state.Load().rel
+	rel := l.snapshot().rel
 	if rel == nil {
 		return scriptDirection(l.Locale())
 	}

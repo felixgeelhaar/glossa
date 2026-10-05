@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres/qualitysql"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -34,11 +35,24 @@ func NewTransactor(uow *db.UnitOfWork) *Transactor { return &Transactor{uow: uow
 // InTenant implements app.Transactor.
 func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
 	return t.uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
-		return fn(ctx, &store{q: qualitysql.New(tx)})
+		return fn(ctx, &store{q: qualitysql.New(tx), tx: tx})
 	})
 }
 
-type store struct{ q *qualitysql.Queries }
+type store struct {
+	q *qualitysql.Queries
+	// tx is the same transaction the queries run in, kept so a domain
+	// event lands with the rows that raised it.
+	tx *db.TenantTx
+}
+
+// Publish implements app.Store: the event goes in the transaction that
+// wrote the run, so a rollback leaves no announcement of a run nobody
+// stored.
+func (s *store) Publish(ctx context.Context, e outbox.Event) error {
+	_, err := outbox.Publish(ctx, s.tx, e)
+	return err
+}
 
 var _ app.Store = (*store)(nil)
 
@@ -143,6 +157,18 @@ func (s *store) LatestCheckRun(ctx context.Context, project uuid.UUID, f app.Run
 		return domain.CheckRun{}, notFound(err, app.ErrCheckRunNotFound)
 	}
 	return checkRun(r), nil
+}
+
+func (s *store) HasCheckRunOf(ctx context.Context, project uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	names := make([]string, len(triggers))
+	for i, t := range triggers {
+		names[i] = string(t)
+	}
+	found, err := s.q.HasCheckRunOf(ctx, qualitysql.HasCheckRunOfParams{ProjectID: project, RunTriggers: names})
+	if err != nil {
+		return false, storeError(err)
+	}
+	return found, nil
 }
 
 func (s *store) ListCheckRuns(ctx context.Context, project uuid.UUID, f app.RunFilter, after *app.RunCursor, limit int) ([]domain.CheckRun, error) {
@@ -283,6 +309,46 @@ func (s *store) ListFindings(ctx context.Context, run domain.CheckRun, f app.Fin
 	return out, nil
 }
 
+// ListCaptureFindings pages the findings on one capture, optionally on
+// one of its regions. It reads across runs rather than through the
+// project's newest, because the run that saw this screenshot is the one
+// that ingested it (RFC 0005 §5).
+func (s *store) ListCaptureFindings(
+	ctx context.Context, project, capture uuid.UUID, region, after string, limit int, now time.Time,
+) ([]app.FindingRecord, error) {
+	rows, err := s.q.ListCaptureFindings(ctx, qualitysql.ListCaptureFindingsParams{
+		ProjectID: project, CaptureID: uuid.NullUUID{UUID: capture, Valid: true}, Region: region,
+		Now: now, After: after, MaxRows: int32Of(limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.FindingRecord, len(rows))
+	for i, r := range rows {
+		// The two queries select the same columns in the same order, so
+		// one mapper reads both rows.
+		rec, err := finding(qualitysql.ListRunFindingsRow(r))
+		if err != nil {
+			return nil, err
+		}
+		out[i] = rec
+	}
+	return out, nil
+}
+
+// CaptureFingerprints are the distinct fingerprints one capture's
+// stored findings carry: the previous sighting the two-sighting rule
+// counts against (RFC 0005 §5.2).
+func (s *store) CaptureFingerprints(ctx context.Context, project, capture uuid.UUID) ([]string, error) {
+	fps, err := s.q.ListCaptureFingerprints(ctx, qualitysql.ListCaptureFingerprintsParams{
+		ProjectID: project, CaptureID: uuid.NullUUID{UUID: capture, Valid: true},
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	return fps, nil
+}
+
 func finding(r qualitysql.ListRunFindingsRow) (app.FindingRecord, error) {
 	f := domain.Finding{
 		Schema: domain.Schema, Fingerprint: r.Fingerprint, Layer: domain.Layer(r.Layer), Code: r.Code,
@@ -332,6 +398,58 @@ func (s *store) CountFindings(ctx context.Context, run domain.CheckRun, now time
 	return domain.Counts{Errors: int(c.Errors), Warnings: int(c.Warnings), Waived: int(c.Waived)}, nil
 }
 
+func (s *store) CountFindingsByLayer(
+	ctx context.Context, run domain.CheckRun, now time.Time,
+) ([]domain.LocaleLayerCount, error) {
+	rows, err := s.q.CountRunFindingsByLayer(ctx, qualitysql.CountRunFindingsByLayerParams{
+		RunID: run.ID, Ref: run.Ref, Now: now,
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.LocaleLayerCount, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.LocaleLayerCount{
+			Locale: r.Locale,
+			LayerCount: domain.LayerCount{
+				Layer:  domain.Layer(r.Layer),
+				Counts: domain.Counts{Errors: int(r.Errors), Warnings: int(r.Warnings), Waived: int(r.Waived)},
+			},
+		})
+	}
+	return out, nil
+}
+
+func (s *store) RollUpFindingsByDay(ctx context.Context, project uuid.UUID, day time.Time) error {
+	start := day.UTC().Truncate(24 * time.Hour)
+	return s.q.RollUpFindingsByDay(ctx, qualitysql.RollUpFindingsByDayParams{
+		ProjectID: project,
+		Day:       pgtype.Date{Time: start, Valid: true},
+		DayStart:  start,
+		NextDay:   start.AddDate(0, 0, 1),
+	})
+}
+
+func (s *store) FindingsByDay(
+	ctx context.Context, project uuid.UUID, from, to time.Time,
+) ([]domain.DailyFindings, error) {
+	rows, err := s.q.ListFindingsByDay(ctx, qualitysql.ListFindingsByDayParams{
+		ProjectID: project,
+		FromDay:   pgtype.Date{Time: from.UTC().Truncate(24 * time.Hour), Valid: true},
+		ToDay:     pgtype.Date{Time: to.UTC().Truncate(24 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]domain.DailyFindings, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.DailyFindings{
+			Day: r.Day.Time.UTC(), Layer: domain.Layer(r.Layer), Findings: int(r.Findings),
+		})
+	}
+	return out, nil
+}
+
 func (s *store) LatestFinding(ctx context.Context, project uuid.UUID, fingerprint string) (app.FindingSummary, bool, error) {
 	r, err := s.q.GetLatestFinding(ctx, qualitysql.GetLatestFindingParams{ProjectID: project, Fingerprint: fingerprint})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -353,7 +471,7 @@ func waiver(r qualitysql.QualityWaiver) domain.Waiver {
 		ID: r.ID, Project: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: domain.WaiverScope(r.Scope), Ref: r.Ref, SourceRevision: int(r.SourceRevision),
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), ExpiresAt: timePtr(r.ExpiresAt),
-		RevokedAt: timePtr(r.RevokedAt),
+		ExpiredAt: timePtr(r.ExpiredAt), RevokedAt: timePtr(r.RevokedAt),
 	}
 }
 
@@ -369,7 +487,7 @@ func (s *store) UpsertWaiver(ctx context.Context, w domain.Waiver) (domain.Waive
 	return waiver(qualitysql.QualityWaiver{
 		ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 		Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+		CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 	}), r.Inserted, nil
 }
 
@@ -399,7 +517,7 @@ func (s *store) ListWaivers(ctx context.Context, project uuid.UUID, f app.Waiver
 		w := waiver(qualitysql.QualityWaiver{
 			ID: r.ID, TenantID: r.TenantID, ProjectID: r.ProjectID, Fingerprint: r.Fingerprint, Reason: r.Reason,
 			Scope: r.Scope, Ref: r.Ref, SourceRevision: r.SourceRevision, CreatedBy: r.CreatedBy,
-			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+			CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ExpiredAt: r.ExpiredAt, RevokedAt: r.RevokedAt,
 		})
 		out[i] = app.WaiverRecord{
 			Waiver: w,
@@ -428,6 +546,68 @@ func (s *store) LiveWaivers(ctx context.Context, project uuid.UUID, now time.Tim
 	out := make([]domain.Waiver, len(rows))
 	for i, r := range rows {
 		out[i] = waiver(r)
+	}
+	return out, nil
+}
+
+// ── check-policy versions ───────────────────────────────────────────
+//
+// The document that grades lives in the project's settings, which
+// Catalog owns; this is the append-only record of how it got there
+// (migration 0031, RFC 0005 §4.3).
+
+func policyVersion(r qualitysql.QualityPolicyVersion) (app.PolicyVersion, error) {
+	out := app.PolicyVersion{
+		ID: r.ID, Project: r.ProjectID, Version: int(r.Version),
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(),
+	}
+	if err := json.Unmarshal(r.Document, &out.Policy); err != nil {
+		return app.PolicyVersion{}, err
+	}
+	return out, nil
+}
+
+func (s *store) InsertPolicyVersion(ctx context.Context, v app.PolicyVersion) (bool, error) {
+	doc, err := json.Marshal(v.Policy)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.q.InsertPolicyVersion(ctx, qualitysql.InsertPolicyVersionParams{
+		ID: v.ID, ProjectID: v.Project, Version: int32Of(v.Version), Document: doc,
+		CreatedBy: v.CreatedBy, CreatedAt: v.CreatedAt,
+	})
+	if err != nil {
+		return false, storeError(err)
+	}
+	return n > 0, nil
+}
+
+func (s *store) PolicyVersion(ctx context.Context, project uuid.UUID, version int) (app.PolicyVersion, error) {
+	r, err := s.q.GetPolicyVersion(ctx, qualitysql.GetPolicyVersionParams{
+		ProjectID: project, Version: int32Of(version),
+	})
+	if err != nil {
+		return app.PolicyVersion{}, notFound(err, app.ErrPolicyVersionNotFound)
+	}
+	return policyVersion(r)
+}
+
+func (s *store) ListPolicyVersions(
+	ctx context.Context, project uuid.UUID, after *int, limit int,
+) ([]app.PolicyVersion, error) {
+	p := qualitysql.ListPolicyVersionsParams{ProjectID: project, MaxRows: int32Of(limit)}
+	if after != nil {
+		p.AfterVersion = pgtype.Int4{Int32: int32Of(*after), Valid: true}
+	}
+	rows, err := s.q.ListPolicyVersions(ctx, p)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.PolicyVersion, len(rows))
+	for i, r := range rows {
+		if out[i], err = policyVersion(r); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

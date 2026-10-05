@@ -9,11 +9,20 @@ import (
 
 // Parity checks that every translation is structurally compatible with
 // its current source — arguments, selectors, plural categories for the
-// target locale and markup — plus the warnings the server stored that
-// only it can compute (max-length-exceeded).
+// target locale and markup — plus the other warnings the server stored
+// that only it can compute.
 //
 // It was called `arguments` in M1 and keeps every one of its codes,
 // which stay the MessageFormat kernel's (RFC 0005 §3.1).
+//
+// One code left in M4: `max-length-exceeded`, which this layer surfaced
+// from the stored warning because it was the only layer there was. RFC
+// 0005 §3.3 puts it in `length`, and the Length layer both recomputes
+// it from the message's own constraint and relays the stored warning
+// where the caller has no constraint. Relaying it here too would give a
+// project two findings for one problem under two layers, so parity
+// stops at the boundary: the kernel's compat codes are its, and
+// everything else the server stored goes to the layer that owns it.
 type Parity struct{}
 
 // Layer implements Checker.
@@ -33,11 +42,11 @@ func (Parity) Check(p *Project, _ checkpolicy.Policy) []domain.Finding {
 				seen[string(f.Code)] = true
 				out = append(out, FromKernel(f, l.Code, m, t))
 			}
-			// A warning the kernel cannot recompute here — max_length is
-			// the server's, because only it holds the constraint — is
-			// reported as the server left it.
+			// A warning the kernel cannot recompute here is reported as
+			// the server left it — except the ones another layer owns,
+			// which that layer relays instead.
 			for _, w := range t.Warnings {
-				if !seen[string(w.Code)] {
+				if !seen[string(w.Code)] && !ownedElsewhere(string(w.Code)) {
 					out = append(out, FromKernel(w, l.Code, m, t))
 				}
 			}
@@ -45,6 +54,11 @@ func (Parity) Check(p *Project, _ checkpolicy.Policy) []domain.Finding {
 	}
 	return out
 }
+
+// ownedElsewhere reports whether a stored warning belongs to a layer
+// other than parity. It is one list, so a code cannot be relayed twice
+// by two layers that each thought they were the only one.
+func ownedElsewhere(code string) bool { return code == CodeMaxLengthExceeded }
 
 // FromKernel is a MessageFormat finding as the parity layer reports it.
 //

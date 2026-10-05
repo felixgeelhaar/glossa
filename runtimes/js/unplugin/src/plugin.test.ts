@@ -54,7 +54,7 @@ describe("the plugin", () => {
       application: "shop",
       commit: SHA,
       branch: "feat/cart",
-      tool: { name: "@glossa/unplugin", version: TOOL_VERSION },
+      tool: { name: "@felixgeelhaar/glossa-unplugin", version: TOOL_VERSION },
       usages: [{ key: "cart.title", file: "src/main.ts", line: 2, column: 21, kind: "t" }],
     });
     expect(existsSync(join(root, "dist", ".glossa"))).toBe(false);

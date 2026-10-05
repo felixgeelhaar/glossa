@@ -60,17 +60,23 @@ type CheckTarget struct {
 	// them, so an annotation is sent once per run and a retry sends
 	// none. A new run (a new commit, or a rerequest) starts empty.
 	Annotations []string `json:"annotations,omitempty"`
-	// Pushed and Usages are what this head SHA's CI has ingested: the
-	// branch push and the usages build. The check completes when both
-	// have arrived, or when CheckWait runs out.
-	Pushed bool `json:"pushed,omitempty"`
-	Usages bool `json:"usages,omitempty"`
+	// Pushed, Usages and Recorded are what this head SHA's CI has done:
+	// the branch push, the usages build, and the `glossa check` run it
+	// recorded. The check completes when all three have arrived, or when
+	// CheckWait runs out.
+	//
+	// Recorded is the one RFC 0005 §12.3 adds. The pull request renders
+	// the run CI recorded rather than computing a second one, so in a
+	// project known to record runs there is nothing to render until it
+	// exists. A project that has never recorded one is not waited for,
+	// and completes on the first two (RFC 0005 §14 decision 11; the rule
+	// lives with the worker).
+	Pushed   bool `json:"pushed,omitempty"`
+	Usages   bool `json:"usages,omitempty"`
+	Recorded bool `json:"recorded,omitempty"`
 	// Conclusion is what the run last reported.
 	Conclusion string `json:"conclusion,omitempty"`
 }
-
-// Ready reports whether this head SHA's CI has uploaded both halves.
-func (t CheckTarget) Ready() bool { return t.Pushed && t.Usages }
 
 // Sent reports whether fingerprint has already been appended to the
 // current check run.
@@ -147,6 +153,18 @@ type Check struct {
 	// written. It survives a new commit — the comment is the pull
 	// request's, not the commit's.
 	CommentID int64
+	// OpenedAt is GitHub's `pull_request.created_at`: when the pull
+	// request was opened, not when Glossa first heard of it. It is what
+	// a policy's grace is measured against, so that tightening a rule
+	// cannot turn a pull request red for something its author did not do
+	// (RFC 0005 §4.3).
+	//
+	// Like CommentID it survives a new commit: a push must not make the
+	// pull request younger, or its grace would run a little further out
+	// with every one. The zero time is "nobody recorded when" — a row
+	// written before migration 0033, or a check that is not a pull
+	// request's — and then the project's current policy grades it.
+	OpenedAt time.Time
 	// Targets is keyed by Git connection.
 	Targets map[uuid.UUID]CheckTarget
 	State   CheckState

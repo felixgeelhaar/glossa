@@ -126,8 +126,11 @@ type Identity struct {
 	Tools       []string `json:"tools"`
 	// WriteAvailable reports whether this token *could* open a write
 	// session, so a client knows whether reconnecting with
-	// ?toolset=write would help.
-	WriteAvailable bool `json:"write_available"`
+	// ?toolset=write would help. PublishAvailable says the same of the
+	// release tools. The two are separate because the scopes are: a
+	// token may carry either, both or neither.
+	WriteAvailable   bool `json:"write_available"`
+	PublishAvailable bool `json:"publish_available"`
 }
 
 // whoAmI builds the capability probe over reg.
@@ -149,14 +152,15 @@ func whoAmI(reg *Registry) Tool {
 				names[i] = string(p)
 			}
 			id := Identity{
-				Tenant:         sess.Tenant.String(),
-				Actor:          sess.Actor().String(),
-				Token:          sess.Token.String(),
-				Scopes:         sess.Scopes.Strings(),
-				Toolset:        sess.Toolset.String(),
-				Permissions:    names,
-				Tools:          reg.names(sess.Toolset),
-				WriteAvailable: slices.Contains(sess.Scopes, identity.ScopeWrite),
+				Tenant:           sess.Tenant.String(),
+				Actor:            sess.Actor().String(),
+				Token:            sess.Token.String(),
+				Scopes:           sess.Scopes.Strings(),
+				Toolset:          sess.Toolset.String(),
+				Permissions:      names,
+				Tools:            reg.names(sess.Toolset),
+				WriteAvailable:   slices.Contains(sess.Scopes, identity.ScopeWrite),
+				PublishAvailable: slices.Contains(sess.Scopes, identity.ScopePublish),
 			}
 			return Result{
 				Explanation: fmt.Sprintf(

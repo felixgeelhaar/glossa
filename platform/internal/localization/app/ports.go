@@ -140,18 +140,28 @@ type Store interface {
 	// UpdateTranslation saves t if the stored revision is expected.
 	UpdateTranslation(ctx context.Context, t domain.Translation, expected int) error
 	AppendRevision(ctx context.Context, r domain.Revision) error
-	TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, limit int) ([]TranslationRow, error)
+	// TranslationsOfMessage lists a message's translations by locale;
+	// only, when not nil, limits them to those locales (an assigned
+	// member's units of the message).
+	TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, only []string, limit int) ([]TranslationRow, error)
 	Revisions(ctx context.Context, translation domain.TranslationID, before, limit int) ([]domain.Revision, error)
 	// NewlyOutdated lists a message's translations made against a
 	// revision in [old, new).
 	NewlyOutdated(ctx context.Context, message uuid.UUID, old, new int) ([]domain.Translation, error)
-	SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) ([]TranslationRow, error)
+	// SnapshotTranslations reads a project's translations in states;
+	// includeObsolete false leaves out those of messages this projection
+	// knows to be obsolete.
+	SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) ([]TranslationRow, error)
 	// ProjectTranslations lists translations across a project's messages
 	// in (key, message ID, locale) order after q.After, in one query.
 	ProjectTranslations(ctx context.Context, project uuid.UUID, q ProjectTranslationQuery) ([]ProjectTranslationRow, error)
 	// TranslationStats counts a project's active messages and, per
 	// locale it has, the translations of them, in one query.
 	TranslationStats(ctx context.Context, project uuid.UUID) (StoredStats, error)
+	// LeadTimeSamples are recent source changes with the moment a
+	// translation in one of q.States caught up with them, newest source
+	// change first and bounded by q.Limit.
+	LeadTimeSamples(ctx context.Context, project uuid.UUID, q LeadTimeQuery) ([]LeadTimeSample, error)
 
 	DeleteProjectData(ctx context.Context, project uuid.UUID) error
 

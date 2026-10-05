@@ -9,7 +9,7 @@ import { build } from "esbuild";
 import type { Box, Capture, Region } from "../src/index.js";
 import { hasMarkers } from "../src/markers.js";
 import { fixture } from "../src/testing/release.js";
-import { schemaErrors } from "../src/testing/schema.js";
+import { findingErrors, schemaErrors } from "../src/testing/schema.js";
 import type { Probe } from "./fixture.js";
 
 const HTML = `<!doctype html>
@@ -212,6 +212,35 @@ test("regions: duplicates, values, attributes, hidden, RTL, wrapping, components
   expect(component).toMatchObject({ kind: "element", visible: true });
   near(component!.box, await rect(page, "glossa-text", true));
   expect(await page.getAttribute("glossa-text", "data-glossa-locale")).toBe("de");
+});
+
+test("the probe pass measures live layout: the clipped button is found in a real browser", async ({
+  page,
+}) => {
+  await open(page);
+  await page.evaluate(() => window.fixture.start());
+  await settled(page);
+  const c = await page.evaluate(() => window.fixture.collect());
+
+  // #clipped is 1×1 with overflow: hidden and white-space: nowrap, so its
+  // text genuinely doesn't fit — the one thing jsdom cannot decide.
+  const clipped = c.probes.filter((p) => p.code === "text-clipped");
+  expect(clipped.map((p) => p.locus.key)).toEqual(["offscreen.note"]);
+  expect(clipped[0]!.locus.region).toMatch(/^r_\d+$/);
+  expect(clipped[0]!.evidence).toMatchObject({ box: [1, 1] });
+
+  // #rtl is dir="rtl", so the Arabic island's regions mirrored.
+  expect(c.probes.filter((p) => p.code === "rtl-not-mirrored")).toEqual([]);
+  // ar falls back to de, so nothing on this screen is out of one chain.
+  expect(c.probes.filter((p) => p.code === "mixed-locale")).toEqual([]);
+
+  // Whatever else the browser's fonts decided, every finding is a finding.v1.
+  for (const p of c.probes) {
+    expect(p).toMatchObject({ schema: "glossa.finding/v1", layer: "visual", severity: "warning" });
+    expect(findingErrors(p)).toEqual([]);
+  }
+  // Wrapped German and Arabic text each cover more than one line box.
+  expect(c.metrics["long.text"]).toBeGreaterThanOrEqual(4);
 });
 
 test("boxes are page coordinates, whatever the scroll position", async ({ page }) => {

@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	catalog "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
 )
 
@@ -111,4 +113,41 @@ func summaryOf(m catalog.Message) tools.MessageSummary {
 		ID: uuid.UUID(m.ID).String(), Key: string(m.Key), Namespace: string(m.Namespace),
 		State: string(m.State), Source: m.Source.Text, Syntax: string(m.Source.Syntax), Revision: m.Revision,
 	}
+}
+
+var _ tools.CatalogWriter = (*Catalog)(nil)
+
+// UpsertMessage implements tools.CatalogWriter. It is Catalog's own
+// bulk upsert with one item — the use case `glossa push` and the REST
+// API call — so an agent's message is written by exactly the code that
+// writes CI's, including its idempotency and its base-revision check
+// (RFC 0005 §7.1).
+func (a *Catalog) UpsertMessage(
+	ctx context.Context, project uuid.UUID, in tools.MessageUpsert,
+) (tools.MessageWritten, error) {
+	results, err := a.catalog.UpsertMessages(ctx, catalog.ProjectID(project), []catalogapp.UpsertItem{{
+		Key: in.Key, Namespace: in.Namespace, Description: in.Description, MaxLength: in.MaxLength,
+		Text: in.Text, Syntax: in.Syntax, BaseRevision: in.BaseRevision,
+	}})
+	if err != nil {
+		return tools.MessageWritten{}, notFound(err, catalogapp.ErrNotFound)
+	}
+	if len(results) != 1 {
+		return tools.MessageWritten{}, fmt.Errorf("mcp: an upsert of one message answered %d results", len(results))
+	}
+	res := results[0]
+	// An item fails on its own rather than failing the batch, so a
+	// one-item batch's failure is this call's error. The code is
+	// Catalog's own (invalid_key, invalid_source,
+	// source_revision_conflict …), which is what an agent needs to know
+	// whether to fix its text or to re-read the message.
+	if res.Error != nil {
+		return tools.MessageWritten{}, &app.InvalidArgumentError{
+			Argument: res.Error.Code, Reason: res.Error.Detail,
+		}
+	}
+	if res.Message == nil {
+		return tools.MessageWritten{}, fmt.Errorf("mcp: the upsert of %q reported %s and no message", res.Key, res.Status)
+	}
+	return tools.MessageWritten{MessageSummary: summaryOf(*res.Message), Status: string(res.Status)}, nil
 }

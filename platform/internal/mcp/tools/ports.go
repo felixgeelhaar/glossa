@@ -382,9 +382,299 @@ type Delivery interface {
 	ArtifactHasMessage(ctx context.Context, project uuid.UUID, release uuid.UUID, digest, key string) (bool, error)
 }
 
-// Sources are the application ports the read tools call. A nil port
-// leaves its tools unregistered, so a deployment that does not run a
-// context does not advertise tools that cannot work.
+// ── Writes ──────────────────────────────────────────────────────────
+//
+// The write ports are deliberately narrower than the contexts behind
+// them (RFC 0005 §7.2, §7.4). What an agent may not ask for is not an
+// argument it is refused, it is an argument that does not exist:
+// MessageUpsert cannot obsolete or rename a message, LocaleWriter
+// cannot remove a locale, and TranslationProposal carries no review
+// state at all, because a proposal always enters review and a field
+// that could say otherwise is the bug this shape makes impossible.
+
+// MessageUpsert is source text to create or revise. A nil pointer
+// leaves a field as it stands; a pointer to the zero value clears it.
+type MessageUpsert struct {
+	Key         string
+	Namespace   *string
+	Description *string
+	MaxLength   *int
+	Text        string
+	// Syntax is the source's own syntax ("mf2", "icu"); "" is the
+	// project's default.
+	Syntax string
+	// BaseRevision is the source revision the caller read before
+	// revising, an optimistic lock. nil writes without one.
+	BaseRevision *int
+}
+
+// MessageWritten is the message an upsert left behind.
+type MessageWritten struct {
+	MessageSummary
+	// Status is what the write did: created, revised (a new source
+	// revision), updated (details only) or unchanged.
+	Status string `json:"status"`
+}
+
+// CatalogWriter is Catalog's application service, as MCP writes it.
+type CatalogWriter interface {
+	// UpsertMessage creates or revises one source message, ErrNotFound
+	// when the project is not this tenant's to see.
+	UpsertMessage(ctx context.Context, project uuid.UUID, in MessageUpsert) (MessageWritten, error)
+}
+
+// TranslationProposal is a translation an agent offers for a locale.
+//
+// It carries no review state. A proposal writes a revision that enters
+// review whatever the project's routing policy says, for the same
+// reason a CI token cannot approve one: review is a human decision and
+// no token scope grants it (RFC 0005 §7.4).
+type TranslationProposal struct {
+	Key    string
+	Locale string
+	Text   string
+	// Syntax is the text's own syntax; "" is the project's default.
+	Syntax string
+	// SourceRevision is the source revision the text was made against;
+	// nil means the current one.
+	SourceRevision *int
+	// BaseRevision is the translation revision the agent read before
+	// proposing, an optimistic lock. nil lets the adapter propose onto
+	// the revision that stands now.
+	BaseRevision *int
+}
+
+// ProposedTranslation is the revision a proposal wrote.
+type ProposedTranslation struct {
+	Translation
+	// Status is what the write did: created, revised or unchanged.
+	Status string `json:"status"`
+}
+
+// TranslationWriter is Localization's application service, as MCP
+// proposes into it.
+type TranslationWriter interface {
+	// ProposeTranslation writes a revision that is always in review.
+	ProposeTranslation(ctx context.Context, project uuid.UUID, in TranslationProposal) (ProposedTranslation, error)
+}
+
+// AddedLocale is a project's target locale after locale_add.
+type AddedLocale struct {
+	Locale    string `json:"locale"`
+	Direction string `json:"direction,omitempty"`
+	// Created says whether this call added it; false means it was
+	// already there, which is not an error.
+	Created bool `json:"created"`
+}
+
+// LocaleWriter adds a target locale. There is no remover: obsoleting is
+// a state change and is available, destroying data is not
+// (RFC 0005 §7.2).
+type LocaleWriter interface {
+	// AddLocale adds a target locale to a project.
+	AddLocale(ctx context.Context, project uuid.UUID, code string) (AddedLocale, error)
+}
+
+// CheckRequest narrows a check run.
+type CheckRequest struct {
+	// Environment grades against the policy's block for it; "" is a
+	// branch check, in no environment at all.
+	Environment string
+	// Layers are the deterministic layers to compute; empty runs every
+	// one the policy leaves on.
+	Layers []string
+	// Limit bounds the findings returned.
+	Limit int
+}
+
+// CheckReport is a check run's verdict and what it found.
+//
+// Omitted: the policy's decision per finding (`glossa check
+// --explain-policy` prints those and the Quality API serves them) and
+// the per-locale coverage table, which translation-stats already
+// answers. A run through MCP is a verdict and a work list.
+type CheckReport struct {
+	// Conclusion is the policy's verdict (success, failure, neutral).
+	Conclusion string `json:"conclusion"`
+	// PolicyVersion is the policy document the run graded itself
+	// against; 0 for a project that has never saved one.
+	PolicyVersion int `json:"policy_version"`
+	// Layers are the layers that ran, so a caller can tell "clean" from
+	// "not looked at"; Skipped are the ones the policy switched off.
+	Layers  []string `json:"layers,omitempty"`
+	Skipped []string `json:"skipped,omitempty"`
+	// Messages is the project's active messages and Invalid how many of
+	// them do not parse.
+	Messages int       `json:"messages"`
+	Invalid  int       `json:"invalid_messages"`
+	Errors   int       `json:"errors"`
+	Warnings int       `json:"warnings"`
+	Findings []Finding `json:"findings"`
+	// Truncated says the run found more findings than were returned.
+	// The counts above are the run's, not the page's.
+	Truncated bool `json:"truncated"`
+}
+
+// Checks runs the deterministic layers over the project as it stands.
+// Nothing is stored: the report answers a question, and recording a run
+// is a write that reading the catalog does not carry.
+type Checks interface {
+	// Run computes the report, ErrNotFound when the project is not this
+	// tenant's to see.
+	Run(ctx context.Context, project uuid.UUID, in CheckRequest) (CheckReport, error)
+}
+
+// TranslateRequest asks for an M2 fill job.
+type TranslateRequest struct {
+	Locales   []string
+	Keys      []string
+	Namespace string
+	KeyPrefix string
+	// Select chooses messages by the state of their translation:
+	// missing, outdated or missing_or_outdated. "" is the context's own
+	// default.
+	Select string
+}
+
+// TranslateJob is the fill a translate call started.
+//
+// No provider, model or key appears here, in either direction: the job
+// runs server-side under the tenant's own provider configuration and
+// budget, and the MCP client never sees a key (RFC 0005 §7.4).
+type TranslateJob struct {
+	// Fill is the fill's id, which its jobs are followed by.
+	Fill    string   `json:"fill"`
+	Locales []string `json:"locales"`
+	Select  string   `json:"select"`
+	// JobsCreated and JobsExisting count the jobs queued and the ones
+	// that already existed and were reused.
+	JobsCreated  int `json:"jobs_created"`
+	JobsExisting int `json:"jobs_existing"`
+	// Skipped counts the messages left out, by reason — a sensitive
+	// namespace among them, which is never machine-translated
+	// (RFC 0005 §7.4).
+	Skipped map[string]int `json:"skipped,omitempty"`
+	// Warnings say why jobs will fail or do little: no provider, no
+	// budget, provider consent off.
+	Warnings []string `json:"warnings,omitempty"`
+	// Jobs are the queued jobs' ids, up to the context's own cap.
+	Jobs []string `json:"jobs,omitempty"`
+}
+
+// Translator is Intelligence's application service, as MCP starts a
+// fill through it.
+type Translator interface {
+	// Translate queues an M2 fill and returns it.
+	Translate(ctx context.Context, project uuid.UUID, in TranslateRequest) (TranslateJob, error)
+}
+
+// ── Releases ────────────────────────────────────────────────────────
+//
+// The release port is narrower than the Release context behind it, the
+// same way the write ports are. There is no environment creation, no
+// policy edit, no delivery-key management and nothing that removes a
+// release: M4 exposes the three operations RFC 0005 §7.3 names and
+// destroys nothing (§7.2).
+//
+// There is also no `force`. The Release context gates a publish on the
+// environment's completeness requirement and refuses with
+// `policy_not_met`; overriding that gate takes an audited reason and is
+// a person's decision, like a review. An agent that meets the gate
+// publishes and an agent that does not is told why, which is the whole
+// value of the gate.
+
+// Release is one immutable release, as MCP reports it.
+//
+// Omitted: the manifest, its signatures and its artifact digests
+// (explain_delivery answers what a release actually serves), the
+// release's parent and its full statistics. A release tool answers
+// "which release does this environment serve now, and is it the one I
+// meant".
+type Release struct {
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	// Environment is where the release was *built*, whose policy it
+	// records; a promoted release keeps its own.
+	Environment string `json:"environment"`
+	// Digest is the manifest digest: two releases with equal digests
+	// serve exactly the same text.
+	Digest string `json:"digest"`
+	// Policy is the review states the release ships.
+	Policy []string `json:"policy,omitempty"`
+	// Branch is the branch whose overlay the release was built with; ""
+	// for the main catalog's.
+	Branch    string   `json:"branch,omitempty"`
+	Locales   []string `json:"locales,omitempty"`
+	Messages  int      `json:"messages"`
+	Note      string   `json:"note,omitempty"`
+	Author    string   `json:"author,omitempty"`
+	CreatedAt string   `json:"created_at"`
+}
+
+// PublishRequest is what to publish where.
+type PublishRequest struct {
+	Environment string
+	Note        string
+	// IdempotencyKey lets a client that retried a timed-out call get the
+	// first request's release back instead of publishing a second one.
+	// An agent retries more readily than a person does.
+	IdempotencyKey string
+}
+
+// Held is a publish or a promote into an environment that requires
+// release approvals (RFC 0006 §5.1): it became a release request and no
+// pointer moved. The release is deployed only once enough people other
+// than the requester approve it — people, never an agent: there is no
+// approve tool.
+type Held struct {
+	RequestID   string `json:"release_request_id"`
+	Environment string `json:"environment"`
+	// Approvals is how many distinct people must approve.
+	Approvals int `json:"approvals_required"`
+}
+
+// Published is a publish's result.
+type Published struct {
+	Release Release `json:"release"`
+	// Replayed says this call returned an earlier request's release,
+	// because it carried the same idempotency key.
+	Replayed bool `json:"replayed"`
+	// Held is set when the release was recorded but not deployed: it
+	// waits for approval, and the environment still serves what it did.
+	Held *Held `json:"held,omitempty"`
+}
+
+// Deployed is an environment after a pointer moved — or, when Held is
+// set, after a promote that moved nothing and waits for approval.
+type Deployed struct {
+	Environment string  `json:"environment"`
+	Release     Release `json:"release"`
+	// Moved is false when the environment already served that release,
+	// which is not an error, and whenever the promote was held.
+	Moved bool `json:"moved"`
+	// Held is set when the promote became a release request.
+	Held *Held `json:"held,omitempty"`
+}
+
+// Releases is Release's application service, as MCP publishes through
+// it. Each method is the same use case the REST endpoint calls, so the
+// environment's policy, the publish gate, the promotability rules and
+// the audit trail are the context's and are never restated here.
+type Releases interface {
+	// Publish builds a release under the environment's policy and points
+	// the environment at it.
+	Publish(ctx context.Context, project uuid.UUID, in PublishRequest) (Published, error)
+	// Promote points an environment at an existing release of the
+	// project. Nothing is rebuilt.
+	Promote(ctx context.Context, project uuid.UUID, environment string, release uuid.UUID) (Deployed, error)
+	// Rollback points an environment back at a release it served before;
+	// uuid.Nil takes the newest one older than the release it serves now.
+	Rollback(ctx context.Context, project uuid.UUID, environment string, release uuid.UUID) (Deployed, error)
+}
+
+// Sources are the application ports the tools call. A nil port leaves
+// its tools unregistered, so a deployment that does not run a context
+// does not advertise tools that cannot work.
 type Sources struct {
 	Catalog      Catalog
 	Translations Translations
@@ -392,4 +682,13 @@ type Sources struct {
 	Knowledge    Knowledge
 	Quality      Quality
 	Delivery     Delivery
+	Checks       Checks
+	Messages     CatalogWriter
+	Proposals    TranslationWriter
+	Locales      LocaleWriter
+	Translator   Translator
+	Releases     Releases
+	// Workflow and ReleaseReads are the M5 read ports (RFC 0006 §8).
+	Workflow     Workflow
+	ReleaseReads ReleaseReads
 }

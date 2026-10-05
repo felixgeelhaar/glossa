@@ -79,6 +79,29 @@ func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	return p.Actor.String(), nil
 }
 
+// actorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func actorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (string, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// tenantActor returns the acting principal after checking perm for a
+// change to the tenant's own AI configuration — providers, consent,
+// budget, prices, the tenant's routing — which applies to every project
+// and so is refused to a principal limited to some (RFC 0006 §4.1).
+func tenantActor(ctx context.Context, perm authz.Permission) (string, error) {
+	if err := authz.RequireUnscoped(ctx, perm); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
 // actorFor checks a locale-scoped permission.
 func actorFor(ctx context.Context, perm authz.Permission, locale string) (string, error) {
 	l, err := authz.ParseLocale(locale)

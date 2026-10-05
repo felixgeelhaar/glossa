@@ -213,9 +213,14 @@ type Environment struct {
 	// Branch is the branch a branch environment previews; "" otherwise.
 	Branch string
 	Policy Policy
+	// Approval is who must approve a publish or a promote into the
+	// environment before its pointer moves (RFC 0006 §5.1); nil — the
+	// default — means none, and the move happens when it is asked for.
+	Approval *ApprovalPolicy
 	// Current is the release served, uuid.Nil before the first publish.
 	Current uuid.UUID
-	// Version increments with every change (policy or pointer); it is
+	// Version increments with every change (policy, approval or
+	// pointer); it is
 	// the environment's ETag.
 	Version   int
 	CreatedAt time.Time
@@ -307,4 +312,8 @@ type Deployment struct {
 	Action    Action
 	By        string
 	CreatedAt time.Time
+	// Override records a publish that went out although the
+	// environment's check policy refused it, and why (RFC 0005 §4.1).
+	// Its zero value is every deployment that met the gate or had none.
+	Override Override
 }

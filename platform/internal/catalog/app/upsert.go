@@ -59,7 +59,7 @@ type UpsertResult struct {
 // second time. Items fail individually (invalid key or source, duplicate
 // key in the batch, stale base revision) without failing the batch.
 func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, items []UpsertItem) ([]UpsertResult, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return nil, err
 	}

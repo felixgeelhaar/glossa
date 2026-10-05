@@ -16,11 +16,22 @@ const utf8 = (s: string) => new TextEncoder().encode(s);
 const b64url = (s: string) =>
   Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 
+/** Lowercase hex of `bytes`. */
+export const hex = (bytes: Uint8Array) =>
+  Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
 /** Lowercase hex SHA-256 of the UTF-8 bytes of `text`. */
 export async function sha256Hex(text: string): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", utf8(text)));
-  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+  return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", utf8(text))));
 }
+
+/**
+ * The staged-rollout cohort of `key` under `salt` (SPEC §1.4), 0–9999: the
+ * first four bytes of SHA-256(UTF-8(salt) ‖ UTF-8(key)) as a big-endian
+ * unsigned integer, mod 10000. Both are hashed as given, never normalized.
+ */
+export const cohort = async (salt: string, key: string) =>
+  parseInt((await sha256Hex(salt + key)).slice(0, 8), 16) % 1e4;
 
 /**
  * RFC 8785 JSON Canonicalization Scheme for parsed JSON values. JCS is

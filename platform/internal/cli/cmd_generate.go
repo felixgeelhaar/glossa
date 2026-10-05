@@ -40,9 +40,9 @@ func runGenerate(ctx context.Context, inv *invocation, args []string) error {
 		return err
 	}
 	g := cfg.Generate
-	if g.TypeScript == "" && g.Go == "" {
+	if g.TypeScript == "" && g.Go == "" && g.Dart == "" {
 		return &Error{Exit: ExitUsage, Code: "nothing_to_generate", What: "no generate outputs configured",
-			Where: cfg.Path + " (generate)", Fix: "set generate.typescript (and generate.vue or generate.react) and/or generate.go, e.g. generate:\n    typescript: src/glossa/messages.ts"}
+			Where: cfg.Path + " (generate)", Fix: "set generate.typescript (and generate.vue or generate.react), generate.go and/or generate.dart, e.g. generate:\n    typescript: src/glossa/messages.ts"}
 	}
 	s, label, err := inv.generateSource(ctx, cfg, *fromServer)
 	if err != nil {
@@ -146,6 +146,15 @@ func renderGenerated(cfg *config.Config, entries []codegen.Entry, source string)
 			warnings = append(warnings, w...)
 		}
 		files = append(files, renderedFile{path, "go", src})
+	}
+	if g.Dart != "" {
+		src, w := codegen.Dart(entries, codegen.DartOptions{Runtime: orDefault(g.DartRuntime, config.DefaultDartRuntime), Source: source})
+		// The accessor paths are TypeScript's, so its warnings are the
+		// same ones; report them once.
+		if g.TypeScript == "" {
+			warnings = append(warnings, w...)
+		}
+		files = append(files, renderedFile{cfg.Resolve(g.Dart), "dart", src})
 	}
 	return files, dedupeWarnings(warnings), nil
 }

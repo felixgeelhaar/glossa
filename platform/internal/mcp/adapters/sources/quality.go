@@ -22,6 +22,51 @@ func NewQuality(s *qualityapp.Service) *Quality { return &Quality{quality: s} }
 
 var _ tools.Quality = (*Quality)(nil)
 
+var _ tools.Checks = (*Quality)(nil)
+
+// Run implements tools.Checks: Quality's own server-side check, the
+// same layers and the same policy `glossa check` and the pull-request
+// check run. It records nothing, which is why a read-only session may
+// call it (RFC 0005 §7.3).
+func (a *Quality) Run(
+	ctx context.Context, project uuid.UUID, in tools.CheckRequest,
+) (tools.CheckReport, error) {
+	rep, err := a.quality.RunCheck(ctx, project, qualityapp.CheckRequest{
+		Environment: in.Environment, Layers: in.Layers,
+	})
+	if err != nil {
+		if errors.Is(err, qualityapp.ErrInvalidQuery) {
+			return tools.CheckReport{}, &app.InvalidArgumentError{
+				Argument: "layers", Reason: "names a layer this check does not compute",
+			}
+		}
+		return tools.CheckReport{}, notFound(err, qualityapp.ErrNotFound, qualityapp.ErrProjectNotFound)
+	}
+	out := tools.CheckReport{
+		Conclusion: string(rep.Conclusion), PolicyVersion: rep.PolicyVersion,
+		Layers: qualityapp.LayerNames(rep.Layers), Skipped: qualityapp.LayerNames(rep.Skipped),
+		Messages: rep.Messages, Invalid: rep.Invalid,
+		Errors: rep.Counts.Errors, Warnings: rep.Counts.Warnings,
+		Findings: []tools.Finding{},
+	}
+	// The counts above are the whole run's; the list is a page of it, so
+	// a caller that asked for twenty findings still learns there are two
+	// hundred.
+	found := rep.Findings
+	if in.Limit > 0 && len(found) > in.Limit {
+		found, out.Truncated = found[:in.Limit], true
+	}
+	for _, f := range found {
+		out.Findings = append(out.Findings, tools.Finding{
+			Fingerprint: f.Fingerprint, Layer: string(f.Layer), Code: f.Code,
+			Severity: string(f.Severity), Key: f.Locus.Key, Locale: f.Locus.Locale,
+			Namespace: f.Locus.Namespace, File: f.Locus.File, Line: f.Locus.Line,
+			Explanation: f.Message, Subject: f.Subject,
+		})
+	}
+	return out, nil
+}
+
 // Findings implements tools.Quality.
 func (a *Quality) Findings(
 	ctx context.Context, project uuid.UUID, q tools.FindingsQuery,

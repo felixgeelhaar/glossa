@@ -20,6 +20,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // Origins of a snapshot.
@@ -36,15 +37,26 @@ type Invalid struct {
 
 // Message is a source message.
 type Message struct {
+	// ID is the catalog message's ID, which a snapshot read from the
+	// server always has. It is what a finding's identity is hashed over
+	// (domain.Fingerprint), so the terminal and the server fingerprint
+	// the same finding the same way. It is empty for a snapshot read
+	// from the local catalogs, which know keys and not IDs.
+	ID          string
 	Key         string
 	Namespace   string
 	Description string
-	Text        string
-	Syntax      string
-	Revision    int
-	Model       *mf.Message
-	Arguments   []mf.Argument
-	Invalid     *Invalid
+	// MaxLength bounds the rendered translation in characters; 0 means
+	// none. The length layer computes `max-length-exceeded` from it, so
+	// a check run against the server finds the finding itself rather
+	// than waiting for the warning the server stored.
+	MaxLength int
+	Text      string
+	Syntax    string
+	Revision  int
+	Model     *mf.Message
+	Arguments []mf.Argument
+	Invalid   *Invalid
 	// File is the local catalog it came from ("" on the server).
 	File string
 }
@@ -86,8 +98,30 @@ type Snapshot struct {
 	Translations map[string]map[string]Translation
 	// Fallback is the server's fallback graph (nil offline).
 	Fallback map[string][]string
+	// Orphans are the translations of messages the catalog has
+	// obsoleted, read only when Options.Orphans asks for them, and never
+	// part of Translations: `glossa pull` writes Translations back into
+	// the catalog files, and a translation of a message that no longer
+	// exists does not belong in one. The completeness layer reports each
+	// as `unknown-key`. MoreOrphans says the bounded read stopped before
+	// the listing ran out (layers.MaxOrphans).
+	Orphans     []Orphan
+	MoreOrphans bool
 
 	index map[string]int
+}
+
+// Orphan is a translation whose message the catalog has obsoleted: its
+// identity, and nothing to grade.
+type Orphan struct {
+	// MessageID is the obsolete message's catalog ID, which is what the
+	// finding's fingerprint is hashed over — the one the server computes.
+	MessageID string
+	Key       string
+	Namespace string
+	Locale    string
+	// Revision is the translation's ID.
+	Revision string
 }
 
 // Message returns the source message with key.
@@ -228,6 +262,10 @@ type Reader interface {
 	Messages(ctx context.Context, s remote.Scope, f remote.MessageFilter) ([]remote.Message, error)
 	ProjectTranslations(ctx context.Context, s remote.Scope, locales []string, f remote.TranslationFilter) ([]remote.ProjectTranslation, error)
 	FallbackGraph(ctx context.Context, s remote.Scope) (map[string][]string, error)
+	// FirstProjectTranslations reads the first page of size of the
+	// translation listing per chunk of locales, and says whether any
+	// chunk had another.
+	FirstProjectTranslations(ctx context.Context, s remote.Scope, locales []string, f remote.TranslationFilter, size int) ([]remote.ProjectTranslation, bool, error)
 }
 
 // Options narrow what FromServer reads.
@@ -237,7 +275,18 @@ type Options struct {
 	// Locales limits the translations read to these target locales
 	// (empty: every locale).
 	Locales []string
+	// Orphans also reads the translations of obsolete messages, which
+	// is what `glossa check` reports as `unknown-key` — bounded to one
+	// page of layers.MaxOrphans per listing, so a project that has
+	// obsoleted thousands of messages does not make every check read
+	// thousands of dead translations.
+	Orphans bool
 }
+
+// usableStates are the review states a check grades: every one but
+// rejected, which is not a translation. The server's own snapshot reads
+// the same three (quality/adapters/snapshot).
+var usableStates = []string{"draft", "needs_review", "approved"}
 
 // FromServer reads the project's active messages, locales and
 // translations. Translations come from the bulk listing (every target
@@ -293,12 +342,39 @@ func FromServer(ctx context.Context, r Reader, scope remote.Scope, sourceLocale 
 			byKey[key] = fromRemoteTranslation(key, t)
 		}
 	}
+	if opts.Orphans {
+		if err := s.readOrphans(ctx, r, scope, targets); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
+// readOrphans reads the translations of obsolete messages in targets:
+// one page of layers.MaxOrphans per chunk of locales, in the listing's
+// (key, message ID, locale) order, which is exactly what the server's
+// own snapshot reads. The completeness layer sorts and cuts the rest.
+func (s *Snapshot) readOrphans(ctx context.Context, r Reader, scope remote.Scope, targets []string) error {
+	trs, more, err := r.FirstProjectTranslations(ctx, scope, targets,
+		remote.TranslationFilter{MessageState: "obsolete", States: usableStates}, layers.MaxOrphans)
+	if err != nil {
+		return err
+	}
+	s.MoreOrphans = more
+	for _, t := range trs {
+		s.Orphans = append(s.Orphans, Orphan{
+			MessageID: t.MessageId, Key: t.Key, Namespace: t.Namespace, Locale: t.Locale, Revision: t.Id,
+		})
+	}
+	return nil
+}
+
 func fromRemoteMessage(m remote.Message) Message {
-	out := Message{Key: m.Key, Namespace: m.Namespace, Description: m.Description, Text: m.Source.Text,
+	out := Message{ID: m.Id, Key: m.Key, Namespace: m.Namespace, Description: m.Description, Text: m.Source.Text,
 		Syntax: string(m.Source.Syntax), Revision: m.SourceRevision}
+	if m.MaxLength != nil {
+		out.MaxLength = *m.MaxLength
+	}
 	model, err := DecodeModel(m.Source.Model)
 	if err != nil {
 		out.Invalid = &Invalid{Code: "invalid-message", Detail: err.Error()}

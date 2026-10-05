@@ -483,7 +483,7 @@ func (s *store) Jobs(ctx context.Context, f app.JobFilter, c *app.Cursor, limit 
 	at, id := before(c)
 	p := intelligencesql.ListJobsParams{
 		ProjectID: nullUUID(f.ProjectID), Locale: text(f.Locale), FillID: nullUUID(f.FillID), MessageID: nullUUID(f.MessageID),
-		BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	}
 	if f.State != nil {
 		p.State = text(string(*f.State))
@@ -632,7 +632,7 @@ func (s *store) Suggestions(ctx context.Context, f app.SuggestionFilter, c *app.
 	at, id := before(c)
 	p := intelligencesql.ListSuggestionsParams{
 		ProjectID: nullUUID(f.ProjectID), Locale: text(f.Locale), MessageID: nullUUID(f.MessageID), JobID: nullUUID(f.JobID),
-		BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	}
 	if f.Status != nil {
 		p.Status = text(string(*f.Status))
@@ -660,6 +660,31 @@ func (s *store) DecisionStats(ctx context.Context, project uuid.UUID, since time
 	return out, err
 }
 
+func (s *store) QueueAges(
+	ctx context.Context, project uuid.UUID, locales []string, now time.Time,
+) ([]app.LocaleQueueAge, error) {
+	rows, err := s.q.QueueAges(ctx, intelligencesql.QueueAgesParams{
+		ProjectID: project, Locales: append([]string{}, locales...), Now: now.UTC(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]app.LocaleQueueAge, len(rows))
+	for i, r := range rows {
+		out[i] = app.LocaleQueueAge{
+			Locale: r.Locale, Waiting: int(r.Waiting),
+			P50:    seconds(r.P50Seconds),
+			P90:    seconds(r.P90Seconds),
+			Oldest: seconds(r.OldestSeconds),
+		}
+	}
+	return out, nil
+}
+
+// seconds turns a query's float of seconds into a Duration without
+// losing the sub-second part a percentile usually has.
+func seconds(f float64) time.Duration { return time.Duration(f * float64(time.Second)) }
+
 // ── disclosures ──────────────────────────────────────────────────────
 
 func (s *store) InsertDisclosures(ctx context.Context, ds []app.DisclosureRecord) error {
@@ -679,7 +704,7 @@ func (s *store) Disclosures(ctx context.Context, f app.DisclosureFilter, c *app.
 	at, id := before(c)
 	rows, err := s.q.ListDisclosures(ctx, intelligencesql.ListDisclosuresParams{
 		JobID: nullUUID(f.JobID), MessageID: nullUUID(f.MessageID), ProjectID: nullUUID(f.ProjectID),
-		Provider: text(f.Provider), BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
+		Provider: text(f.Provider), Projects: f.Projects, BeforeAt: at, BeforeID: id, MaxRows: i32(limit),
 	})
 	if err != nil {
 		return nil, err

@@ -295,9 +295,14 @@ WHERE direction = $1
   AND (NOT $3::boolean OR project_id IS NULL)
   AND ($4::text IS NULL OR kind = $4::text)
   AND ($5::text IS NULL OR state = $5::text)
-  AND ($6::timestamptz IS NULL OR (created_at, id) < ($6::timestamptz, $7::uuid))
+  -- projects limits the jobs to a project-scoped caller's projects
+  -- (RFC 0006 §4.1) — which leaves out tenant-wide ones, whose files
+  -- hold every project's knowledge — in the query, so a page's size
+  -- says nothing about the others.
+  AND ($6::uuid[] IS NULL OR project_id = ANY ($6::uuid[]))
+  AND ($7::timestamptz IS NULL OR (created_at, id) < ($7::timestamptz, $8::uuid))
 ORDER BY created_at DESC, id DESC
-LIMIT $8::int
+LIMIT $9::int
 `
 
 type ListJobsParams struct {
@@ -306,6 +311,7 @@ type ListJobsParams struct {
 	TenantWide bool
 	Kind       pgtype.Text
 	State      pgtype.Text
+	Projects   []uuid.UUID
 	BeforeAt   pgtype.Timestamptz
 	BeforeID   uuid.UUID
 	MaxRows    int32
@@ -320,6 +326,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Integrati
 		arg.TenantWide,
 		arg.Kind,
 		arg.State,
+		arg.Projects,
 		arg.BeforeAt,
 		arg.BeforeID,
 		arg.MaxRows,

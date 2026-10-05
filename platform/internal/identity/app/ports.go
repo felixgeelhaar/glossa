@@ -19,6 +19,10 @@ var (
 	ErrSlugTaken    = errors.New("identity: slug taken")
 	ErrDuplicate    = errors.New("identity: already a member")
 	ErrStaleVersion = errors.New("identity: version changed")
+	ErrNameTaken    = errors.New("identity: name already used in this tenant")
+	// ErrUserCodeTaken means a fresh user code is already held by a
+	// pending device authorization.
+	ErrUserCodeTaken = errors.New("identity: user code already pending")
 )
 
 // Transactor runs units of work in the kernel's two scopes. Calls don't
@@ -44,6 +48,10 @@ type MembershipGrant struct {
 	Member  domain.MemberID
 	Roles   domain.Roles
 	Locales domain.LocaleScope
+	// Projects and Visibility are the membership's restriction (RFC
+	// 0006 §3.3, §4.1), which the principal carries beside its grant.
+	Projects   domain.ProjectScope
+	Visibility domain.Visibility
 }
 
 // MembershipView is one of a person's tenants, for GET /v1/me.
@@ -56,9 +64,11 @@ type MembershipView struct {
 
 // TokenRecord is what bearer authentication needs about a token.
 type TokenRecord struct {
-	ID         domain.TokenID
-	Tenant     tenancy.ID
-	Scopes     domain.Scopes
+	ID     domain.TokenID
+	Tenant tenancy.ID
+	Scopes domain.Scopes
+	// Projects is the token's project scope (RFC 0006 §4.1).
+	Projects   domain.ProjectScope
 	ExpiresAt  *time.Time
 	RevokedAt  *time.Time
 	LastUsedAt *time.Time
@@ -144,6 +154,24 @@ type SystemStore interface {
 	// have no such passkey).
 	DeletePasskeyOf(ctx context.Context, person domain.PersonID, credentialID []byte) error
 
+	// Device sign-in (RFC 0006 §7.2). Authorizations are found by the
+	// hash of a code, never the code; Lock… holds the row until the
+	// transaction ends, so a decision and a poll never interleave.
+	InsertDeviceAuthorization(ctx context.Context, d domain.DeviceAuthorization) error
+	// PurgeDeviceAuthorizations drops authorizations that expired
+	// before the time given.
+	PurgeDeviceAuthorizations(ctx context.Context, before time.Time) (int64, error)
+	// LockPendingDeviceAuthorization finds the pending, unexpired
+	// authorization a user code names (ErrNotFound otherwise).
+	LockPendingDeviceAuthorization(ctx context.Context, userCodeHash string, now time.Time) (domain.DeviceAuthorization, error)
+	// LockDeviceAuthorization finds the authorization a device code
+	// names, in whatever state (ErrNotFound when there is none).
+	LockDeviceAuthorization(ctx context.Context, deviceCodeHash string) (domain.DeviceAuthorization, error)
+	UpdateDeviceAuthorization(ctx context.Context, d domain.DeviceAuthorization) error
+	// WithdrawDeviceApprovals denies every device the person approved
+	// that has not yet taken its session (sign out everywhere).
+	WithdrawDeviceApprovals(ctx context.Context, person domain.PersonID) error
+
 	SaveCeremony(ctx context.Context, c Ceremony) error
 	// TakeCeremony deletes and returns a ceremony (ErrNotFound if absent).
 	TakeCeremony(ctx context.Context, keyHash, purpose string) (Ceremony, error)
@@ -190,8 +218,33 @@ type TenantStore interface {
 	// UpdateMemberAccess saves roles, locales and version; it fails with
 	// ErrStaleVersion unless the stored version is m.Version-1.
 	UpdateMemberAccess(ctx context.Context, m domain.Member) error
+	// UpdateMemberRestriction saves project scope, vendor, visibility and
+	// version, like UpdateMemberAccess.
+	UpdateMemberRestriction(ctx context.Context, m domain.Member) error
 	ActivateMember(ctx context.Context, m domain.Member) error
 	DeleteMember(ctx context.Context, id domain.MemberID) error
+
+	// Vendors (RFC 0006 §3.3). InsertVendor's inserted is false on an
+	// idempotent retry; DeleteVendor fails with domain.ErrVendorHasMembers
+	// while any member names the vendor.
+	InsertVendor(ctx context.Context, v domain.Vendor, by domain.Actor) (inserted bool, err error)
+	Vendor(ctx context.Context, id domain.VendorID) (domain.Vendor, error)
+	LockVendor(ctx context.Context, id domain.VendorID) (domain.Vendor, error)
+	Vendors(ctx context.Context, after domain.VendorID, limit int) ([]domain.Vendor, error)
+	UpdateVendor(ctx context.Context, v domain.Vendor) error
+	DeleteVendor(ctx context.Context, id domain.VendorID) error
+	CountVendorMembers(ctx context.Context, id domain.VendorID) (int, error)
+
+	// Groups (RFC 0006 §4.3), loaded with their members. AddGroupMember
+	// and RemoveGroupMember save the group's new version with the change.
+	InsertGroup(ctx context.Context, g domain.Group, by domain.Actor) (inserted bool, err error)
+	Group(ctx context.Context, id domain.GroupID) (domain.Group, error)
+	LockGroup(ctx context.Context, id domain.GroupID) (domain.Group, error)
+	Groups(ctx context.Context, after domain.GroupID, limit int) ([]domain.Group, error)
+	UpdateGroup(ctx context.Context, g domain.Group) error
+	AddGroupMember(ctx context.Context, g domain.Group, member domain.MemberID, by domain.Actor) error
+	RemoveGroupMember(ctx context.Context, g domain.Group, member domain.MemberID) error
+	DeleteGroup(ctx context.Context, id domain.GroupID) error
 
 	InsertToken(ctx context.Context, t domain.APIToken) (inserted bool, err error)
 	Token(ctx context.Context, id domain.TokenID) (domain.APIToken, error)

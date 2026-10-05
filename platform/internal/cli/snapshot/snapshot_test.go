@@ -102,6 +102,37 @@ func (fakeReader) ProjectTranslations(_ context.Context, _ remote.Scope, locales
 	}, nil
 }
 
+// FirstProjectTranslations answers the one bounded read FromServer
+// makes of the translations of obsolete messages: a page, and whether
+// the listing had another.
+func (fakeReader) FirstProjectTranslations(_ context.Context, _ remote.Scope, locales []string, f remote.TranslationFilter, size int) ([]remote.ProjectTranslation, bool, error) {
+	if f.MessageState != "obsolete" || len(locales) != 1 || locales[0] != "de" {
+		return nil, false, fmt.Errorf("want the obsolete messages' translations in the target locales, got %v %+v", locales, f)
+	}
+	if !slicesEqual(f.States, []string{"draft", "needs_review", "approved"}) {
+		return nil, false, fmt.Errorf("want every usable review state, got %v", f.States)
+	}
+	if size != 100 {
+		return nil, false, fmt.Errorf("want one page of layers.MaxOrphans, got %d", size)
+	}
+	return []remote.ProjectTranslation{
+		{Id: "tr-legacy", MessageId: "m-legacy", Key: "help.legacy.title", Namespace: "help", MessageState: "obsolete",
+			Locale: "de", Text: "Alte Hilfe", State: "approved"},
+	}, true, nil
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (fakeReader) FallbackGraph(context.Context, remote.Scope) (map[string][]string, error) {
 	return map[string][]string{"*": {"en"}}, nil
 }
@@ -125,11 +156,41 @@ func TestFromServerDecodesModelsAndTranslations(t *testing.T) {
 	if m.Model == nil || len(m.Arguments) != 1 || m.Arguments[0].Selector == nil || m.Revision != 2 {
 		t.Errorf("message = %+v", m)
 	}
+	// The catalog message ID comes with the message. A finding's identity
+	// is hashed over it (domain.Fingerprint), so an online `glossa check`
+	// fingerprints a finding the way the server fingerprints it.
+	if m.ID != "m1" {
+		t.Errorf("message ID = %q, want the catalog's", m.ID)
+	}
 	tr := s.Translations["de"]["cart.items"]
 	if tr.Model == nil || !tr.Outdated || tr.State != "approved" || len(tr.Warnings) != 1 || tr.Warnings[0].Detail != "one" || tr.Key != "cart.items" {
 		t.Errorf("translation = %+v", tr)
 	}
 	if len(s.Translations["de"]) != 1 {
 		t.Errorf("translations of messages Catalog doesn't list: %+v", s.Translations["de"])
+	}
+}
+
+// A check asks for the translations of obsolete messages too, and gets
+// them apart from the catalog's translations — never in Translations,
+// where `glossa pull` would write them back into a catalog file.
+func TestFromServerReadsOrphansOnlyWhenAsked(t *testing.T) {
+	s, err := snapshot.FromServer(context.Background(), fakeReader{}, remote.Scope{}, "en", snapshot.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Orphans) != 0 || s.MoreOrphans {
+		t.Errorf("orphans read without asking: %+v", s.Orphans)
+	}
+	s, err = snapshot.FromServer(context.Background(), fakeReader{}, remote.Scope{}, "en", snapshot.Options{Orphans: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := snapshot.Orphan{MessageID: "m-legacy", Key: "help.legacy.title", Namespace: "help", Locale: "de", Revision: "tr-legacy"}
+	if len(s.Orphans) != 1 || s.Orphans[0] != want || !s.MoreOrphans {
+		t.Errorf("orphans = %+v (more %v), want %+v and more", s.Orphans, s.MoreOrphans, want)
+	}
+	if _, ok := s.Translations["de"]["help.legacy.title"]; ok {
+		t.Error("an orphan landed among the catalog's translations")
 	}
 }

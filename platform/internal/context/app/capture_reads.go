@@ -26,20 +26,39 @@ type CaptureImage struct {
 // object store never hands out a URL (RFC 0004 §3.3). The image is
 // content-addressed, so its digest is a strong validator. Needs
 // catalog.read.
+//
+// An assigned member sees the image of a capture that shows a message
+// their units are in — a screenshot is part of what translating a unit
+// needs (RFC 0006 §3.3) — and no other.
 func (s *Service) CaptureImage(ctx context.Context, project, capture uuid.UUID) (CaptureImage, error) {
-	if _, err := s.readView(ctx, project, ""); err != nil {
+	vis, err := authz.Visible(ctx, authz.CatalogRead, project)
+	if err != nil {
+		return CaptureImage{}, err
+	}
+	if err := s.catalog.Project(ctx, project); err != nil {
 		return CaptureImage{}, err
 	}
 	if s.objects == nil {
 		return CaptureImage{}, errNoImages
 	}
-	var c domain.Capture
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+	var (
+		c     domain.Capture
+		shown = vis.All()
+	)
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		var err error
-		c, err = st.Capture(ctx, capture)
+		if c, err = st.Capture(ctx, capture); err != nil || shown || c.ProjectID != project {
+			return err
+		}
+		// Capture comes back without its regions, so whether it shows a
+		// message the caller may see is asked of the store. Reading
+		// c.Regions here answered "no" for every capture, and an
+		// assigned member saw no screenshot at all, not even of their
+		// own units.
+		shown, err = st.CaptureShows(ctx, capture, vis.Messages())
 		return err
 	})
-	if errors.Is(err, ErrNotFound) || (err == nil && c.ProjectID != project) {
+	if errors.Is(err, ErrNotFound) || (err == nil && (c.ProjectID != project || !shown)) {
 		return CaptureImage{}, ErrCaptureNotFound
 	}
 	if err != nil {
@@ -78,7 +97,7 @@ func (s *Service) CapturesOfKey(ctx context.Context, project uuid.UUID, key stri
 	if err != nil {
 		return MessageCapturesPage{}, err
 	}
-	view, err := s.readView(ctx, project, q.Branch)
+	view, err := s.messageView(ctx, project, id, q.Branch)
 	if err != nil {
 		return MessageCapturesPage{}, err
 	}
@@ -120,7 +139,7 @@ func (c CaptureCoverage) NotCaptured() int { return c.Active - c.Captured }
 
 // CaptureCoverage measures a view's capture coverage.
 func (s *Service) CaptureCoverage(ctx context.Context, project uuid.UUID, branch string) (CaptureCoverage, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return CaptureCoverage{}, err
 	}
 	view, err := parseView(branch)

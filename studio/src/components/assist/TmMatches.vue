@@ -7,7 +7,7 @@
  * kernel; one MF1 can't express comes as MF2, and says so.
  */
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import type { TMLookupResult, TMMatch } from "../../api/knowledge-schemas";
+import type { UnitTMMatch, UnitTMMatches } from "../../api/knowledge-schemas";
 import { useKnowledge } from "../../api/knowledge";
 import type { Message, ProjectLocale, Syntax } from "../../api/schemas";
 import { ariaKeys, keyLabel } from "../../lib/shortcuts";
@@ -33,7 +33,7 @@ const emit = defineEmits<{ insert: [match: MatchText] }>();
 const s = strings.tm;
 const port = useKnowledge();
 
-const result = shallowRef<TMLookupResult>();
+const result = shallowRef<UnitTMMatches>();
 const error = ref<unknown>(null);
 const loading = ref(false);
 let abort: AbortController | undefined;
@@ -45,23 +45,15 @@ async function load(): Promise<void> {
   error.value = null;
   result.value = undefined;
   try {
-    const r = await port.lookupTM(
+    // The unit's own read: it works for an assigned member (a vendor),
+    // who may not search the tenant's memory, and shows no foreign keys.
+    // Showing a match isn't using it: the server counts no hit.
+    const r = await port.unitTMMatches(
       props.tenant,
-      {
-        source: props.message.source.text,
-        syntax: props.message.source.syntax,
-        source_locale: props.source.code,
-        target_locale: props.target.code,
-        project_id: props.projectId,
-        message_key: props.message.key,
-        namespace: props.message.namespace,
-        limit: 5,
-        min_score: 50,
-        all_projects: false,
-        // Showing a match isn't using it.
-        count_hits: false,
-        target_syntax: props.targetSyntax,
-      },
+      props.projectId,
+      props.message.key,
+      props.target.code,
+      { target_syntax: props.targetSyntax, limit: 5, min_score: 50 },
       a.signal,
     );
     if (!a.signal.aborted) result.value = r;
@@ -74,11 +66,11 @@ async function load(): Promise<void> {
 watch(() => [props.message.id, props.message.source_revision, props.target.code, props.targetSyntax], load, { immediate: true });
 onBeforeUnmount(() => abort?.abort());
 
-const matches = computed(() => result.value?.matches ?? []);
-const tone = (m: TMMatch) => (m.score >= 100 ? "ok" : m.score >= 85 ? "accent" : "warn");
+const matches = computed(() => result.value?.items ?? []);
+const tone = (m: UnitTMMatch) => (m.score >= 100 ? "ok" : m.score >= 85 ? "accent" : "warn");
 const chord = (i: number) => `${keyLabel("Mod")}${keyLabel("Alt")}${i + 1}`;
 
-const textOf = (m: TMMatch): MatchText => ({ text: m.target_text, syntax: m.target_syntax });
+const textOf = (m: UnitTMMatch): MatchText => ({ text: m.target_text, syntax: m.target_syntax });
 
 /** The n-th match's target (1-based), for the Mod+Alt+n chord. */
 function matchTarget(n: number): MatchText | undefined {
@@ -95,7 +87,7 @@ defineExpose({ matchTarget, reload: load });
     <p v-if="loading" class="muted" role="status">{{ strings.app.loading }}</p>
     <p v-else-if="!error && !matches.length" class="muted">{{ s.none }}</p>
     <ol v-else class="matches">
-      <li v-for="(m, i) in matches" :key="m.unit.id" class="match stack-sm" data-testid="tm-match">
+      <li v-for="(m, i) in matches" :key="`${i}-${m.score}-${m.target}`" class="match stack-sm" data-testid="tm-match">
         <div class="row">
           <span class="pill" :class="`pill-${tone(m)}`" data-testid="tm-score">{{ m.score }}</span>
           <span class="muted">{{ s.kind[m.kind] }}</span>
@@ -108,11 +100,11 @@ defineExpose({ matchTarget, reload: load });
         <p v-if="m.target_syntax_fallback" class="hint" data-testid="tm-fallback">{{ s.fallbackMf2 }}</p>
         <div v-if="m.kind === 'fuzzy' && result" class="hint">
           <span>{{ s.sourceDiff }}</span>
-          <SourceDiff :before="m.unit.source_normalized" :after="result.source_normalized" :lang="source.code" :dir="source.direction" />
+          <SourceDiff :before="m.source_normalized" :after="result.source_normalized" :lang="source.code" :dir="source.direction" />
         </div>
         <p class="hint">
-          {{ m.unit.message_key ? s.from(m.unit.message_key) : s.imported }}
-          · {{ m.unit.project_id ? s.scopeProject : s.scopeTenant }}
+          <template v-if="m.message_key">{{ s.from(m.message_key) }} · </template>
+          {{ m.project_scoped ? s.scopeProject : s.scopeTenant }}
           <template v-if="!m.variables_adapted"> · {{ s.variablesKept }}</template>
         </p>
       </li>

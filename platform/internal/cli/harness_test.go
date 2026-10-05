@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
 )
@@ -39,6 +40,8 @@ type workspace struct {
 	store       *memStore
 	stdin       string
 	interactive bool
+	// slept is the waits a device sign-in asked for; none really happen.
+	slept []time.Duration
 }
 
 func newWorkspace(t *testing.T) *workspace {
@@ -62,6 +65,7 @@ generate:
   vue: src/glossa/glossa-vue.ts
   react: src/glossa/glossa-react.ts
   go: internal/msg/messages.go
+  dart: lib/glossa/messages.dart
 extract:
   include: ["src/**/*.{ts,vue}", "**/*.go"]
   exclude: ["src/glossa/**"]
@@ -108,6 +112,7 @@ func (w *workspace) run(args ...string) result {
 		Interactive: w.interactive,
 		Credentials: w.store,
 		Version:     "test",
+		Sleep:       func(_ context.Context, d time.Duration) error { w.slept = append(w.slept, d); return nil },
 	})
 	return result{code: code, stdout: out.String(), stderr: errb.String()}
 }

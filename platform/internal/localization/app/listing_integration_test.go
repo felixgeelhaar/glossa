@@ -140,6 +140,44 @@ func TestListProjectTranslations(t *testing.T) {
 	}
 }
 
+// LiveTranslations is the release snapshot without the obsolete
+// messages' translations, which a release keeps (it joins with Catalog's
+// own active source) and a check must not read in bulk.
+func TestLiveTranslationsLeaveOutObsoleteMessages(t *testing.T) {
+	h, p := listing(t)
+	ctx := h.developer()
+	all := []domain.ReviewState{domain.StateDraft, domain.StateNeedsReview, domain.StateApproved}
+	keys := func(snap app.TranslationSnapshot) int {
+		n := 0
+		for _, byID := range snap.Translations {
+			n += len(byID)
+		}
+		return n
+	}
+	release, err := h.svc.ReleaseTranslations(ctx, p, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	live, err := h.svc.LiveTranslations(ctx, p, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Five translations; legal.terms/de is the obsolete message's.
+	if keys(release) != 5 || keys(live) != 4 {
+		t.Errorf("release read %d translations, live %d: want 5 and 4", keys(release), keys(live))
+	}
+	legal, err := h.catalog.GetMessage(ctx, catalogdomain.ProjectID(p), "legal.terms")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := live.Translations[bcp47.MustParse("de")][uuid.UUID(legal.ID)]; ok {
+		t.Error("the live snapshot carries the obsolete message's translation")
+	}
+	if _, ok := release.Translations[bcp47.MustParse("de")][uuid.UUID(legal.ID)]; !ok {
+		t.Error("the release snapshot lost the obsolete message's translation")
+	}
+}
+
 func TestListProjectTranslationsRejects(t *testing.T) {
 	h, p := listing(t)
 	ctx := h.developer()

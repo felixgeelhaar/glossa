@@ -137,7 +137,7 @@ func (w *CheckWorker) RunOnce(ctx context.Context) (worked bool, err error) {
 	if !w.s.checksEnabled() {
 		return false, nil
 	}
-	c, ok, err := w.s.checks.Claim(ctx, w.cfg.Lease)
+	c, ok, err := w.s.checks.Claim(ctx, w.s.now(), w.cfg.Lease)
 	if err != nil || !ok {
 		return false, err
 	}
@@ -183,7 +183,7 @@ func (s *GitHubService) handleCheck(ctx context.Context, c domain.Check) error {
 				slog.Int("attempts", c.Attempts), slog.Any("error", err))
 			return s.checks.Save(ctx, c, c.Deadline())
 		}
-		return s.checks.Retry(ctx, c, domain.RetryDelay(c.Attempts), shortFailure(err.Error()))
+		return s.checks.Retry(ctx, c, s.now(), domain.RetryDelay(c.Attempts), shortFailure(err.Error()))
 	}
 	c.Failure = ""
 	// A check still waiting looks again at its deadline, so a commit
@@ -319,9 +319,23 @@ func (s *GitHubService) reportConnection(ctx context.Context, c *domain.Check, t
 	if err != nil {
 		return "", "", err
 	}
-	t.Pushed, t.Usages = ready.pushed, ready.usages
+	t.Pushed, t.Usages, t.Recorded = ready.pushed, ready.usages, ready.recorded
 	switch {
 	case ready.complete():
+		rep := BuildCheckReport(in)
+		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
+			return "", "", err
+		}
+		t.Conclusion = rep.Conclusion
+		c.SetTarget(conn.ID, t)
+		return StickyComment(conn.RepositoryName+pathSuffix(conn.Path), s.links(ctx, c, conn, in), in, rep), rep.Conclusion, nil
+	case c.Expired(s.now()) && ready.uploaded():
+		// CI is here — the catalogs and the usages arrived — but nothing
+		// recorded a `glossa check` run for this commit within the wait.
+		// The report is Integration's own reduced view, and it says so
+		// rather than passing itself off as the check CI ran
+		// (RFC 0005 §12.3). in.Recorded is nil, which is what makes it
+		// the reduced one.
 		rep := BuildCheckReport(in)
 		if err := s.writeCheckRun(ctx, target, &t, rep); err != nil {
 			return "", "", err
@@ -392,10 +406,48 @@ func (s *GitHubService) upsertStickyComment(ctx context.Context, c *domain.Check
 	return nil
 }
 
-// checkReadiness is what this commit's CI has uploaded.
-type checkReadiness struct{ pushed, usages bool }
+// checkReadiness is what this commit's CI has done: pushed the
+// catalogs, uploaded the build's usages, and recorded a `glossa check`
+// run.
+//
+// The third is new with RFC 0005 §12.3, and it is waited for only where
+// a run is coming. The pull request renders the run CI recorded, so for
+// a project whose CI runs `glossa check`, a commit whose run has not
+// landed is a commit whose verdict is on its way: the check waits the
+// same CheckWait for it, and when the wait runs out with a push and
+// usages but no run it falls back to Integration's reduced view and
+// says so.
+//
+// A project that has never recorded a run is not waited for
+// (expectsRun is false). Its CI does not run `glossa check`, so a run
+// is not coming, and waiting thirty minutes for one would leave every
+// such pull request silent for half an hour — which is what this
+// condition did to every such project when it was first added, and what
+// M3's exit test caught. It
+// reports the labelled reduced view as soon as the push and the usages
+// are in, as the check did before it rendered recorded runs.
+//
+// "Has ever recorded a run" is learned from the record rather than
+// configured, and it has one honest edge: a repository's first pull
+// request after adding `glossa check` to its CI is still a project with
+// no run on the record. It is not waited for, so it reports the
+// labelled reduced view first; when its run lands,
+// `quality.check_run.recorded` wakes the check and it is re-rendered
+// from the run — which can move the verdict. From its next pull request
+// on the project records runs, and the check waits. The reverse can
+// happen through Quality's 90-day retention: once every reported run a
+// project made has been swept (the newest run of each ref is kept), it
+// is no longer waited for.
+type checkReadiness struct{ pushed, usages, recorded, expectsRun bool }
 
-func (r checkReadiness) complete() bool { return r.pushed && r.usages }
+func (r checkReadiness) complete() bool {
+	return r.uploaded() && (r.recorded || !r.expectsRun)
+}
+
+// uploaded reports whether this commit's CI uploaded anything at all.
+// A commit with a push and usages but no recorded run has CI; it just
+// does not run `glossa check` yet, and there is a report to give it.
+func (r checkReadiness) uploaded() bool { return r.pushed && r.usages }
 
 // checkInput reads the report's sources and works out whether this
 // commit's CI has run.
@@ -411,13 +463,28 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 		return in, ready, err
 	}
 	// The policy's grace is measured from the moment it was saved, so
-	// the report needs both times and reads neither itself. OpenedAt is
-	// still the zero time here: the queue row does not record when the
-	// pull request was opened, so every check grades against the
-	// project's current version — which is exactly today's behaviour.
-	// Wave 4's PR-check slice, which rebuilds this report on the layered
-	// findings, is where the opened-at joins the row.
-	in.Now = s.now()
+	// the report needs both times and reads neither itself: when this
+	// pull request was opened (GitHub's own `created_at`, kept on the
+	// row by migration 0033) and when the check runs. A pull request
+	// older than a stricter policy keeps grading against the version it
+	// was opened under until the grace ends, and the summary says which
+	// version it used and when that ends (RFC 0005 §4.3).
+	//
+	// A row written before 0033 carries the zero time, and so does a
+	// payload that named no `created_at`. That is "nobody recorded
+	// when", and the project's current version grades it — the behaviour
+	// every check had before this column existed.
+	in.OpenedAt, in.Now = c.OpenedAt, s.now()
+	// The run CI recorded for *this commit*, not for the branch. A
+	// branch moves under a pull request with every push; the run that
+	// graded a commit belongs to that commit and always will, which is
+	// what makes "the same commit, two surfaces, one verdict" a
+	// statement anyone can check (RFC 0005 §12.3).
+	if run, ok, err := s.sources.RecordedRun(ctx, conn.ProjectID, c.HeadSHA); err != nil {
+		return in, ready, err
+	} else if ok {
+		in.Recorded, ready.recorded = &run, true
+	}
 	if in.Status, err = s.sources.BranchStatus(ctx, conn.ProjectID, c.Branch); err != nil {
 		return in, ready, err
 	}
@@ -433,6 +500,15 @@ func (s *GitHubService) checkInput(ctx context.Context, c *domain.Check, conn do
 		if sameCommit(commit, c.HeadSHA) {
 			ready.usages = true
 			break
+		}
+	}
+	// Whether to wait for a run is only a question once there is
+	// something to report and no run to render, so the project's history
+	// is read then and never otherwise: a check waiting on its push, or
+	// one whose run is already in, costs nothing more.
+	if ready.uploaded() && !ready.recorded {
+		if ready.expectsRun, err = s.sources.RecordsRuns(ctx, conn.ProjectID); err != nil {
+			return in, ready, err
 		}
 	}
 	return in, ready, nil

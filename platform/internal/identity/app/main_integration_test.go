@@ -101,7 +101,7 @@ func newHarness(t *testing.T) *harness { return newHarnessMailing(t, true) }
 
 // newHarnessMailing builds the service with or without a mailer (a
 // deployment without email).
-func newHarnessMailing(t *testing.T, mailing bool) *harness {
+func newHarnessMailing(t *testing.T, mailing bool, with ...func(*app.Deps)) *harness {
 	t.Helper()
 	if err := env.Reset(context.Background()); err != nil {
 		t.Fatalf("reset: %v", err)
@@ -124,17 +124,21 @@ func newHarnessMailing(t *testing.T, mailing bool) *harness {
 		t.Fatal(err)
 	}
 	deps := app.Deps{
-		Passkeys:      passkeys,
-		Tx:            postgres.NewTransactor(uow, cipher),
-		Sessions:      postgres.NewSessionRepo(uow),
-		SignInLinks:   postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
-		ResetLinks:    postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
-		TOTP:          postgres.NewTOTPRepo(uow, cipher),
-		LoginAttempts: postgres.NewLoginAttemptRepo(uow),
-		Clock:         h.clock.Now,
+		Passkeys:       passkeys,
+		Tx:             postgres.NewTransactor(uow, cipher),
+		Sessions:       postgres.NewSessionRepo(uow),
+		DeviceSessions: postgres.NewDeviceSessionRepo(uow),
+		SignInLinks:    postgres.NewLinkRepo(uow, postgres.PurposeSignIn),
+		ResetLinks:     postgres.NewLinkRepo(uow, postgres.PurposePasswordReset),
+		TOTP:           postgres.NewTOTPRepo(uow, cipher),
+		LoginAttempts:  postgres.NewLoginAttemptRepo(uow),
+		Clock:          h.clock.Now,
 	}
 	if mailing {
 		deps.Mailer = h.mail
+	}
+	for _, w := range with {
+		w(&deps)
 	}
 	h.svc, err = app.New(cfg, deps)
 	if err != nil {

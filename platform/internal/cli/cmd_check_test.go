@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 )
 
 // checkDoc is `glossa check --json`, as far as these tests read it.
@@ -14,7 +18,8 @@ type checkDoc struct {
 		Source              string   `json:"source"`
 	} `json:"policy"`
 	Findings []struct {
-		Code, Locale, Key, Severity string
+		Code, Severity string
+		Locus          struct{ Locale, Key string }
 	} `json:"findings"`
 }
 
@@ -43,33 +48,33 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 	}{
 		{
 			name: "no stored policy: the command's own default",
-			want: ExitCheckFailed, source: "local",
+			want: ExitCheckFailed, source: "default",
 		},
 		{
 			name:   "the stored default",
 			policy: map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "error"},
-			want:   ExitCheckFailed, source: "project",
+			want:   ExitCheckFailed, source: "server",
 		},
 		{
 			name:   "untranslated keys only warn",
 			policy: map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "warning"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 		{
 			name:   "no locale has to be complete",
 			policy: map[string]any{"require_complete": "none", "fail_on": "error", "missing_translations": "error"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 		{
 			name: "de is not among the required locales",
 			policy: map[string]any{"require_complete": "listed", "locales": []string{"en"},
 				"fail_on": "error", "missing_translations": "error"},
-			want: ExitOK, source: "project",
+			want: ExitOK, source: "server",
 		},
 		{
 			name:   "nothing fails the check",
 			policy: map[string]any{"require_complete": "all", "fail_on": "never", "missing_translations": "error"},
-			want:   ExitOK, source: "project",
+			want:   ExitOK, source: "server",
 		},
 	}
 	for _, tc := range tests {
@@ -87,7 +92,7 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 			// Green or not, the gap is still reported.
 			var missing int
 			for _, f := range doc.Findings {
-				if f.Code == "missing-translation" && f.Locale == "de" {
+				if f.Code == "missing-translation" && f.Locus.Locale == "de" {
 					missing++
 				}
 			}
@@ -96,6 +101,56 @@ func TestCheckFollowsTheProjectPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCheckReportsTranslationsOfObsoleteMessages: a translation whose
+// message the catalog obsoleted is `unknown-key`, identified by the
+// obsolete message's ID the way the server identifies it — before, it
+// vanished from every check against the server.
+func TestCheckReportsTranslationsOfObsoleteMessages(t *testing.T) {
+	srv, w := pushed(t)
+	srv.mu.Lock()
+	srv.messages["help.legacy"] = &fakeMessage{key: "help.legacy", revision: 1, state: "obsolete"}
+	srv.translations["de"] = map[string]*fakeTranslation{
+		"help.legacy": {content: mustContent(t, "Alte Hilfe", "de"), state: "approved", origin: "human", sourceRevision: 1, revision: 1},
+	}
+	srv.mu.Unlock()
+	var doc struct {
+		Findings []struct {
+			Code, Severity, Layer string
+			Locus                 struct{ Locale, Key, Message string }
+		} `json:"findings"`
+	}
+	w.json(&doc, "check").want(t, ExitCheckFailed)
+	var got int
+	for _, f := range doc.Findings {
+		if f.Code != "unknown-key" {
+			continue
+		}
+		got++
+		if f.Locus.Key != "help.legacy" || f.Locus.Locale != "de" || f.Locus.Message != "msg_help.legacy" ||
+			f.Severity != "warning" || f.Layer != "completeness" {
+			t.Errorf("unknown-key = %+v, want the obsolete message's German translation, by its ID, as a warning", f)
+		}
+	}
+	if got != 1 {
+		t.Errorf("%d unknown-key findings, want 1: %+v", got, doc.Findings)
+	}
+	// `glossa pull` reads the same server and must not write the dead
+	// translation back into a catalog file.
+	w.run("pull").want(t, ExitOK)
+	if body := w.read("locales/de.json"); strings.Contains(body, "help.legacy") {
+		t.Errorf("pull wrote the obsolete message's translation: %s", body)
+	}
+}
+
+func mustContent(t *testing.T, text, locale string) mfcontent.Content {
+	t.Helper()
+	c, err := mfcontent.Parse(mfcontent.MF1, text, bcp47.MustParse(locale))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }
 
 // TestCheckFlagsBeatTheProjectPolicy pins the precedence the README
@@ -137,10 +192,13 @@ func TestCheckOfflineUsesTheLocalPolicy(t *testing.T) {
 	})
 	var doc checkDoc
 	w.json(&doc, "check", "--offline").want(t, ExitCheckFailed)
-	if doc.Policy.Source != "local" || doc.Policy.FailOn != "error" {
+	if doc.Policy.Source != "default" || doc.Policy.FailOn != "error" {
 		t.Errorf("policy = %+v", doc.Policy)
 	}
-	w.json(&doc, "check", "--offline", "--fail-on=never").want(t, ExitOK)
+	// Nothing fails the run any more; it exits 4 rather than 0 because
+	// offline the style layer has no effective style guide to grade
+	// against, and a layer that could not run is named.
+	w.json(&doc, "check", "--offline", "--fail-on=never").want(t, ExitPartial)
 	if doc.Policy.FailOn != "never" {
 		t.Errorf("fail_on = %q, want never", doc.Policy.FailOn)
 	}

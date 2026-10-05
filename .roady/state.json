@@ -1,6 +1,6 @@
 {
   "project_id": "Glossa",
-  "version": 108,
+  "version": 110,
   "task_states": {
     "task-a11y": {
       "status": "done",
@@ -448,14 +448,14 @@
     "task-m4-quality": {
       "status": "in_progress",
       "path": "",
-      "owner": "Felix Geelhaar",
-      "started_at": "2026-09-28T23:51:10.342572+02:00",
+      "owner": "ai-agent",
+      "started_at": "2026-09-29T21:29:42.604235+02:00",
       "elapsed_minutes": 0,
       "lease": {
-        "holder": "Felix Geelhaar",
-        "session": "0a689ba3-2ad7-40be-9731-9707b533b977",
-        "expires_at": "2026-09-29T01:51:10.342573+02:00",
-        "renewed_at": "2026-09-28T23:51:10.342573+02:00"
+        "holder": "ai-agent",
+        "session": "9a71bb36-7ad1-42dc-be12-2ad635e46d44",
+        "expires_at": "2026-09-29T23:29:42.604235+02:00",
+        "renewed_at": "2026-09-29T21:29:42.604235+02:00"
       }
     },
     "task-m5-operations": {
@@ -557,5 +557,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-09-28T23:51:10.342572+02:00"
+  "updated_at": "2026-09-29T21:29:42.604235+02:00"
 }

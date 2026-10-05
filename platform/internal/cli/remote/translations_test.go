@@ -56,6 +56,43 @@ func TestProjectTranslationsChunksLocalesAndPages(t *testing.T) {
 	}
 }
 
+// The bounded read asks each chunk of locales for one page, never
+// follows a page token, and says whether there was another page.
+func TestFirstProjectTranslationsReadsOnePagePerChunk(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		requests int
+	)
+	c := newClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("message_state") != "obsolete" || q.Get("page_size") != "7" || q.Get("page_token") != "" {
+			t.Errorf("request = %s", r.URL)
+		}
+		mu.Lock()
+		requests++
+		first := requests == 1
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		page := map[string]any{"items": []map[string]any{{"key": "old", "locale": q["locale"][0], "message_id": "m1"}}}
+		if !first {
+			page["next_page_token"] = "n1"
+		}
+		_ = json.NewEncoder(w).Encode(page)
+	}))
+	locales := make([]string, 25)
+	for i := range locales {
+		locales[i] = fmt.Sprintf("l%02d", i)
+	}
+	trs, more, err := c.FirstProjectTranslations(context.Background(), remote.Scope{Tenant: "t1", Project: "p1"}, locales,
+		remote.TranslationFilter{MessageState: "obsolete"}, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trs) != 2 || !more || requests != 2 {
+		t.Errorf("translations %+v, more %v, %d requests: want one page per chunk, and the second chunk's more", trs, more, requests)
+	}
+}
+
 func TestProjectTranslationsWithoutLocalesAsksNothing(t *testing.T) {
 	c := newClient(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Error("a request without locales")

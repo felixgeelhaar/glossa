@@ -139,6 +139,13 @@ type Target struct {
 	// Advisory marks a finding a model decided. It is never raised to
 	// Error, whatever a rule asks for.
 	Advisory bool
+	// Provisional marks a finding that is not yet evidence: a visual
+	// finding seen fewer times than VisualThresholds.PromoteAfterSightings
+	// asks for (RFC 0005 §5.2). Like an advisory one, its severity is
+	// never raised to Error — a single sighting of a text metric that
+	// moves with font availability cannot be allowed to fail a build,
+	// however strict the policy is.
+	Provisional bool
 }
 
 // Decision is what the policy decided about one target, and why.
@@ -150,10 +157,12 @@ type Decision struct {
 	// -1 when no rule matched and the layer's own severity stands. It is
 	// what `glossa check --explain-policy` prints.
 	Rule int
-	// Clamped says a rule asked for Error on an advisory layer and got
-	// Warning instead (RFC 0005 §14 decision 10). Validation rejects a
-	// rule that names such a layer outright; this catches the wildcard
-	// that raises everything without naming it.
+	// Clamped says a rule asked for Error on a finding that may not have
+	// one and got Warning instead: an advisory layer's (RFC 0005 §14
+	// decision 10), or a visual finding on its first sighting (§5.2).
+	// Validation rejects a rule that names an advisory layer outright;
+	// this catches the wildcard that raises everything without naming
+	// it, and the sighting a rule cannot know about.
 	Clamped bool
 }
 
@@ -178,25 +187,40 @@ func (d Decision) Enforced() bool { return d.Mode != ModeWarn }
 // position. A policy nobody can predict is worse than no policy.
 func (p Policy) Decide(t Target) Decision {
 	d := Decision{Severity: t.Severity, Mode: ModeEnforce, Rule: -1}
-	best := -1
-	for i, r := range p.Rules {
-		if !r.Matches(t) {
-			continue
-		}
-		// >= and not >: rules are visited in document order, so taking
-		// the later one on a tie is what "ties go to the later rule"
-		// means.
-		if best < 0 || r.Specificity() >= p.Rules[best].Specificity() {
-			best = i
-		}
-	}
+	best := MostSpecific(p.Rules, func(r Rule) bool { return r.Matches(t) }, Rule.Specificity)
 	if best >= 0 {
 		d.Severity, d.Mode, d.Rule = p.Rules[best].Severity, p.Rules[best].mode(), best
 	}
-	if (t.Advisory || Advisory(t.Layer)) && d.Severity == Error {
+	if (t.Advisory || Advisory(t.Layer) || t.Provisional) && d.Severity == Error {
 		d.Severity, d.Clamped = Warning, true
 	}
 	return d
+}
+
+// MostSpecific is the precedence rule itself, separated from what it
+// orders so that every selector in the platform resolves the same way:
+// the check policy's rules here, and Workflow's bindings (RFC 0006
+// §2.3), which RFC 0006 asks to use "the check policy's precedence
+// rule … one rule, shared, not a second one to learn".
+//
+// Of the candidates that match, the one with the highest specificity
+// wins; ties go to the one later in candidates. It returns the winner's
+// index, or -1 when nothing matches. The caller decides what "later"
+// means by the order it passes candidates in — document order for a
+// policy's rules, creation order for bindings.
+func MostSpecific[T any](candidates []T, matches func(T) bool, specificity func(T) int) int {
+	best, bestSpec := -1, 0
+	for i, c := range candidates {
+		if !matches(c) {
+			continue
+		}
+		// >= and not >: candidates are visited in order, so taking the
+		// later one on a tie is what "ties go to the later rule" means.
+		if s := specificity(c); best < 0 || s >= bestSpec {
+			best, bestSpec = i, s
+		}
+	}
+	return best
 }
 
 // Computes reports whether the layer runs at all in environment env: a

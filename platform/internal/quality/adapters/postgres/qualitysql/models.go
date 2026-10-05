@@ -5,6 +5,7 @@
 package qualitysql
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,37 @@ type QualityCheckRun struct {
 	CommitSha     string
 }
 
+type QualityLinguisticJob struct {
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	ProjectID        uuid.UUID
+	Ref              string
+	Scope            json.RawMessage
+	State            string
+	Batch            string
+	CheckRunID       uuid.NullUUID
+	Findings         int32
+	SkippedSensitive int32
+	Reviewed         int32
+	FailureCode      string
+	LastError        string
+	CreatedBy        string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	StartedAt        pgtype.Timestamptz
+	FinishedAt       pgtype.Timestamptz
+}
+
+type QualityPolicyVersion struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	ProjectID uuid.UUID
+	Version   int32
+	Document  json.RawMessage
+	CreatedBy string
+	CreatedAt time.Time
+}
+
 type QualityWaiver struct {
 	ID             uuid.UUID
 	TenantID       uuid.UUID
@@ -42,4 +74,5 @@ type QualityWaiver struct {
 	CreatedAt      time.Time
 	ExpiresAt      pgtype.Timestamptz
 	RevokedAt      pgtype.Timestamptz
+	ExpiredAt      pgtype.Timestamptz
 }

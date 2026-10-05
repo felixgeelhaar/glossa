@@ -1,7 +1,6 @@
 {
-  "name": "@glossa/capture",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@felixgeelhaar/glossa-capture",
+  "version": "0.4.0",
   "description": "Glossa's capture mode (RFC 0004 §3.1): an onRender hook that marks t() strings with invisible markers, and the capture script that turns marked text, attributes and component hosts into regions for glossa capture. Loaded only in capture and editor sessions, never by applications.",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./probes": {
+      "types": "./dist/probes.d.ts",
+      "import": "./dist/probes.js"
     }
   },
   "files": [
@@ -28,19 +31,31 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/capture, the whole session (@glossa/runtime is types only)",
+      "name": "a capture session WITH the visual probe pass, what `glossa capture` runs (RFC 0005 §5.1's 4 kB)",
+      "path": [
+        "dist/index.js",
+        "dist/probes.js"
+      ],
+      "import": {
+        "dist/index.js": "{ startCapture }",
+        "dist/probes.js": "{ probe }"
+      },
+      "limit": "4 KB"
+    },
+    {
+      "name": "a session WITHOUT it, what @felixgeelhaar/glossa-overlay pulls in (@felixgeelhaar/glossa-runtime is types only)",
       "path": "dist/index.js",
       "limit": "3 KB"
     }
   ],
   "peerDependencies": {
-    "@glossa/runtime": "workspace:*"
+    "@felixgeelhaar/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
-    "@glossa/elements": "workspace:*",
-    "@glossa/react": "workspace:*",
-    "@glossa/runtime": "workspace:*",
-    "@glossa/vue": "workspace:*",
+    "@felixgeelhaar/glossa-elements": "workspace:*",
+    "@felixgeelhaar/glossa-react": "workspace:*",
+    "@felixgeelhaar/glossa-runtime": "workspace:*",
+    "@felixgeelhaar/glossa-vue": "workspace:*",
     "@playwright/test": "1.63.0",
     "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
@@ -65,5 +80,11 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/capture#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

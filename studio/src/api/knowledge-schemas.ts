@@ -52,6 +52,21 @@ export const TMMatch = z.object({
 });
 export const TMLookupResult = z.object({ source_normalized: z.string(), matches: z.array(TMMatch) });
 
+/** A unit's match: text and score, never the unit; no `message_key` for an assigned member (RFC 0006 §3.3). */
+export const UnitTMMatch = z.object({
+  score: z.number().int().min(50).max(101),
+  kind: z.enum(["context", "exact", "fuzzy"]),
+  source_normalized: z.string(),
+  target: z.string(),
+  target_text: z.string(),
+  target_syntax: Syntax,
+  target_syntax_fallback: z.boolean(),
+  variables_adapted: z.boolean(),
+  project_scoped: z.boolean(),
+  message_key: z.string().optional(),
+});
+export const UnitTMMatches = z.object({ source_normalized: z.string(), items: z.array(UnitTMMatch) });
+
 export const TMConcordance = z.object({
   matches: z.array(z.object({ similarity: z.number().min(0).max(1), unit: TMUnit })),
 });
@@ -184,6 +199,8 @@ export const EffectiveStyleGuide = z.object({ fields: StyleFields, rules: z.arra
 export type TMUnit = z.infer<typeof TMUnit>;
 export type TMMatch = z.infer<typeof TMMatch>;
 export type TMLookupResult = z.infer<typeof TMLookupResult>;
+export type UnitTMMatch = z.infer<typeof UnitTMMatch>;
+export type UnitTMMatches = z.infer<typeof UnitTMMatches>;
 export type TMConcordance = z.infer<typeof TMConcordance>;
 export type TermStatus = z.infer<typeof TermStatus>;
 export type PartOfSpeech = z.infer<typeof PartOfSpeech>;
@@ -208,6 +225,7 @@ type Assert<T extends true> = T;
 export type KnowledgeContractAlignment = [
   Assert<Fits<TMUnit, C["TMUnit"]>>,
   Assert<Fits<TMLookupResult, C["TMLookupResult"]>>,
+  Assert<Fits<UnitTMMatches, C["UnitTMMatches"]>>,
   Assert<Fits<TMConcordance, C["TMConcordance"]>>,
   Assert<Fits<TermConcept, C["TermConcept"]>>,
   Assert<Fits<TermConceptRevision, C["TermConceptRevision"]>>,

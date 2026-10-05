@@ -12,11 +12,15 @@
 /// types emitted during the step, in order. A `304` step also asserts that
 /// the revalidation carried the previous `ETag` as `If-None-Match`.
 ///
-/// There is no skip list, and [_skips] below is empty: the Dart runtime
-/// passes every loading case. An entry here would mean Dart disagrees with
-/// the contract, and that is a bug, not a configuration. The group `the
-/// skip list is honest` fails if an entry ever goes stale, so the list
-/// cannot quietly rot once someone does need it.
+/// A sequence's `installationId` and `rolloutSupport` configure staged
+/// rollout (SPEC §1.4), and a step's `expRollout`, when present, is
+/// asserted against `explain().rollout`.
+///
+/// [_skips] below names the loading cases this runtime doesn't pass, and
+/// it is empty: every shared sequence runs, the staged-rollout ones
+/// included. An entry would mean Dart disagrees with the contract, and
+/// that is a bug, not a configuration. The group `the skip list is honest`
+/// fails if an entry ever goes stale, so the list cannot quietly rot.
 library;
 
 import 'dart:convert';
@@ -30,8 +34,10 @@ const String _edge = 'https://edge.test';
 const String _deliveryKey = 'pk_test';
 
 /// Loading cases this runtime deliberately doesn't pass, keyed
-/// `<file>: <step index> <description>`, with the reason. Empty, and meant
-/// to stay that way.
+/// `<file>: <step index> <description>`, with the reason. A sequence's
+/// steps build on each other, so a sequence is skipped whole. Empty since
+/// RFC 0006 wave 3 implemented SPEC §1.4 here: like the JS and Go
+/// drivers, this one now runs every case.
 const Map<String, String> _skips = {};
 
 /// A fake `glossa-edge` (SPEC §2) behind the client's [Transport]: it
@@ -102,6 +108,9 @@ void main() {
         ),
     ];
 
+    final installationId = fixture['installationId'] as String?;
+    final rolloutSupport = fixture['rolloutSupport'] as bool? ?? true;
+
     test('runtimes/testdata/loading/$name', () async {
       final edge = _FakeEdge();
       // The store outlives a restart, exactly as a cache directory or
@@ -139,6 +148,8 @@ void main() {
             publicKeys: publicKeys,
             locales: requested,
             refreshInterval: Duration.zero,
+            installationId: installationId,
+            rollout: rolloutSupport,
           );
           client.errors.listen((e) => errors.add('${e.type}'));
           await client.ready;
@@ -157,9 +168,17 @@ void main() {
           );
         }
         final body = manifest?['body'] as Map<String, Object?>?;
+        // The manifest became active, on either side of a rollout it
+        // carries.
+        final candidate = switch (body?['rollout']) {
+          {'candidate': {'release': {'id': final String id}}} => id,
+          _ => null,
+        };
         if (body != null &&
-            client.release?.id ==
-                (body['release']! as Map<String, Object?>)['id']) {
+            [
+              (body['release']! as Map<String, Object?>)['id'],
+              candidate,
+            ].contains(client.release?.id)) {
           lastEtag = manifest!['etag'] as String?;
         }
 
@@ -184,6 +203,13 @@ void main() {
           step['expErrors'],
           reason: '$where: errors emitted during the step',
         );
+        if (step.containsKey('expRollout')) {
+          expect(
+            client.explain(read['id']! as String).rollout?.toJson(),
+            step['expRollout'],
+            reason: '$where: explain().rollout',
+          );
+        }
       }
       await client?.dispose();
     });

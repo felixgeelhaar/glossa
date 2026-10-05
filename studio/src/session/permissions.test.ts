@@ -67,4 +67,21 @@ describe("grantFor", () => {
     expect(grantFor(undefined).size).toBe(0);
     expect(allowsFor(grantFor(undefined), "translations.read", "de")).toBe(false);
   });
+
+  it("mirrors the operations permissions (RFC 0006 §4.2): approving is a reviewer's, per locale", () => {
+    const rv = grantFor({ roles: ["reviewer"], locales: ["de"] });
+    expect(allowsFor(rv, "approvals.decide", "de-AT")).toBe(true);
+    expect(allowsFor(rv, "approvals.decide", "fr")).toBe(false);
+    expect(allows(rv, "assignments.read")).toBe(true);
+    expect(allows(rv, "assignments.manage")).toBe(false);
+    const tr = grantFor({ roles: ["translator"], locales: ["de"] });
+    expect(allows(tr, "assignments.read")).toBe(true);
+    expect(allows(tr, "workflows.read")).toBe(true);
+    expect(tr.get("approvals.decide")).toBeUndefined();
+    expect(grantFor({ roles: ["developer"], locales: [] }).get("approvals.decide")).toBeUndefined();
+    const admin = grantFor({ roles: ["admin"], locales: [] });
+    expect(allowsFor(admin, "approvals.decide", "ja")).toBe(true);
+    expect(allows(admin, "audit.export")).toBe(false);
+    expect(allows(grantFor({ roles: ["owner"], locales: [] }), "audit.export")).toBe(true);
+  });
 });

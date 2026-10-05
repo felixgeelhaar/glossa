@@ -10,6 +10,11 @@
 // {project, locale, messages: {key: value}, statuses: {key: status}},
 // with a project API key as bearer token. Keys without a translation come
 // back with an empty value and no status.
+//
+// It also reads a restored v0.3 backup directly (ReadRestore, RFC 0006
+// §7.2), which carries what the API doesn't expose: see db.go for the
+// read, restore.go for the restore marker it insists on, and dbplan.go
+// for the plan, including what it deliberately does not carry.
 package v0
 
 import (
@@ -161,9 +166,12 @@ func ReviewState(status string) string {
 
 // MessageItem is a v0.3 key as a message.
 type MessageItem struct {
-	Key     string
-	Text    string
-	Invalid *snapshot.Invalid
+	Key  string
+	Text string
+	// Description is v0.3's keys.description; only a restore (--v0-db)
+	// has it, the read API doesn't expose it.
+	Description string
+	Invalid     *snapshot.Invalid
 }
 
 // TranslationItem is a v0.3 value as a translation.
@@ -173,7 +181,11 @@ type TranslationItem struct {
 	Text     string
 	V0Status string
 	State    string
-	Invalid  *snapshot.Invalid
+	// Detail is the v0.3 row's provenance for the import revision's
+	// origin_detail (v0_status, v0_updated_by, v0_updated_at,
+	// v0_translation_id); only a restore has it.
+	Detail  map[string]any
+	Invalid *snapshot.Invalid
 }
 
 // Skip is a v0.3 entry that isn't imported.

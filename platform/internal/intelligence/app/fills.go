@@ -62,6 +62,9 @@ type FillResult struct {
 // reused (failed, dead and cancelled ones are queued again). Needs
 // intelligence.translate for every locale.
 func (s *Service) RequestFill(ctx context.Context, project uuid.UUID, req FillRequest, idemKey string) (FillResult, bool, error) {
+	if err := authz.InProject(ctx, project); err != nil {
+		return FillResult{}, false, err
+	}
 	locales, by, err := s.checkFill(ctx, &req)
 	if err != nil {
 		return FillResult{}, false, err
@@ -143,15 +146,16 @@ func fillWarnings(settings domain.TenantSettings, providers []StoredProvider) []
 
 // GetFill returns a fill with its jobs' states. Needs intelligence.read.
 func (s *Service) GetFill(ctx context.Context, id uuid.UUID) (FillResult, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	var f Fill
+	if err := authz.RequireRow(ctx, authz.IntelligenceRead, func() (uuid.UUID, error) {
+		var found bool
+		var err error
+		if f, found, err = s.existingFill(ctx, id); err != nil || !found {
+			return uuid.Nil, errors.Join(err, notFoundUnless(found))
+		}
+		return f.ProjectID, nil
+	}); err != nil {
 		return FillResult{}, err
-	}
-	f, found, err := s.existingFill(ctx, id)
-	if err != nil {
-		return FillResult{}, err
-	}
-	if !found {
-		return FillResult{}, ErrNotFound
 	}
 	return s.fillResult(ctx, f)
 }
@@ -165,6 +169,9 @@ func (s *Service) CancelFill(ctx context.Context, id uuid.UUID) (FillResult, err
 	f, found, err := s.existingFill(ctx, id)
 	if err != nil || !found {
 		return FillResult{}, errors.Join(err, notFoundUnless(found))
+	}
+	if err := authz.InProject(ctx, f.ProjectID); err != nil {
+		return FillResult{}, err
 	}
 	var by string
 	for _, l := range f.Locales {
@@ -397,11 +404,14 @@ func (q *queuer) job(
 	}, nil
 }
 
-// ListJobs lists jobs, newest first. Needs intelligence.read.
+// ListJobs lists jobs, newest first, of the projects the caller may
+// see. Needs intelligence.read.
 func (s *Service) ListJobs(ctx context.Context, f JobFilter, page pagination.Page) ([]domain.Job, *string, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	scope, err := authz.Projects(ctx, authz.IntelligenceRead)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = scope.IDs()
 	if f.Locale != "" {
 		t, err := bcp47.Parse(f.Locale)
 		if err != nil {
@@ -428,16 +438,18 @@ func (s *Service) ListJobs(ctx context.Context, f JobFilter, page pagination.Pag
 
 // GetJob returns a job with its audit ledger. Needs intelligence.read.
 func (s *Service) GetJob(ctx context.Context, id uuid.UUID) (JobView, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	var v JobView
+	if err := authz.RequireRow(ctx, authz.IntelligenceRead, func() (uuid.UUID, error) {
+		err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			v, err = st.Job(ctx, id)
+			return err
+		})
+		return v.ProjectID, err
+	}); err != nil {
 		return JobView{}, err
 	}
-	var v JobView
-	err := s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		var err error
-		v, err = st.Job(ctx, id)
-		return err
-	})
-	return v, err
+	return v, nil
 }
 
 // CancelJob cancels a queued job. Needs intelligence.translate for its

@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
@@ -52,6 +54,9 @@ type MessageFilter struct {
 	State     *domain.MessageState
 	// KeyPrefix matches keys starting with it ("checkout.").
 	KeyPrefix string
+	// IDs, when not nil, limits the list to these messages: an assigned
+	// member's (RFC 0006 §3.3). Empty and not nil matches nothing.
+	IDs []domain.MessageID
 }
 
 // Store is Catalog's persistence in tenant scope. Row-level security,
@@ -62,7 +67,9 @@ type Store interface {
 	InsertProject(ctx context.Context, p domain.Project, by domain.Author) (inserted bool, err error)
 	Project(ctx context.Context, id domain.ProjectID) (domain.Project, error)
 	LockProject(ctx context.Context, id domain.ProjectID) (domain.Project, error)
-	Projects(ctx context.Context, after domain.ProjectID, limit int) ([]domain.Project, error)
+	// Projects lists projects after after; only, when not nil, limits
+	// them to those ids (a project-scoped caller's).
+	Projects(ctx context.Context, after domain.ProjectID, only []uuid.UUID, limit int) ([]domain.Project, error)
 	// UpdateProject saves p if the stored version is still expected.
 	UpdateProject(ctx context.Context, p domain.Project, expected int) error
 	DeleteProject(ctx context.Context, id domain.ProjectID) error
@@ -153,6 +160,14 @@ type Scanner interface {
 // this rather than against its own tables: locales are Localization's
 // (RFC 0002 §4). The composition root wires it in; without one, a
 // policy's locales are checked for shape only.
+//
+// It is answered inside the authorization of the write that asks — the
+// caller has already proved catalog.write on the project, and that a
+// locale it names exists is an invariant of that write, not a
+// user-facing read of Localization. An implementation must therefore
+// not demand translations.read on top, or policy-as-code from CI (a
+// token holding catalog.read and catalog.write) could never name a
+// locale. It may disclose locale codes and nothing else.
 type ProjectLocales interface {
 	LocaleCodes(ctx context.Context, project domain.ProjectID) ([]string, error)
 }

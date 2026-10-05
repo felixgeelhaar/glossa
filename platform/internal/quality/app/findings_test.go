@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -30,14 +33,58 @@ type fakeStore struct {
 	rows []app.FindingRecord
 	// runErr is what the run lookup answers instead of run.
 	runErr error
+	// runs and versions are what the policy surface reads: the runs an
+	// impact preview is measured against, and the saved policy versions.
+	runs     []domain.CheckRun
+	versions []app.PolicyVersion
+
+	// records lets the store take a write; without it a write is a bug
+	// on the path under test. recorded and inserted are what it took.
+	records  bool
+	recorded domain.CheckRun
+	inserted []domain.Finding
+	// sighted is what each capture's stored findings fingerprint: the
+	// previous sighting of a scope.
+	sighted      map[uuid.UUID][]string
+	lastPrevious uuid.UUID
+
+	// linguistic is the linguistic-QA job table (migration 0038); its
+	// methods are in linguistic_test.go, beside the tests that use them.
+	linguistic map[uuid.UUID]domain.LinguisticJob
+
+	// The daily sweep's half (RFC 0005 §13 wave 7): how many waivers
+	// and runs the store says it retired, and what it was asked.
+	expiring    int
+	oldRuns     int
+	sweepErr    error
+	sweptAt     time.Time
+	sweptCutoff time.Time
+	sweptLimit  int
+
+	// trend is the findings-by-day rollup a test set, and rolledUp the
+	// days a recorded run restated.
+	trend    []domain.DailyFindings
+	rolledUp []time.Time
+
+	// published are the domain events the writes raised, in order.
+	published []outbox.Event
 
 	// What the last ListFindings and run lookup passed down.
+	lastTrendFrom time.Time
+	lastTrendTo   time.Time
 	lastRunFilter app.FindingFilter
 	lastRun       app.RunFilter
+	lastTriggers  []domain.Trigger
 	lastAfter     string
 	lastLimit     int
 	lastNow       time.Time
+	lastCapture   uuid.UUID
+	lastRegion    string
 }
+
+// recordingStore takes writes and has no waivers: the store a capture
+// upload's findings are recorded into.
+func recordingStore() *fakeStore { return &fakeStore{records: true} }
 
 func (f *fakeStore) LatestCheckRun(_ context.Context, _ uuid.UUID, filter app.RunFilter) (domain.CheckRun, error) {
 	f.lastRun = filter
@@ -78,16 +125,155 @@ func (f *fakeStore) CountFindings(context.Context, domain.CheckRun, time.Time) (
 	return f.run.Counts, nil
 }
 
-// The rest of the port is not on this path; reaching one is the bug.
-func (f *fakeStore) InsertCheckRun(context.Context, domain.CheckRun) error { panic("not on this path") }
-func (f *fakeStore) InsertFindings(context.Context, uuid.UUID, uuid.UUID, []domain.Finding) error {
-	panic("not on this path")
+// CountFindingsByLayer groups whatever rows a test set by locale and
+// layer, so the summary reads a breakdown that sums to the counts
+// beside it.
+func (f *fakeStore) CountFindingsByLayer(
+	_ context.Context, _ domain.CheckRun, _ time.Time,
+) ([]domain.LocaleLayerCount, error) {
+	byLocale := map[string][]domain.Finding{}
+	for _, r := range f.rows {
+		byLocale[r.Locus.Locale] = append(byLocale[r.Locus.Locale], r.Finding)
+	}
+	locales := make([]string, 0, len(byLocale))
+	for locale := range byLocale {
+		locales = append(locales, locale)
+	}
+	slices.Sort(locales)
+	var out []domain.LocaleLayerCount
+	for _, locale := range locales {
+		for _, c := range domain.ByLayer(byLocale[locale]) {
+			out = append(out, domain.LocaleLayerCount{Locale: locale, LayerCount: c})
+		}
+	}
+	return out, nil
 }
 
+// RollUpFindingsByDay records the day a run restated.
+func (f *fakeStore) RollUpFindingsByDay(_ context.Context, _ uuid.UUID, day time.Time) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.rolledUp = append(f.rolledUp, day.UTC())
+	return nil
+}
+
+// FindingsByDay hands back the trend a test set.
+func (f *fakeStore) FindingsByDay(
+	_ context.Context, _ uuid.UUID, from, to time.Time,
+) ([]domain.DailyFindings, error) {
+	f.lastTrendFrom, f.lastTrendTo = from, to
+	return f.trend, nil
+}
+
+// ListCaptureFindings hands back the rows a test set, and remembers
+// what it was asked for: the query does the filtering, and what the
+// service must get right is which capture and region it asks about.
+func (f *fakeStore) ListCaptureFindings(
+	_ context.Context, _, capture uuid.UUID, region, after string, limit int, now time.Time,
+) ([]app.FindingRecord, error) {
+	f.lastCapture, f.lastRegion, f.lastAfter, f.lastLimit, f.lastNow = capture, region, after, limit, now
+	return f.rows, nil
+}
+
+// CaptureFingerprints is what the previous capture of a scope showed,
+// as a test set it: the state the two-sighting rule counts against.
+func (f *fakeStore) CaptureFingerprints(_ context.Context, _, capture uuid.UUID) ([]string, error) {
+	f.lastPrevious = capture
+	return f.sighted[capture], nil
+}
+
+// InsertCheckRun and InsertFindings record what a run stored, for the
+// tests that are about what the service wrote rather than what it read.
+// A store that never expects a write panics instead (recordingStore).
+func (f *fakeStore) InsertCheckRun(_ context.Context, r domain.CheckRun) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.recorded = r
+	return nil
+}
+
+func (f *fakeStore) InsertFindings(_ context.Context, _, _ uuid.UUID, fs []domain.Finding) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.inserted = append(f.inserted, fs...)
+	return nil
+}
+
+// Publish keeps the events a write raised, so a test can ask what the
+// rest of the platform was told.
+func (f *fakeStore) Publish(_ context.Context, e outbox.Event) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	if err := e.Validate(); err != nil { // what the outbox would refuse
+		return err
+	}
+	f.published = append(f.published, e)
+	return nil
+}
+
+// ListCheckRuns returns the runs the impact preview is measured
+// against, newest first, and nothing when a test set none.
 func (f *fakeStore) ListCheckRuns(
-	context.Context, uuid.UUID, app.RunFilter, *app.RunCursor, int,
+	_ context.Context, _ uuid.UUID, _ app.RunFilter, _ *app.RunCursor, limit int,
 ) ([]domain.CheckRun, error) {
-	panic("not on this path")
+	if len(f.runs) > limit {
+		return f.runs[:limit], nil
+	}
+	return f.runs, nil
+}
+
+// HasCheckRunOf answers from the runs a test set, and remembers the
+// triggers it was asked about.
+func (f *fakeStore) HasCheckRunOf(_ context.Context, _ uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	f.lastTriggers = triggers
+	for _, r := range f.runs {
+		if slices.Contains(triggers, r.Trigger) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *fakeStore) InsertPolicyVersion(_ context.Context, v app.PolicyVersion) (bool, error) {
+	for _, had := range f.versions {
+		if had.Version == v.Version {
+			return false, nil
+		}
+	}
+	f.versions = append(f.versions, v)
+	return true, nil
+}
+
+func (f *fakeStore) PolicyVersion(_ context.Context, _ uuid.UUID, version int) (app.PolicyVersion, error) {
+	for _, v := range f.versions {
+		if v.Version == version {
+			return v, nil
+		}
+	}
+	return app.PolicyVersion{}, app.ErrPolicyVersionNotFound
+}
+
+// ListPolicyVersions pages newest first, the way the query does.
+func (f *fakeStore) ListPolicyVersions(
+	_ context.Context, _ uuid.UUID, after *int, limit int,
+) ([]app.PolicyVersion, error) {
+	ordered := slices.Clone(f.versions)
+	slices.SortFunc(ordered, func(a, b app.PolicyVersion) int { return b.Version - a.Version })
+	var out []app.PolicyVersion
+	for _, v := range ordered {
+		if after != nil && v.Version >= *after {
+			continue
+		}
+		if len(out) == limit {
+			break
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 func (f *fakeStore) LatestFinding(context.Context, uuid.UUID, string) (app.FindingSummary, bool, error) {
@@ -111,7 +297,10 @@ func (f *fakeStore) RevokeWaiver(context.Context, uuid.UUID, uuid.UUID, time.Tim
 }
 
 func (f *fakeStore) LiveWaivers(context.Context, uuid.UUID, time.Time) ([]domain.Waiver, error) {
-	panic("not on this path")
+	if !f.records {
+		panic("not on this path")
+	}
+	return nil, nil
 }
 
 type fakeTx struct{ store *fakeStore }
@@ -121,14 +310,80 @@ func (t fakeTx) InTenant(ctx context.Context, fn func(context.Context, app.Store
 }
 
 // knownProjects is a Catalog that knows one project, so an unknown one
-// is a 404 and not an empty list.
-type knownProjects struct{ id uuid.UUID }
+// is a 404 and not an empty list. It also holds that project's check
+// policy, because Catalog is where the document that grades lives.
+type knownProjects struct {
+	id uuid.UUID
+	// policy is the stored document and projectVersion the project row's
+	// ETag, which a save has to still match.
+	policy         checkpolicy.Policy
+	projectVersion int
+	// open maps open branch names to their pull requests.
+	open map[string]int
+	// messages is the catalog's key → message ID, which is what a
+	// reported finding's fingerprint is computed over. askedKeys are the
+	// keys the last resolution asked about.
+	messages  map[string]uuid.UUID
+	askedKeys []string
+	// conflict makes the next save lose the race.
+	conflict bool
+	// saved and savedIfMatch record what the last save asked for.
+	saved        *checkpolicy.Policy
+	savedIfMatch int
+}
 
-func (c knownProjects) Project(_ context.Context, project uuid.UUID) error {
+func (c *knownProjects) Project(_ context.Context, project uuid.UUID) error {
 	if project != c.id {
 		return app.ErrProjectNotFound
 	}
 	return nil
+}
+
+// MessageIDs resolves only the keys the catalog was given: a key it
+// does not know is absent, and the finding's identity then falls back
+// to the key.
+func (c *knownProjects) MessageIDs(
+	_ context.Context, project uuid.UUID, keys []string,
+) (map[string]uuid.UUID, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	c.askedKeys = append(c.askedKeys, keys...)
+	out := map[string]uuid.UUID{}
+	for _, k := range keys {
+		if id, ok := c.messages[k]; ok {
+			out[k] = id
+		}
+	}
+	return out, nil
+}
+
+func (c *knownProjects) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {
+	if project != c.id {
+		return app.StoredPolicy{}, app.ErrProjectNotFound
+	}
+	return app.StoredPolicy{Policy: c.policy, ProjectVersion: c.projectVersion}, nil
+}
+
+func (c *knownProjects) SaveCheckPolicy(
+	_ context.Context, project uuid.UUID, ifMatch int, p checkpolicy.Policy,
+) error {
+	if project != c.id {
+		return app.ErrProjectNotFound
+	}
+	if c.conflict {
+		return app.ErrPolicyConflict
+	}
+	c.saved, c.savedIfMatch = &p, ifMatch
+	c.policy, c.projectVersion = p, c.projectVersion+1
+	return nil
+}
+
+func (c *knownProjects) OpenPullRequests(_ context.Context, project uuid.UUID) (map[string]int, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	return c.open, nil
 }
 
 // storeWith is a completed, failing run of `main` with n findings in
@@ -158,8 +413,16 @@ func storeWith(n int) *fakeStore {
 // serviceFor returns a service over store, and the project its Catalog
 // knows.
 func serviceFor(store *fakeStore) (*app.Service, uuid.UUID) {
+	svc, _, project := serviceAndCatalog(store)
+	return svc, project
+}
+
+// serviceAndCatalog also hands back the Catalog, for the tests that
+// care what the service stored through it.
+func serviceAndCatalog(store *fakeStore) (*app.Service, *knownProjects, uuid.UUID) {
 	project := uuid.New()
-	return app.NewService(fakeTx{store: store}, knownProjects{id: project}), project
+	catalog := &knownProjects{id: project, projectVersion: 1}
+	return app.NewService(fakeTx{store: store}, catalog), catalog, project
 }
 
 // readCtx carries a principal that may read the catalog.

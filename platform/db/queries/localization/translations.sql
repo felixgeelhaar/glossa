@@ -95,6 +95,9 @@ SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.message_id = sqlc.arg(message_id) AND t.locale > sqlc.arg(after)
+  -- Only these locales: an assigned member's units of the message
+  -- (RFC 0006 §3.3).
+  AND (sqlc.narg(only_locales)::text[] IS NULL OR t.locale = ANY (sqlc.narg(only_locales)::text[]))
 ORDER BY t.locale
 LIMIT sqlc.arg(max_rows);
 
@@ -108,10 +111,16 @@ ORDER BY locale;
 
 -- name: SnapshotTranslations :many
 -- A project's translations in the given review states, for a release.
+-- include_obsolete false leaves out the translations of messages this
+-- projection knows to be obsolete — dead rows a reader that joins with
+-- the active source would only drop, and which a project that obsoleted
+-- thousands of messages has thousands of. A message the projection has
+-- not seen yet (m is NULL) is kept either way.
 SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = sqlc.arg(project_id) AND t.state = ANY (sqlc.arg(states)::text[])
+  AND (sqlc.arg(include_obsolete)::boolean OR m.state IS DISTINCT FROM 'obsolete')
 ORDER BY t.locale, t.message_id;
 
 -- name: PageProjectTranslations :many
@@ -132,6 +141,10 @@ WHERE m.project_id = sqlc.arg(project_id)
   AND (m.key, m.message_id, t.locale) > (sqlc.arg(after_key)::text, sqlc.arg(after_message)::uuid,
                                          sqlc.arg(after_locale)::text)
   AND (sqlc.narg(states)::text[] IS NULL OR t.state = ANY (sqlc.narg(states)::text[]))
+  -- Provenance, exactly as the column records it. `agent` and `ai` are
+  -- different origins since migration 0032 and this is what makes the
+  -- difference readable through the API rather than only in SQL.
+  AND (sqlc.narg(origins)::text[] IS NULL OR t.origin = ANY (sqlc.narg(origins)::text[]))
   AND (sqlc.narg(outdated)::boolean IS NULL OR (t.source_revision < m.source_revision) = sqlc.narg(outdated))
   AND (sqlc.narg(namespace)::text IS NULL OR m.namespace = sqlc.narg(namespace))
   AND (sqlc.narg(message_state)::text IS NULL OR m.state = sqlc.narg(message_state))
@@ -139,6 +152,10 @@ WHERE m.project_id = sqlc.arg(project_id)
   -- Exactly these keys, for the messages on one screen: a key_prefix
   -- equal to a key would also match everything below it.
   AND (sqlc.narg(keys)::text[] IS NULL OR m.key = ANY (sqlc.narg(keys)::text[]))
+  -- Only these units, each spelled "<message id> <locale>": an
+  -- assigned member's (RFC 0006 §3.3), filtered before the LIMIT so a
+  -- page's size and cursor say nothing about the units outside them.
+  AND (sqlc.narg(units)::text[] IS NULL OR (t.message_id::text || ' ' || t.locale) = ANY (sqlc.narg(units)::text[]))
 ORDER BY m.key, m.message_id, t.locale
 LIMIT sqlc.arg(max_rows);
 
@@ -206,3 +223,32 @@ WHERE t.project_id = sqlc.arg(project_id) AND t.message_id = ANY (sqlc.arg(messa
   AND t.state <> 'rejected' AND t.source_revision >= m.source_revision
 GROUP BY t.locale
 ORDER BY t.locale;
+
+-- name: LeadTimeSamples :many
+-- The Localization half of the lead time (RFC 0005 §8): for each active
+-- message whose source last moved inside the window, when it moved and
+-- when a translation in one of the shipping review states first caught
+-- up with it. The Release half — when that translation went live — is
+-- another context's fact and is joined outside SQL.
+--
+-- localization_messages.updated_at is when the source revision the row
+-- carries arrived here. Only messages whose translation is current
+-- (t.source_revision >= m.source_revision) qualify: an outdated
+-- translation has not caught up, and a lead time for work that is not
+-- finished would be a guess dressed as a measurement.
+--
+-- Bounded by max_rows over the whole project, newest source change
+-- first, so a project with a million messages still answers in a page
+-- and the sample is the recent work rather than the oldest.
+SELECT t.locale, m.updated_at AS source_changed_at, min(r.created_at)::timestamptz AS translated_at
+FROM localization_messages m
+JOIN localization_translations t ON t.message_id = m.message_id AND t.project_id = m.project_id
+JOIN localization_translation_revisions r ON r.translation_id = t.id AND r.source_revision >= m.source_revision
+WHERE m.project_id = sqlc.arg(project_id) AND m.state = 'active'
+  AND t.source_revision >= m.source_revision
+  AND t.state = ANY (sqlc.arg(states)::text[])
+  AND m.updated_at >= sqlc.arg(since)
+  AND (cardinality(sqlc.arg(locales)::text[]) = 0 OR t.locale = ANY (sqlc.arg(locales)::text[]))
+GROUP BY t.locale, m.message_id, m.updated_at
+ORDER BY m.updated_at DESC
+LIMIT sqlc.arg(max_rows);

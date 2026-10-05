@@ -17,6 +17,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 )
@@ -50,14 +51,21 @@ func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.
 	})
 }
 
-// Constraint names from migration 0002 and the kernel's 0001.
+// Constraint names from migrations 0002 and 0041 and the kernel's 0001.
 var uniqueErrors = map[string]error{
 	"identity_people_email_key":                app.ErrEmailTaken,
 	"identity_members_tenant_id_email_key":     app.ErrDuplicate,
 	"identity_members_tenant_id_person_id_key": app.ErrDuplicate,
 	"tenants_slug_key":                         app.ErrSlugTaken,
+	// 0041: vendor and group names are unique per tenant, ignoring case.
+	"identity_vendors_name":       app.ErrNameTaken,
+	"identity_groups_name":        app.ErrNameTaken,
+	"identity_group_members_pkey": domain.ErrAlreadyInGroup,
 	// Two requests with one idempotency key race for the same ID.
 	"tenants_pkey": app.ErrIdempotencyBusy,
+	// 0054: a fresh user code that a pending authorization already
+	// holds; the start draws another.
+	"identity_device_authorizations_pending_user_code": app.ErrUserCodeTaken,
 }
 
 // storeError maps storage errors to the application's.

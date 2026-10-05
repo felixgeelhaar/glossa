@@ -61,7 +61,7 @@ func TestAPullRequestHasExactlyOneCheckRow(t *testing.T) {
 	// The worker writes a comment id onto it.
 	first.CommentID = 555
 	first.Targets = map[uuid.UUID]domain.CheckTarget{uuid.New(): {CheckRunID: 1, Annotations: []string{"aa"}}}
-	claimed, ok, err := q.Claim(ctx, time.Minute)
+	claimed, ok, err := q.Claim(ctx, now, time.Minute)
 	if err != nil || !ok {
 		t.Fatalf("claim: %v, ok=%v", err, ok)
 	}
@@ -104,7 +104,7 @@ func TestAForkIsRememberedOnTheRow(t *testing.T) {
 	if _, err := q.Open(ctx, fork); err != nil {
 		t.Fatal(err)
 	}
-	claimed, ok, err := q.Claim(ctx, time.Minute)
+	claimed, ok, err := q.Claim(ctx, now, time.Minute)
 	if err != nil || !ok {
 		t.Fatalf("claim: %v, ok=%v", err, ok)
 	}
@@ -133,11 +133,11 @@ func TestOnlyOneWorkerClaimsAPullRequestAtATime(t *testing.T) {
 	if _, err := q.Open(ctx, aCheck(tenant, 10101, 7, shaOne, now)); err != nil {
 		t.Fatal(err)
 	}
-	first, ok, err := q.Claim(ctx, time.Minute)
+	first, ok, err := q.Claim(ctx, now, time.Minute)
 	if err != nil || !ok {
 		t.Fatalf("claim: %v ok=%v", err, ok)
 	}
-	if _, ok, err := q.Claim(ctx, time.Minute); err != nil || ok {
+	if _, ok, err := q.Claim(ctx, now, time.Minute); err != nil || ok {
 		t.Fatalf("a second worker claimed the same pull request: ok=%v err=%v", ok, err)
 	}
 	// A save with the wrong token writes nothing: the lease fences it.
@@ -168,7 +168,7 @@ func TestExpireMakesAWaitingCheckDueAgain(t *testing.T) {
 	}
 	// Open makes it due now; push it back to its deadline as the worker
 	// does when it finds nothing ingested.
-	claimed, _, err := q.Claim(ctx, time.Minute)
+	claimed, _, err := q.Claim(ctx, now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,14 +176,14 @@ func TestExpireMakesAWaitingCheckDueAgain(t *testing.T) {
 	if err := q.Save(ctx, claimed, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := q.Claim(ctx, time.Minute); err != nil || ok {
+	if _, ok, err := q.Claim(ctx, now, time.Minute); err != nil || ok {
 		t.Fatalf("a check waiting for CI was claimable: ok=%v err=%v", ok, err)
 	}
 	n, err := q.Expire(ctx, now, now)
 	if err != nil || n != 1 {
 		t.Fatalf("expire = %d, %v; want the one check past its wait", n, err)
 	}
-	if _, ok, err := q.Claim(ctx, time.Minute); err != nil || !ok {
+	if _, ok, err := q.Claim(ctx, now, time.Minute); err != nil || !ok {
 		t.Fatalf("the expired check was not due again: ok=%v err=%v", ok, err)
 	}
 }
@@ -203,7 +203,7 @@ func TestWakeAndDropTouchOnlyTheirRepositories(t *testing.T) {
 	}
 	// Settle both, so waking them has something to do.
 	for range 2 {
-		claimed, ok, err := q.Claim(ctx, time.Minute)
+		claimed, ok, err := q.Claim(ctx, now, time.Minute)
 		if err != nil || !ok {
 			t.Fatalf("claim: %v ok=%v", err, ok)
 		}
@@ -227,5 +227,33 @@ func TestWakeAndDropTouchOnlyTheirRepositories(t *testing.T) {
 	}
 	if _, err := q.Check(ctx, 10101, 7); err != nil {
 		t.Fatalf("the other repository's check went with it: %v", err)
+	}
+}
+
+// TestTheQueueKeepsTheAppsClock is the M3 exit test's lost check: a
+// check made due by the app's clock was claimed against Postgres's
+// now(), so an app clock ahead of the database's left it unclaimable
+// for the difference. Claim and retry measure on the clock the rows
+// were written with.
+func TestTheQueueKeepsTheAppsClock(t *testing.T) {
+	q, tenant := newChecks(t)
+	ctx := context.Background()
+	ahead := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Microsecond)
+
+	if _, err := q.Open(ctx, aCheck(tenant, 10101, 7, shaOne, ahead)); err != nil {
+		t.Fatal(err)
+	}
+	claimed, ok, err := q.Claim(ctx, ahead, time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("a check due on the app's clock was not claimed: ok=%v err=%v", ok, err)
+	}
+	if err := q.Retry(ctx, claimed, ahead, 30*time.Second, "boom"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := q.Claim(ctx, ahead.Add(29*time.Second), time.Minute); err != nil || ok {
+		t.Fatalf("a retried check was claimable before its delay: ok=%v err=%v", ok, err)
+	}
+	if _, ok, err := q.Claim(ctx, ahead.Add(31*time.Second), time.Minute); err != nil || !ok {
+		t.Fatalf("a retried check was not claimable after its delay: ok=%v err=%v", ok, err)
 	}
 }

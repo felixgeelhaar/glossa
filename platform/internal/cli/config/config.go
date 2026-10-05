@@ -84,9 +84,9 @@ func ValidApplication(s string) bool { return applicationSlug.MatchString(s) }
 type Generate struct {
 	// TypeScript is the typed module (messages.ts).
 	TypeScript string `yaml:"typescript,omitempty" json:"typescript,omitempty"`
-	// Vue is the @glossa/vue registration module; needs TypeScript.
+	// Vue is the @felixgeelhaar/glossa-vue registration module; needs TypeScript.
 	Vue string `yaml:"vue,omitempty" json:"vue,omitempty"`
-	// React is the @glossa/react registration module; needs TypeScript.
+	// React is the @felixgeelhaar/glossa-react registration module; needs TypeScript.
 	React string `yaml:"react,omitempty" json:"react,omitempty"`
 	// Go is the typed Go file.
 	Go string `yaml:"go,omitempty" json:"go,omitempty"`
@@ -94,6 +94,10 @@ type Generate struct {
 	GoPackage string `yaml:"go_package,omitempty" json:"go_package,omitempty"`
 	// GoRuntime is the Go runtime's import path.
 	GoRuntime string `yaml:"go_runtime,omitempty" json:"go_runtime,omitempty"`
+	// Dart is the typed Dart file, for the Dart and Flutter runtime.
+	Dart string `yaml:"dart,omitempty" json:"dart,omitempty"`
+	// DartRuntime is the Dart runtime's import URI.
+	DartRuntime string `yaml:"dart_runtime,omitempty" json:"dart_runtime,omitempty"`
 }
 
 // Check is the default policy of `check`; flags override it.
@@ -117,6 +121,10 @@ type Pull struct {
 
 // DefaultGoRuntime is the import path of the Go runtime.
 const DefaultGoRuntime = "github.com/felixgeelhaar/glossa/runtimes/go"
+
+// DefaultDartRuntime is the import URI of the Dart runtime. A Flutter app
+// may point this at package:glossa_flutter, which re-exports it.
+const DefaultDartRuntime = "package:glossa/glossa.dart"
 
 // ErrNotFound means no glossa.yaml was found.
 var ErrNotFound = errors.New("config: no " + FileName + " found")

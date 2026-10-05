@@ -47,6 +47,10 @@ ORDER BY concept_id, position;
 SELECT c.* FROM knowledge_concepts c
 WHERE c.id > sqlc.arg(after)
   AND (sqlc.narg(project_id)::uuid IS NULL OR c.project_id IS NULL OR c.project_id = sqlc.narg(project_id))
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR c.project_id IS NULL OR c.project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.narg(domain)::text IS NULL OR c.domain = sqlc.narg(domain))
   AND (sqlc.narg(locale)::text IS NULL
        OR EXISTS (SELECT FROM knowledge_terms t WHERE t.concept_id = c.id AND t.locale = sqlc.narg(locale)))

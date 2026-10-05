@@ -53,7 +53,7 @@ func (a *API) CreateCaptures(ctx context.Context, req apiv1.CreateCapturesReques
 	}
 	body := apiv1.CaptureUpload{
 		Build: toBuild(app.BuildRecord{Build: out.Build}), Captures: out.Captures, ImagesStored: out.ImagesStored,
-		ImagesDeduplicated: out.ImagesDeduplicated, UnknownKeys: out.UnknownKeys,
+		ImagesDeduplicated: out.ImagesDeduplicated, UnknownKeys: out.UnknownKeys, Findings: out.Findings,
 	}
 	if body.UnknownKeys == nil {
 		body.UnknownKeys = []string{}

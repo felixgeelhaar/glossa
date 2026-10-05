@@ -72,7 +72,13 @@ func (t transactor) InTenant(ctx context.Context, fn func(context.Context, quali
 	return fn(ctx, t.store)
 }
 
-type catalog struct{ id uuid.UUID }
+// catalog knows one project. The policy side of the port is not on
+// MCP's read path — an agent reads findings, never the policy document
+// — so it is embedded rather than answered.
+type catalog struct {
+	qualityapp.Catalog
+	id uuid.UUID
+}
 
 func (c catalog) Project(_ context.Context, project uuid.UUID) error {
 	if project != c.id {
