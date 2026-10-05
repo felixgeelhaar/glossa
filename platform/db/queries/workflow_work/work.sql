@@ -12,6 +12,17 @@ VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.narg(inst
         sqlc.arg(permission), sqlc.narg(due_at), sqlc.arg(state), sqlc.arg(version), sqlc.arg(created_by),
         sqlc.arg(created_at), sqlc.arg(created_at));
 
+-- name: LockAssignee :exec
+-- Serializes the assignments made to one assignee in this tenant, so
+-- the limit of open assignments (RFC 0006 §9.6) holds under concurrent
+-- assigning: the count below is read under this lock.
+SELECT pg_advisory_xact_lock(hashtextextended(
+    'workflow.assignee:' || app_current_tenant()::text || ':' || sqlc.arg(assignee)::text, 0));
+
+-- name: CountLiveAssignmentsOf :one
+SELECT count(*)::integer FROM workflow_assignments
+WHERE assignee = sqlc.arg(assignee) AND state IN ('open', 'accepted');
+
 -- name: InsertAssignmentUnits :exec
 INSERT INTO workflow_assignment_units (tenant_id, assignment_id, message_id, locale)
 SELECT app_current_tenant(), sqlc.arg(assignment_id), u.message_id, u.locale
@@ -43,6 +54,13 @@ WHERE id > sqlc.arg(after)
   -- A project-scoped caller's lists are cut in the query, before the
   -- page is, so a page's size never counts rows they cannot see.
   AND (NOT sqlc.arg(by_projects)::boolean OR project_id = ANY(sqlc.arg(projects)::uuid[]))
+  -- One unit, or one message's or one locale's: the assignments that
+  -- cover it.
+  AND (NOT sqlc.arg(by_unit)::boolean OR EXISTS (
+        SELECT 1 FROM workflow_assignment_units u
+        WHERE u.tenant_id = workflow_assignments.tenant_id AND u.assignment_id = workflow_assignments.id
+          AND (sqlc.arg(unit_message)::uuid = '00000000-0000-0000-0000-000000000000' OR u.message_id = sqlc.arg(unit_message))
+          AND (sqlc.arg(unit_locale)::text = '' OR u.locale = sqlc.arg(unit_locale))))
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
 
@@ -81,8 +99,25 @@ WHERE project_id = sqlc.arg(project_id) AND subject_kind = sqlc.arg(subject_kind
 ORDER BY created_at DESC, id DESC
 LIMIT 1;
 
+-- name: ListApprovals :many
+SELECT * FROM workflow_approvals
+WHERE id > sqlc.arg(after)
+  AND (sqlc.arg(project_id)::uuid = '00000000-0000-0000-0000-000000000000' OR project_id = sqlc.arg(project_id))
+  AND (sqlc.arg(subject_kind)::text = '' OR subject_kind = sqlc.arg(subject_kind))
+  AND (sqlc.arg(subject_id)::uuid = '00000000-0000-0000-0000-000000000000' OR subject_id = sqlc.arg(subject_id))
+  AND (sqlc.arg(locale)::text = '' OR locale = sqlc.arg(locale))
+  AND (cardinality(sqlc.arg(states)::text[]) = 0 OR state = ANY(sqlc.arg(states)::text[]))
+  AND (NOT sqlc.arg(by_projects)::boolean OR project_id = ANY(sqlc.arg(projects)::uuid[]))
+ORDER BY id
+LIMIT sqlc.arg(max_rows);
+
 -- name: ApprovalDecisions :many
 SELECT * FROM workflow_approval_decisions WHERE approval_id = sqlc.arg(approval_id) ORDER BY seq;
+
+-- name: DecisionsOf :many
+SELECT * FROM workflow_approval_decisions
+WHERE approval_id = ANY(sqlc.arg(approval_ids)::uuid[])
+ORDER BY approval_id, seq;
 
 -- name: InsertDecision :exec
 INSERT INTO workflow_approval_decisions (tenant_id, approval_id, seq, principal, verdict, reason, decided_at)

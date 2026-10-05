@@ -36,6 +36,22 @@ func ScopedToken(ctx context.Context, tenant tenancy.ID, projects []uuid.UUID, s
 	return authz.WithPrincipal(ctx, p)
 }
 
+// InEnvironments narrows the principal on ctx to environments for
+// environment-scoped permissions (RFC 0006 §4.2): a member whose
+// approvals.decide on release requests covers only some environments.
+func InEnvironments(ctx context.Context, environments ...string) context.Context {
+	p, ok := authz.From(ctx)
+	if !ok {
+		panic("authztest: InEnvironments needs a principal")
+	}
+	scope, err := domain.ParseEnvironmentScope(environments)
+	if err != nil {
+		panic(fmt.Sprintf("authztest: %v", err))
+	}
+	p.Environments = scope
+	return authz.WithPrincipal(ctx, p)
+}
+
 // Assigned returns ctx acting in tenant as a vendor's translator — role
 // translator, visibility `assigned`, limited to locales — whose units
 // are what cov says, and the member they are. A nil cov is a deployment

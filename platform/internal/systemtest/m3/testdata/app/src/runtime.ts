@@ -4,8 +4,8 @@
 // ?env= picks the manifest's environment (preview by default), which is
 // what the capture's production refusal and the overlay loader's guard
 // read.
-import { createRuntime } from "@glossa/runtime";
-import type { Artifact, BundledRelease, Manifest, Message } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import type { Artifact, BundledRelease, Manifest, Message } from "@felixgeelhaar/glossa-runtime";
 
 import catalogs from "./catalogs.json";
 

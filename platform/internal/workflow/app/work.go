@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
@@ -27,7 +29,16 @@ type WorkService struct {
 	tx      WorkTransactor
 	dir     Directory
 	authors Authors
-	now     func() time.Time
+	// releases says where a release request is and who asked for it
+	// (RFC 0006 §5.1); nil refuses every decision on one.
+	releases ReleaseRequests
+	catalog  Catalog
+	// metrics counts recorded decisions; nil counts nothing.
+	metrics DecisionMetrics
+	// facts reads the quality numbers of a delivered unit (§3.4); nil
+	// answers ErrReportUnavailable.
+	facts QualityFacts
+	now   func() time.Time
 }
 
 // WorkOption configures a WorkService.
@@ -35,6 +46,40 @@ type WorkOption func(*WorkService)
 
 // WithWorkClock sets the time source.
 func WithWorkClock(now func() time.Time) WorkOption { return func(s *WorkService) { s.now = now } }
+
+// WithReleaseRequests lets the service decide approvals of release
+// requests: Release says which environment a request is for — where
+// approvals.decide is checked — and who requested it, whom four-eyes
+// is held against.
+func WithReleaseRequests(r ReleaseRequests) WorkOption {
+	return func(s *WorkService) { s.releases = r }
+}
+
+// WithWorkCatalog resolves message keys, so a request made by hand can
+// name its units the way every other surface names messages. Without
+// it, only units named by id are accepted.
+func WithWorkCatalog(c Catalog) WorkOption { return func(s *WorkService) { s.catalog = c } }
+
+// KeyedUnit is a translation unit named by its message's key.
+type KeyedUnit struct {
+	Message string
+	Locale  string
+}
+
+// messageID resolves a key in project as the caller, after the use case
+// has checked its permission — so a caller who may not ask learns
+// nothing about which keys exist. A key the project does not have is
+// invalid for what (domain.ErrInvalidAssignment or ErrInvalidApproval).
+func (s *WorkService) messageID(ctx context.Context, project uuid.UUID, key string, invalid error) (uuid.UUID, error) {
+	if s.catalog == nil {
+		return uuid.Nil, fmt.Errorf("%w: messages cannot be named by key on this server", invalid)
+	}
+	id, err := s.catalog.MessageID(ctx, project, key)
+	if errors.Is(err, ErrNotFound) {
+		return uuid.Nil, fmt.Errorf("%w: the project has no message %q", invalid, key)
+	}
+	return id, err
+}
 
 // NewWorkService returns a WorkService.
 func NewWorkService(tx WorkTransactor, dir Directory, authors Authors, opts ...WorkOption) *WorkService {
@@ -51,23 +96,58 @@ func NewWorkService(tx WorkTransactor, dir Directory, authors Authors, opts ...W
 type AssignInput struct {
 	ProjectID uuid.UUID
 	Units     []domain.Unit
-	To        domain.Party
+	// Keys are more units, named by message key (WithWorkCatalog).
+	Keys []KeyedUnit
+	To   domain.Party
 	// Permission is what doing the work takes; translations.write when
 	// empty.
 	Permission string
 	DueAt      *time.Time
+	// IdempotencyKey, when set, makes a retry return the assignment the
+	// first request made (replayed) instead of making a second one.
+	IdempotencyKey string
 }
 
 // Assign gives units to a party. It takes assignments.manage.
-func (s *WorkService) Assign(ctx context.Context, in AssignInput) (domain.Assignment, error) {
+func (s *WorkService) Assign(ctx context.Context, in AssignInput) (a domain.Assignment, replayed bool, err error) {
 	if err := authz.RequireIn(ctx, PermAssignmentsManage, in.ProjectID); err != nil {
-		return domain.Assignment{}, err
+		return domain.Assignment{}, false, err
 	}
 	perm := in.Permission
 	if perm == "" {
 		perm = string(authz.TranslationsWrite)
 	}
-	return s.assign(ctx, uuid.Nil, in.ProjectID, in.Units, in.To, perm, in.DueAt)
+	units := slices.Clone(in.Units)
+	for _, k := range in.Keys {
+		m, err := s.messageID(ctx, in.ProjectID, k.Message, domain.ErrInvalidAssignment)
+		if err != nil {
+			return domain.Assignment{}, false, err
+		}
+		units = append(units, domain.Unit{Message: m, Locale: k.Locale})
+	}
+	var id uuid.UUID
+	if in.IdempotencyKey != "" {
+		if err := idempotency.CheckKey(in.IdempotencyKey); err != nil {
+			return domain.Assignment{}, false, err
+		}
+		p, _ := authz.From(ctx)
+		id = idempotency.ID("workflow.assignment.create", p.Tenant.String(), p.Actor.String(), in.IdempotencyKey)
+		var prior domain.Assignment
+		err := s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
+			prior, err = st.GetAssignment(ctx, id)
+			return err
+		})
+		switch {
+		case err == nil && (prior.ProjectID != in.ProjectID || prior.InstanceID != uuid.Nil):
+			return domain.Assignment{}, false, ErrIdempotencyReuse
+		case err == nil:
+			return prior, true, nil
+		case !errors.Is(err, ErrNotFound):
+			return domain.Assignment{}, false, err
+		}
+	}
+	a, err = s.assign(ctx, id, uuid.Nil, in.ProjectID, units, in.To, perm, in.DueAt)
+	return a, false, err
 }
 
 // WorkflowAssign is an assign action's effect: the units of the
@@ -104,10 +184,12 @@ func (s *WorkService) AssignForInstance(ctx context.Context, in WorkflowAssign) 
 		t := s.now().UTC().Add(in.Params.Due.Std())
 		due = &t
 	}
-	return s.assign(ctx, in.InstanceID, in.ProjectID, in.Units, in.Params.To, string(authz.TranslationsWrite), due)
+	return s.assign(ctx, uuid.Nil, in.InstanceID, in.ProjectID, in.Units, in.Params.To, string(authz.TranslationsWrite), due)
 }
 
-func (s *WorkService) assign(ctx context.Context, instance, project uuid.UUID, units []domain.Unit, to domain.Party, perm string, due *time.Time) (domain.Assignment, error) {
+// assign makes an assignment; id, when not zero, is the one an
+// Idempotency-Key derived.
+func (s *WorkService) assign(ctx context.Context, id, instance, project uuid.UUID, units []domain.Unit, to domain.Party, perm string, due *time.Time) (domain.Assignment, error) {
 	actor, err := authz.EventActor(ctx)
 	if err != nil {
 		return domain.Assignment{}, err
@@ -118,11 +200,22 @@ func (s *WorkService) assign(ctx context.Context, instance, project uuid.UUID, u
 		if err != nil {
 			return err
 		}
+		live, err := st.LiveAssignmentsOf(ctx, assignee)
+		if err != nil {
+			return err
+		}
+		if live >= domain.MaxOpenAssignments {
+			return fmt.Errorf("%w: %s already holds %d open assignments; at most %d per assignee",
+				ErrLimit, assignee, live, domain.MaxOpenAssignments)
+		}
 		a, err := domain.NewAssignment(project, units, assignee, perm, due, actor.String(), s.now().UTC())
 		if err != nil {
 			return err
 		}
 		a.InstanceID = instance
+		if id != uuid.Nil {
+			a.ID = id
+		}
 		if err := st.InsertAssignment(ctx, a); err != nil {
 			return err
 		}
@@ -370,10 +463,31 @@ func (s *WorkService) MyAssignments(ctx context.Context, f AssignmentFilter) ([]
 			return nil
 		}
 		f.Assignees = aff.workKeys()
+		if p.Assigned() {
+			// Work given to a role they hold is not theirs to see: a role
+			// names everyone holding it, and it covers no unit for them
+			// (§3.3), so they could neither read nor do it.
+			f.Assignees = aff.visibilityKeys()
+		}
 		out, err = st.ListAssignments(ctx, f)
 		return err
 	})
 	return out, err
+}
+
+// VisibleAssignments lists the assignments the caller may see, which is
+// what the API's list answers (RFC 0006 §3.1): with assignments.manage,
+// every assignment in their project scope — unless mine asks for their
+// own work; without it, the ones given to them, as MyAssignments. A
+// vendor's member holds no assignments.manage, so this is their "my
+// work" whatever they ask.
+func (s *WorkService) VisibleAssignments(ctx context.Context, f AssignmentFilter, mine bool) ([]domain.Assignment, error) {
+	if !mine {
+		if _, err := authz.Projects(ctx, PermAssignmentsManage); err == nil {
+			return s.Assignments(ctx, f)
+		}
+	}
+	return s.MyAssignments(ctx, f)
 }
 
 // affiliation is the caller's; a token or an unknown member has none.
@@ -394,9 +508,12 @@ func (s *WorkService) affiliation(ctx context.Context, p authz.Principal) (Affil
 type ApprovalInput struct {
 	ProjectID uuid.UUID
 	Subject   domain.ApprovalSubject
-	N         int
-	From      domain.Party
-	DueAt     *time.Time
+	// MessageKey, when set, names the translation unit's message by key
+	// (WithWorkCatalog) instead of Subject.ID.
+	MessageKey string
+	N          int
+	From       domain.Party
+	DueAt      *time.Time
 }
 
 // RequestApproval asks for n approvals of a subject. It takes
@@ -404,6 +521,13 @@ type ApprovalInput struct {
 func (s *WorkService) RequestApproval(ctx context.Context, in ApprovalInput) (domain.Approval, error) {
 	if err := authz.RequireIn(ctx, PermAssignmentsManage, in.ProjectID); err != nil {
 		return domain.Approval{}, err
+	}
+	if in.MessageKey != "" {
+		m, err := s.messageID(ctx, in.ProjectID, in.MessageKey, domain.ErrInvalidApproval)
+		if err != nil {
+			return domain.Approval{}, err
+		}
+		in.Subject.Kind, in.Subject.ID = domain.SubjectTranslation, m
 	}
 	return s.requestApproval(ctx, uuid.Nil, in.ProjectID, in.Subject, in.N, in.From, in.DueAt)
 }
@@ -509,16 +633,17 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 	}); err != nil {
 		return domain.Approval{}, err
 	}
-	if err := requireDecide(ctx, subject.ProjectID, subject.Subject); err != nil {
-		return domain.Approval{}, err
-	}
-	author, err := s.authors.Author(ctx, subject.ProjectID, subject.Subject)
+	author, err := s.decidable(ctx, subject.ProjectID, subject.Subject)
 	if err != nil {
 		return domain.Approval{}, err
 	}
 
-	var out domain.Approval
+	var (
+		out     domain.Approval
+		decided *domain.Decision
+	)
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) error {
+		decided = nil
 		a, err := st.LockApproval(ctx, id)
 		if err != nil {
 			return err
@@ -555,23 +680,102 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 		if d.Verdict == domain.VerdictDenied {
 			event = domain.EventTypeApprovalDenied
 		}
+		decided = &d
 		return st.Publish(ctx, approvalEvent(event, a, &d, author, actor))
 	})
+	if err == nil && decided != nil && s.metrics != nil {
+		s.metrics.Decision(string(out.Subject.Kind), string(decided.Verdict))
+	}
 	return out, err
 }
 
-// requireDecide checks approvals.decide where the subject is: in a
-// translation's locale. A release request's environment scope is the
-// release-approvals slice's (§5.1); until then it is tenant-wide.
-func requireDecide(ctx context.Context, project uuid.UUID, s domain.ApprovalSubject) error {
-	if s.Kind != domain.SubjectTranslation {
-		return authz.RequireIn(ctx, PermApprovalsDecide, project)
-	}
-	locale, err := authz.ParseLocale(s.Locale)
+// DecideReleaseRequest records the caller's decision on a release
+// request's current approval: the newest approval Workflow holds for
+// that request, which the project's release-approval workflow asked for
+// (RFC 0006 §5.1). It is Decide, reached by the request instead of by
+// the approval: human-only, approvals.decide in the request's
+// environment, of the approval's eligible party, and never the
+// requester. The deploy that follows a sufficient grant is the
+// workflow's, as the last approver; Release checks the requirement
+// again before it moves anything.
+//
+// A request that is not one of the project's is ErrNotFound; one that
+// is no longer pending is ErrReleaseRequestClosed; one the workflow has
+// not asked about yet is ErrApprovalNotRequested.
+func (s *WorkService) DecideReleaseRequest(ctx context.Context, project, request uuid.UUID, verdict domain.Verdict, reason string) (domain.Approval, error) {
+	p, err := actorInTenant(ctx)
 	if err != nil {
-		return err
+		return domain.Approval{}, err
 	}
-	return authz.RequireForIn(ctx, PermApprovalsDecide, locale, project)
+	// Who is asking is settled before anything is looked up: a token
+	// learns nothing about which requests have approvals.
+	if PermApprovalsDecide.HumanOnly() && (p.Person.IsZero() || p.Member.IsZero()) {
+		return domain.Approval{}, fmt.Errorf("%w: %w", authz.ErrForbidden, domain.ErrNotHuman)
+	}
+	if s.releases == nil {
+		return domain.Approval{}, fmt.Errorf("%w: release requests are not wired in this deployment", authz.ErrForbidden)
+	}
+	facts, err := s.releases.Request(ctx, project, request)
+	if errors.Is(err, ErrUnavailable) {
+		return domain.Approval{}, fmt.Errorf("%w: release request %s", ErrNotFound, request)
+	}
+	if err != nil {
+		return domain.Approval{}, err
+	}
+	if err := authz.RequireInEnvironment(ctx, PermApprovalsDecide, project, facts.Environment); err != nil {
+		return domain.Approval{}, err
+	}
+	if facts.State != "pending" {
+		return domain.Approval{}, fmt.Errorf("%w: it is %s", ErrReleaseRequestClosed, facts.State)
+	}
+	subject := domain.ApprovalSubject{Kind: domain.SubjectReleaseRequest, ID: request}
+	var current domain.Approval
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
+		current, err = st.LatestApproval(ctx, project, subject)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return domain.Approval{}, fmt.Errorf("%w: release request %s", ErrApprovalNotRequested, request)
+	}
+	if err != nil {
+		return domain.Approval{}, err
+	}
+	return s.Decide(ctx, current.ID, verdict, reason)
+}
+
+// decidable checks that the caller may decide an approval of s, and
+// returns the author four-eyes is held against.
+//
+// approvals.decide is checked where the subject is (RFC 0006 §4.2): in
+// a translation's locale, and in a release request's environment —
+// environment-scoped, so a reviewer limited to de may decide a release
+// into production unless their environment scope leaves it out. The
+// author of a translation is the actor of its latest content revision;
+// of a release request, its requester. Both are another context's to
+// say, read before the decision's transaction so their ports run in
+// their own.
+func (s *WorkService) decidable(ctx context.Context, project uuid.UUID, subject domain.ApprovalSubject) (string, error) {
+	if subject.Kind == domain.SubjectReleaseRequest {
+		if s.releases == nil {
+			return "", fmt.Errorf("%w: release requests are not wired in this deployment", authz.ErrForbidden)
+		}
+		f, err := s.releases.Request(ctx, project, subject.ID)
+		if err != nil {
+			return "", err
+		}
+		if err := authz.RequireInEnvironment(ctx, PermApprovalsDecide, project, f.Environment); err != nil {
+			return "", err
+		}
+		return f.Requester, nil
+	}
+	locale, err := authz.ParseLocale(subject.Locale)
+	if err != nil {
+		return "", err
+	}
+	if err := authz.RequireForIn(ctx, PermApprovalsDecide, locale, project); err != nil {
+		return "", err
+	}
+	return s.authors.Author(ctx, project, subject)
 }
 
 // refusal makes the domain's refusals of who is deciding match
@@ -597,6 +801,24 @@ func (s *WorkService) Approval(ctx context.Context, id uuid.UUID) (domain.Approv
 			return err
 		}
 		return authz.InProject(ctx, out.ProjectID)
+	})
+	return out, err
+}
+
+// Approvals lists approvals with their decisions — what a reviewer's
+// approvals inbox shows. It takes workflows.read and is cut, in the
+// query, to the caller's project scope; an `assigned` member is refused,
+// since a vendor delivers work and does not sign it off.
+func (s *WorkService) Approvals(ctx context.Context, f ApprovalFilter) ([]domain.Approval, error) {
+	scope, err := authz.Projects(ctx, PermWorkflowsRead)
+	if err != nil {
+		return nil, err
+	}
+	f.Within = within(scope)
+	var out []domain.Approval
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) (err error) {
+		out, err = st.ListApprovals(ctx, f)
+		return err
 	})
 	return out, err
 }

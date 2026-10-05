@@ -111,3 +111,34 @@ func (t *Translations) ProjectTranslations(ctx context.Context, project uuid.UUI
 	}
 	return out, next, nil
 }
+
+// Messages implements app.Messages on Catalog's service, which already
+// resolves a key only to the members who may see its message.
+type Messages struct{ svc *catalogapp.Service }
+
+// NewMessages returns the port.
+func NewMessages(svc *catalogapp.Service) *Messages { return &Messages{svc: svc} }
+
+var _ app.Messages = (*Messages)(nil)
+
+// Message implements app.Messages.
+func (m *Messages) Message(ctx context.Context, project uuid.UUID, key string) (app.SourceMessage, error) {
+	msg, err := m.svc.GetMessage(ctx, catalogdomain.ProjectID(project), key)
+	if errors.Is(err, catalogapp.ErrNotFound) {
+		return app.SourceMessage{}, app.ErrNotFound
+	}
+	if err != nil {
+		return app.SourceMessage{}, err
+	}
+	pr, err := m.svc.GetProject(ctx, catalogdomain.ProjectID(project))
+	if errors.Is(err, catalogapp.ErrNotFound) {
+		return app.SourceMessage{}, app.ErrNotFound
+	}
+	if err != nil {
+		return app.SourceMessage{}, err
+	}
+	return app.SourceMessage{
+		ID: msg.ID.UUID(), Key: string(msg.Key), Namespace: string(msg.Namespace), SourceLocale: pr.SourceLocale,
+		Source: msg.Source.Model, SourceSyntax: msg.Source.Syntax,
+	}, nil
+}

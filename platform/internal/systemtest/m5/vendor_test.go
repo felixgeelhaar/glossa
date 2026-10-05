@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,6 +41,20 @@ type operation struct {
 	ID        string
 	Path      string
 	Responses map[string]bool
+	// Query are the operation's required query parameters. A request
+	// without them is malformed and answered 400 before anything is
+	// authorized — identically inside and outside the assignment, which
+	// proves nothing — so the sweep fills them like path parameters.
+	Query []string
+}
+
+// specParam is a parameter as the spec writes it: inline, or a $ref
+// into components.parameters.
+type specParam struct {
+	Ref      string `yaml:"$ref"`
+	Name     string `yaml:"name"`
+	In       string `yaml:"in"`
+	Required bool   `yaml:"required"`
 }
 
 // getOperations reads every GET operation from the contract. The sweep
@@ -51,10 +66,25 @@ func getOperations() ([]operation, error) {
 		return nil, err
 	}
 	var doc struct {
-		Paths map[string]map[string]yaml.Node `yaml:"paths"`
+		Paths      map[string]map[string]yaml.Node `yaml:"paths"`
+		Components struct {
+			Parameters map[string]specParam `yaml:"parameters"`
+		} `yaml:"components"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, err
+	}
+	requiredQuery := func(ps []specParam) []string {
+		var out []string
+		for _, p := range ps {
+			if p.Ref != "" {
+				p = doc.Components.Parameters[p.Ref[strings.LastIndex(p.Ref, "/")+1:]]
+			}
+			if p.In == "query" && p.Required {
+				out = append(out, p.Name)
+			}
+		}
+		return out
 	}
 	var ops []operation
 	for path, methods := range doc.Paths {
@@ -65,15 +95,23 @@ func getOperations() ([]operation, error) {
 		var op struct {
 			OperationID string               `yaml:"operationId"`
 			Responses   map[string]yaml.Node `yaml:"responses"`
+			Parameters  []specParam          `yaml:"parameters"`
 		}
 		if err := node.Decode(&op); err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		var shared []specParam
+		if n, ok := methods["parameters"]; ok {
+			if err := n.Decode(&shared); err != nil {
+				return nil, fmt.Errorf("%s parameters: %w", path, err)
+			}
 		}
 		codes := map[string]bool{}
 		for c := range op.Responses {
 			codes[c] = true
 		}
-		ops = append(ops, operation{ID: op.OperationID, Path: path, Responses: codes})
+		ops = append(ops, operation{ID: op.OperationID, Path: path, Responses: codes,
+			Query: requiredQuery(append(shared, op.Parameters...))})
 	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i].Path < ops[j].Path })
 	return ops, nil
@@ -94,9 +132,11 @@ func (s *scenario) vendorVisibility() {
 	})
 	var assignment string
 	s.step(id, fmt.Sprintf("assign %d `de` units of project B to the vendor", assignedUnits), func() error {
+		// One assignment is one project's batch: the project once, the
+		// units by message key and locale.
 		units := make([]map[string]string, 0, len(s.assigned))
 		for _, k := range s.assigned {
-			units = append(units, map[string]string{"project": s.projectB, "message": k, "locale": "de"})
+			units = append(units, map[string]string{"message": k, "locale": "de"})
 		}
 		assignee := map[string]any{"vendor": s.vendorID}
 		if s.vendorID == "" {
@@ -106,7 +146,7 @@ func (s *scenario) vendorVisibility() {
 			ID string `json:"id"`
 		}
 		if _, err := s.owner.try(http.MethodPost, s.assignmentsPath(), map[string]any{
-			"units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
+			"project_id": s.projectB, "units": units, "assignee": assignee, "due_at": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339),
 		}, http.StatusCreated, &a); err != nil {
 			return missing("creating an assignment (POST "+s.assignmentsPath()+")", err)
 		}
@@ -138,6 +178,30 @@ func (s *scenario) resolveSweepIDs() {
 	s.inside["project"], s.outside["project"] = s.projectB, s.projectA
 	s.inside["message"], s.outside["message"] = s.assigned[0], s.unassigned[0]
 	s.inside["locale"], s.outside["locale"] = "de", "de"
+	s.inside["environment"], s.outside["environment"] = "production", "production"
+	for k, v := range s.sweepInside {
+		s.inside[k] = v
+	}
+	for k, v := range s.sweepOutside {
+		s.outside[k] = v
+	}
+}
+
+// withQuery adds op's required query parameters from ids, or names the
+// first one the fixture has no value for.
+func withQuery(path string, op operation, ids map[string]string) (string, string) {
+	q := url.Values{}
+	for _, name := range op.Query {
+		v, ok := ids[name]
+		if !ok {
+			return path, name
+		}
+		q.Set(name, v)
+	}
+	if len(q) == 0 {
+		return path, ""
+	}
+	return path + "?" + q.Encode(), ""
 }
 
 // leakMarkers are strings only something outside the assignment holds:
@@ -208,13 +272,33 @@ func (s *scenario) lookupID(template, name, side string) string {
 	if err != nil || status != http.StatusOK {
 		return ""
 	}
-	for _, field := range []string{"id", "name", "key", "code", "digest", "number", "version"} {
+	// The parameter's own name first: {version} is a version's number,
+	// and the first "id" in a list of versions is not one.
+	for _, field := range []string{name, "id", "name", "key", "code", "digest", "number", "version"} {
 		re := regexp.MustCompile(`"` + field + `"\s*:\s*"?([^",}]+)"?`)
 		if m := re.FindSubmatch(body); m != nil {
 			return string(m[1])
 		}
 	}
 	return ""
+}
+
+// missingVerdicts are the operations of the spec with no row in the
+// coverage table. It is the harness's own check that the table cannot
+// silently shrink; a row that names why it was not exercised counts as
+// a row, and fails the criterion separately.
+func missingVerdicts(ops []operation, rows []sweepRow) []string {
+	have := map[string]bool{}
+	for _, r := range rows {
+		have[r.Operation] = true
+	}
+	var missing []string
+	for _, op := range ops {
+		if !have[op.ID] {
+			missing = append(missing, op.ID)
+		}
+	}
+	return missing
 }
 
 func (s *scenario) generatedSweep() {
@@ -231,6 +315,12 @@ func (s *scenario) generatedSweep() {
 		inPath, param, ok := s.resolve(op.Path, cloneIDs(s.inside), "inside")
 		if !ok {
 			row.OK, row.Unexercised = false, "no fixture id for `{"+param+"}`"
+			unexercised = append(unexercised, op.ID)
+			s.sweep = append(s.sweep, row)
+			continue
+		}
+		if inPath, param = withQuery(inPath, op, s.inside); param != "" {
+			row.OK, row.Unexercised = false, "no fixture value for the required query parameter `"+param+"`"
 			unexercised = append(unexercised, op.ID)
 			s.sweep = append(s.sweep, row)
 			continue
@@ -256,12 +346,25 @@ func (s *scenario) generatedSweep() {
 		var outs []string
 		for _, side := range s.outsideSides(op.Path) {
 			outPath, _, ok := s.resolve(op.Path, side, "outside")
-			if !ok || outPath == inPath {
+			if !ok {
+				continue
+			}
+			if outPath, param = withQuery(outPath, op, side); param != "" || outPath == inPath {
 				continue
 			}
 			st, ob, err := s.vendor.get(outPath)
 			outs = append(outs, fmt.Sprint(st))
-			if err == nil && st != http.StatusNotFound && st != http.StatusUnauthorized {
+			if err != nil {
+				// A call that did not complete proves nothing about the
+				// outside; it must not read as a pass.
+				if row.OK {
+					row.Why = "the outside call failed: " + err.Error()
+					undocumented = append(undocumented, op.ID)
+				}
+				row.OK = false
+				continue
+			}
+			if st != http.StatusNotFound && st != http.StatusUnauthorized {
 				if row.OK {
 					row.Why = fmt.Sprintf("an id outside the assignment answered %d, want 404", st)
 					if m := leaked(ob, markers); m != "" {
@@ -276,6 +379,10 @@ func (s *scenario) generatedSweep() {
 		s.sweep = append(s.sweep, row)
 	}
 	s.note(id, "The sweep generated %d GET operations from platform/api/openapi.yaml.", len(ops))
+	if missing := missingVerdicts(ops, s.sweep); len(missing) > 0 {
+		s.gap(id, "the coverage table has no row for %d operations of the spec (%s); an operation with no verdict is a failure",
+			len(missing), strings.Join(first(missing, 8), ", "))
+	}
 	if len(leaks) > 0 {
 		s.gap(id, "the generated sweep: %d of %d GET operations show the vendor member something outside the assignment "+
 			"(first: %s) — reads are not filtered through `Assignments.Covers`", len(leaks), len(ops), strings.Join(first(leaks, 5), ", "))
@@ -291,11 +398,13 @@ func (s *scenario) generatedSweep() {
 }
 
 // outsideSides are the id sets an operation is called with outside the
-// assignment: project A for anything addressed by a project, and project
-// B with an unassigned unit for anything addressed by a message.
+// assignment: project A for anything addressed by a project, or by a
+// tenant-level id the fixture made in project A (an import job, an AI
+// fill, a Git connection); and project B with an unassigned unit for
+// anything addressed by a message.
 func (s *scenario) outsideSides(path string) []map[string]string {
 	var sides []map[string]string
-	if strings.Contains(path, "{project}") {
+	if strings.Contains(path, "{project}") || s.outsideByID(path) {
 		a := cloneIDs(s.outside)
 		a["message"] = unitKey("a", 1)
 		sides = append(sides, a)
@@ -306,6 +415,17 @@ func (s *scenario) outsideSides(path string) []map[string]string {
 		sides = append(sides, b)
 	}
 	return sides
+}
+
+// outsideByID says path is addressed by an id that has a value of its
+// own outside the assignment: one the fixture made in project A.
+func (s *scenario) outsideByID(path string) bool {
+	for _, m := range pathParam.FindAllStringSubmatch(path, -1) {
+		if out, ok := s.outside[m[1]]; ok && m[1] != "tenant" && out != s.inside[m[1]] {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneIDs(m map[string]string) map[string]string {
@@ -392,20 +512,19 @@ func (s *scenario) mcpReadTools() {
 	}
 	if _, err := s.vendor.try(http.MethodPost, s.tenantPath("/tokens"),
 		map[string]any{"name": "vera-mcp", "scopes": []string{"read"}}, http.StatusCreated, &token); err != nil {
-		s.note(id, "The vendor member could not create an API token (%v), so no MCP tool is reachable as them.", err)
+		s.note(id, "The vendor member could not create an API token (%v), so no MCP tool is reachable as them. "+
+			"Each tool is listed from an owner's session with the verdict \"unreachable as the member\"; none was called.", err)
 		s.mcpSweep = append(s.mcpSweep, sweepRow{Operation: "(connect)", OK: true, Inside: "no token", Why: "refused at token creation"})
+		s.listMCPToolsUnreachable()
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	client := mcp.NewClient(&mcp.Implementation{Name: "glossa-m5-exit", Version: "0"}, nil)
-	sess, err := client.Connect(ctx, &mcp.StreamableClientTransport{
-		Endpoint:   s.d.base + "/mcp",
-		HTTPClient: &http.Client{Transport: bearerRT{token: token.Secret, next: http.DefaultTransport}, Timeout: 60 * time.Second},
-	}, nil)
+	sess, err := s.mcpSession(ctx, token.Secret)
 	if err != nil {
 		s.note(id, "The vendor member's token could not open an MCP session (%v).", err)
 		s.mcpSweep = append(s.mcpSweep, sweepRow{Operation: "(connect)", OK: true, Inside: "refused", Why: err.Error()})
+		s.listMCPToolsUnreachable()
 		return
 	}
 	defer sess.Close()
@@ -415,27 +534,36 @@ func (s *scenario) mcpReadTools() {
 		return
 	}
 	markers := s.leakMarkers()
-	var leaks []string
+	var leaks, unexercised []string
 	for _, tool := range tools.Tools {
 		args := map[string]any{}
+		var required []any
 		if schema, ok := tool.InputSchema.(map[string]any); ok {
-			if props, ok := schema["properties"].(map[string]any); ok {
-				for name := range props {
-					switch name {
-					case "project", "project_id":
-						args[name] = s.projectA
-					case "message", "key", "message_key":
-						args[name] = unitKey("a", 1)
-					case "locale":
-						args[name] = "de"
-					case "query", "q", "text":
-						args[name] = "Entry"
-					}
+			props, _ := schema["properties"].(map[string]any)
+			required, _ = schema["required"].([]any)
+			for name := range props {
+				switch name {
+				case "project", "project_id":
+					args[name] = s.projectA
+				case "message", "key", "message_key":
+					args[name] = unitKey("a", 1)
+				case "locale":
+					args[name] = "de"
+				case "query", "q", "text":
+					args[name] = "Entry"
 				}
 			}
 		}
-		res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: tool.Name, Arguments: args})
 		row := sweepRow{Operation: tool.Name, Path: "mcp", OK: true}
+		if name := unfilledRequired(required, args); name != "" {
+			// A call missing a required argument is refused as malformed,
+			// whoever makes it: that is no verdict about visibility.
+			row.OK, row.Unexercised = false, "no fixture value for the required argument `"+name+"`"
+			unexercised = append(unexercised, tool.Name)
+			s.mcpSweep = append(s.mcpSweep, row)
+			continue
+		}
+		res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: tool.Name, Arguments: args})
 		switch {
 		case err != nil:
 			row.Inside = "error: " + err.Error()
@@ -459,6 +587,63 @@ func (s *scenario) mcpReadTools() {
 	if len(leaks) > 0 {
 		s.gap(id, "MCP: %d of %d tools answered the vendor member with something outside the assignment (first: %s)",
 			len(leaks), len(tools.Tools), strings.Join(first(leaks, 5), ", "))
+	}
+	if len(unexercised) > 0 {
+		s.gap(id, "MCP: %d tools have no verdict because the fixture had no value for a required argument (%s)",
+			len(unexercised), strings.Join(first(unexercised, 8), ", "))
+	}
+}
+
+// unfilledRequired names the first required argument args lacks.
+func unfilledRequired(required []any, args map[string]any) string {
+	for _, r := range required {
+		if name, ok := r.(string); ok {
+			if _, have := args[name]; !have {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+func (s *scenario) mcpSession(ctx context.Context, secret string) (*mcp.ClientSession, error) {
+	client := mcp.NewClient(&mcp.Implementation{Name: "glossa-m5-exit", Version: "0"}, nil)
+	return client.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint:   s.d.base + "/mcp",
+		HTTPClient: &http.Client{Transport: bearerRT{token: secret, next: http.DefaultTransport}, Timeout: 60 * time.Second},
+	}, nil)
+}
+
+// listMCPToolsUnreachable puts every MCP tool into the coverage table
+// when the member cannot reach MCP at all, listed through an owner's
+// token: the table then shows what exists and that none of it was
+// callable as the member, instead of one "(connect)" row for all of it.
+func (s *scenario) listMCPToolsUnreachable() {
+	const id = "12.2"
+	var token struct {
+		Secret string `json:"secret"`
+	}
+	if _, err := s.owner.try(http.MethodPost, s.tenantPath("/tokens"),
+		map[string]any{"name": "owner-mcp-list", "scopes": []string{"read"}}, http.StatusCreated, &token); err != nil {
+		s.note(id, "The MCP tools could not be listed for the table: the owner's token was refused (%v).", err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	sess, err := s.mcpSession(ctx, token.Secret)
+	if err != nil {
+		s.note(id, "The MCP tools could not be listed for the table: %v", err)
+		return
+	}
+	defer sess.Close()
+	tools, err := sess.ListTools(ctx, nil)
+	if err != nil {
+		s.note(id, "The MCP tools could not be listed for the table: %v", err)
+		return
+	}
+	for _, tool := range tools.Tools {
+		s.mcpSweep = append(s.mcpSweep, sweepRow{Operation: tool.Name, Path: "mcp", OK: true,
+			Inside: "unreachable", Why: "the member can hold no token, so cannot open a session; not called"})
 	}
 }
 

@@ -50,11 +50,18 @@ func (a Authn) Principal() authz.Principal {
 
 // AuthenticateSession resolves a session cookie to its person.
 func (s *Service) AuthenticateSession(ctx context.Context, cookie string) (Authn, error) {
-	tok, err := authgo.TokenFromString(cookie)
+	return s.authenticateSessionWith(ctx, s.sessions, cookie)
+}
+
+// authenticateSessionWith resolves a raw session token through one kind
+// of session: sessions (the cookie) or deviceSessions (a glossa_dev_
+// bearer). Either way the caller is the person, with nothing narrowed.
+func (s *Service) authenticateSessionWith(ctx context.Context, sessions *authgo.SessionService, raw string) (Authn, error) {
+	tok, err := authgo.TokenFromString(raw)
 	if err != nil {
 		return Authn{}, ErrUnauthenticated
 	}
-	sess, err := s.sessions.Validate(ctx, tok)
+	sess, err := sessions.Validate(ctx, tok)
 	if errors.Is(err, authgo.ErrNotFound) || errors.Is(err, authgo.ErrExpired) {
 		return Authn{}, ErrUnauthenticated
 	}

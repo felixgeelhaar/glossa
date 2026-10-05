@@ -1,5 +1,5 @@
 import { Component, memo } from "react";
-import { T, useGlossa } from "@glossa/react";
+import { T, useGlossa } from "@felixgeelhaar/glossa-react";
 
 function pageTitle(t: (id: string) => string): string {
   return t("layout.title");

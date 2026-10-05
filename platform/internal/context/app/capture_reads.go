@@ -41,13 +41,24 @@ func (s *Service) CaptureImage(ctx context.Context, project, capture uuid.UUID) 
 	if s.objects == nil {
 		return CaptureImage{}, errNoImages
 	}
-	var c domain.Capture
+	var (
+		c     domain.Capture
+		shown = vis.All()
+	)
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		var err error
-		c, err = st.Capture(ctx, capture)
+		if c, err = st.Capture(ctx, capture); err != nil || shown || c.ProjectID != project {
+			return err
+		}
+		// Capture comes back without its regions, so whether it shows a
+		// message the caller may see is asked of the store. Reading
+		// c.Regions here answered "no" for every capture, and an
+		// assigned member saw no screenshot at all, not even of their
+		// own units.
+		shown, err = st.CaptureShows(ctx, capture, vis.Messages())
 		return err
 	})
-	if errors.Is(err, ErrNotFound) || (err == nil && (c.ProjectID != project || !showsVisible(c, vis))) {
+	if errors.Is(err, ErrNotFound) || (err == nil && (c.ProjectID != project || !shown)) {
 		return CaptureImage{}, ErrCaptureNotFound
 	}
 	if err != nil {
@@ -65,19 +76,6 @@ func (s *Service) CaptureImage(ctx context.Context, project, capture uuid.UUID) 
 		}
 		return r, nil
 	}}, nil
-}
-
-// showsVisible reports whether capture c shows a message vis includes.
-func showsVisible(c domain.Capture, vis authz.View) bool {
-	if vis.All() {
-		return true
-	}
-	for _, r := range c.Regions {
-		if r.MessageID != nil && vis.Message(*r.MessageID) {
-			return true
-		}
-	}
-	return false
 }
 
 // MessageCapturesPage is a message's current captures, up to a limit.

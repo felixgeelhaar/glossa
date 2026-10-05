@@ -47,18 +47,24 @@ type fakeServer struct {
 	qa           *fakeQuality
 	gh           *fakeGitHub
 	ci           *fakeCI
+	dev          *fakeDevice
+	members      *fakeMembers
+	wf           *fakeWorkflows
+	audit        *fakeAuditImports
+	trail        *fakeAuditTrail
+	appr         *fakeApprovals
 	requests     []string
 }
 
 // accepts reports whether an Authorization header names a credential
 // this server knows: the API token, or a CI token it minted.
 func (f *fakeServer) accepts(header string) bool {
-	if header == "Bearer "+testToken {
+	if header == "Bearer "+testToken || personOf(header) != "" {
 		return true
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.ci.minted != "" && header == "Bearer "+f.ci.minted
+	return (f.ci.minted != "" && header == "Bearer "+f.ci.minted) || f.dev.accepts(header)
 }
 
 type fakeMessage struct {
@@ -93,7 +99,7 @@ type fakeTranslation struct {
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, qa: newFakeQuality()}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, dev: &fakeDevice{}, qa: newFakeQuality()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -119,13 +125,19 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeQuality(mux, p)
 	f.routeGitHub(mux)
 	f.routeCI(mux)
+	f.routeDevice(mux)
+	f.routeMembers(mux)
+	f.routeWorkflows(mux)
+	f.routeAuditImports(mux, p)
+	f.routeAuditTrail(mux)
+	f.routeApprovals(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
 		f.mu.Unlock()
 		// The OIDC exchange is the one unauthenticated operation: the
 		// ID token in the body is the credential (RFC 0004 §6.3).
-		if r.URL.Path == "/v1/auth/github-oidc-exchanges" {
+		if r.URL.Path == "/v1/auth/github-oidc-exchanges" || r.URL.Path == "/v1/auth/device-authorizations" || r.URL.Path == "/v1/auth/device-sessions" {
 			mux.ServeHTTP(w, r)
 			return
 		}

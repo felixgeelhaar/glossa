@@ -23,6 +23,8 @@ type Service struct {
 	store   Store
 	history History
 	logger  *slog.Logger
+	keys    *domain.KeySet
+	metrics Metrics
 }
 
 // Option configures the service.
@@ -30,6 +32,16 @@ type Option func(*Service)
 
 // WithHistory gives the service the outbox history the backfill reads.
 func WithHistory(h History) Option { return func(s *Service) { s.history = h } }
+
+// WithExportKeys gives the service the deployment's audit key set: the
+// key exports are signed with and the public keys they verify with.
+func WithExportKeys(k *domain.KeySet) Option { return func(s *Service) { s.keys = k } }
+
+// ExportKeys is the audit key set, nil when none is configured. The
+// export jobs (RFC 0006 wave 5) sign with its active key and serve its
+// public keys as a glossa.audit.keys/1 document at
+// /.well-known/glossa-audit-keys.json.
+func (s *Service) ExportKeys() *domain.KeySet { return s.keys }
 
 // WithLogger sets the logger. Audit logs ids, counts and actions, never
 // a summary's values.
@@ -144,6 +156,7 @@ func (s *Service) Append(ctx context.Context, drafts ...domain.Draft) ([]domain.
 	if err != nil {
 		return nil, fmt.Errorf("audit: append: %w", err)
 	}
+	s.appended(len(appended))
 	return appended, nil
 }
 
@@ -174,6 +187,7 @@ func (s *Service) Verify(ctx context.Context) (VerifyReport, error) {
 		}
 		for _, e := range page {
 			if err := v.Next(e); err != nil {
+				s.verified(err)
 				return VerifyReport{Entries: v.Count(), Head: v.Head()}, err
 			}
 			after = e.Sequence

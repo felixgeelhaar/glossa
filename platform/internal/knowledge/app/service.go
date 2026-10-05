@@ -20,6 +20,7 @@ type Service struct {
 	tx           Transactor
 	translations Translations
 	projects     Projects
+	messages     Messages
 	logger       *slog.Logger
 	now          func() time.Time
 }
@@ -29,6 +30,10 @@ type Option func(*Service)
 
 // WithClock replaces time.Now (tests).
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithMessages gives the service Catalog's message port, which the
+// unit-addressed lookup (UnitTMMatches) needs.
+func WithMessages(m Messages) Option { return func(s *Service) { s.messages = m } }
 
 // WithLogger sets the logger for background work.
 func WithLogger(l *slog.Logger) Option { return func(s *Service) { s.logger = l } }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GlossaText, useGlossa } from "@glossa/vue";
+import { GlossaText, useGlossa } from "@felixgeelhaar/glossa-vue";
 
 const props = defineProps<{ dynamicId: string; section: string }>();
 const { t } = useGlossa();

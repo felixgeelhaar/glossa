@@ -9,9 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
+	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 )
 
@@ -48,7 +50,14 @@ func TestIntelligenceRestrictions(t *testing.T) {
 	scoped := authztest.ScopedMember(context.Background(), w.tenant, []uuid.UUID{uuid.New()}, []string{"developer"})
 	cov := &authztest.Coverage{}
 	vendor, member := authztest.Assigned(context.Background(), w.tenant, cov, "de")
-	cov.Assign(member, p, uuid.New(), "de")
+	apple, err := w.catalog.MessagesByKeys(w.developer(), catalogdomain.ProjectID(p), []string{"a"})
+	if err != nil || len(apple) != 1 {
+		t.Fatalf("message a = %v, %v", apple, err)
+	}
+	cov.Assign(member, p, apple["a"].ID.UUID(), "de")
+	elsewhereCov := &authztest.Coverage{}
+	elsewhere, other := authztest.Assigned(context.Background(), w.tenant, elsewhereCov, "de")
+	elsewhereCov.Assign(other, uuid.New(), uuid.New(), "de")
 
 	for _, tc := range []struct {
 		name string
@@ -65,7 +74,49 @@ func TestIntelligenceRestrictions(t *testing.T) {
 		{"scoped: the review queue out of scope", func() error { _, _, err := w.svc.ReviewQueue(scoped, p, nil, page); return err }, "not found"},
 		{"scoped: project settings out of scope", func() error { _, err := w.svc.GetProjectSettings(scoped, p); return err }, "not found"},
 
+		// Read by its id, a fill or job of a project no assignment of
+		// theirs is in is not there — the answer for an id that does not
+		// exist — rather than a refusal that says it is (§12.2's sweep
+		// found the 403); in a project they work in, it is refused.
+		{"assigned elsewhere: a fill", func() error { _, err := w.svc.GetFill(elsewhere, fill.Fill.ID); return err }, "not found"},
+		{"assigned elsewhere: a job", func() error { _, err := w.svc.GetJob(elsewhere, jobs[0].ID); return err }, "not found"},
+		{"assigned: a fill of their project", func() error { _, err := w.svc.GetFill(vendor, fill.Fill.ID); return err }, "denied"},
+		{"assigned: a job of their project", func() error { _, err := w.svc.GetJob(vendor, jobs[0].ID); return err }, "denied"},
 		{"assigned: lists jobs", func() error { _, _, err := w.svc.ListJobs(vendor, app.JobFilter{}, page); return err }, "denied"},
+		{"assigned: suggestions of a covered unit", func() error {
+			rows, err := w.svc.UnitSuggestions(vendor, p, "a", bcp47.MustParse("de"))
+			for _, r := range rows {
+				if r.Decidable {
+					return errors.New("a vendor may decide a suggestion")
+				}
+			}
+			return err
+		}, "ok"},
+		{"assigned: suggestions of the message in another locale", func() error {
+			_, err := w.svc.UnitSuggestions(vendor, p, "a", bcp47.MustParse("fr"))
+			return err
+		}, "not found"},
+		{"assigned: suggestions of another message", func() error {
+			_, err := w.svc.UnitSuggestions(vendor, p, "nope", bcp47.MustParse("de"))
+			return err
+		}, "not found"},
+		{"assigned elsewhere: suggestions of a unit in a project they are not in", func() error {
+			_, err := w.svc.UnitSuggestions(elsewhere, p, "a", bcp47.MustParse("de"))
+			return err
+		}, "not found"},
+		{"scoped: suggestions of a unit out of scope", func() error {
+			_, err := w.svc.UnitSuggestions(scoped, p, "a", bcp47.MustParse("de"))
+			return err
+		}, "not found"},
+		{"developer: suggestions of a unit", func() error {
+			rows, err := w.svc.UnitSuggestions(w.developer(), p, "a", bcp47.MustParse("de"))
+			for _, r := range rows {
+				if !r.Decidable {
+					return errors.New("a developer may decide a suggestion")
+				}
+			}
+			return err
+		}, "ok"},
 		{"assigned: lists suggestions", func() error {
 			_, _, err := w.svc.ListSuggestions(vendor, app.SuggestionFilter{}, page)
 			return err

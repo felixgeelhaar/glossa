@@ -2,7 +2,7 @@
  * The release a build renders with (Node, build time): a release object, a
  * directory written by `glossa pull --release`, or the release the edge
  * serves right now. Directory and edge releases load through
- * `@glossa/runtime` itself, so they're verified exactly like in a browser
+ * `@felixgeelhaar/glossa-runtime` itself, so they're verified exactly like in a browser
  * (schema, environment, signature when keys are set, every artifact's
  * SHA-256). A release that doesn't load completely fails the build: a static
  * site must not silently ship its inline defaults.
@@ -14,7 +14,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createRuntime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 import type {
   Artifact,
   BundledRelease,
@@ -22,7 +22,7 @@ import type {
   PublicKey,
   RuntimeError,
   Transport,
-} from "@glossa/runtime";
+} from "@felixgeelhaar/glossa-runtime";
 
 export interface ReleaseSource {
   edge?: string;

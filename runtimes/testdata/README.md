@@ -46,8 +46,8 @@ runtime, including one written before SPEC §1.4, by ignoring `rollout`, which i
 guarantee itself. `rollout-candidate-side` (activation, restart, advance, abort back to stable, a
 new rollout drawing again), `rollout-candidate-fallback` (a candidate whose artifact fails
 integrity falls back to the stable view of the same manifest) and `rollout-invalid` (an invalid
-`rollout` is ignored with a `schema` error) need §1.4: JS and Go pass them (RFC 0006 wave 2); the
-Dart driver lists them in `_skips` until wave 3.
+`rollout` is ignored with a `schema` error) need §1.4: JS and Go pass them since RFC 0006 wave 2,
+Dart since wave 3.
 
 ## `rollout/cohorts.json` (staged rollout, SPEC §1.4)
 
@@ -78,7 +78,7 @@ For `glossa-edge`, not the runtimes. Every key index object is validated against
 
 ## `usages/` (context, RFC 0004 §2.1)
 
-This is the shared fixture suite for `@glossa/unplugin` and `glossa extract`: source trees, and the
+This is the shared fixture suite for `@felixgeelhaar/glossa-unplugin` and `glossa extract`: source trees, and the
 `glossa.usages/v1` document each tool must produce from them. These `expected.json` files are
 written by hand, unlike the generated files above. [`gen/check_usages.py`](./gen/check_usages.py)
 validates them. It also validates `schemas/usages.v1.schema.json`,
@@ -89,7 +89,7 @@ validates them. It also validates `schemas/usages.v1.schema.json`,
 
 | Field | Meaning |
 |---|---|
-| `safeTags` | The only markup names that become HTML elements. `@glossa/elements` (`SAFE_TAGS`) and the Go runtime (`HTML`, `th`) are tested against this list |
+| `safeTags` | The only markup names that become HTML elements. `@felixgeelhaar/glossa-elements` (`SAFE_TAGS`) and the Go runtime (`HTML`, `th`) are tested against this list |
 | `voidTags` | Safe tags rendered without children or a closing tag (`<br>`) |
 | `cases[].parts` | Formatted parts in the MF2 shape (`text`, `markup`, `bidiIsolation`, `string`, `number` with `parts`, `fallback` with `source`) |
 | `cases[].html` | Expected HTML: markup options dropped, text escaped (`&`, `<`, `>`), unsafe markup reduced to its content |

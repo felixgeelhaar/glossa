@@ -12,9 +12,21 @@ import (
 // does not follow from the one before it.
 var ErrChainBroken = errors.New("audit: chain broken")
 
+// Break names how a chain broke, for reports a script can branch on.
+type Break string
+
+// The ways an entry can fail to follow the one before it.
+const (
+	BreakTenant   Break = "tenant_mismatch"
+	BreakSequence Break = "sequence_gap"
+	BreakLink     Break = "prev_hash_mismatch"
+	BreakHash     Break = "hash_mismatch"
+)
+
 // ChainError says where and how a chain broke.
 type ChainError struct {
 	Sequence int64
+	Kind     Break
 	Reason   string
 }
 
@@ -28,7 +40,7 @@ func (e *ChainError) Unwrap() error { return ErrChainBroken }
 // Verifier recomputes a tenant's chain entry by entry: each must be the
 // next sequence, link to the previous entry's hash, and hash to what it
 // says. It streams, so a range of any length verifies in constant
-// memory; wave 4's `glossa audit verify` reads an export through it.
+// memory; `glossa audit verify` reads an export through it (VerifyExport).
 //
 // A chain proves a range was not edited after it was written; it does
 // not protect against someone who can rewrite the whole table and
@@ -51,18 +63,18 @@ func (v *Verifier) Next(e Entry) error {
 	want := v.head.Sequence + 1
 	switch {
 	case e.Tenant != v.tenant:
-		return &ChainError{Sequence: e.Sequence, Reason: "entry belongs to another tenant"}
+		return &ChainError{Sequence: e.Sequence, Kind: BreakTenant, Reason: "entry belongs to another tenant"}
 	case e.Sequence != want:
-		return &ChainError{Sequence: e.Sequence, Reason: fmt.Sprintf("expected sequence %d", want)}
+		return &ChainError{Sequence: e.Sequence, Kind: BreakSequence, Reason: fmt.Sprintf("expected sequence %d", want)}
 	case !bytes.Equal(e.PrevHash, v.head.hash()):
-		return &ChainError{Sequence: e.Sequence, Reason: "prev_hash is not the previous entry's hash"}
+		return &ChainError{Sequence: e.Sequence, Kind: BreakLink, Reason: "prev_hash is not the previous entry's hash"}
 	}
 	sum, err := e.ComputeHash()
 	if err != nil {
-		return &ChainError{Sequence: e.Sequence, Reason: err.Error()}
+		return &ChainError{Sequence: e.Sequence, Kind: BreakHash, Reason: err.Error()}
 	}
 	if !bytes.Equal(sum, e.Hash) {
-		return &ChainError{Sequence: e.Sequence, Reason: "hash does not match the entry's content"}
+		return &ChainError{Sequence: e.Sequence, Kind: BreakHash, Reason: "hash does not match the entry's content"}
 	}
 	v.head = e.Head()
 	v.count++

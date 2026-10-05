@@ -18,8 +18,12 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
+	workflowmetrics "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/metrics"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
+	workflowrelease "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/release"
 	workflowsources "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/sources"
 	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 )
@@ -43,6 +47,7 @@ type workflowSources struct {
 	quality      *qualityapp.Service
 	intelligence *intelligenceapp.Service
 	identity     *identityapp.Service
+	release      *releaseapp.Service
 }
 
 // newWorkflow builds Workflow and subscribes its instance runner to the
@@ -52,8 +57,12 @@ type workflowSources struct {
 // decides.
 func newWorkflow(
 	uow *db.UnitOfWork, events *outbox.Registry, definitions *workflowapp.Service, src workflowSources, logger *slog.Logger,
+	reg prometheus.Registerer,
 ) (workflowServices, error) {
 	instances := workflowpg.NewInstances(uow)
+	// RFC 0006 §10.1: transitions, instances, live assignments and
+	// approval decisions, on the server's registry.
+	metrics := workflowmetrics.New(reg)
 	// Assignments and approvals (RFC 0006 §3.1–§3.2). Who a member is
 	// comes from Identity's tenant store, joined inside the caller's
 	// transaction (reads only: no TOTP secret is ever opened there, so
@@ -61,18 +70,46 @@ func newWorkflow(
 	// through Localization.
 	workTx := workflowpg.NewWorkTransactor(uow)
 	directory := workflowidentity.NewDirectory(identitypg.NewTransactor(uow, nil))
+	//
+	// Release requests (RFC 0006 §5.1) are a subject too: Release says
+	// where a request is and who asked (approvals.decide is checked in
+	// its environment, four-eyes against its requester), and the runner
+	// deploys or denies it through Release's service. Release in turn
+	// asks Workflow who approved, and checks the requirement itself
+	// before it moves a pointer; until UseApprovals it deploys nothing.
+	var requests *workflowrelease.Requests
+	workOpts := []workflowapp.WorkOption{
+		workflowapp.WithWorkMetrics(metrics),
+		// Per-vendor quality numbers (RFC 0006 §3.4), computed on read
+		// from Catalog, Localization and Quality as the caller.
+		workflowapp.WithQualityFacts(workflowsources.NewQualityFacts(src.catalog, src.localization, src.quality)),
+	}
+	if src.release != nil {
+		requests = workflowrelease.NewRequests(src.release)
+		workOpts = append(workOpts, workflowapp.WithReleaseRequests(requests))
+	}
+	// A request made through the API names its units by message key,
+	// resolved through Catalog as the caller.
 	work := workflowapp.NewWorkService(workTx, directory,
-		workflowsources.NewAuthors(src.catalog, src.localization))
+		workflowsources.NewAuthors(src.catalog, src.localization),
+		append(workOpts, workflowapp.WithWorkCatalog(workflowcatalog.New(src.catalog)))...)
+	if src.release != nil {
+		src.release.UseApprovals(workflowrelease.NewLedger(work))
+	}
 	// The same assignments, read as coverage: which units a member with
 	// visibility `assigned` may see (RFC 0006 §3.3).
 	coverage := workflowapp.NewCoverage(workTx, directory, nil)
 	deps := workflowapp.RunnerDeps{
-		Tx: instances, Definitions: definitions, Timers: instances, Logger: logger,
+		Tx: instances, Definitions: definitions, Timers: instances, Retention: instances, Logger: logger,
+		Metrics: metrics, Workload: instances,
 		Translations: workflowsources.NewTranslations(src.catalog, src.localization),
 		Findings:     workflowsources.NewFindings(src.quality),
 		Suggestions:  workflowsources.NewSuggestions(src.intelligence),
 		// assign and request_approval join the step's transaction.
 		Assignments: work,
+	}
+	if requests != nil {
+		deps.Releases = requests
 	}
 	if src.identity != nil {
 		deps.Actors = workflowidentity.NewActors(src.identity)
@@ -92,6 +129,21 @@ const (
 	workflowTimerLease    = 55 * time.Second
 	workflowTimerPoll     = 15 * time.Second
 )
+
+// workflowRetentionJob is the daily workflow.retention job, one of the
+// leased Purge jobs (RFC 0006 §2.5, §13 wave 6): it deletes the
+// instances that finished more than keep ago, with their transition
+// logs, and never a running one.
+func workflowRetentionJob(runner *workflowapp.Runner, keep time.Duration, logger *slog.Logger) scheduler.Job {
+	return scheduler.Job{Name: "workflow.retention", Run: func(ctx context.Context) error {
+		n, err := runner.SweepRetention(ctx, keep)
+		if n > 0 {
+			logger.InfoContext(ctx, "workflow: finished instances past their retention deleted",
+				slog.Int("instances", n), slog.Duration("retention", keep))
+		}
+		return err
+	}}
+}
 
 // newWorkflowTimers schedules the timer sweep on the Postgres lease so
 // one replica raises each timer. It runs where the leased periodic jobs
@@ -113,6 +165,11 @@ func newWorkflowTimers(
 		n, err := runner.SweepTimers(ctx)
 		if n > 0 {
 			logger.InfoContext(ctx, "workflow: timers raised", slog.Int("timers", n))
+		}
+		// The §10.1 gauges are counted on the same lease, so one replica
+		// reports them; a failed count leaves them as they were.
+		if cerr := runner.CountWork(ctx); cerr != nil {
+			logger.WarnContext(ctx, "workflow: instances and assignments not counted", slog.Any("error", cerr))
 		}
 		return err
 	}})

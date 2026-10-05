@@ -1,6 +1,6 @@
 // The M3 exit test's fixture application, built for real (RFC 0004 §12).
 //
-// `pnpm --filter @glossa/unplugin build:m3` runs three Vite builds of
+// `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3` runs three Vite builds of
 // platform/internal/systemtest/m3/testdata/app — the app `go generate
 // ./internal/systemtest/m3/...` writes — and puts what the Go test needs
 // beside it:
@@ -8,7 +8,7 @@
 //   built/preview/      the app as a preview deployment: the overlay
 //                       loader is in it, and `glossa capture` drives it
 //   built/production/   the same app built for production: no loader
-//   usages.json         what @glossa/unplugin saw in the preview build
+//   usages.json         what @felixgeelhaar/glossa-unplugin saw in the preview build
 //   usages.branch.json  the same, with the pull request's checkout page
 //
 // src/m3-fixture.test.ts fails when a checked-in file differs from a
@@ -50,9 +50,9 @@ function aliases() {
     "react-dom/client",
     "react/jsx-runtime",
     "react/jsx-dev-runtime",
-    "@glossa/runtime",
-    "@glossa/vue",
-    "@glossa/react",
+    "@felixgeelhaar/glossa-runtime",
+    "@felixgeelhaar/glossa-vue",
+    "@felixgeelhaar/glossa-react",
   ];
   return names.map((name) => ({
     find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),

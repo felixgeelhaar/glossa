@@ -7,18 +7,22 @@
  * Shared by the editor's suggestion panel and the review queue.
  */
 import { computed } from "vue";
-import type { AISuggestion } from "../../api/intelligence-schemas";
+import type { AISuggestion, UnitAISuggestion } from "../../api/intelligence-schemas";
 import { actionTone, bandOf, bandTone, byImpact, formatContribution, formatScore } from "../../lib/confidence";
 import { formatUSD } from "../../lib/money";
 import { strings } from "../../strings";
 
-const props = defineProps<{ suggestion: AISuggestion; lang: string; dir: string; headingLevel?: 3 | 4 }>();
+/**
+ * A unit's suggestion (an assigned member's view) has no provenance or
+ * cost to show: the "Why?" holds the factors alone.
+ */
+const props = defineProps<{ suggestion: AISuggestion | UnitAISuggestion; lang: string; dir: string; headingLevel?: 3 | 4 }>();
 const s = strings.ai;
 
 const band = computed(() => bandOf(props.suggestion.score));
 const factors = computed(() => byImpact(props.suggestion.explanation));
-const p = computed(() => props.suggestion.provenance);
-const tokens = computed(() => props.suggestion.usage.input_tokens + props.suggestion.usage.output_tokens);
+const full = computed(() => ("provenance" in props.suggestion ? props.suggestion : undefined));
+const tokens = computed(() => (full.value ? full.value.usage.input_tokens + full.value.usage.output_tokens : 0));
 </script>
 
 <template>
@@ -58,28 +62,28 @@ const tokens = computed(() => props.suggestion.usage.input_tokens + props.sugges
             </tr>
           </tbody>
         </table>
-        <component :is="headingLevel === 4 ? 'h5' : 'h4'" class="sub">{{ s.provenance }}</component>
-        <dl class="prov" data-testid="provenance">
+        <component :is="headingLevel === 4 ? 'h5' : 'h4'" v-if="full" class="sub">{{ s.provenance }}</component>
+        <dl v-if="full" class="prov" data-testid="provenance">
           <dt>{{ s.origin }}</dt>
-          <dd>{{ s.originName[p.origin] }}</dd>
-          <template v-if="p.provider">
+          <dd>{{ s.originName[full.provenance.origin] }}</dd>
+          <template v-if="full.provenance.provider">
             <dt>{{ s.model }}</dt>
-            <dd class="mono">{{ p.provider }} / {{ p.model }}</dd>
+            <dd class="mono">{{ full.provenance.provider }} / {{ full.provenance.model }}</dd>
           </template>
-          <template v-if="p.prompt_version">
+          <template v-if="full.provenance.prompt_version">
             <dt>{{ s.promptVersion }}</dt>
-            <dd class="mono">{{ p.prompt_version }}</dd>
+            <dd class="mono">{{ full.provenance.prompt_version }}</dd>
           </template>
           <dt>{{ s.tmUnits }}</dt>
-          <dd>{{ p.tm_unit_ids?.length ? s.count(p.tm_unit_ids.length) : s.noneUsed }}</dd>
+          <dd>{{ full.provenance.tm_unit_ids?.length ? s.count(full.provenance.tm_unit_ids.length) : s.noneUsed }}</dd>
           <dt>{{ s.terms }}</dt>
-          <dd>{{ p.term_ids?.length ? s.count(p.term_ids.length) : s.noneUsed }}</dd>
+          <dd>{{ full.provenance.term_ids?.length ? s.count(full.provenance.term_ids.length) : s.noneUsed }}</dd>
           <dt>{{ s.styleVersion }}</dt>
-          <dd class="mono">{{ p.style_version || s.noneUsed }}</dd>
+          <dd class="mono">{{ full.provenance.style_version || s.noneUsed }}</dd>
           <dt>{{ s.repairs }}</dt>
-          <dd>{{ p.repairs }}</dd>
+          <dd>{{ full.provenance.repairs }}</dd>
           <dt>{{ s.cost }}</dt>
-          <dd>{{ formatUSD(suggestion.cost_micro_usd) }} · {{ s.tokens(tokens) }}</dd>
+          <dd>{{ formatUSD(full.cost_micro_usd) }} · {{ s.tokens(tokens) }}</dd>
         </dl>
       </div>
     </details>

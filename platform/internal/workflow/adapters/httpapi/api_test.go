@@ -39,6 +39,20 @@ type fixture struct {
 	owner     context.Context
 	reader    context.Context
 	anonymous context.Context
+	// Assignments and approvals.
+	work    *workMemory
+	dir     *directory
+	authors authors
+	vendor  uuid.UUID
+}
+
+// person is a signed-in member with roles in locales, registered in the
+// directory as working for vendor (uuid.Nil: for nobody).
+func (f *fixture) person(roles, locales []string, vendor uuid.UUID) context.Context {
+	ctx := authztest.Member(context.Background(), f.tenant, roles, locales...)
+	p, _ := authz.From(ctx)
+	f.dir.members[p.Member.UUID()] = app.Affiliation{Member: p.Member.UUID(), Roles: roles, Vendor: vendor}
+	return ctx
 }
 
 func newFixture(t *testing.T, withInstances bool) *fixture {
@@ -55,8 +69,11 @@ func newFixture(t *testing.T, withInstances bool) *fixture {
 		f.q = &instances{transitions: map[uuid.UUID][]app.TransitionView{}}
 		q = f.q
 	}
-	f.api = httpapi.New(svc, q, cat)
-	f.owner = authztest.Member(context.Background(), f.tenant, []string{"owner"})
+	f.work, f.vendor, f.authors = newWorkMemory(), uuid.New(), authors{}
+	f.dir = &directory{members: map[uuid.UUID]app.Affiliation{}, vendors: map[string]uuid.UUID{"lingua": f.vendor}}
+	work := app.NewWorkService(f.work, f.dir, f.authors, app.WithWorkClock(func() time.Time { return clock }), app.WithWorkCatalog(cat))
+	f.api = httpapi.New(svc, q, cat, work)
+	f.owner = f.person([]string{"owner"}, nil, uuid.Nil)
 	// A translator holds workflows.read and not workflows.manage.
 	f.reader = authztest.Member(context.Background(), f.tenant, []string{"translator"}, "de")
 	f.anonymous = tenancy.ContextWithTenant(context.Background(), f.tenant)
@@ -81,6 +98,8 @@ func render(t *testing.T, resp any, err error) response {
 	switch {
 	case errors.Is(err, authz.ErrUnauthenticated):
 		problem.WriteDetails(rec, problem.New(http.StatusUnauthorized, problem.CodeUnauthenticated, "authentication required"))
+	case errors.Is(err, authz.ErrNotVisible):
+		problem.WriteDetails(rec, problem.New(http.StatusNotFound, problem.CodeNotFound, "no such resource"))
 	case errors.Is(err, authz.ErrForbidden):
 		problem.WriteDetails(rec, problem.New(http.StatusForbidden, problem.CodeForbidden, err.Error()))
 	case err != nil:

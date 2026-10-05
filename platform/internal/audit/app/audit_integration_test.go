@@ -461,6 +461,49 @@ func TestATamperedRowFailsVerification(t *testing.T) {
 	}
 }
 
+// Entries as Postgres keeps them — microsecond times, the summary as
+// jsonb hands it back — export into a glossa.audit/v1 file that
+// verifies, whole or as a range in the middle of the chain; one altered
+// byte does not (RFC 0006 §6.2).
+func TestStoredEntriesExportAndVerify(t *testing.T) {
+	h := newHarness(t)
+	ctx := h.tenant("acme")
+	h.publish(ctx, translationRevised(person), translationRevised(token), translationRevised(person),
+		translationRevised(token), translationRevised(person))
+	h.dispatch()
+	entries := h.entries(ctx)
+	if len(entries) != 5 {
+		t.Fatalf("%d entries recorded, want 5", len(entries))
+	}
+	tenant, _ := tenancy.FromContext(ctx)
+	key, err := domain.ParseSigningKey("audit-it", "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := domain.ExportOptions{CreatedAt: time.Now()}
+	for name, r := range map[string]struct {
+		from domain.Head
+		rng  []domain.Entry
+	}{
+		"the whole chain": {domain.Head{}, entries},
+		"sequences 2–4":   {entries[0].Head(), entries[1:4]},
+	} {
+		manifest, lines, err := domain.Export(tenant.UUID(), r.from, r.rng, key, opts)
+		if err != nil {
+			t.Fatalf("%s: export: %v", name, err)
+		}
+		rep := domain.VerifyExport(manifest, strings.NewReader(string(lines)), []domain.PublicKey{key.Public()})
+		if !rep.OK || rep.Verified != int64(len(r.rng)) {
+			t.Fatalf("%s: does not verify: %v", name, rep.Failure)
+		}
+		tampered := []byte(string(lines))
+		tampered[len(tampered)/2] ^= 0x01
+		if rep := domain.VerifyExport(manifest, strings.NewReader(string(tampered)), []domain.PublicKey{key.Public()}); rep.OK {
+			t.Fatalf("%s: a tampered export verifies", name)
+		}
+	}
+}
+
 // insertHistory writes an outbox row as it was before migration 0042
 // and before Audit existed: delivered, actor "unknown".
 func insertHistory(t *testing.T, ctx context.Context, typ string, at time.Time, payload map[string]any) uuid.UUID {

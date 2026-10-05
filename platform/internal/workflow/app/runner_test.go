@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -474,13 +475,19 @@ type memStore struct {
 	snapshots   map[uuid.UUID][]byte
 	transitions map[uuid.UUID][]app.Transition
 	versions    map[uuid.UUID]domain.Version
+	// later are a definition's versions after the one in versions, by
+	// number (rebase tests).
+	later map[uuid.UUID]map[int]domain.Version
+	// definitions are the tenant-wide definitions by name.
+	definitions map[string]domain.DefinitionRecord
 	published   []outbox.Event
 	seeded      bool
 }
 
 func newMemStore() *memStore {
 	return &memStore{instances: map[uuid.UUID]domain.Instance{}, snapshots: map[uuid.UUID][]byte{},
-		transitions: map[uuid.UUID][]app.Transition{}, versions: map[uuid.UUID]domain.Version{}}
+		transitions: map[uuid.UUID][]app.Transition{}, versions: map[uuid.UUID]domain.Version{},
+		definitions: map[string]domain.DefinitionRecord{}, later: map[uuid.UUID]map[int]domain.Version{}}
 }
 
 func (m *memStore) InTenant(ctx context.Context, fn func(context.Context, app.InstanceStore) error) error {
@@ -578,11 +585,46 @@ func (t *memTx) AppendTransition(_ context.Context, instance uuid.UUID, tr app.T
 }
 
 func (t *memTx) Version(_ context.Context, definition uuid.UUID, n int) (domain.Version, error) {
+	if v, ok := t.m.later[definition][n]; ok {
+		return v, nil
+	}
 	v, ok := t.m.versions[definition]
 	if !ok || v.Number != n {
 		return domain.Version{}, app.ErrNotFound
 	}
 	return v, nil
+}
+
+func (t *memTx) LatestVersion(_ context.Context, definition uuid.UUID) (int, error) {
+	v, ok := t.m.versions[definition]
+	if !ok {
+		return 0, app.ErrNotFound
+	}
+	latest := v.Number
+	for n := range t.m.later[definition] {
+		latest = max(latest, n)
+	}
+	return latest, nil
+}
+
+func (t *memTx) RebaseInstance(_ context.Context, i domain.Instance, snapshot []byte) error {
+	if cur, ok := t.instances[i.ID]; !ok || cur.Status != domain.StatusActive {
+		return app.ErrNotFound
+	}
+	t.instances[i.ID], t.snapshots[i.ID] = i, snapshot
+	return nil
+}
+
+func (t *memTx) DeleteFinished(_ context.Context, cutoff time.Time, limit int) (int, error) {
+	n := 0
+	for id, i := range t.instances {
+		if n < limit && i.Status == domain.StatusFinished && i.FinishedAt != nil && i.FinishedAt.Before(cutoff) {
+			delete(t.instances, id)
+			delete(t.transitions, id)
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (t *memTx) LockDueTimers(_ context.Context, now time.Time, _ int) ([]domain.Instance, error) {
@@ -614,6 +656,22 @@ func (t *memTx) SeedDefault(context.Context, *domain.DefinitionRecord, *domain.V
 func (t *memTx) Seeded(context.Context) (bool, error) { return t.seeded, nil }
 
 func (t *memTx) HasTenantDefinition(context.Context, string) (bool, error) { return false, nil }
+
+func (t *memTx) TenantDefinition(_ context.Context, name string) (domain.DefinitionRecord, error) {
+	rec, ok := t.m.definitions[name]
+	if !ok {
+		return domain.DefinitionRecord{}, app.ErrNotFound
+	}
+	return rec, nil
+}
+
+func (t *memTx) InsertDefinition(_ context.Context, rec domain.DefinitionRecord, v domain.Version) error {
+	if _, ok := t.m.definitions[rec.Name]; ok {
+		return app.ErrConflict
+	}
+	t.m.definitions[rec.Name], t.m.versions[rec.ID] = rec, v
+	return nil
+}
 
 // The default definition (RFC 0006 §12.1, as the owner decided): a
 // source change sends an approved translation back to review and asks
@@ -660,5 +718,53 @@ func TestTheDefaultLeavesNothingBehindForARevision(t *testing.T) {
 	}
 	if len(w.as.requested) != 0 {
 		t.Errorf("a revision asked for approval: %+v", w.as.requested)
+	}
+}
+
+// A CI token — GitHub OIDC's push path, the usual way source arrives —
+// holds only catalog permissions, and the runner resolves no principal
+// for it, so every action of its events is refused. The default's
+// demotion to needs_review falls back to Workflow's own principal for
+// it (§2.3, amended in wave 3), and the log says so; approving still
+// runs only as the actor.
+func TestACITokensSourceChangeStillSendsItBackToReview(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.tr.state = "approved"
+	ci := outbox.Actor("token:" + uuid.NewString()) // resolves to no principal, as a CI token does
+
+	w.send(domain.EventTranslationOutdated, ci)
+	inst, log := w.only()
+	if inst.State != "reviewing" || w.tr.state != "needs_review" {
+		t.Fatalf("after a CI push: instance %s, translation %s", inst.State, w.tr.state)
+	}
+	demoted := log[len(log)-1].Actions[0]
+	if demoted.Outcome != app.ActionDone || !strings.Contains(demoted.Detail, app.PrincipalRunner) {
+		t.Fatalf("demotion = %+v, want done and saying it ran as Workflow", demoted)
+	}
+	if last := log[len(log)-1]; last.Actor != ci {
+		t.Errorf("the transition names %s, want the token that caused it", last.Actor)
+	}
+
+	// The same token's approval.granted cannot approve: the fallback is
+	// for demotion only.
+	w.as.approvers = []string{"person:" + uuid.NewString()}
+	w.send(domain.EventApprovalGranted, ci)
+	if w.tr.state != "needs_review" {
+		t.Fatalf("a token's event approved the translation: %s", w.tr.state)
+	}
+	if _, log := w.only(); log[len(log)-1].Outcome != app.TransitionRefused {
+		t.Errorf("the approve step = %+v, want refused", log[len(log)-1])
+	}
+}
+
+// Whoever may write the locale demotes as themselves: a developer
+// holds translations.write, so no fallback and nothing in the detail.
+func TestADevelopersSourceChangeDemotesAsTheDeveloper(t *testing.T) {
+	w := newRunWorld(t, string(defaults.Review()))
+	w.tr.state = "approved"
+	w.send(domain.EventTranslationOutdated, w.person([]string{"developer"}))
+	_, log := w.only()
+	if d := log[len(log)-1].Actions[0]; d.Outcome != app.ActionDone || d.Detail != "" || w.tr.state != "needs_review" {
+		t.Fatalf("demotion = %+v, translation %s", d, w.tr.state)
 	}
 }

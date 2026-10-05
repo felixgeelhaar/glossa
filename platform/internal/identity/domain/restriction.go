@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -106,6 +107,52 @@ func (s ProjectScope) UUIDs() []uuid.UUID {
 	}
 	return out
 }
+
+// maxEnvironmentScope bounds an environment scope.
+const maxEnvironmentScope = 50
+
+// environmentPattern is Release's environment name (release/delivery's
+// ValidEnvironment), mirrored: Identity imports no other context.
+var environmentPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// EnvironmentScope is the release environments an environment-scoped
+// permission applies to (RFC 0006 §4.2): approvals.decide on a release
+// request is decided per environment. The zero value is every
+// environment — which is every member and every token today: nothing
+// stores a narrower one yet, so the scope exists to be checked
+// (authz.RequireInEnvironment) and pinned, and a stored per-member
+// scope is additive. Names are Release's environment names.
+type EnvironmentScope struct{ names []string }
+
+// ParseEnvironmentScope validates, sorts and de-duplicates environment
+// names. An empty list is every environment.
+func ParseEnvironmentScope(names []string) (EnvironmentScope, error) {
+	var out []string
+	for _, n := range names {
+		if !environmentPattern.MatchString(n) || n == "a" {
+			return EnvironmentScope{}, fmt.Errorf("%w: %q is not an environment name", ErrInvalidEnvironmentScope, n)
+		}
+		if !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	if len(out) > maxEnvironmentScope {
+		return EnvironmentScope{}, fmt.Errorf("%w: %d environments (at most %d)", ErrInvalidEnvironmentScope, len(out), maxEnvironmentScope)
+	}
+	slices.Sort(out)
+	return EnvironmentScope{names: out}, nil
+}
+
+// All reports whether the scope is every environment.
+func (s EnvironmentScope) All() bool { return len(s.names) == 0 }
+
+// Covers reports whether the scope includes environment.
+func (s EnvironmentScope) Covers(environment string) bool {
+	return s.All() || slices.Contains(s.names, environment)
+}
+
+// Strings returns the names, sorted; empty for every environment.
+func (s EnvironmentScope) Strings() []string { return slices.Clone(s.names) }
 
 // Visibility says how much of the tenant a member reads (RFC 0006 §3.3).
 type Visibility string

@@ -5,8 +5,13 @@ package m5_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,12 +22,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/edge"
+	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
@@ -37,6 +44,20 @@ const bucket = "glossa-m5"
 const signingKeyID = "m5-2026"
 
 var signingSeed = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32))
+
+// auditKeyID and auditSeed sign the audit exports of §12.5: a key of
+// its own, not the release key (RFC 0006 §6.2). The harness verifies
+// with the public half it derives here, never with a key the platform
+// hands it, so a platform signing with something else fails §12.5.
+const auditKeyID = "m5-audit-2026"
+
+var auditSeed = bytes.Repeat([]byte{6}, 32)
+
+// auditPublicKey is the --public-key `glossa audit verify` trusts.
+func auditPublicKey() string {
+	pub := ed25519.NewKeyFromSeed(auditSeed).Public().(ed25519.PublicKey)
+	return auditKeyID + "=" + base64.StdEncoding.EncodeToString(pub)
+}
 
 // studioURL is where the links this server mails point. Nothing in §12
 // opens Studio; the links are followed by the test, not a browser.
@@ -67,7 +88,13 @@ type deployment struct {
 	base    string
 	edgeURL string
 	mail    *mailbox
-	logs    *syncBuffer
+	// github is the fake GitHub the server's App client talks to, so
+	// §12.2's sweep has a Git connection in each project to address.
+	github *githubtest.Server
+	// provider is the fake AI provider on loopback, so the sweep has an
+	// AI fill, job and suggestion in each project to address.
+	provider *fakeProvider
+	logs     *syncBuffer
 	// dbDSN is the superuser DSN of the platform's Postgres; the v0.3
 	// fixture of §12.6 gets a database of its own in the same server.
 	dbSuper string
@@ -118,6 +145,18 @@ func deploy(t *testing.T) *deployment {
 	}
 
 	d := &deployment{logs: &syncBuffer{}, mail: startMailbox(t), dbSuper: db.db.SuperDSN}
+	d.provider = startFakeProvider(t)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.github = githubtest.New(t, githubtest.Options{AppID: appID, PublicKey: &key.PublicKey})
+	d.github.AddInstallation(installationID, "acme", repositoryID)
+	d.github.AddRepository(githubtest.Repository{
+		ID: repositoryID, Name: "monorepo", FullName: repositoryName, DefaultBranch: "main",
+	})
+	d.github.AddUser("gho_owner", installationID)
+	d.github.AddOAuthCode("code-m5", "gho_owner")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -145,15 +184,32 @@ func deploy(t *testing.T) *deployment {
 		"GLOSSA_MAIL_FROM":            mailFrom,
 		"GLOSSA_STUDIO_URL":           studioURL,
 		"GLOSSA_RELEASE_SIGNING_KEYS": signingKeyID + "=" + signingSeed,
-		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
-		"GLOSSA_OUTBOX_BATCH_SIZE":    "200",
-		"GLOSSA_AI_POLL_INTERVAL":     "100ms",
+		// §12.5 exports the run's audit range: exports on, with their
+		// own key.
+		"GLOSSA_AUDIT_EXPORTS_ENABLED": "true",
+		"GLOSSA_AUDIT_SIGNING_KEY":     auditKeyID + "=" + base64.StdEncoding.EncodeToString(auditSeed),
+		"GLOSSA_OUTBOX_POLL_INTERVAL":  "50ms",
+		"GLOSSA_OUTBOX_BATCH_SIZE":     "200",
+		"GLOSSA_AI_POLL_INTERVAL":      "100ms",
 		// §12.2 sweeps the MCP read tools as the vendor member.
 		"GLOSSA_MCP_ENABLED": "true",
-		// The fixture's AI provider is a loopback address nothing
-		// listens on: it exists to be addressed by §12.2's sweep, and
-		// no criterion calls a model.
+		// The fixture's AI provider is the fake on loopback
+		// (fakeprovider_test.go): it exists so §12.2's sweep has AI
+		// fills, jobs and suggestions to address, and no request ever
+		// leaves the machine.
 		"GLOSSA_AI_ALLOW_PRIVATE_ENDPOINTS": "true",
+		// The GitHub App, served by the fake: §12.2's sweep addresses a
+		// Git connection in each project.
+		"GLOSSA_GITHUB_APP_ID":              strconv.Itoa(appID),
+		"GLOSSA_GITHUB_APP_SLUG":            appSlug,
+		"GLOSSA_GITHUB_APP_PRIVATE_KEY":     string(privateKeyPEM(t, key)),
+		"GLOSSA_GITHUB_WEBHOOK_SECRET":      webhookSecret,
+		"GLOSSA_GITHUB_CLIENT_ID":           "Iv1.m5",
+		"GLOSSA_GITHUB_CLIENT_SECRET":       "m5-client-secret",
+		"GLOSSA_GITHUB_API_URL":             d.github.URL,
+		"GLOSSA_GITHUB_WEB_URL":             d.github.WebURL,
+		"GLOSSA_GITHUB_INBOX_POLL_INTERVAL": "50ms",
+		"GLOSSA_GITHUB_CHECK_POLL_INTERVAL": "50ms",
 	} {
 		vars[k] = v
 	}
@@ -195,6 +251,27 @@ func deploy(t *testing.T) *deployment {
 	}
 	d.edgeURL = startEdge(t, minio.minio)
 	return d
+}
+
+// The GitHub App the fake serves: one installation that sees one
+// repository, connected to both projects under different paths.
+const (
+	appID          = 99005
+	appSlug        = "glossa"
+	webhookSecret  = "m5-webhook-secret"
+	installationID = int64(5252)
+	repositoryID   = int64(50505)
+	repositoryName = "acme/monorepo"
+)
+
+// privateKeyPEM is the App's key, the way the Kubernetes Secret holds it.
+func privateKeyPEM(t *testing.T, key *rsa.PrivateKey) []byte {
+	t.Helper()
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 }
 
 // platformDir is the platform module, from this package's directory.
@@ -595,6 +672,30 @@ func softly(timeout time.Duration, cond func() (bool, string)) (bool, string) {
 			return false, state
 		}
 		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// staysFor is how a negative claim ("the pointer did not move", "the
+// translation is not approved yet") is checked: the condition is
+// polled for the whole window and the first violation ends it, so a
+// transient move is caught rather than slept through. A check that
+// cannot be made is an error, never a pass. The window has to cover
+// the outbox and the edge's refresh interval; it is not shortened to
+// save time, and it is never the only evidence for a positive claim.
+func staysFor(window time.Duration, violated func() (string, error)) error {
+	deadline := time.Now().Add(window)
+	for {
+		what, err := violated()
+		if err != nil {
+			return err
+		}
+		if what != "" {
+			return fmt.Errorf("%s", what)
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 

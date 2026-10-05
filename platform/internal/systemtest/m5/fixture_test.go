@@ -83,29 +83,69 @@ func (s *scenario) fixture() {
 // addressable gives §12.2's sweep something to address on operations
 // that read one resource: an application, a check policy version and a
 // staging release in each project, and a style guide, a term concept,
-// an AI provider and an export job in the tenant. All are M2–M4
-// features; one that cannot be made only leaves its operations without
-// a verdict in the coverage table, which the report counts against
-// §12.2 rather than hiding.
+// an AI provider (the fake on loopback) and an export job in the
+// tenant — then, in each project, every resource sweepResources makes.
+// All are M2–M4 features; one that cannot be made only leaves its
+// operations without a verdict in the coverage table, which the report
+// counts against §12.2 rather than hiding.
 func (s *scenario) addressable() {
-	for _, p := range []string{s.projectA, s.projectB} {
+	sides := [2]sweepSide{{project: s.projectA, prefix: "a"}, {project: s.projectB, prefix: "b"}}
+	for i := range sides {
+		p := sides[i].project
+		var app struct {
+			ID string `json:"id"`
+		}
 		_, _ = s.owner.try(http.MethodPost, s.projectPathOf(p, "/applications"),
-			map[string]string{"slug": "web", "name": "Web", "platform": "web"}, http.StatusCreated, nil)
+			map[string]string{"slug": "web", "name": "Web", "platform": "web"}, http.StatusCreated, &app)
+		sides[i].application = app.ID
 		_, _ = s.owner.try(http.MethodPost, s.projectPathOf(p, "/check-policy"), map[string]any{"policy": map[string]any{
 			"schema": "glossa.check-policy/v1", "require_complete": "all", "fail_on": "error", "missing_translations": "error",
 		}}, http.StatusOK, nil)
-		_, _ = s.publish(s.owner, p, "staging", map[string]any{"note": "the fixture's first"}, http.StatusCreated)
+		r, _ := s.publish(s.owner, p, "staging", map[string]any{"note": "the fixture's first"}, http.StatusCreated)
+		sides[i].release = r.ID
 	}
 	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/style-guides"),
 		map[string]any{"project_id": s.projectA, "locale": "de", "name": "Ledger tone"}, http.StatusCreated, nil)
 	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/term-concepts"), map[string]any{"project_id": s.projectA,
 		"terms": []map[string]string{{"locale": "en", "text": "ledger"}, {"locale": "de", "text": "Hauptbuch"}}}, http.StatusCreated, nil)
-	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/ai-providers"), map[string]any{
-		"name": "never-called", "kind": "openai_compatible", "base_url": "http://127.0.0.1:9/v1",
-		"api_key": "sk-m5-never-called", "models": []string{"never-called"},
-	}, http.StatusCreated, nil)
+	s.configureAI()
 	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/export-jobs"),
 		map[string]any{"project_id": s.projectA, "format": "xliff"}, http.StatusAccepted, nil)
+	// A group (RFC 0006 §4.3), so the group reads have one to address.
+	_, _ = s.owner.try(http.MethodPost, s.tenantPath("/groups"), map[string]any{"name": "de reviewers"}, http.StatusCreated, nil)
+	s.sweepResources(sides)
+}
+
+// configureAI points the tenant at the fake provider, routes translate
+// and assess to it, prices its models and gives consent and a budget —
+// M2's setup, so an AI fill makes a job and a suggestion. No review
+// task is routed, so a linguistic job never reaches a model.
+func (s *scenario) configureAI() {
+	for _, c := range []struct {
+		method, path string
+		body         any
+		want         int
+	}{
+		{http.MethodPost, "/ai-providers", map[string]any{
+			"name": fakeProviderName, "kind": "openai_compatible", "base_url": s.d.provider.baseURL(),
+			"api_key": fakeAPIKey, "models": []string{translateModel, assessModel},
+		}, http.StatusCreated},
+		{http.MethodPut, "/ai-routing-policy", map[string]any{"rules": []map[string]any{
+			{"task": "translate", "routes": []map[string]any{{"provider": fakeProviderName, "model": translateModel, "max_tokens": 512}}},
+			{"task": "assess", "routes": []map[string]any{{"provider": fakeProviderName, "model": assessModel, "max_tokens": 256}}},
+		}}, http.StatusOK},
+		{http.MethodPut, "/ai-prices", map[string]any{"overrides": map[string]any{
+			fakeProviderName + "/" + translateModel: map[string]float64{"input_per_mtok": 3, "output_per_mtok": 15},
+			fakeProviderName + "/" + assessModel:    map[string]float64{"input_per_mtok": 1, "output_per_mtok": 5},
+		}}, http.StatusOK},
+		{http.MethodPut, "/ai-settings", map[string]any{
+			"provider_consent": true, "monthly_budget_micro_usd": 10_000_000, "max_concurrent_jobs": 4,
+		}, http.StatusOK},
+	} {
+		if _, err := s.owner.try(c.method, s.tenantPath(c.path), c.body, c.want, nil); err != nil {
+			s.note("12.2", "The fixture could not configure AI (%s %s): %v", c.method, c.path, err)
+		}
+	}
 }
 
 func (s *scenario) newProject(slug, name string) string {
@@ -174,11 +214,12 @@ func (s *scenario) seedCatalog(project, prefix, sourceCanary, translationCanary 
 
 func unitKey(prefix string, i int) string { return fmt.Sprintf("%s.unit.%02d", prefix, i) }
 
-// vendorMember makes the vendor of §3.3 and its translator. Today the
-// platform has neither vendors nor assignment-scoped visibility; the
-// fixture then invites the same person as an ordinary `de` translator,
-// so §12.2's sweep still runs and shows what such a member can read.
-// That fallback is a gap of §12.2, never a pass.
+// vendorMember makes the vendor of §3.3 and its translator: a member
+// with the vendor, visibility `assigned` and project B's scope, each of
+// which the API must give back. A platform that refuses the invitation
+// gets the same person as an ordinary `de` translator, so §12.2's sweep
+// still runs and shows what such a member can read. That fallback is a
+// gap of §12.2, never a pass.
 func (s *scenario) vendorMember() {
 	var vendor struct {
 		ID string `json:"id"`
@@ -195,12 +236,13 @@ func (s *scenario) vendorMember() {
 		"visibility": visibilityAssigned, "projects": []string{s.projectB},
 	}
 	if s.vendorID != "" {
-		invite["vendor"] = s.vendorID
+		invite["vendor_id"] = s.vendorID
 	}
 	var member struct {
-		ID         string `json:"id"`
-		Visibility string `json:"visibility"`
-		Vendor     string `json:"vendor"`
+		ID         string   `json:"id"`
+		Visibility string   `json:"visibility"`
+		Vendor     string   `json:"vendor_id"`
+		Projects   []string `json:"projects"`
 	}
 	_, err := s.owner.try(http.MethodPost, s.tenantPath("/members"), invite, http.StatusCreated, &member)
 	switch {
@@ -208,11 +250,17 @@ func (s *scenario) vendorMember() {
 		s.gap("12.2", "inviting the vendor's translator with `visibility: assigned` and project B's scope — refused: %v", err)
 		delete(invite, "visibility")
 		delete(invite, "projects")
-		delete(invite, "vendor")
+		delete(invite, "vendor_id")
 		s.owner.do(http.MethodPost, s.tenantPath("/members"), invite, http.StatusCreated, &member)
 	case member.Visibility != visibilityAssigned:
 		s.gap("12.2", "the vendor's translator was invited, but the member the API returned has visibility %q, "+
 			"not %q: the field was dropped, so the platform restricts nothing", member.Visibility, visibilityAssigned)
+	case s.vendorID != "" && member.Vendor != s.vendorID:
+		s.gap("12.2", "the vendor's translator was invited, but the member the API returned works for vendor %q, not %s",
+			member.Vendor, s.vendorID)
+	case len(member.Projects) != 1 || member.Projects[0] != s.projectB:
+		s.gap("12.2", "the vendor's translator was invited, but the member the API returned is scoped to projects %v, "+
+			"not project B alone: the scope was dropped", member.Projects)
 	default:
 		s.vendorAsVendor = true
 	}

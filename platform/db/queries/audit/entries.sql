@@ -48,3 +48,72 @@ FROM audit_entries
 WHERE tenant_id = sqlc.arg(tenant_id) AND sequence > sqlc.arg(after_sequence)
 ORDER BY sequence
 LIMIT sqlc.arg(page_size)::int;
+
+-- ── the read API (RFC 0006 §6.2, wave 5) ───────────────────────────
+
+-- AuditEntryAt reads one entry by its place in the chain.
+-- name: AuditEntryAt :one
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = sqlc.arg(tenant_id) AND sequence = sqlc.arg(sequence);
+
+-- AuditEntriesFilteredAsc and …Desc list entries matching every filter
+-- that is set, in chain order or newest first, past a cursor sequence.
+-- projects, when set, limits them to those projects: a project-scoped
+-- caller's, which leaves out the tenant-level entries (a NULL
+-- project_id never matches ANY).
+-- name: AuditEntriesFilteredAsc :many
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND sequence > sqlc.arg(after_sequence)
+  AND (sqlc.narg(occurred_from)::timestamptz IS NULL OR occurred_at >= sqlc.narg(occurred_from))
+  AND (sqlc.narg(occurred_to)::timestamptz IS NULL OR occurred_at < sqlc.narg(occurred_to))
+  AND (sqlc.narg(first_sequence)::bigint IS NULL OR sequence >= sqlc.narg(first_sequence))
+  AND (sqlc.narg(last_sequence)::bigint IS NULL OR sequence <= sqlc.narg(last_sequence))
+  AND (sqlc.narg(actor)::text IS NULL OR actor = sqlc.narg(actor))
+  AND (sqlc.narg(action)::text IS NULL OR action = sqlc.narg(action))
+  AND (sqlc.narg(source)::text IS NULL OR source = sqlc.narg(source))
+  AND (sqlc.narg(aggregate_type)::text IS NULL OR aggregate_type = sqlc.narg(aggregate_type))
+  AND (sqlc.narg(aggregate_id)::text IS NULL OR aggregate_id = sqlc.narg(aggregate_id))
+  AND (sqlc.narg(project)::uuid IS NULL OR project_id = sqlc.narg(project))
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY(sqlc.narg(projects)::uuid[]))
+ORDER BY sequence
+LIMIT sqlc.arg(page_size)::int;
+
+-- name: AuditEntriesFilteredDesc :many
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND sequence < sqlc.arg(before_sequence)
+  AND (sqlc.narg(occurred_from)::timestamptz IS NULL OR occurred_at >= sqlc.narg(occurred_from))
+  AND (sqlc.narg(occurred_to)::timestamptz IS NULL OR occurred_at < sqlc.narg(occurred_to))
+  AND (sqlc.narg(first_sequence)::bigint IS NULL OR sequence >= sqlc.narg(first_sequence))
+  AND (sqlc.narg(last_sequence)::bigint IS NULL OR sequence <= sqlc.narg(last_sequence))
+  AND (sqlc.narg(actor)::text IS NULL OR actor = sqlc.narg(actor))
+  AND (sqlc.narg(action)::text IS NULL OR action = sqlc.narg(action))
+  AND (sqlc.narg(source)::text IS NULL OR source = sqlc.narg(source))
+  AND (sqlc.narg(aggregate_type)::text IS NULL OR aggregate_type = sqlc.narg(aggregate_type))
+  AND (sqlc.narg(aggregate_id)::text IS NULL OR aggregate_id = sqlc.narg(aggregate_id))
+  AND (sqlc.narg(project)::uuid IS NULL OR project_id = sqlc.narg(project))
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY(sqlc.narg(projects)::uuid[]))
+ORDER BY sequence DESC
+LIMIT sqlc.arg(page_size)::int;
+
+-- AuditOccurredSpan is the chain segment a time range's entries occupy
+-- — the least and greatest sequence that occurred in [from, to) — and
+-- how many entries occurred in it. An export of the range is that
+-- segment, and only when the segment holds no other entry.
+-- name: AuditOccurredSpan :one
+SELECT coalesce(min(sequence), 0)::bigint AS first_sequence,
+       coalesce(max(sequence), 0)::bigint AS last_sequence,
+       count(*)::bigint AS inside
+FROM audit_entries
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND occurred_at >= sqlc.arg(occurred_from) AND occurred_at < sqlc.arg(occurred_to);

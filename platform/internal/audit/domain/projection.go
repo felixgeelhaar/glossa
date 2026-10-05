@@ -55,6 +55,7 @@ var (
 		Selectors: []string{"vendor_id", "locales", "created_by", "changed_by", "deleted_by"},
 	}
 	identityGroup  = Projection{Selectors: []string{"group_id", "member_id", "by"}, By: "by"}
+	identityDevice = Projection{Selectors: []string{"authorization_id", "person_id", "status", "by"}, By: "by"}
 	integrationJob = Projection{
 		// The payload's by is the job's requester; the event's actor is
 		// whoever ended it (often the worker), so by is not taken.
@@ -83,10 +84,41 @@ var (
 		Selectors: []string{"release_id", "project_id", "environment", "parent_id", "previous_release_id", "manifest_digest", "by"},
 		By:        "by",
 	}
+	// An environment's approval requirement keeps its count, its
+	// four-eyes flag and a role (a built-in name); a member or a group
+	// it names may be a name somebody wrote, so it is recorded as its
+	// shape.
 	releaseEnvironment = Projection{
-		Project:   "project_id",
-		Selectors: []string{"project_id", "environment", "kind", "branch", "states", "by"},
-		By:        "by",
+		Project: "project_id",
+		Selectors: []string{
+			"project_id", "environment", "kind", "branch", "states", "by",
+			"approval.n", "approval.from.role", "approval.distinct_from_requester",
+		},
+		By: "by",
+	}
+	// A release request (RFC 0006 §5.1) is identifiers, its state, the
+	// requirement's count and who: the requester, the approvers whose
+	// grants counted, and the actor. Who may approve (approval_from) can
+	// name a group by its name, so it is recorded as its shape; the force
+	// and withdrawal reasons are never in the payload.
+	releaseRequest = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"request_id", "project_id", "environment", "release_id", "action", "state", "requester",
+			"approvals_required", "gate_met", "forced", "approvers", "by",
+		},
+		By: "by",
+	}
+	// A rollout's events carry no text: ids, the share, the state and
+	// who changed it. The salt is not in them at all: it is in the
+	// signed manifest, and an audit entry has no use for it.
+	releaseRollout = Projection{
+		Project: "project_id",
+		Selectors: []string{
+			"rollout_id", "project_id", "environment", "release_id", "stable_release_id", "percent", "previous_percent",
+			"status", "end", "max_duration_seconds", "expires_at", "forced", "by",
+		},
+		By: "by",
 	}
 	releaseDeliveryKey = Projection{
 		Project:   "project_id",
@@ -131,6 +163,15 @@ var (
 		By: "by",
 	}
 	workflowTimer = Projection{Project: "project_id", Selectors: []string{"instance_id", "project_id", "state"}}
+	// A rebase (RFC 0006 §2.3): which instance moved between which
+	// versions of which definition, and the state it kept — a name in
+	// the definition, like a timer's.
+	workflowRebase = Projection{
+		Project: "project_id", Locale: "locale",
+		Selectors: []string{
+			"instance_id", "project_id", "definition_id", "subject_kind", "locale", "from_version", "to_version", "state",
+		},
+	}
 )
 
 var Projections = map[string]Projection{
@@ -142,6 +183,7 @@ var Projections = map[string]Projection{
 	"workflow.approval.requested": workflowApproval, "workflow.approval.granted": workflowApproval,
 	"workflow.approval.denied":    workflowApproval,
 	"workflow.instance.timer_due": workflowTimer, "workflow.instance.timer_overdue": workflowTimer,
+	"workflow.instance.rebased": workflowRebase,
 
 	"catalog.project.created": catalogProject, "catalog.project.updated": catalogProject,
 	"catalog.project.deleted": catalogProject,
@@ -192,8 +234,20 @@ var Projections = map[string]Projection{
 	"identity.group.created":  identityGroup, "identity.group.renamed": identityGroup,
 	"identity.group.deleted": identityGroup, "identity.group.member_added": identityGroup,
 	"identity.group.member_removed": identityGroup,
+	// Device sign-in (RFC 0006 §7.2): the authorization, the person and
+	// the outcome. The name the device gave itself is whatever it sent,
+	// so it is recorded as its length.
+	"identity.device_authorization.approved": identityDevice, "identity.device_authorization.denied": identityDevice,
+	"identity.device_authorization.redeemed": identityDevice,
 
 	"integration.import.completed": integrationJob, "integration.export.completed": integrationJob,
+
+	// Audit exports are recorded in the trail they export (RFC 0006
+	// §6.1). Their payloads are identifiers, the range and the outcome.
+	// The request's by is its actor; the completion's actor is the
+	// exporter, and its by the requester, so by is not taken there.
+	EventExportRequested: withBy(auditExport, "by"),
+	EventExportCompleted: auditExport,
 
 	"knowledge.concept.created": knowledgeConcept, "knowledge.concept.updated": knowledgeConcept,
 	"knowledge.concept.deleted":     knowledgeConcept,
@@ -224,8 +278,13 @@ var Projections = map[string]Projection{
 		Selectors: []string{"project_id", "environment", "branch", "request_id", "not_before", "by"},
 		By:        "by",
 	},
+	"release.release_request.created": releaseRequest, "release.release_request.approved": releaseRequest,
+	"release.release_request.denied": releaseRequest, "release.release_request.deployed": releaseRequest,
+	"release.release_request.withdrawn": releaseRequest, "release.release_request.refused": releaseRequest,
 	"release.delivery_key.created": releaseDeliveryKey, "release.delivery_key.scope_changed": releaseDeliveryKey,
 	"release.delivery_key.revoked": releaseDeliveryKey,
+	"release.rollout.started":      releaseRollout, "release.rollout.advanced": releaseRollout,
+	"release.rollout.completed": releaseRollout, "release.rollout.aborted": releaseRollout,
 }
 
 var (
@@ -234,6 +293,11 @@ var (
 	}
 	catalogApplication = Projection{
 		Project: "project_id", Selectors: []string{"application_id", "project_id", "slug", "platform", "by"}, By: "by",
+	}
+	auditExport = Projection{
+		Selectors: []string{
+			"job_id", "state", "from", "to", "first_sequence", "last_sequence", "entry_count", "key_id", "failure_code", "by",
+		},
 	}
 )
 

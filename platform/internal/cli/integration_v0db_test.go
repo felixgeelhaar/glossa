@@ -4,9 +4,13 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0/v0test"
 )
 
@@ -116,6 +120,96 @@ func TestImportFromRestoredV03Database(t *testing.T) {
 	w.json(&out, args...).want(t, ExitOK)
 	if out.Summary["message"]["unchanged"] != 3 || out.Summary["translation"]["unchanged"] != 3 {
 		t.Errorf("re-run = %+v", out.Summary)
+	}
+	if srv.members.posts != 0 {
+		t.Fatalf("without --invite the import sent %d invitations", srv.members.posts)
+	}
+
+	// --invite sends the planned invitations, never the held one, and
+	// invites nobody twice (RFC 0006 §7.2).
+	invite := append(slices.Clone(args), "--invite")
+	srv.members.refuse = true
+	w.json(&doc, invite...).want(t, ExitNetwork)
+	if doc.Error.Code != "forbidden" || !strings.Contains(doc.Error.Fix, "admin scope") {
+		t.Errorf("a token that may not invite: error = %+v", doc.Error)
+	}
+	srv.members.refuse = false
+	srv.member("BOB@example.com", "translator")
+	srv.members.posts = 0
+	w.json(&out, invite...).want(t, ExitOK)
+	sent := map[string]string{}
+	for _, i := range out.Invitations {
+		sent[i.Email] = i.Status
+		if i.Status != v0.InvitationHeld && i.MemberID == "" {
+			t.Errorf("%s is %s without a member id", i.Email, i.Status)
+		}
+	}
+	if sent["alice@example.com"] != "invited" || sent["bob@example.com"] != "exists" || sent["carol@example.com"] != "held" ||
+		srv.members.posts != 1 {
+		t.Fatalf("invitations = %v after %d invitations sent", sent, srv.members.posts)
+	}
+	alice := srv.members.items[len(srv.members.items)-1]
+	if alice["email"] != "alice@example.com" || fmt.Sprint(alice["roles"]) != "[admin]" {
+		t.Errorf("alice was invited as %v", alice)
+	}
+	human = w.run(invite...)
+	if !strings.Contains(human.stdout, "0 invitations sent, 2 already members or invited, 0 failed, 1 held") {
+		t.Errorf("a second --invite run reads:\n%s", human.stdout)
+	}
+	if srv.members.posts != 1 {
+		t.Errorf("a second --invite run sent %d more invitations", srv.members.posts-1)
+	}
+	if srv.audit.posts != 0 {
+		t.Fatalf("without --history the import sent %d history imports", srv.audit.posts)
+	}
+
+	// --history sends the audit-entry plan as digests (RFC 0006 §7.2).
+	history := append(slices.Clone(args), "--history")
+	srv.audit.refuse = true
+	w.json(&doc, history...).want(t, ExitNetwork)
+	if doc.Error.Code != "forbidden" || !strings.Contains(doc.Error.Fix, "only an owner") {
+		t.Errorf("a credential that is not an owner's: error = %+v", doc.Error)
+	}
+	srv.audit.refuse = false
+	w.json(&out, history...).want(t, ExitOK)
+	if out.History == nil || out.History.Sent != 4 || out.History.Recorded != 4 || out.History.Existing != 0 {
+		t.Fatalf("history = %+v", out.History)
+	}
+	gone := srv.audit.recorded[strconv.FormatInt(out.AuditEntries[0].V0ID, 10)]
+	for _, e := range out.AuditEntries {
+		if e.Unresolved != "" {
+			gone = srv.audit.recorded[strconv.FormatInt(e.V0ID, 10)]
+		}
+	}
+	if gone["unresolved"] != "translation_deleted" || gone["key"] != nil || gone["before_sha256"] == nil || gone["actor"] != "v0:unknown" {
+		t.Errorf("the row whose translation is gone was sent as %v", gone)
+	}
+	// Every v0.3 value the plan holds is absent from every request; its
+	// digest is there instead.
+	for _, e := range out.AuditEntries {
+		for _, text := range []*string{e.Before, e.After} {
+			if text == nil {
+				continue
+			}
+			for _, body := range srv.audit.bodies {
+				if strings.Contains(string(body), *text) {
+					t.Errorf("v0.3's text %q was sent to the audit import", *text)
+				}
+			}
+			if !strings.Contains(string(srv.audit.bodies[len(srv.audit.bodies)-1]), textSHA256(text)) {
+				t.Errorf("the digest of %q was not sent", *text)
+			}
+		}
+	}
+	// Again — or for another project of the tenant, whose plan carries
+	// the row whose translation is gone too — records nothing twice.
+	w.json(&out, history...).want(t, ExitOK)
+	if out.History.Recorded != 0 || out.History.Existing != 4 || len(srv.audit.recorded) != 4 {
+		t.Errorf("a second --history run = %+v, %d rows held", out.History, len(srv.audit.recorded))
+	}
+	human = w.run(history...)
+	if !strings.Contains(human.stdout, "4 history entries sent to the audit trail (1 without a translation): 0 recorded, 4 already there") {
+		t.Errorf("--history reads:\n%s", human.stdout)
 	}
 }
 

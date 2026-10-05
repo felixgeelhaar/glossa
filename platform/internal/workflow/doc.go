@@ -30,7 +30,10 @@
 //     0044).
 //   - adapters/sources, adapters/identity: the runner's ports onto
 //     Catalog, Localization, Quality, Intelligence and Identity.
-//   - defaults: the default definition, as a document.
+//   - adapters/release: release requests (RFC 0006 §5.1) — the
+//     runner's port onto Release, and Release's port onto approvals.
+//   - defaults: the default definitions (review, release approval), as
+//     documents.
 //
 // Workflow depends on the other contexts' ports; none of them depends
 // on Workflow.

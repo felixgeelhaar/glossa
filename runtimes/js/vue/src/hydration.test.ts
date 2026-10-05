@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp, createSSRApp, defineComponent, h, nextTick } from "vue";
 import { renderToString } from "vue/server-renderer";
-import { createRuntime, memoryStorage } from "@glossa/runtime";
+import { createRuntime, memoryStorage } from "@felixgeelhaar/glossa-runtime";
 
 import { createGlossa, useGlossa } from "./index.js";
 import { App, r1, r2 } from "./testing/app.js";

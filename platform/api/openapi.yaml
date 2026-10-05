@@ -71,7 +71,13 @@ info:
     every unsafe request made with it must also send `X-CSRF-Token` with
     the `csrf_token` from the sign-in response or `GET /v1/me`. The CLI,
     CI and agents send `Authorization: Bearer glossa_api_…` API tokens,
-    which need no CSRF token. The in-product editor sends
+    which need no CSRF token. A person signed in to the CLI through
+    the device flow (`POST /v1/auth/device-authorizations`, RFC 8628)
+    sends `Authorization: Bearer glossa_dev_…`: that is the person's
+    session presented as a bearer, accepted wherever `session` is and
+    nowhere else, and it needs no CSRF token because nothing sends it
+    ambiently. It is not an API token and is accepted on no operation
+    that takes only `bearer`. The in-product editor sends
     `Authorization: Bearer glossa_ctx_…` in-context grants, which are
     accepted only on the operations that list the `in_context` scheme.
 
@@ -100,6 +106,17 @@ tags:
     description: People in an organization, their roles and locales.
   - name: tokens
     description: Tenant API tokens for the CLI, CI and agents.
+  - name: groups
+    description: |
+      Named sets of an organization's members ("de reviewers", "legal")
+      that assignments and approvals can name (RFC 0006 §4.3). A group
+      carries no permissions; roles do.
+  - name: vendors
+    description: |
+      Agencies and freelancers working inside the organization's tenant
+      (RFC 0006 §3.3). A vendor's member is an ordinary member with the
+      vendor set and `visibility: assigned`: they see their assignments
+      and nothing else.
   - name: projects
     description: |
       A product's localizable surface: its source locale, applications,
@@ -144,6 +161,20 @@ tags:
       Immutable, signed snapshots of a project's text: one
       content-addressed artifact per locale and namespace, described by
       a manifest glossa-edge serves (runtimes/SPEC.md §1).
+  - name: release-requests
+    description: |
+      Release approvals (RFC 0006 §5.1). An environment with an
+      `approval` requirement holds every publish and promote into it as
+      a release request and moves no pointer; the request is deployed
+      once enough people other than the requester have granted it.
+      Force overrides the publish gate, never the approval. Rollback is
+      never held.
+  - name: rollouts
+    description: |
+      Staged rollouts (RFC 0006 §5.2, runtimes/SPEC.md §1.4): a
+      candidate release served to a stable share of an environment's
+      installations, beside the release the environment points at, until
+      a person completes or aborts it.
   - name: delivery-keys
     description: |
       Publishable, project-scoped, revocable keys runtimes fetch
@@ -238,6 +269,22 @@ tags:
       selects which definition runs for a project's subjects; an
       instance is one subject's run through it, with its transition log.
       A project with no binding has no workflow.
+  - name: assignments
+    description: |
+      Work given to someone (RFC 0006 §3.1): a batch of translation units
+      for a member, a role, a group or a vendor. Completing one is a
+      claim, not a decision — it raises `assignment.completed`, and the
+      project's workflow decides what follows.
+  - name: approvals
+    description: |
+      Sign-offs (RFC 0006 §3.2): n distinct eligible people granting a
+      subject. Deciding is a person's act — no API token or agent can,
+      and the author of the text cannot approve it (four-eyes).
+  - name: audit
+    description: |
+      The tenant's audit trail (RFC 0006 §6): a hash-chained,
+      content-free record of who did what. It never holds message or
+      translation text.
 
 paths:
   # ── meta ────────────────────────────────────────────────────────────
@@ -471,6 +518,129 @@ paths:
             Set-Cookie: { $ref: "#/components/headers/ClearedSessionCookie" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ── CLI: device sign-in (RFC 8628) ─────────────────────────────────
+  /v1/auth/device-authorizations:
+    post:
+      operationId: startDeviceAuthorization
+      tags: [auth]
+      summary: Start signing a device in as a person
+      description: |
+        How `glossa login` signs a person in on a machine with no
+        browser session (RFC 0006 §7.2, the OAuth 2.0 device
+        authorization grant, RFC 8628). The CLI asks for a
+        `device_code`, shows the `user_code` and `verification_uri`,
+        and polls `POST /v1/auth/device-sessions` every `interval`
+        seconds while the person approves the code in Studio, signed
+        in as themselves.
+
+        The `device_code` is the CLI's secret and is never shown; the
+        `user_code` is eight characters from an alphabet without
+        look-alikes, shown as `XXXX-XXXX`, and is only good for
+        approving or denying. Both expire after `expires_in` seconds
+        (15 minutes). Unauthenticated, rate limited per client address.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceAuthorizationRequest" }
+      responses:
+        "200":
+          description: The codes to show and poll with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceAuthorization" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/device-authorizations/{user_code}:
+    parameters:
+      - name: user_code
+        in: path
+        required: true
+        description: The code the device shows, with or without its hyphen, in any case.
+        schema: { type: string, minLength: 8, maxLength: 9 }
+    get:
+      operationId: getDeviceAuthorization
+      tags: [auth]
+      summary: What a device code would sign in
+      description: |
+        What Studio shows before the person approves: the name the
+        device gave itself and when it asked, so a code read out by
+        someone else is recognisable as not one's own. Only a browser
+        session may look a code up. A code that is unknown, expired or
+        already decided answers `404` `device_authorization_not_found`,
+        whichever it is.
+      security:
+        - session: []
+      responses:
+        "200":
+          description: The pending request.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceAuthorizationView" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/auth/device-approvals:
+    post:
+      operationId: decideDeviceAuthorization
+      tags: [auth]
+      summary: Approve or deny a device code
+      description: |
+        The signed-in person approves the code, which signs the device
+        in as them, or denies it, which ends it. Only a browser session
+        decides — never an API token, and never a device session, so a
+        signed-in CLI cannot sign further devices in. The device's
+        session belongs to the person and to nobody else: it acts with
+        exactly the person's memberships, roles, project scope and
+        visibility, in every tenant, and ends when the person signs out
+        everywhere. Problem codes: `device_authorization_not_found`
+        (404: unknown, expired or already decided).
+      security:
+        - session: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceApproval" }
+      responses:
+        "204": { description: Decided. The device's next poll learns the outcome. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/auth/device-sessions:
+    post:
+      operationId: redeemDeviceAuthorization
+      tags: [auth]
+      summary: Poll for the device's session
+      description: |
+        The device polls with its `device_code`. Until the person
+        decides, the answer is `400` `authorization_pending`; polling
+        faster than `interval` answers `400` `slow_down`, and the device
+        adds five seconds to its interval (RFC 8628 §3.5). A denied code
+        answers `400` `access_denied`, an expired or unknown one `400`
+        `expired_token`. Once approved, the first poll returns the
+        session's bearer and spends the code: a second poll with it is
+        `expired_token`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceSessionRequest" }
+      responses:
+        "200":
+          description: "Signed in. Send `access_token` as `Authorization: Bearer`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   # ── CI: GitHub Actions OIDC ─────────────────────────────────────────
   /v1/auth/github-oidc-exchanges:
@@ -869,10 +1039,19 @@ paths:
       summary: Invite someone by email
       description: |
         Opens an invitation that becomes an active membership when the
-        address's owner signs in. Needs `members.manage`; the `owner`
-        role needs `owners.manage`. Problem codes: `already_member`
-        (409), `individual_tenant` (409), `owner_change_forbidden`
-        (403), `locales_need_locale_role` (400).
+        address's owner signs in. `projects`, `vendor_id` and
+        `visibility` restrict the member from the start (RFC 0006 §3.3,
+        §4.1): a vendor's translator is invited with `vendor_id`,
+        `visibility: assigned` and, usually, the projects they work on.
+        Needs `members.manage`; the `owner` role needs `owners.manage`,
+        naming a vendor `vendors.manage`, and an inviter limited to some
+        projects invites only within them. Problem codes:
+        `already_member` (409), `individual_tenant` (409),
+        `owner_change_forbidden` (403), `scope_exceeds_grant` (403: a
+        project outside the inviter's), `locales_need_locale_role`,
+        `invalid_visibility`, `vendor_member_visibility`,
+        `assigned_visibility_role`, `owner_project_scoped`,
+        `too_many_projects` (400), `not_found` (404: no such vendor).
       security:
         - session: []
           csrf: []
@@ -928,10 +1107,17 @@ paths:
       tags: [members]
       summary: Change a member's roles or locales
       description: |
-        Members omitted from the body keep their value. Needs
-        `members.manage`; anything touching the `owner` role needs
-        `owners.manage`. Problem codes: `last_owner` (409),
-        `owner_change_forbidden` (403), `locales_need_locale_role` (400).
+        Members omitted from the body keep their value. A request changes
+        the member's access (`roles`, `locales`) or their restriction
+        (`projects`, `vendor_id`, `visibility`, RFC 0006 §3.3, §4.1), not
+        both: each is its own event and version. A restriction takes
+        effect on the member's next request. Needs `members.manage`;
+        anything touching the `owner` role needs `owners.manage`, and
+        setting or clearing a vendor `vendors.manage`. Problem codes:
+        `last_owner` (409), `owner_change_forbidden`,
+        `scope_exceeds_grant` (403), `locales_need_locale_role`,
+        `access_and_restriction` (400: both in one request), and the
+        restriction codes of `addMember` (400).
       security:
         - session: []
           csrf: []
@@ -1073,6 +1259,319 @@ paths:
         - bearer: []
       responses:
         "204": { description: Revoked. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ── groups (RFC 0006 §4.3) ──────────────────────────────────────────
+  /v1/tenants/{tenant}/groups:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: The organization's groups
+      description: Each with its members. Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of groups.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create a group
+      description: |
+        An empty group; add members with `putGroupMember`. Needs
+        `members.manage`. Problem codes: `invalid_group_name` (400),
+        `individual_tenant` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupName" }
+      responses:
+        "201":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/groups/{group}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/GroupPath"
+    get:
+      operationId: getGroup
+      tags: [groups]
+      summary: A group
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: renameGroup
+      tags: [groups]
+      summary: Rename a group
+      description: |
+        Needs `members.manage`. Problem codes: `invalid_group_name`
+        (400).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupName" }
+      responses:
+        "200":
+          description: The renamed group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteGroup
+      tags: [groups]
+      summary: Delete a group
+      description: |
+        Its members stay members. Assignments and approvals that named
+        the group keep naming it and reach nobody. Needs
+        `members.manage`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/groups/{group}/members/{member}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/GroupPath"
+      - $ref: "#/components/parameters/MemberPath"
+    put:
+      operationId: putGroupMember
+      tags: [groups]
+      summary: Put a member into a group
+      description: |
+        Idempotent: a member already in the group stays, and the group
+        is answered as it is. Needs `members.manage`. Problem codes:
+        `group_full` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The group.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Group" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: removeGroupMember
+      tags: [groups]
+      summary: Take a member out of a group
+      description: |
+        Needs `members.manage`. Problem codes: `not_in_group` (404).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── vendors (RFC 0006 §3.3) ─────────────────────────────────────────
+  /v1/tenants/{tenant}/vendors:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: The organization's vendors
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of vendors.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Add a vendor
+      description: |
+        A vendor is a named group of members inside this tenant, not a
+        tenant of its own (RFC 0006 §3.3); invite its people with
+        `addMember` and `vendor_id`. Needs `vendors.manage`. Problem
+        codes: `invalid_vendor_name`, `invalid_vendor_contact`,
+        `invalid_locale` (400), `individual_tenant` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateVendor" }
+      responses:
+        "201":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/vendors/{vendor}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/VendorPath"
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: A vendor
+      description: Needs `members.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Change a vendor's details
+      description: |
+        Members omitted from the body keep their value. Needs
+        `vendors.manage`. Problem codes: as `createVendor`.
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateVendor" }
+      responses:
+        "200":
+          description: The vendor.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor nobody works for any more
+      description: |
+        A vendor that still has members is refused: taking each of them
+        off it, or removing them, is a decision about that person.
+        Needs `vendors.manage`. Problem codes: `vendor_has_members`
+        (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2006,6 +2505,92 @@ paths:
         "422": { $ref: "#/components/responses/StructuralQAFailed" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
 
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: listUnitTMMatches
+      tags: [translation-memory]
+      summary: Translation-memory matches for one unit
+      description: |
+        The memory's matches for one translation unit — the message the
+        key names, in the locale — scored as `lookupTranslationMemory`
+        scores them, from the tenant-wide units and the project's own,
+        best first. It is the translation workspace's read, and the only
+        one a member with visibility `assigned` has (RFC 0006 §3.3): the
+        unit must be in an assignment of theirs, and anything else —
+        another unit, another project — is `404`. A match is text and a
+        score, never the matched unit: for an `assigned` member no id or
+        key of the remembered unit is returned (`message_key` is omitted),
+        so the memory does not tell a vendor what else is in the
+        project. It records no hit. Needs `knowledge.read`. Problem
+        codes: `invalid_query`, `invalid_syntax` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 5 } }
+        - { name: min_score, in: query, required: false, schema: { type: integer, minimum: 50, maximum: 101, default: 50 } }
+        - name: target_syntax
+          in: query
+          required: false
+          description: The syntax of each `target_text`; by default the one the message's source is written in.
+          schema: { $ref: "#/components/schemas/Syntax" }
+      x-glossa-unpaged: |
+        The matches of one unit are at most 50, ranked, and nobody pages
+        through a unit's candidates.
+      responses:
+        "200":
+          description: The matches, best first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnitTMMatches" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: listUnitAISuggestions
+      tags: [ai-suggestions]
+      summary: AI suggestions for one unit
+      description: |
+        The newest suggestions (at most 5) for one translation unit — the
+        message the key names, in the locale — as its workspace shows
+        them: the text, its score with the explanation, the routed
+        action, risks and findings. It is the read a member with
+        visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+        assignment of theirs, and anything else is `404`. The job,
+        provider, model, calls, cost and the translation-memory units it
+        drew on are not part of it; they stay with
+        `getAISuggestion`. `decidable` is false for an `assigned`
+        member, who writes the translation instead of accepting a
+        suggestion. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      x-glossa-unpaged: |
+        A unit's workspace shows at most its five newest suggestions; a
+        cap is a stronger promise than a cursor.
+      responses:
+        "200":
+          description: The unit's suggestions, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnitAISuggestions" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -2336,11 +2921,30 @@ paths:
     patch:
       operationId: updateEnvironment
       tags: [environments]
-      summary: Change an environment's eligibility policy
+      summary: Change an environment's eligibility policy or approval requirement
       description: |
         The policy decides what the next publish ships and which
         releases may be promoted here; the release served keeps serving.
-        Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+
+        `approval` requires every publish and promote into the
+        environment to be approved by `n` distinct people of `from`, none
+        of them the requester (RFC 0006 §5.1): such a move answers `202`
+        with a release request and moves no pointer. `clear_approval`
+        switches the requirement off; leaving both out keeps it as it
+        is. Changing who must approve is governance, not publishing, so
+        it also needs `workflows.manage` (owner and admin by default). A
+        request already pending keeps showing the requirement it was made
+        under; its deploy must also meet the environment's requirement of
+        the moment. Policy and approval change together, under one
+        `If-Match`.
+
+        Needs `releases.publish`. Problem codes: `invalid_policy`,
+        `invalid_request` (400: `approval` together with
+        `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+        exactly one of `member`, `role` or `group`, or
+        `distinct_from_requester` not true — self-approval is not
+        offered), `approval_on_branch` (422: a branch environment's
+        policy is fixed).
       security:
         - session: []
           csrf: []
@@ -2367,6 +2971,7 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
   /v1/tenants/{tenant}/projects/{project}/environments/{environment}/promotions:
     parameters:
@@ -2396,10 +3001,20 @@ paths:
         `policy_not_met` and can be overridden with `force` and a
         `force_reason`, which the deployment records.
 
+        An environment with an `approval` requirement holds the promote
+        as a release request: the answer is `202` with the request, no
+        pointer moves, and the release is deployed once the requirement
+        is met (see `release-requests`). A forced promote waits too:
+        `force` overrides the completeness requirement, never the
+        approval. A promote into an environment with an active staged
+        rollout is refused (`rollout_active`): it would replace the
+        stable side under installations the rollout compares with it;
+        complete or abort the rollout first.
+
         Needs `releases.publish`. Problem codes: `force_reason_required`,
         `invalid_force_reason` (400), `release_not_found` (404),
         `release_ineligible`, `branch_release_not_promotable`,
-        `policy_not_met` (409), `storage_unavailable` (503).
+        `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
       security:
         - session: []
           csrf: []
@@ -2417,6 +3032,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Environment" }
+        "202":
+          description: |
+            Held for approval: a release request was made and no pointer
+            moved. `Location` is the request.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseHeld" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -2527,6 +3151,382 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ── rollouts (RFC 0006 §5.2) ─────────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+    get:
+      operationId: listRollouts
+      tags: [rollouts]
+      summary: The environment's staged rollouts
+      description: |
+        Newest first: the active one, if any, and the history of ended
+        ones. Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of rollouts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RolloutList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: startRollout
+      tags: [rollouts]
+      summary: Start serving a candidate release to a share of installations
+      description: |
+        The environment's manifest gains a signed `rollout` member
+        (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+        salt fixed for the rollout's life; a runtime activates the
+        candidate when its installation's cohort falls below `percent`,
+        and every other installation — and every runtime that predates
+        rollouts — keeps the release the environment points at. The
+        pointer does not move until the rollout is completed.
+
+        The candidate is held to what a promote into the environment is
+        held to: a main-catalog release of the project the environment's
+        policy covers, through the completeness requirement or forced
+        with a `force_reason` that the completing deployment records.
+        The environment must already serve a release with the same
+        source locale, and may have one active rollout at a time. A
+        rollout ends by itself only at `max_duration_seconds` (default 14 days),
+        when it is aborted. An environment that requires release
+        approvals refuses rollouts (`rollout_needs_approval`) until a
+        release request can carry one; publish or promote there instead.
+
+        Needs `releases.publish`. Problem codes: `invalid_percent`,
+        `invalid_max_duration`, `force_reason_required`,
+        `invalid_force_reason`, `invalid_idempotency_key` (400),
+        `release_not_found` (404), `rollout_active`,
+        `rollout_no_stable`, `rollout_candidate_served`,
+        `rollout_branch_environment`, `rollout_source_locale`,
+        `rollout_needs_approval`, `release_ineligible`,
+        `branch_release_not_promotable`, `policy_not_met` (409),
+        `idempotency_key_reused` (422), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartRollout" }
+      responses:
+        "201":
+          description: The rollout, active.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    get:
+      operationId: getRollout
+      tags: [rollouts]
+      summary: A rollout
+      description: Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The rollout.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: advanceRollout
+      tags: [rollouts]
+      summary: Change the share of installations in the candidate
+      description: |
+        Any percent may follow any other, down as well as up (RFC 0006
+        §15 Q5); the salt stays, so the installations in the candidate
+        at a lower percent are among those at a higher one. Advancing
+        needs no approval. Needs `releases.publish`. Problem codes:
+        `invalid_percent` (400), `rollout_ended` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdvanceRollout" }
+      responses:
+        "200":
+          description: The rollout.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    post:
+      operationId: completeRollout
+      tags: [rollouts]
+      summary: Make the candidate the environment's release
+      description: |
+        The pointer moves to the candidate as a promote moves it — the
+        deployment records the force the rollout started with, if any —
+        and the manifest drops `rollout`. The completeness requirement
+        is not asked again: it was asked when the rollout started, about
+        the same immutable release. Completing an ended rollout is
+        `rollout_ended`. Needs `releases.publish`. Problem codes:
+        `rollout_ended` (409), `storage_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "200":
+          description: The rollout, completed.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/EnvironmentPath"
+      - $ref: "#/components/parameters/RolloutPath"
+    post:
+      operationId: abortRollout
+      tags: [rollouts]
+      summary: End the rollout and keep the environment's release
+      description: |
+        The manifest drops `rollout` and every installation returns to
+        the release the environment points at on its next refresh.
+        Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+        A rollback of the environment aborts its rollout too. Needs
+        `releases.publish`. Problem codes: `rollout_ended` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatchOptional"
+      responses:
+        "200":
+          description: The rollout, aborted.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rollout" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  # ── release requests (RFC 0006 §5.1) ────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/release-requests:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    get:
+      operationId: listReleaseRequests
+      tags: [release-requests]
+      summary: A project's release requests
+      description: |
+        Newest first, optionally in one `environment` and one `state`.
+        Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: environment, in: query, required: false, schema: { $ref: "#/components/schemas/EnvironmentName" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/ReleaseRequestState" } }
+      responses:
+        "200":
+          description: A page of release requests.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequestList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    get:
+      operationId: getReleaseRequest
+      tags: [release-requests]
+      summary: A release request
+      description: |
+        What it would deploy, where, who asked, the requirement its
+        approvers were asked for, what the completeness requirement said
+        when it was made, and whether the requester forced it and why.
+        Needs `releases.read`.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The release request.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    post:
+      operationId: decideReleaseRequest
+      x-glossa-idempotency: A person's repeated grant records nothing and answers the approval as it is; one person counts once.
+      tags: [release-requests]
+      summary: Grant or deny a release request
+      description: |
+        A person's decision on the request's current approval — the one
+        the project's release-approval workflow asked for — recorded as
+        `POST …/approvals/{approval}/decisions` records it. Once enough
+        distinct people other than the requester have granted it, the
+        workflow deploys the release as the last of them: Release checks
+        the requirement itself, runs the completeness requirement again
+        and moves the pointer, and the edge serves it within seconds. A
+        denial closes the request; nothing moves.
+
+        Human-only: an API token or an MCP agent is refused
+        (`person_required`, 403) — no scope grants `approvals.decide`.
+        The caller needs `approvals.decide` in the request's environment,
+        must be of the requirement's party (`not_eligible`, 403), and
+        must not be the requester (`own_text`, 403: four-eyes). Problem
+        codes: `approval_not_requested` (409: the workflow has not asked
+        for the approval yet; retry shortly), `release_request_closed`
+        (409: deployed, denied, withdrawn or refused), `approval_closed`,
+        `approval_superseded` (409), `invalid_approval` (422: a reason
+        over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApprovalDecision" }
+      responses:
+        "201":
+          description: The approval with the decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/ReleaseRequestPath"
+    post:
+      operationId: withdrawReleaseRequest
+      tags: [release-requests]
+      summary: Take a pending release request back
+      description: |
+        Its requester, or anyone who may publish to the project. No
+        pointer moves. A newer publish or promote into the same
+        environment withdraws the pending request by itself. Needs
+        `releases.publish`. Problem codes: `invalid_withdraw_reason`
+        (400), `release_request_closed` (409).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReleaseRequestWithdrawal" }
+      responses:
+        "200":
+          description: The release request, withdrawn.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseRequest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # ── releases ────────────────────────────────────────────────────────
   /v1/tenants/{tenant}/projects/{project}/releases:
     parameters:
@@ -2576,10 +3576,22 @@ paths:
         no reason is `force_reason_required` and a reason with no
         override is `invalid_force_reason`.
 
+        An environment with an `approval` requirement holds the publish
+        as a release request: the release is built and recorded, but the
+        answer is `202` with the release's `id` and the request, and the
+        environment keeps serving what it served. The release is deployed
+        once the requirement is met (see `release-requests`). A forced
+        publish waits too: `force` overrides the completeness
+        requirement, never the approval, and the approvers see that it
+        was forced and why. A retry with the same `Idempotency-Key`
+        answers the same request. A publish into an environment with an
+        active staged rollout is refused (`rollout_active`); complete or
+        abort the rollout first.
+
         Needs `releases.publish`. Problem codes: `invalid_environment`,
         `invalid_note`, `force_reason_required`, `invalid_force_reason`
-        (400), `policy_not_met` (409), `not_releasable` (422),
-        `storage_unavailable` (503).
+        (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+        (422), `storage_unavailable` (503).
       security:
         - session: []
           csrf: []
@@ -2600,6 +3612,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Release" }
+        "202":
+          description: |
+            Held for approval: the release was recorded and a release
+            request made; no pointer moved. `Location` is the request.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReleaseHeld" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -5841,7 +6863,7 @@ paths:
       description: |
         The body is one `glossa.usages/v1` document: where one
         application's messages are used at one commit, as
-        `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+        `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
         write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
         It is validated by the schema's rules — members it doesn't define
         are ignored within v1, anything else it refuses is
@@ -5874,7 +6896,7 @@ paths:
           in: query
           required: true
           description: >-
-            The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`),
+            The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`),
             `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
           schema: { $ref: "#/components/schemas/ContextSource" }
       requestBody:
@@ -7750,6 +8772,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WorkflowDefinitionVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -7964,21 +8987,92 @@ paths:
       tags: [workflows]
       summary: A workflow instance
       description: |
-        Its definition version, subject, state and status. Needs
-        `workflows.read`. Problem codes: `workflow_instances_unavailable`
-        (503).
+        Its definition version, subject, state and status. The `ETag` is
+        the definition version the instance runs on: what a rebase's
+        `If-Match` names. Needs `workflows.read`. Problem codes:
+        `workflow_instances_unavailable` (503).
       security:
         - session: []
         - bearer: []
       responses:
         "200":
           description: The instance.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WorkflowInstance" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowInstancePath"
+    post:
+      operationId: rebaseWorkflowInstance
+      x-glossa-idempotency: If-Match names the version the instance runs on, so a retry of a rebase that landed answers 412 rather than moving it twice.
+      tags: [workflows]
+      summary: Move a running instance to a newer version of its definition
+      description: |
+        A running instance stays on the version it started with until a
+        workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+        instance's state by name: the target version — `version`, or the
+        definition's latest when the body names none — must be newer, and
+        must have that state as one an instance can wait in. A rebase
+        changes what happens next, never what already happened: it runs
+        no entry action again (the assignments and approvals the state
+        asked for stand), and a pending due date keeps its time. An
+        instance that has not started yet starts on the new version at
+        its next event.
+
+        The rebase is recorded in the instance's transition log as event
+        `rebase` (its one action says which versions), and published as
+        `workflow.instance.rebased` naming who did it. `If-Match` is the
+        instance's `ETag`: the version it runs on.
+
+        Needs `workflows.manage` in the project. Problem codes:
+        `workflow_instance_finished` (409: nothing left to run),
+        `invalid_workflow_rebase` (422: the version is not newer, or the
+        definition has no such version), `workflow_rebase_state_missing`
+        (422: the target has no such state), `workflow_rebase_state_final`
+        (422: the state is final in the target), `precondition_failed`
+        (412), `precondition_required` (428),
+        `workflow_instances_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RebaseWorkflowInstance" }
+      responses:
+        "200":
+          description: The instance on its new version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowInstance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422":
+          description: The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions:
@@ -8017,6 +9111,720 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  # ── assignments (RFC 0006 §3.1) ─────────────────────────────────────
+  /v1/tenants/{tenant}/assignments:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: Assignments, or my work
+      description: |
+        What the caller may see. With `assignments.manage`, every
+        assignment in their project scope — or, with `mine=true`, only
+        their own. Without it, only their own: given to them directly,
+        to a role they hold, to a group they are in or to their vendor.
+        That is "my work", and it is all a vendor's member (visibility
+        `assigned`) ever sees here. Filters: `project`; a unit by
+        `message` key (with `project`) and/or `locale`; `state`.
+        Needs `assignments.read` (`assignments.manage` for others'
+        work). Problem codes: `invalid_query`, `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: "A message `key`; needs `project`.", schema: { $ref: "#/components/schemas/MessageKey" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/AssignmentState" } }
+        - { name: mine, in: query, required: false, description: Only the caller's own work., schema: { type: boolean } }
+      responses:
+        "200":
+          description: A page of assignments, oldest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createAssignment
+      tags: [assignments]
+      summary: Give translation units to someone
+      description: |
+        One assignment for a batch of a project's translation units —
+        the job a translator works through, not one string at a time.
+        The assignee is exactly one member, role, group or vendor
+        (`assignee`); a vendor's members see these units, and only
+        these, while it is open and for 30 days after it is done (RFC
+        0006 §3.3). Units are named by message key and locale. Needs
+        `assignments.manage` in the project. Problem codes:
+        `invalid_assignment` (422: no units, too many, a key the
+        project does not have, a due date in the past),
+        `unknown_party` (422: no such member, group or vendor),
+        `workflow_limit_reached` (409: the assignee already holds 1,000
+        open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+        (422), `invalid_idempotency_key` (400), `not_found` (404: the
+        project).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAssignment" }
+      responses:
+        "201":
+          description: The assignment, `open`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/assignment-reports:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: getAssignmentReport
+      tags: [assignments]
+      summary: Vendors' quality report
+      description: |
+        The quality numbers of completed assignments, by assignee and
+        locale (RFC 0006 §3.4), computed on read from the assignments,
+        the catalog, the translations' revision logs and the findings,
+        as the caller: it says nothing they could not read unit by unit.
+        At most 2000 assignments and 5000 units are read; `truncated`
+        says a bound stopped it. Filters: `project`, `vendor` (a vendor
+        `id`) and `since` (assignments completed at or after it).
+        Needs `assignments.read` in the project scope; a member whose
+        visibility is `assigned` is refused. Problem codes:
+        `invalid_query` (400), `workflow_instances_unavailable` (503, a
+        server built without the contexts a report reads).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: vendor, in: query, required: false, description: A vendor `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: since, in: query, required: false, description: Only assignments completed at or after this time., schema: { $ref: "#/components/schemas/Timestamp" } }
+      responses:
+        "200":
+          description: The rows, sorted by assignee and locale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /v1/tenants/{tenant}/assignments/{assignment}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    get:
+      operationId: getAssignment
+      tags: [assignments]
+      summary: An assignment
+      description: |
+        With `assignments.manage`, any in the caller's project scope;
+        otherwise only one given to the caller, with
+        `assignments.read` — someone else's is not found.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment; the `ETag` is its version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/acceptance:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: acceptAssignment
+      tags: [assignments]
+      summary: Take an open assignment on
+      description: |
+        Only its assignee, holding the assignment's permission for every
+        unit. Problem codes: `forbidden` (403: not given to you, or
+        missing the permission), `assignment_state` (409: not `open`).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment, `accepted`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/completion:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: completeAssignment
+      tags: [assignments]
+      summary: Claim an assignment done
+      description: |
+        A claim, not a decision: it raises `assignment.completed` and the
+        project's workflow decides what follows; no review state changes
+        here (RFC 0006 §3.1). Only its assignee, holding the assignment's
+        permission for every unit. Problem codes: `forbidden` (403),
+        `assignment_state` (409: not live).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      responses:
+        "200":
+          description: The assignment, `done`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenants/{tenant}/assignments/{assignment}/decline:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AssignmentPath"
+    post:
+      operationId: declineAssignment
+      tags: [assignments]
+      summary: Hand an assignment back
+      description: |
+        By its assignee, or by someone with `assignments.manage` taking
+        it back; raises `assignment.declined`. Problem codes: `forbidden`
+        (403), `assignment_state` (409: not live), `invalid_assignment`
+        (422: a reason over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignmentDecline" }
+      responses:
+        "200":
+          description: The assignment, `declined`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  # ── approvals (RFC 0006 §3.2) ───────────────────────────────────────
+  /v1/tenants/{tenant}/approvals:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listApprovals
+      tags: [approvals]
+      summary: Approvals, with their decisions
+      description: |
+        The approvals inbox. Filters: `project`; a translation unit by
+        `message` key (with `project`) and/or `locale`; `subject`;
+        `state`. Needs `workflows.read`, in the caller's project scope.
+        Problem codes: `invalid_query`, `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: message, in: query, required: false, description: "A message `key`; needs `project`.", schema: { $ref: "#/components/schemas/MessageKey" } }
+        - { name: locale, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+        - { name: subject, in: query, required: false, schema: { $ref: "#/components/schemas/WorkflowSubject" } }
+        - { name: state, in: query, required: false, schema: { $ref: "#/components/schemas/ApprovalState" } }
+      responses:
+        "200":
+          description: A page of approvals, oldest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createApproval
+      x-glossa-idempotency: A pending approval asking the same of the same party for the same unit is answered as it is rather than asked twice.
+      tags: [approvals]
+      summary: Ask for a translation unit to be approved
+      description: |
+        Asks `n` distinct people of `from` (a member, a role or a group —
+        never a vendor) to grant it. Four-eyes always applies: the author
+        of the unit's latest text cannot count. A newer request for the
+        same unit replaces the pending one. Needs `assignments.manage`
+        in the project. Problem codes: `invalid_approval` (422: `n` out
+        of range, a vendor asked, a key the project does not have),
+        `unknown_party` (422), `not_found` (404: the project).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApproval" }
+      responses:
+        "201":
+          description: The approval, `pending`.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenants/{tenant}/approvals/{approval}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ApprovalPath"
+    get:
+      operationId: getApproval
+      tags: [approvals]
+      summary: An approval, with its decisions
+      description: Needs `workflows.read`, in the caller's project scope.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/approvals/{approval}/decisions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ApprovalPath"
+    post:
+      operationId: decideApproval
+      x-glossa-idempotency: A person's repeated grant records nothing and answers the approval as it is; one person counts once.
+      tags: [approvals]
+      summary: Grant or deny an approval
+      description: |
+        A person's decision, appended to the approval and raised as
+        `approval.granted` or `approval.denied`; the project's workflow
+        moves the translation (RFC 0006 §3.2). Human-only: an API token
+        or an MCP agent is refused (`person_required`, 403) — no scope
+        grants `approvals.decide`. The caller needs `approvals.decide`
+        for the unit's locale, must be in the approval's eligible party
+        (`not_eligible`, 403), and must not be the author of the text
+        under approval (`own_text`, 403: four-eyes). Only the newest
+        approval of a unit takes decisions. Problem codes:
+        `approval_closed` (409: already granted or denied),
+        `approval_superseded` (409: a newer request replaced it),
+        `invalid_approval` (422: a reason over 2,000 characters).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApprovalDecision" }
+      responses:
+        "201":
+          description: The approval with the decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  # ── audit (RFC 0006 §6, §7.2) ───────────────────────────────────────
+  /v1/tenants/{tenant}/projects/{project}/audit-imports:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+    post:
+      operationId: importV0History
+      x-glossa-idempotency: Each row is recorded once by its `v0_id`; a repeated import answers it under `existing` and records nothing.
+      tags: [audit]
+      summary: Record v0.3's history as imported audit entries
+      description: |
+        `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+        from a restored backup, in batches (RFC 0006 §7.2). Each row
+        becomes an imported audit entry `v0.translation.changed` in the
+        tenant's audit trail, in its own chain segment marked as
+        imported, with actor `v0:<user id>` — never a member of this
+        platform — and a reference to the imported translation. History
+        is carried as history: nothing is replayed as a revision, and no
+        provenance is fabricated.
+
+        **No text.** A row carries a translation's before and after only
+        as SHA-256 digests of their UTF-8 bytes: an audit entry never
+        holds message or translation text (§6.1). The body has no member
+        that could carry one, and a member it does not name is ignored.
+
+        Writing the tenant's audit trail is the owner's: it needs
+        `audit.import`, which only `owner` holds, no API token scope
+        grants and no background principal may be given, by a
+        principal limited to no project — the trail is the
+        organisation's, not one project's (RFC 0006 §7.2). Every row is
+        recorded under the project in the path. Answers
+        `audit_import_unavailable` (503) on a server that does not run
+        the importer. Problem codes: `invalid_request` (400),
+        `invalid_entry` (422: a row is not shaped like v0.3 history;
+        nothing was recorded), `audit_import_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/V0HistoryImport" }
+      responses:
+        "200":
+          description: What the import recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V0HistoryReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/audit-entries:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    get:
+      operationId: listAuditEntries
+      tags: [audit]
+      summary: The tenant's audit entries
+      description: |
+        The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+        for chain order). An entry is content-free: identifiers and
+        selectors verbatim, everything else as its shape; never message
+        or translation text, an email or a secret.
+
+        Filters, all optional and combined: `from`/`to` (when it
+        happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+        place in the chain, inclusive), `actor` (`person:<id>`,
+        `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+        `action` (an event type such as
+        `localization.translation.revised`, or a direct action such as
+        `identity.person.signed_in`), `project`, `source` (`outbox`,
+        `direct`, `import`), `aggregate_type` and `aggregate_id`.
+
+        Needs `audit.read` (owner and admin; no API token scope grants
+        it). A principal limited to some projects sees only the entries
+        of those projects — not the tenant-level entries (sign-ins,
+        members, tokens, vendors, groups), which belong to the
+        organisation, not to a project. A member whose visibility is
+        `assigned` is refused. Problem codes: `invalid_query`,
+        `invalid_page_size`, `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - { name: from, in: query, required: false, description: "Entries that happened at or after this instant.", schema: { $ref: "#/components/schemas/Timestamp" } }
+        - { name: to, in: query, required: false, description: "Entries that happened before this instant.", schema: { $ref: "#/components/schemas/Timestamp" } }
+        - { name: first_sequence, in: query, required: false, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: last_sequence, in: query, required: false, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: actor, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: action, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: project, in: query, required: false, description: A project `id`., schema: { $ref: "#/components/schemas/Id" } }
+        - { name: source, in: query, required: false, schema: { $ref: "#/components/schemas/AuditSource" } }
+        - { name: aggregate_type, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: aggregate_id, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: order, in: query, required: false, schema: { type: string, enum: [desc, asc], default: desc } }
+      responses:
+        "200":
+          description: A page of entries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEntryList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/audit-entries/{sequence}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - name: sequence
+        in: path
+        required: true
+        description: The entry's place in the tenant's chain.
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      operationId: getAuditEntry
+      tags: [audit]
+      summary: One audit entry
+      description: |
+        Needs `audit.read`. An entry outside a project-scoped caller's
+        projects — and a tenant-level entry, for such a caller — is not
+        found, exactly like one that does not exist.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The entry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEntry" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/audit-export-jobs:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+    post:
+      operationId: createAuditExportJob
+      tags: [audit]
+      summary: Export a range of the audit trail
+      description: |
+        Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+        platform/README.md's *Audit export format*): two objects,
+        `entries.jsonl` and a `manifest.json` signed with the
+        deployment's audit key, downloadable when the job has
+        `succeeded` and verifiable offline with `glossa audit verify
+        <dir> --public-key …` (the key is published at
+        `/.well-known/glossa-audit-keys.json`).
+
+        The range is either a time range, `from` and `to` — the entries
+        that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+        the future is cut to now, so an export never claims a range that
+        has not happened yet — or a sequence range, `first_sequence`
+        and optionally `last_sequence` (the chain's head when omitted,
+        fixed when the job is made), at most 1,000,000 entries. An
+        export is always one unbroken segment of the tenant's chain, so
+        it is the tenant's whole trail for the range and never one
+        project's: a project's entries are not a chain on their own and
+        could not be verified. A time range whose entries are not one
+        unbroken segment — imported v0.3 history appended in the middle
+        of it, whose `occurred_at` lies years back — fails with
+        `range_not_contiguous`; export it by sequence instead.
+
+        Needs `audit.export`, which only `owner` holds by default and no
+        API token scope grants, by a principal limited to no project.
+        Making the job, and its end, are themselves recorded in the
+        trail (`audit.export.requested`, `audit.export.completed`).
+        Problem codes: `invalid_range` (400), `range_too_long`,
+        `sequence_out_of_range` (422: past the chain's head),
+        `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+        this deployment has no audit key, or exports are off).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuditExportJobCreate" }
+      responses:
+        "201":
+          description: The job, queued.
+          headers:
+            Location: { $ref: "#/components/headers/Location" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      operationId: listAuditExportJobs
+      tags: [audit]
+      summary: Audit export jobs
+      description: |
+        Newest first. Needs `audit.export`, by a principal limited to no
+        project. Problem codes: `invalid_page_size`,
+        `invalid_page_token` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: A page of audit export jobs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditExportJobList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AuditExportJobPath"
+    get:
+      operationId: getAuditExportJob
+      tags: [audit]
+      summary: An audit export job
+      description: |
+        A job ends `succeeded` — with the chain segment it holds
+        (`first_sequence`, `last_sequence`, `entry_count`,
+        `first_prev_hash`, `last_hash`), the key that signed it, and
+        both files' digests and where to download them — or `failed`
+        (`failure_code`: `range_not_contiguous`, `internal`). Needs
+        `audit.export`, by a principal limited to no project.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditExportJob" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AuditExportJobPath"
+    get:
+      operationId: downloadAuditExportEntries
+      tags: [audit]
+      summary: Download an audit export's entries.jsonl
+      description: |
+        The export's lines, byte for byte, streamed from object storage,
+        with `Content-Disposition: attachment; filename="entries.jsonl"`
+        and their SHA-256 — the manifest's `entries.sha256` — as the
+        `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+        kept for the deployment's retention period
+        (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+        stays. Needs `audit.export`, by a principal limited to no
+        project. Problem codes: `export_not_ready` (409), `file_expired`
+        (410), `storage_unavailable` (503).
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: entries.jsonl.
+          headers:
+            Content-Disposition:
+              description: "`attachment; filename=\"entries.jsonl\"`"
+              schema: { type: string }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/jsonl:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410": { $ref: "#/components/responses/Gone" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/AuditExportJobPath"
+    get:
+      operationId: downloadAuditExportManifest
+      tags: [audit]
+      summary: Download an audit export's signed manifest.json
+      description: |
+        The signed manifest, byte for byte as the job wrote it (RFC 8785
+        canonical JSON), with `Content-Disposition: attachment;
+        filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+        and refused like the entries (`export_not_ready` 409,
+        `file_expired` 410, `storage_unavailable` 503). Needs
+        `audit.export`, by a principal limited to no project.
+      security:
+        - session: []
+        - bearer: []
+      responses:
+        "200":
+          description: manifest.json (`glossa.audit/v1`).
+          headers:
+            Content-Disposition:
+              description: "`attachment; filename=\"manifest.json\"`"
+              schema: { type: string }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditExportManifest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410": { $ref: "#/components/responses/Gone" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
 components:
@@ -8086,6 +9894,18 @@ components:
       required: true
       description: An API token `id` (never its secret).
       schema: { $ref: "#/components/schemas/Id" }
+    GroupPath:
+      name: group
+      in: path
+      required: true
+      description: A group `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    VendorPath:
+      name: vendor
+      in: path
+      required: true
+      description: A vendor `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     ProjectPath:
       name: project
       in: path
@@ -8142,6 +9962,18 @@ components:
       in: path
       required: true
       description: A release `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ReleaseRequestPath:
+      name: release_request
+      in: path
+      required: true
+      description: A release request `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    RolloutPath:
+      name: rollout
+      in: path
+      required: true
+      description: A rollout `id`.
       schema: { $ref: "#/components/schemas/Id" }
     PasskeyPath:
       name: passkey
@@ -8209,6 +10041,12 @@ components:
       required: true
       description: An import job `id`.
       schema: { $ref: "#/components/schemas/Id" }
+    AuditExportJobPath:
+      name: audit_export_job
+      in: path
+      required: true
+      description: An audit export job `id`.
+      schema: { $ref: "#/components/schemas/Id" }
     ExportJobPath:
       name: export_job
       in: path
@@ -8256,6 +10094,18 @@ components:
       in: path
       required: true
       description: A workflow binding `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    AssignmentPath:
+      name: assignment
+      in: path
+      required: true
+      description: An assignment `id`.
+      schema: { $ref: "#/components/schemas/Id" }
+    ApprovalPath:
+      name: approval
+      in: path
+      required: true
+      description: An approval `id`.
       schema: { $ref: "#/components/schemas/Id" }
     WorkflowInstancePath:
       name: workflow_instance
@@ -8458,12 +10308,15 @@ components:
         Translators and reviewers can be limited to `locales`.
     Scope:
       type: string
-      enum: [read, write, publish, admin]
+      enum: [read, write, publish, admin, workflows]
       description: |
         `read` reads the tenant; `write` pushes messages and
         translations; `publish` creates releases; `admin` manages the
-        tenant, members and tokens (never owners). Every scope implies
-        `read`.
+        tenant, members and tokens (never owners); `workflows` saves and
+        binds workflow definitions (`workflows.manage`, RFC 0006 §4.2) —
+        opt-in, implied by no other scope. Every scope implies `read`.
+        No scope grants review or `approvals.decide`: those are a
+        person's decisions.
     Problem:
       type: object
       description: RFC 9457 problem details.
@@ -8518,6 +10371,52 @@ components:
       required: [email]
       properties:
         email: { $ref: "#/components/schemas/Email" }
+    DeviceAuthorizationRequest:
+      type: object
+      required: [client_name]
+      properties:
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`.
+    DeviceAuthorization:
+      type: object
+      required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval]
+      properties:
+        device_code: { type: string, description: The device's secret for polling. Never shown to a person. }
+        user_code: { type: string, description: "Shown to the person, as `XXXX-XXXX`." }
+        verification_uri: { type: string, format: uri, description: Studio's page where the person enters the code. }
+        verification_uri_complete: { type: string, format: uri, description: The same page with the code filled in. }
+        expires_in: { type: integer, minimum: 1, description: Seconds until both codes expire. }
+        interval: { type: integer, minimum: 1, description: Seconds to wait between polls. }
+    DeviceAuthorizationView:
+      type: object
+      required: [user_code, client_name, requested_at, expires_at]
+      properties:
+        user_code: { type: string }
+        client_name: { type: string }
+        requested_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+    DeviceApproval:
+      type: object
+      required: [user_code, decision]
+      properties:
+        user_code: { type: string, minLength: 8, maxLength: 9 }
+        decision: { type: string, enum: [approved, denied] }
+    DeviceSessionRequest:
+      type: object
+      required: [device_code]
+      properties:
+        device_code: { type: string, minLength: 1, maxLength: 256 }
+    DeviceSession:
+      type: object
+      required: [access_token, token_type, expires_at, person_id]
+      properties:
+        access_token: { type: string, description: "`glossa_dev_…`: the person's session as a bearer." }
+        token_type: { type: string, enum: [Bearer] }
+        expires_at: { type: string, format: date-time, description: When the session ends unless the person signs out sooner. }
+        person_id: { type: string, format: uuid }
     TokenRedemption:
       type: object
       required: [token]
@@ -8657,7 +10556,7 @@ components:
 
     Member:
       type: object
-      required: [id, email, status, roles, locales, created_at, updated_at]
+      required: [id, email, status, roles, locales, projects, visibility, created_at, updated_at]
       properties:
         id: { $ref: "#/components/schemas/Id" }
         email: { $ref: "#/components/schemas/Email" }
@@ -8673,8 +10572,26 @@ components:
           type: array
           description: Locales a translator or reviewer works on; empty means all.
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          description: The projects the member's roles apply to (RFC 0006 §4.1); empty means every project.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          $ref: "#/components/schemas/Id"
+          description: The vendor the member works for (RFC 0006 §3.3); absent for the organization's own people.
+        visibility: { $ref: "#/components/schemas/Visibility" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    Visibility:
+      type: string
+      enum: [all, assigned]
+      description: |
+        `all` (the default) reads whatever the member's roles allow;
+        `assigned` reads only the translation units of assignments given
+        to them — open, or completed within 30 days — and what
+        translating them needs, and writes translations in those units
+        and nothing else (RFC 0006 §3.3). Only a translator can be
+        `assigned`, and a vendor's member always is.
     MemberList:
       type: object
       required: [items]
@@ -8696,8 +10613,24 @@ components:
           type: array
           maxItems: 200
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          maxItems: 100
+          description: |
+            Limits the member's roles to these projects (RFC 0006 §4.1).
+            Omitted or empty, every project — or, for an inviter limited
+            to some, exactly theirs. An owner is never limited.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          $ref: "#/components/schemas/Id"
+          description: "Invites the person as this vendor's member; they must be `visibility: assigned`."
+        visibility: { $ref: "#/components/schemas/Visibility" }
     UpdateMember:
       type: object
+      description: |
+        The member's access (`roles`, `locales`) or their restriction
+        (`projects`, `vendor_id`, `visibility`) — one or the other per
+        request.
       properties:
         roles:
           type: array
@@ -8707,10 +10640,20 @@ components:
           type: array
           maxItems: 200
           items: { $ref: "#/components/schemas/Locale" }
+        projects:
+          type: array
+          maxItems: 100
+          description: The member's project scope; empty means every project.
+          items: { $ref: "#/components/schemas/Id" }
+        vendor_id:
+          type: string
+          maxLength: 64
+          description: A vendor `id`, or the empty string to take the member off their vendor.
+        visibility: { $ref: "#/components/schemas/Visibility" }
 
     Token:
       type: object
-      required: [id, name, hint, scopes, created_by, created_at]
+      required: [id, name, hint, scopes, projects, created_by, created_at]
       properties:
         id: { $ref: "#/components/schemas/Id" }
         name: { type: string }
@@ -8718,6 +10661,10 @@ components:
         scopes:
           type: array
           items: { $ref: "#/components/schemas/Scope" }
+        projects:
+          type: array
+          description: The projects the token may act on (RFC 0006 §4.1); empty means every project.
+          items: { $ref: "#/components/schemas/Id" }
         created_by: { type: string, description: "`person:<id>` or `token:<id>`." }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
@@ -8740,7 +10687,83 @@ components:
           type: array
           minItems: 1
           items: { $ref: "#/components/schemas/Scope" }
+        projects:
+          type: array
+          maxItems: 100
+          description: |
+            Limits the token to these projects (RFC 0006 §4.1): a project
+            outside them answers as one that does not exist. Omitted or
+            empty, every project — or, for a creator who is themselves
+            limited to some projects, exactly theirs. Naming a project
+            outside the creator's own is `scope_exceeds_grant` (403).
+          items: { $ref: "#/components/schemas/Id" }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
+    Group:
+      type: object
+      required: [id, name, members, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        members:
+          type: array
+          description: Member `id`s, sorted.
+          items: { $ref: "#/components/schemas/Id" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    GroupList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Group" }
+        next_page_token: { type: string }
+    GroupName:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+    Vendor:
+      type: object
+      required: [id, name, locales, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        name: { type: string }
+        contact: { type: string, description: "Free text — a name, an address. Shown, never mailed to." }
+        locales:
+          type: array
+          description: The locales the vendor offers. They describe it and grant nothing.
+          items: { $ref: "#/components/schemas/Locale" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    VendorList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Vendor" }
+        next_page_token: { type: string }
+    CreateVendor:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        contact: { type: string, maxLength: 200 }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
+    UpdateVendor:
+      type: object
+      description: Members omitted keep their value.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        contact: { type: string, maxLength: 200 }
+        locales:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Locale" }
     CreatedToken:
       type: object
       required: [token]
@@ -9563,6 +11586,9 @@ components:
           $ref: "#/components/schemas/BranchName"
           description: The branch a `branch` environment previews; absent for a standard one.
         policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        approval:
+          $ref: "#/components/schemas/EnvironmentApproval"
+          description: Present when a publish or promote here needs approval (RFC 0006 §5.1).
         current_release_id: { $ref: "#/components/schemas/Id" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
@@ -9605,6 +11631,12 @@ components:
       required: [policy]
       properties:
         policy: { $ref: "#/components/schemas/EnvironmentPolicy" }
+        approval:
+          $ref: "#/components/schemas/EnvironmentApproval"
+          description: Sets the approval requirement; omitted keeps it as it is.
+        clear_approval:
+          type: boolean
+          description: Switches the approval requirement off. Not together with `approval`.
     Promotion:
       type: object
       required: [release_id]
@@ -9649,6 +11681,298 @@ components:
           type: string
           maxLength: 1000
           description: Why it went ahead; present exactly when `forced`.
+    # ── release approvals (RFC 0006 §5.1) ───────────────────────────
+    EnvironmentApprovalParty:
+      type: object
+      description: |
+        Exactly one of `member` (a member `id`), `role` or `group` (a
+        group `id` or name, lower-case) — who may approve. A vendor
+        delivers work and does not sign it off, so it is not a party
+        here.
+      properties:
+        member: { type: string, minLength: 1, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        group: { type: string, minLength: 1, maxLength: 128 }
+    EnvironmentApproval:
+      type: object
+      required: [n, from, distinct_from_requester]
+      description: |
+        `n` distinct people of `from`, none of them the requester, must
+        grant a publish or promote into the environment before its
+        pointer moves. `distinct_from_requester` is always true:
+        self-approval is not offered (RFC 0006 §15 q6).
+      properties:
+        n: { type: integer, minimum: 1, maximum: 10 }
+        from: { $ref: "#/components/schemas/EnvironmentApprovalParty" }
+        distinct_from_requester: { type: boolean }
+    ReleaseRequestState:
+      type: string
+      enum: [pending, deployed, denied, withdrawn, refused]
+      description: |
+        `pending` waits for approvals; the others are final. `refused`:
+        approved, but the completeness requirement, run again at deploy
+        time, refused it — `reason` says why.
+    GateVerdict:
+      type: object
+      required: [met]
+      description: What the environment's completeness requirement said when the request was made.
+      properties:
+        met: { type: boolean }
+        unmet:
+          type: array
+          description: What the requirement asked for and the release lacks; absent when met.
+          items: { type: string }
+    ReleaseRequest:
+      type: object
+      required: [id, environment, release_id, action, requester, approval, gate, forced, state, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        release_id: { $ref: "#/components/schemas/Id" }
+        action: { type: string, enum: [publish, promote], description: What the deploy records. }
+        requester: { type: string, description: "Who asked (`person:…`, `token:…`). They never count toward the approval." }
+        approval: { $ref: "#/components/schemas/EnvironmentApproval" }
+        gate: { $ref: "#/components/schemas/GateVerdict" }
+        forced:
+          type: boolean
+          description: |
+            The requester overrode the completeness requirement. Force
+            overrides the gate, never the approval: the approvers see it.
+        force_reason: { type: string, maxLength: 1000, description: Why; present exactly when `forced`. }
+        state: { $ref: "#/components/schemas/ReleaseRequestState" }
+        decided_by: { type: string, description: "Who closed it: the last approver, the denier, or who withdrew it." }
+        decided_at: { $ref: "#/components/schemas/Timestamp" }
+        reason: { type: string, description: Why it was refused or withdrawn. }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    ReleaseRequestList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReleaseRequest" }
+        next_page_token: { type: string }
+    ReleaseHeld:
+      type: object
+      required: [id, release_request_id, release_request]
+      description: A publish or promote held for approval. No pointer moved.
+      properties:
+        id: { $ref: "#/components/schemas/Id", description: "The release the request would deploy: the one just recorded by a publish, or the one a promote named." }
+        release_request_id: { $ref: "#/components/schemas/Id" }
+        release_request: { $ref: "#/components/schemas/ReleaseRequest" }
+    ReleaseRequestWithdrawal:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 1000 }
+    # ── staged rollouts (RFC 0006 §5.2) ─────────────────────────────
+    Rollout:
+      type: object
+      required: [id, environment, release_id, stable_release_id, percent, status, max_duration_seconds, expires_at, forced, started_by, started_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        environment: { $ref: "#/components/schemas/EnvironmentName" }
+        release_id: { $ref: "#/components/schemas/Id", description: The candidate. }
+        stable_release_id: { $ref: "#/components/schemas/Id", description: What the environment served when the rollout started. }
+        percent: { type: integer, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [active, completed, aborted] }
+        end: { type: string, enum: [completed, aborted, expired, rolled_back], description: How an ended rollout ended. }
+        max_duration_seconds: { type: integer, minimum: 3600 }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        forced: { type: boolean, description: The candidate was started past the completeness requirement. }
+        force_reason: { type: string, maxLength: 1000, description: Why; present exactly when `forced`. }
+        started_by: { type: string }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        ended_by: { type: string }
+        ended_at: { $ref: "#/components/schemas/Timestamp" }
+    RolloutList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Rollout" }
+        next_page_token: { type: string }
+    StartRollout:
+      type: object
+      required: [release_id, percent]
+      properties:
+        release_id: { $ref: "#/components/schemas/Id" }
+        percent: { type: integer, description: "The share of installations in the candidate, 0–100 (`invalid_percent`)." }
+        max_duration_seconds:
+          type: integer
+          description: |
+            When the rollout is aborted unless a person ended it first:
+            one hour to 90 days (`invalid_max_duration`); 14 days when
+            omitted.
+        force:
+          type: boolean
+          description: |
+            Start although the environment's completeness requirement
+            refuses the candidate (`policy_not_met`). It needs a
+            `force_reason`, which the completing deployment records.
+        force_reason:
+          type: string
+          maxLength: 1000
+          description: Required with `force` (`force_reason_required`) and refused without it (`invalid_force_reason`).
+    AdvanceRollout:
+      type: object
+      required: [percent]
+      properties:
+        percent: { type: integer, description: "0–100 (`invalid_percent`)." }
+    # ── v0.3 history (RFC 0006 §7.2) ────────────────────────────────
+    V0HistoryEntry:
+      type: object
+      required: [v0_id, action, actor, occurred_at]
+      description: |
+        One row of v0.3's `audit_log`. No text: the translation's before
+        and after are SHA-256 digests of their UTF-8 bytes.
+      properties:
+        v0_id: { type: string, minLength: 1, maxLength: 64, description: "v0.3's `audit_log` id: the idempotency key." }
+        action: { type: string, pattern: "^v0\\.[a-z][a-z0-9_.]{0,62}$", description: "As the plan names it (`v0.translation.changed`)." }
+        actor:
+          type: string
+          minLength: 4
+          maxLength: 128
+          pattern: "^v0:"
+          description: "`v0:<uuid>`, `v0:ai:<label>`, `v0:system:<label>` or `v0:unknown`; never a member of this platform."
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        key: { $ref: "#/components/schemas/MessageKey", description: "The translation's message, when the row still resolves to one." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        unresolved: { type: string, maxLength: 200, description: Why the row resolves to no translation. }
+        before_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        after_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+    V0HistoryImport:
+      type: object
+      required: [restore, restore_sha256, entries]
+      properties:
+        restore: { type: string, minLength: 1, maxLength: 255, description: "The dump the rows were read from, as the restore marker names it." }
+        restore_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/V0HistoryEntry" }
+    AuditSource:
+      type: string
+      enum: [outbox, direct, import]
+      description: |
+        Where an entry came from: a domain event (`outbox`), an act that
+        never reaches the outbox such as a sign-in or an MCP tool call
+        (`direct`), or v0.3's imported history (`import`).
+    AuditEntry:
+      type: object
+      description: |
+        One entry of the tenant's hash chain, as its `glossa.audit/v1`
+        export line holds it (RFC 0006 §6.1). Content-free: `summary`
+        keeps identifiers and selectors verbatim and records everything
+        else as its shape (`"string(len=27)"`).
+      required: [sequence, event_id, source, action, actor, occurred_at, aggregate_type, aggregate_id, summary, prev_hash, hash]
+      properties:
+        sequence: { type: integer, format: int64, minimum: 1, description: Its place in the tenant's chain. }
+        event_id: { type: string, description: "The act recorded: the outbox event's id, or a direct write's own." }
+        source: { $ref: "#/components/schemas/AuditSource" }
+        action: { type: string, description: "The event type (`release.published`) or direct action (`identity.person.signed_in`)." }
+        actor: { type: string, description: "`person:<id>`, `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor (`v0:<id>`)." }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        aggregate_type: { type: string }
+        aggregate_id: { type: string }
+        project_id: { $ref: "#/components/schemas/Id" }
+        locale: { type: string }
+        summary:
+          type: object
+          additionalProperties: true
+          description: The act without its content.
+        request_id: { type: string }
+        trace_id: { type: string }
+        prev_hash: { type: string, pattern: "^[0-9a-f]{64}$", description: The previous entry's hash (64 zero digits for the first). }
+        hash: { type: string, pattern: "^[0-9a-f]{64}$", description: "sha256(prev_hash ‖ JCS(entry))." }
+    AuditEntryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEntry" }
+        next_page_token: { type: string }
+    AuditExportJobCreate:
+      type: object
+      description: |
+        Exactly one range: a time range (`from` and `to`), or a
+        sequence range (`first_sequence`, and `last_sequence` or the
+        chain's head).
+      properties:
+        from: { $ref: "#/components/schemas/Timestamp" }
+        to: { $ref: "#/components/schemas/Timestamp" }
+        first_sequence: { type: integer, format: int64, minimum: 1 }
+        last_sequence: { type: integer, format: int64, minimum: 1 }
+    AuditExportJobState:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    AuditExportFile:
+      type: object
+      required: [path, sha256, bytes]
+      properties:
+        path: { type: string, description: "`entries.jsonl` or `manifest.json`." }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        bytes: { type: integer, format: int64, minimum: 0 }
+        download_url: { type: string, description: Where to download it; present while it is kept. }
+    AuditExportJob:
+      type: object
+      required: [id, state, attempts, created_by, created_at, updated_at, expires_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        state: { $ref: "#/components/schemas/AuditExportJobState" }
+        from:
+          $ref: "#/components/schemas/Timestamp"
+          description: A time range's start, as asked.
+        to:
+          $ref: "#/components/schemas/Timestamp"
+          description: A time range's end, as asked, or cut to when the job was made.
+        first_sequence:
+          type: integer
+          format: int64
+          description: The first entry; for a time range, once the job has run.
+        last_sequence:
+          type: integer
+          format: int64
+          description: The last entry; for a time range, once the job has run. `first_sequence − 1` for an empty export.
+        entry_count: { type: integer, format: int64, minimum: 0 }
+        first_prev_hash: { type: string, pattern: "^[0-9a-f]{64}$", description: Where the export joins the chain before it. }
+        last_hash: { type: string, pattern: "^[0-9a-f]{64}$", description: "The head the next export's `first_prev_hash` continues from." }
+        key_id: { type: string, description: The audit key that signed the manifest. }
+        entries: { $ref: "#/components/schemas/AuditExportFile" }
+        manifest: { $ref: "#/components/schemas/AuditExportFile" }
+        failure_code: { type: string }
+        failure_message: { type: string }
+        attempts: { type: integer }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        finished_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+          description: When retention deletes the files.
+        files_deleted_at: { $ref: "#/components/schemas/Timestamp" }
+    AuditExportJobList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AuditExportJob" }
+        next_page_token: { type: string }
+    AuditExportManifest:
+      type: object
+      additionalProperties: true
+      description: A `glossa.audit/v1` manifest (platform/README.md, *Audit export format*), as signed.
+    V0HistoryReport:
+      type: object
+      required: [recorded, existing]
+      properties:
+        recorded: { type: integer, minimum: 0 }
+        existing: { type: integer, minimum: 0, description: Rows an earlier import recorded already (same `v0_id`). }
     DeploymentList:
       type: object
       required: [items]
@@ -10112,6 +12436,60 @@ components:
         matches:
           type: array
           items: { $ref: "#/components/schemas/TMMatch" }
+    UnitTMMatch:
+      type: object
+      description: >-
+        A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit
+        it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`.
+      required: [score, kind, source_normalized, target, target_text, target_syntax, target_syntax_fallback, variables_adapted, project_scoped]
+      properties:
+        score: { type: integer, minimum: 50, maximum: 101 }
+        kind: { type: string, enum: [context, exact, fuzzy] }
+        source_normalized: { type: string, description: "The remembered source, normalized: what a fuzzy match is compared with." }
+        target: { type: string, description: "The remembered target in MF2, its variables renamed to the unit's by position." }
+        target_text: { type: string, description: The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it. }
+        target_syntax: { $ref: "#/components/schemas/Syntax" }
+        target_syntax_fallback: { type: boolean }
+        variables_adapted: { type: boolean, description: False when a target variable had no counterpart and kept its name. }
+        project_scoped: { type: boolean, description: "True for a unit the project owns, false for a tenant-wide one." }
+        message_key:
+          allOf: [{ $ref: "#/components/schemas/MessageKey" }]
+          description: The key of the message the match was learned from. Never returned to a member with visibility `assigned`.
+    UnitTMMatches:
+      type: object
+      required: [source_normalized, items]
+      properties:
+        source_normalized: { type: string, description: "The unit's own source, normalized." }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UnitTMMatch" }
+    UnitAISuggestion:
+      type: object
+      description: >-
+        An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and
+        provenance of `AISuggestion` are not part of it.
+      required: [id, locale, source_revision, message, findings, term_findings, score, explanation, action, risk_tags, status, outdated, decidable, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        source_revision: { type: integer }
+        message: { type: string, description: The translation in canonical MF2 syntax. }
+        findings: { type: array, items: { $ref: "#/components/schemas/QAFinding" } }
+        term_findings: { type: array, items: { $ref: "#/components/schemas/AITermFinding" } }
+        score: { type: number, format: double, minimum: 0, maximum: 1 }
+        explanation: { type: array, items: { $ref: "#/components/schemas/AIConfidenceFactor" } }
+        action: { $ref: "#/components/schemas/AIAction" }
+        action_note: { type: string }
+        risk_tags: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/AISuggestionStatus" }
+        outdated: { type: boolean, description: The message's source has been revised since the suggestion was made. }
+        decidable: { type: boolean, description: "Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    UnitAISuggestions:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/UnitAISuggestion" } }
     TMConcordanceMatch:
       type: object
       required: [similarity, unit]
@@ -11537,7 +13915,7 @@ components:
       type: object
       required: [name, version]
       properties:
-        name: { type: string, maxLength: 214, description: "A package name: `@glossa/unplugin`, `glossa`." }
+        name: { type: string, maxLength: 214, description: "A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`." }
         version: { type: string, maxLength: 256, description: A semantic version. }
     UsagesDocument:
       type: object
@@ -13143,6 +15521,186 @@ components:
         definition_id: { $ref: "#/components/schemas/Id" }
         definition_name: { type: string }
         version: { type: integer, minimum: 1, description: "The version a new instance would start on." }
+    Party:
+      type: object
+      description: |
+        Exactly one of `member`, `role`, `group` or `vendor` — who work
+        is given to, or who may approve. A group or a vendor is named by
+        its `id` or its name (case does not matter).
+      properties:
+        member: { $ref: "#/components/schemas/Id" }
+        role: { $ref: "#/components/schemas/Role" }
+        group: { type: string, minLength: 1, maxLength: 100, description: A group `id` or name. }
+        vendor: { type: string, minLength: 1, maxLength: 100, description: A vendor `id` or name. }
+    Assignee:
+      type: object
+      required: [kind]
+      description: A party as stored, resolved to Identity's ids.
+      properties:
+        kind: { type: string, enum: [member, role, group, vendor] }
+        id: { $ref: "#/components/schemas/Id", description: "The member, group or vendor; absent for a role." }
+        role: { $ref: "#/components/schemas/Role" }
+    AssignmentReport:
+      type: object
+      required: [generated_at, rows, truncated]
+      properties:
+        since: { $ref: "#/components/schemas/Timestamp" }
+        generated_at: { $ref: "#/components/schemas/Timestamp" }
+        truncated: { type: boolean, description: A bound stopped the report; its numbers cover only what was read before it. }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentReportRow" }
+    AssignmentReportRow:
+      type: object
+      description: One assignee's completed work in one locale (RFC 0006 §3.4).
+      required: [assignee, locale, assignments, on_time, late, no_due, units, unavailable, source_words, tm_words, approved, rejected, needs_review, draft, unreviewed, changed_after_delivery, mean_edit_distance, mean_edit_ratio, findings, findings_per_unit, reworked, rework_rate, on_time_rate]
+      properties:
+        assignee: { type: string, description: "As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`." }
+        locale: { $ref: "#/components/schemas/Locale" }
+        assignments: { type: integer }
+        on_time: { type: integer }
+        late: { type: integer }
+        no_due: { type: integer }
+        units: { type: integer }
+        unavailable: { type: integer, description: Units whose facts could not be read. }
+        source_words: { type: integer }
+        tm_words: { type: object, additionalProperties: { type: integer }, description: "Source words delivered from translation memory, by match band (`exact`)." }
+        approved: { type: integer }
+        rejected: { type: integer }
+        needs_review: { type: integer }
+        draft: { type: integer }
+        unreviewed: { type: integer }
+        changed_after_delivery: { type: integer }
+        mean_edit_distance: { type: number, format: double }
+        mean_edit_ratio: { type: number, format: double }
+        findings: { type: object, additionalProperties: { type: integer }, description: Open findings by layer. }
+        findings_per_unit: { type: number, format: double }
+        reworked: { type: integer }
+        rework_rate: { type: number, format: double }
+        on_time_rate: { type: number, format: double, description: On time over the assignments that had a due date. }
+    AssignmentState:
+      type: string
+      enum: [open, accepted, done, declined, expired]
+      description: "`open` and `accepted` are live; the others are final."
+    AssignmentUnit:
+      type: object
+      required: [message_id, locale]
+      properties:
+        message_id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+    Assignment:
+      type: object
+      required: [id, project_id, units, assignee, permission, state, created_by, created_at, updated_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        instance_id: { $ref: "#/components/schemas/Id", description: "The workflow instance whose `assign` action made it; absent for one made by hand." }
+        units:
+          type: array
+          description: The translation units, sorted by message and locale.
+          items: { $ref: "#/components/schemas/AssignmentUnit" }
+        assignee: { $ref: "#/components/schemas/Assignee" }
+        permission: { type: string, description: "What doing the work takes (`translations.write` for translating), for every unit's locale." }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+        state: { $ref: "#/components/schemas/AssignmentState" }
+        created_by: { type: string, description: "Who made it, as the outbox names actors (`person:…`, `token:…`)." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        closed_by: { type: string, description: "Who completed, declined or expired it." }
+        closed_at: { $ref: "#/components/schemas/Timestamp" }
+        reason: { type: string, description: A decline's reason. }
+    AssignmentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Assignment" }
+        next_page_token: { type: string }
+    CreateAssignment:
+      type: object
+      required: [project_id, units, assignee]
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        units:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items:
+            type: object
+            required: [message, locale]
+            properties:
+              message: { $ref: "#/components/schemas/MessageKey" }
+              locale: { $ref: "#/components/schemas/Locale" }
+        assignee: { $ref: "#/components/schemas/Party" }
+        permission:
+          type: string
+          maxLength: 64
+          description: What doing the work takes; `translations.write` when omitted.
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+    AssignmentDecline:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 2000 }
+    ApprovalState:
+      type: string
+      enum: [pending, granted, denied]
+      description: "`pending` collects decisions; one denial ends it `denied`, n distinct grants `granted`."
+    ApprovalDecision:
+      type: object
+      required: [principal, decision, at]
+      properties:
+        principal: { type: string, description: "Who decided (`person:…`)." }
+        decision: { type: string, enum: [granted, denied] }
+        reason: { type: string }
+        at: { $ref: "#/components/schemas/Timestamp" }
+    Approval:
+      type: object
+      required: [id, project_id, subject, subject_id, required, eligible, distinct_from_author, state, decisions, created_by, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        project_id: { $ref: "#/components/schemas/Id" }
+        instance_id: { $ref: "#/components/schemas/Id", description: "The workflow instance whose `request_approval` action asked for it; absent for one asked by hand." }
+        subject: { $ref: "#/components/schemas/WorkflowSubject" }
+        subject_id: { $ref: "#/components/schemas/Id", description: "The message, for a translation unit; the release request otherwise." }
+        locale: { $ref: "#/components/schemas/Locale", description: "The translation unit's locale; absent for a release request." }
+        required: { type: integer, minimum: 1, description: How many distinct eligible people must grant it. }
+        eligible: { $ref: "#/components/schemas/Assignee" }
+        distinct_from_author: { type: boolean, description: "Four-eyes: the author of the text under approval neither decides nor counts." }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+        state: { $ref: "#/components/schemas/ApprovalState" }
+        decisions:
+          type: array
+          description: Every decision, in the order they were made. Append-only.
+          items: { $ref: "#/components/schemas/ApprovalDecision" }
+        created_by: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        closed_at: { $ref: "#/components/schemas/Timestamp" }
+    ApprovalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Approval" }
+        next_page_token: { type: string }
+    CreateApproval:
+      type: object
+      required: [project_id, message, locale, n, from]
+      description: An approval of one translation unit.
+      properties:
+        project_id: { $ref: "#/components/schemas/Id" }
+        message: { $ref: "#/components/schemas/MessageKey" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        n: { type: integer, minimum: 1, maximum: 10, description: How many distinct eligible people must grant it. }
+        from: { $ref: "#/components/schemas/Party" }
+        due_at: { $ref: "#/components/schemas/Timestamp" }
+    CreateApprovalDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [granted, denied] }
+        reason: { type: string, maxLength: 2000 }
     WorkflowInstanceStatus:
       type: string
       enum: [active, finished]
@@ -13161,6 +15719,11 @@ components:
         status: { $ref: "#/components/schemas/WorkflowInstanceStatus" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    RebaseWorkflowInstance:
+      type: object
+      additionalProperties: false
+      properties:
+        version: { type: integer, minimum: 2, description: "The version to move to; the definition's latest when absent." }
     WorkflowInstanceList:
       type: object
       required: [items]

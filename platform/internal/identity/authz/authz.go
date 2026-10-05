@@ -94,8 +94,9 @@ const (
 	IntegrationImport = domain.PermIntegrationImport
 	IntegrationManage = domain.PermIntegrationManage
 	// The operations permissions (RFC 0006 §4.2). ApprovalsDecide is
-	// locale-scoped and human-only: no token scope grants it and
-	// Background refuses it.
+	// locale-scoped for translations, environment-scoped for release
+	// requests (RequireInEnvironment), and human-only: no token scope
+	// grants it and Background refuses it.
 	WorkflowsRead     = domain.PermWorkflowsRead
 	WorkflowsManage   = domain.PermWorkflowsManage
 	AssignmentsRead   = domain.PermAssignmentsRead
@@ -104,6 +105,9 @@ const (
 	VendorsManage     = domain.PermVendorsManage
 	AuditRead         = domain.PermAuditRead
 	AuditExport       = domain.PermAuditExport
+	// AuditImport writes v0.3's history into the trail (RFC 0006 §7.2):
+	// owner-only, no token scope, never background.
+	AuditImport = domain.PermAuditImport
 )
 
 var (
@@ -117,6 +121,9 @@ var (
 type DeniedError struct {
 	Permission Permission
 	Locale     string // empty unless the check was for a locale
+	// Environment is set when the check was for a release environment
+	// (RequireInEnvironment).
+	Environment string
 	// Assigned is set when the permission is refused because the
 	// principal reads only its assignments (RFC 0006 §3.3).
 	Assigned bool
@@ -132,6 +139,9 @@ func (e *DeniedError) Error() string {
 	}
 	if e.Assigned {
 		return fmt.Sprintf("authz: %s is not granted to a member who sees only their assignments", e.Permission)
+	}
+	if e.Environment != "" {
+		return fmt.Sprintf("authz: %s is not granted in environment %s", e.Permission, e.Environment)
 	}
 	if e.Locale != "" {
 		return fmt.Sprintf("authz: %s is not granted for %s", e.Permission, e.Locale)
@@ -162,6 +172,11 @@ type Principal struct {
 	// means every project. A CI token's and an in-context grant's is
 	// the one project they were minted for.
 	Projects domain.ProjectScope
+	// Environments is the release environments an environment-scoped
+	// permission (approvals.decide on a release request) applies to
+	// (RFC 0006 §4.2); empty means every environment, which is every
+	// principal until a narrower scope is stored.
+	Environments domain.EnvironmentScope
 	// Visibility is VisibilityAssigned for a member who reads only the
 	// units of their assignments (§3.3); empty or VisibilityAll
 	// otherwise.
@@ -204,7 +219,7 @@ func Authenticated(ctx context.Context) (Principal, error) {
 // moved it and holds no approval of its own.
 var neverBackground = []Permission{
 	domain.PermTenantManage, domain.PermMembersManage, domain.PermOwnersManage, domain.PermTokensManage,
-	domain.PermVendorsManage, domain.PermApprovalsDecide,
+	domain.PermVendorsManage, domain.PermApprovalsDecide, domain.PermAuditImport,
 }
 
 // Background returns ctx acting as a bounded context's background

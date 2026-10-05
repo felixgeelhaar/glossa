@@ -3,7 +3,7 @@
 ///
 /// The fixture states the rules as parts → HTML, so that is what is
 /// asserted, exactly as `runtimes/go/markup_test.go` and
-/// `@glossa/elements` assert them. The tree those rules produce is what
+/// `@felixgeelhaar/glossa-elements` assert them. The tree those rules produce is what
 /// `package:glossa_flutter` renders, so one fixture covers both.
 library;
 

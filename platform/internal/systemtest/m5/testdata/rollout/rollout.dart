@@ -6,11 +6,14 @@
 //   dart --packages=<runtimes/dart/.dart_tool/package_config.json> \
 //     rollout.dart <input.json> <output.json>
 //
-// It is written against the rollout surface SPEC §1.4 adds to the Dart
-// runtime — an `installationId` and a `rollout` switch on GlossaClient —
-// and until wave 3 builds that, it does not compile. That error is
-// §12.4's reason for the Dart runtime, in the report. The slice that
-// implements rollout in the Dart runtime makes the names here agree.
+// input:  { edgeURL, deliveryKey, environment, ids: [...], rollout: bool,
+//           manifest?: "<manifest JSON served instead of the edge's>" }
+// output: { "<installation id>": "<active release id>" | null, ... }
+//
+// The installation id and the switch that turns rollout support off are
+// GlossaClient's `installationId` and `rollout` options (SPEC §1.4,
+// RFC 0006 wave 3). No store is given, so the runtime persists no id of
+// its own; the one given is used as is.
 import 'dart:convert';
 import 'dart:io';
 

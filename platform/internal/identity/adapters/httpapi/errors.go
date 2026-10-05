@@ -14,6 +14,14 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 )
 
+// codeInvalidProjectScope is a project scope that names something other
+// than project ids, or too many of them.
+const codeInvalidProjectScope problem.Code = "invalid_project_scope"
+
+// codeAccessAndRestriction is a member PATCH that changes both access
+// and restriction.
+const codeAccessAndRestriction problem.Code = "access_and_restriction"
+
 type mapping struct {
 	status int
 	code   problem.Code
@@ -72,6 +80,23 @@ var problems = []struct {
 	{domain.ErrInvalidDisplayName, mapping{400, "invalid_display_name", "at most 200 characters"}},
 	{domain.ErrInvalidTokenName, mapping{400, "invalid_token_name", "1-100 characters"}},
 	{domain.ErrInvalidTokenExpiry, mapping{400, "invalid_token_expiry", "expires_at must be in the future"}},
+	{domain.ErrTooManyProjects, mapping{400, codeInvalidProjectScope, ""}},
+	// Restrictions, groups and vendors (RFC 0006 §3.3, §4).
+	{domain.ErrInvalidVisibility, mapping{400, "invalid_visibility", ""}},
+	{domain.ErrVendorMemberVisibility, mapping{400, "vendor_member_visibility",
+		"a vendor's member sees only their assignments: send visibility assigned"}},
+	{domain.ErrAssignedVisibilityRole, mapping{400, "assigned_visibility_role",
+		"a member who sees only their assignments can only be a translator"}},
+	{domain.ErrOwnerProjectScoped, mapping{400, "owner_project_scoped",
+		"an owner answers for every project and cannot be limited to some"}},
+	{domain.ErrInvalidGroupName, mapping{400, "invalid_group_name", "1-100 characters"}},
+	{domain.ErrGroupFull, mapping{409, "group_full", ""}},
+	{domain.ErrNotInGroup, mapping{404, "not_in_group", "the member is not in the group"}},
+	{domain.ErrMemberOfAnotherTenant, mapping{404, problem.CodeNotFound, "no such resource"}},
+	{domain.ErrInvalidVendorName, mapping{400, "invalid_vendor_name", "1-100 characters"}},
+	{domain.ErrInvalidVendorContact, mapping{400, "invalid_vendor_contact", "at most 200 characters"}},
+	{domain.ErrVendorHasMembers, mapping{409, "vendor_has_members",
+		"the vendor still has members: take them off it, or remove them, first"}},
 	// In-context grants and preview origins (RFC 0004 §5.2).
 	{domain.ErrOriginNotBound, mapping{401, "origin_not_bound",
 		"this grant was minted for another origin"}},
@@ -101,6 +126,17 @@ var problems = []struct {
 		"this repository feeds several projects: send project_id (or pass --project)"}},
 	{domain.ErrGitHubOIDCUnavailable, mapping{503, "github_not_configured",
 		"this deployment has no GitHub App, so it cannot exchange GitHub Actions ID tokens; use an API token"}},
+	// Device sign-in (RFC 0006 §7.2): RFC 8628 §3.5's codes, unchanged.
+	{app.ErrDeviceSignInUnavailable, mapping{503, "device_sign_in_unavailable",
+		"this server does not offer device sign-in; use an API token"}},
+	{app.ErrDeviceAuthorizationNotFound, mapping{404, "device_authorization_not_found",
+		"no pending sign-in with this code: it may have expired or been decided already"}},
+	{app.ErrAuthorizationPending, mapping{400, "authorization_pending", "the person has not approved the code yet"}},
+	{app.ErrSlowDown, mapping{400, "slow_down", "poll more slowly: add five seconds to the interval"}},
+	{app.ErrAccessDenied, mapping{400, "access_denied", "the person denied this sign-in"}},
+	{app.ErrExpiredToken, mapping{400, "expired_token", "the device code is unknown, expired or already used; start again"}},
+	{app.ErrInvalidClientName, mapping{400, "invalid_request", "client_name is 1-100 characters"}},
+	{app.ErrDeviceRateLimited, mapping{429, "rate_limited", "too many device sign-in attempts; wait a minute and try again"}},
 	{tenancy.ErrInvalidSlug, mapping{400, "invalid_slug", "lowercase letters, digits and inner hyphens, at most 63"}},
 	{tenancy.ErrInvalidName, mapping{400, "invalid_name", "1-200 characters"}},
 }

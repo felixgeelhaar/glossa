@@ -125,6 +125,9 @@ type app struct {
 	// workflowTimers raises workflow timers every minute (RFC 0006
 	// §2.3); nil where the leased periodic jobs don't run.
 	workflowTimers *scheduler.Scheduler
+	// rolloutSweep aborts staged rollouts past their max_duration
+	// (RFC 0006 §5.2); nil where the leased periodic jobs don't run.
+	rolloutSweep *scheduler.Scheduler
 	// branchPublisher publishes due branch environments; nil when the
 	// publisher is off.
 	branchPublisher *releaseapp.Publisher
@@ -136,6 +139,9 @@ type app struct {
 	githubChecks *integrationapp.CheckWorker
 	// audit is the Audit context; its backfill runs once at startup.
 	audit *auditapp.Service
+	// auditExports runs audit export jobs and their retention; nil
+	// unless GLOSSA_AUDIT_EXPORTS_ENABLED.
+	auditExports *auditapp.ExportWorker
 	// identity is waited on at shutdown for the failed sign-ins it is
 	// still recording in the background.
 	identity   *identityapp.Service
@@ -157,6 +163,10 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 type buildOption func(*contexts)
 
 func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc, opts ...buildOption) (*app, error) {
+	auditKeys, err := newAuditKeys(cfg)
+	if err != nil {
+		return nil, err
+	}
 	tp, shutdownTP, err := observability.NewTracerProvider(ctx, cfg.OTel, version())
 	if err != nil {
 		return nil, err
@@ -176,7 +186,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	audit, err := newAudit(pool, events, logger)
+	audit, err := newAudit(pool, events, auditKeys, logger, registry)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -188,6 +198,16 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	}
 	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp, lookup, identitySvc)
 	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	// Audit's HTTP edge (RFC 0006 §6.2, §7.2): the trail's entries, its
+	// export jobs (on the contexts' object storage) and the v0.3 history
+	// import. Audit is built before the other contexts, so it meets the
+	// object store here.
+	var auditExports *auditapp.ExportWorker
+	bounded.auditAPI, auditExports = newAuditAPI(cfg.Audit, pool, audit, bounded.objects, logger)
+	if bounded.auditKeys, err = auditKeysHandler(auditKeys); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -214,6 +234,11 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
+	rolloutSweep, err := newRolloutSweep(cfg.Purge, logger, registry, pool, bounded.rolloutSweeper)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
 	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, audit, registry, tp, logger)
 	if err != nil {
 		pool.Close()
@@ -230,8 +255,9 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
+		rolloutSweep:    rolloutSweep,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
-		githubChecks: bounded.githubChecks, audit: audit, identity: identitySvc, shutdownTP: shutdownTP,
+		githubChecks: bounded.githubChecks, audit: audit, auditExports: auditExports, identity: identitySvc, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -287,6 +313,7 @@ func (a *app) run(ctx context.Context) error {
 	dispatched := a.startDispatcher(dispatchCtx, errc)
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
+	exported := a.startAuditExports(dispatchCtx)
 	purged := a.startPurger(dispatchCtx)
 	published := a.startBranchPublisher(dispatchCtx)
 	delivered := a.startGitHubInbox(dispatchCtx)
@@ -301,19 +328,19 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published, delivered, checked))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, exported, purged, published, delivered, checked))
 }
 
 // startPurger runs the daily retention jobs until ctx ends; a run in
 // progress finishes first, bounded by its timeout, and gives its lease
 // back so the next replica isn't blocked.
 //
-// The workflow timer sweep runs beside it on its own one-minute
-// schedule, and is waited for with it.
+// The workflow timer sweep and the rollout sweep run beside it on
+// their own schedules, and are waited for with it.
 func (a *app) startPurger(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers} {
+	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers, a.rolloutSweep} {
 		if s == nil {
 			continue
 		}
@@ -461,7 +488,7 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 }
 
 func (a *app) shutdown(stopDispatch context.CancelFunc,
-	dispatched, worked, moved, purged, published, delivered, checked <-chan struct{},
+	dispatched, worked, moved, exported, purged, published, delivered, checked <-chan struct{},
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
@@ -493,6 +520,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc,
 	case <-moved:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("import/export workers did not stop before the shutdown timeout; their jobs resume from their last checkpoint when the lease ends"))
+	}
+	select {
+	case <-exported:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("the audit export worker did not stop before the shutdown timeout; its job is claimed again when the lease ends"))
 	}
 	select {
 	case <-purged:

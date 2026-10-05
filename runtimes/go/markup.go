@@ -8,7 +8,7 @@ import (
 )
 
 // Structured rendering: formatted parts, safe HTML and styled text runs.
-// The HTML rules are @glossa/elements' (runtimes/testdata/markup.json):
+// The HTML rules are @felixgeelhaar/glossa-elements' (runtimes/testdata/markup.json):
 // translation text is never parsed as HTML, only markup named on the safe
 // list becomes an element, and markup options are always dropped, so a
 // translation can't add a link, an event handler or a style.
@@ -48,7 +48,7 @@ func PartsText(parts []Part) string { return messageformat.PartsText(parts) }
 
 // safeTags are the inline, attribute-free phrasing elements a translation
 // may produce: runtimes/testdata/markup.json's safeTags, which
-// @glossa/elements' SAFE_TAGS is tested against too.
+// @felixgeelhaar/glossa-elements' SAFE_TAGS is tested against too.
 var safeTags = setOf("b strong i em u s small mark sub sup code kbd samp var abbr cite dfn q del ins bdi span br wbr")
 
 // voidTags are the safe tags without children or a closing tag.
@@ -140,7 +140,7 @@ type node struct {
 }
 
 // partsTree builds the tree of text and safe elements, exactly as
-// @glossa/elements' partsToTree: unsafe markup adds no element, unclosed
+// @felixgeelhaar/glossa-elements' partsToTree: unsafe markup adds no element, unclosed
 // markup closes at the end, a close closes everything opened after its
 // open, and a close without an open is ignored.
 func partsTree(parts []Part) []*node {
@@ -205,7 +205,7 @@ func partsTree(parts []Part) []*node {
 
 var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
-// escapeText escapes s for an HTML text node, as @glossa/elements does.
+// escapeText escapes s for an HTML text node, as @felixgeelhaar/glossa-elements does.
 func escapeText(s string) string { return htmlEscaper.Replace(s) }
 
 // partsHTML serializes parts as escaped text and bare safe elements.

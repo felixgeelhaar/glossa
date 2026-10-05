@@ -54,6 +54,87 @@ func (q *Queries) AppendTransition(ctx context.Context, arg AppendTransitionPara
 	return err
 }
 
+const countInstancesByStatus = `-- name: CountInstancesByStatus :many
+SELECT status, count(*)::integer AS instances FROM workflow_instances GROUP BY status
+`
+
+type CountInstancesByStatusRow struct {
+	Status    string
+	Instances int32
+}
+
+// System scope workflow.timers: the glossa_workflow_instances gauge
+// (RFC 0006 §10.1). Reads only the status migration 0043 grants.
+func (q *Queries) CountInstancesByStatus(ctx context.Context) ([]CountInstancesByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countInstancesByStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountInstancesByStatusRow
+	for rows.Next() {
+		var i CountInstancesByStatusRow
+		if err := rows.Scan(&i.Status, &i.Instances); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countLiveAssignments = `-- name: CountLiveAssignments :one
+SELECT
+    count(*) FILTER (WHERE due_at IS NOT NULL AND due_at < $1)::integer AS overdue,
+    count(*) FILTER (WHERE due_at IS NULL OR due_at >= $1)::integer AS on_time
+FROM workflow_assignments WHERE state IN ('open', 'accepted')
+`
+
+type CountLiveAssignmentsRow struct {
+	Overdue int32
+	OnTime  int32
+}
+
+// System scope workflow.timers: the glossa_assignments_open gauge
+// (RFC 0006 §10.1). Reads only the state and due date migration 0055
+// grants.
+func (q *Queries) CountLiveAssignments(ctx context.Context, now pgtype.Timestamptz) (CountLiveAssignmentsRow, error) {
+	row := q.db.QueryRow(ctx, countLiveAssignments, now)
+	var i CountLiveAssignmentsRow
+	err := row.Scan(&i.Overdue, &i.OnTime)
+	return i, err
+}
+
+const deleteFinishedInstances = `-- name: DeleteFinishedInstances :execrows
+DELETE FROM workflow_instances
+WHERE id IN (
+    SELECT f.id FROM workflow_instances f
+    WHERE f.status = 'finished' AND f.finished_at < $1::timestamptz
+    ORDER BY f.finished_at, f.id
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+)
+`
+
+type DeleteFinishedInstancesParams struct {
+	Cutoff  time.Time
+	MaxRows int32
+}
+
+// Retention (migration 0056): up to max_rows instances that finished
+// before the cutoff, oldest first, with their transition logs (the
+// foreign key cascades). The policy lets the application role delete
+// nothing but finished instances; the WHERE says so too.
+func (q *Queries) DeleteFinishedInstances(ctx context.Context, arg DeleteFinishedInstancesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteFinishedInstances, arg.Cutoff, arg.MaxRows)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getInstance = `-- name: GetInstance :one
 SELECT id, tenant_id, project_id, definition_id, version, subject_kind, subject_id, locale, state, snapshot, status, due_at, overdue_at, timer_state, created_at, updated_at, finished_at FROM workflow_instances WHERE id = $1
 `
@@ -278,6 +359,40 @@ func (q *Queries) ListTenantsWithDueTimers(ctx context.Context, arg ListTenantsW
 	return items, nil
 }
 
+const listTenantsWithExpiredInstances = `-- name: ListTenantsWithExpiredInstances :many
+SELECT DISTINCT tenant_id FROM workflow_instances
+WHERE status = 'finished' AND finished_at < $1
+LIMIT $2
+`
+
+type ListTenantsWithExpiredInstancesParams struct {
+	Cutoff  pgtype.Timestamptz
+	MaxRows int32
+}
+
+// System scope workflow.retention (db.SystemTx): which tenants hold an
+// instance that finished before the cutoff. Reads only the columns
+// migrations 0043 and 0056 grant glossa_system.
+func (q *Queries) ListTenantsWithExpiredInstances(ctx context.Context, arg ListTenantsWithExpiredInstancesParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listTenantsWithExpiredInstances, arg.Cutoff, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var tenant_id uuid.UUID
+		if err := rows.Scan(&tenant_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tenant_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransitions = `-- name: ListTransitions :many
 SELECT tenant_id, instance_id, seq, from_state, event, to_state, outcome, guards, actions, actor, outbox_event_id, at FROM workflow_transitions WHERE instance_id = $1 ORDER BY seq
 `
@@ -328,6 +443,30 @@ func (q *Queries) LiveDefinitionNamed(ctx context.Context, name string) (bool, e
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const liveTenantDefinition = `-- name: LiveTenantDefinition :one
+SELECT id, tenant_id, project_id, name, subject, latest, created_by, created_at, deleted_at FROM workflow_definitions WHERE project_id IS NULL AND name = $1 AND deleted_at IS NULL
+`
+
+// The tenant-wide live definition of this name: the seeded release
+// approval definition a release request runs on when no binding names
+// another (RFC 0006 §5.1).
+func (q *Queries) LiveTenantDefinition(ctx context.Context, name string) (WorkflowDefinition, error) {
+	row := q.db.QueryRow(ctx, liveTenantDefinition, name)
+	var i WorkflowDefinition
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Subject,
+		&i.Latest,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const lockActiveInstancesOfProject = `-- name: LockActiveInstancesOfProject :many
@@ -525,6 +664,34 @@ func (q *Queries) LockInstance(ctx context.Context, id uuid.UUID) (WorkflowInsta
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const rebaseInstance = `-- name: RebaseInstance :execrows
+UPDATE workflow_instances
+SET version = $1, snapshot = $2, updated_at = $3
+WHERE id = $4 AND status = 'active'
+`
+
+type RebaseInstanceParams struct {
+	Version   int32
+	Snapshot  []byte
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+// Moves a locked, active instance to another version of its definition
+// (migration 0056 grants the column). Its state, status and timer stay.
+func (q *Queries) RebaseInstance(ctx context.Context, arg RebaseInstanceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rebaseInstance,
+		arg.Version,
+		arg.Snapshot,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateInstance = `-- name: UpdateInstance :execrows

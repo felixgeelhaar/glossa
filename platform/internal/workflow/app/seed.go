@@ -67,3 +67,39 @@ func (r *Runner) EnsureDefault(ctx context.Context) error {
 	}
 	return err
 }
+
+// releaseDefault is the version a release request runs on when no
+// binding names one (RFC 0006 §5.1): the latest version of the tenant's
+// definition called release-approval, seeded from
+// defaults/release-approval.json in the step's transaction when the
+// tenant has none — also after the tenant deleted it, because a release
+// request with no workflow would wait forever. A tenant definition of
+// that name about another subject is the tenant's own and is left
+// alone: then nothing runs, and the request waits for a binding.
+func (r *Runner) releaseDefault(ctx context.Context, st InstanceStore) (domain.Version, bool, error) {
+	rec, err := st.TenantDefinition(ctx, defaults.ReleaseApprovalName)
+	switch {
+	case err == nil:
+		if rec.Subject != domain.SubjectReleaseRequest {
+			r.d.Logger.WarnContext(ctx, "workflow: the tenant's release-approval definition is not about release requests; "+
+				"release requests run only where a binding names a definition")
+			return domain.Version{}, false, nil
+		}
+		v, err := st.Version(ctx, rec.ID, rec.Latest)
+		return v, err == nil, err
+	case !errors.Is(err, ErrNotFound):
+		return domain.Version{}, false, err
+	}
+	d, err := domain.Compile(defaults.ReleaseApproval())
+	if err != nil {
+		return domain.Version{}, false, err // the embedded document is the platform's own; a test keeps it compiling
+	}
+	now := r.now()
+	by := authz.SystemEventActor(PrincipalSeed).String()
+	rec = domain.DefinitionRecord{ID: uuid.New(), Name: d.Name, Subject: d.Subject, Latest: 1, CreatedBy: by, CreatedAt: now}
+	v := domain.FirstVersion(rec, d, by, now)
+	if err := st.InsertDefinition(ctx, rec, v); err != nil {
+		return domain.Version{}, false, err
+	}
+	return v, true, nil
+}

@@ -65,6 +65,15 @@ type Deps struct {
 	// (ErrEmailDisabled), and password sign-in doesn't wait for a
 	// verified address.
 	Mailer Mailer
+	// DeviceSessions stores the sessions approved devices receive
+	// (RFC 0006 §7.2): the same sessions as Sessions, kept apart by
+	// kind so a device bearer is never a cookie and a cookie never a
+	// bearer. Nil turns device sign-in off (ErrDeviceSignInUnavailable).
+	DeviceSessions authgo.SessionRepository
+	// DeviceLimits rate-limits device sign-in: starts per client
+	// address, look-ups and decisions per person. Nil limits nothing,
+	// which is a configuration only tests have.
+	DeviceLimits Limiter
 	// Audit records sign-in attempts in the audit trail (RFC 0006 §6.1);
 	// nil records nothing, which is a configuration only tests have.
 	Audit  SignInAudit
@@ -85,8 +94,12 @@ type Service struct {
 	totpStore   authgo.TOTPRepository
 	lockout     *authgo.LockoutService
 	passkeys    authgo.PasskeyAuthenticator
-	mailer      Mailer
-	audit       SignInAudit
+	// deviceSessions issues device sessions; nil when device sign-in is
+	// off.
+	deviceSessions *authgo.SessionService
+	deviceLimits   Limiter
+	mailer         Mailer
+	audit          SignInAudit
 	// auditing tracks failed attempts being recorded in the background.
 	auditing sync.WaitGroup
 	logger   *slog.Logger
@@ -156,22 +169,28 @@ func New(cfg Config, d Deps) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("identity: decoy hash: %w", err)
 	}
+	var deviceSessions *authgo.SessionService
+	if d.DeviceSessions != nil {
+		deviceSessions = authgo.NewSessionService(d.DeviceSessions, cfg.SessionTTL, clock)
+	}
 	return &Service{
-		cfg:         cfg,
-		tx:          d.Tx,
-		sessions:    authgo.NewSessionService(d.Sessions, cfg.SessionTTL, clock),
-		signInLinks: authgo.NewMagicLinkService(d.SignInLinks, cfg.SignInLinkTTL, clock),
-		resetLinks:  authgo.NewMagicLinkService(d.ResetLinks, cfg.ResetLinkTTL, clock),
-		totp:        totp,
-		totpCfg:     totpCfg,
-		totpStore:   d.TOTP,
-		lockout:     authgo.NewLockoutService(d.LoginAttempts, authgo.DefaultLockoutPolicy(), clock),
-		passkeys:    d.Passkeys,
-		mailer:      d.Mailer,
-		audit:       d.Audit,
-		logger:      logger,
-		now:         func() time.Time { return now().UTC() },
-		decoy:       decoy,
+		deviceSessions: deviceSessions,
+		deviceLimits:   d.DeviceLimits,
+		cfg:            cfg,
+		tx:             d.Tx,
+		sessions:       authgo.NewSessionService(d.Sessions, cfg.SessionTTL, clock),
+		signInLinks:    authgo.NewMagicLinkService(d.SignInLinks, cfg.SignInLinkTTL, clock),
+		resetLinks:     authgo.NewMagicLinkService(d.ResetLinks, cfg.ResetLinkTTL, clock),
+		totp:           totp,
+		totpCfg:        totpCfg,
+		totpStore:      d.TOTP,
+		lockout:        authgo.NewLockoutService(d.LoginAttempts, authgo.DefaultLockoutPolicy(), clock),
+		passkeys:       d.Passkeys,
+		mailer:         d.Mailer,
+		audit:          d.Audit,
+		logger:         logger,
+		now:            func() time.Time { return now().UTC() },
+		decoy:          decoy,
 	}, nil
 }
 
