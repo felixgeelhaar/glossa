@@ -19,8 +19,27 @@ on:
 prove:
   from: warden
   # node_modules is gitignored, so it lives in the clone, never in the
-  # disposable worktree the gate runs in.
-  materialize: [node_modules]
+  # disposable worktree the gate runs in. pnpm keeps one per workspace
+  # package (pnpm-workspace.yaml), each with its own .bin, so every one is
+  # named here: with only the root, the gate's build fails "tsc: command
+  # not found". Keep this list in step with the workspace.
+  materialize:
+    - node_modules
+    - messageformat/js/node_modules
+    - packages/cli/node_modules
+    - packages/format/node_modules
+    - packages/sdk/node_modules
+    - packages/ui/node_modules
+    - runtimes/js/astro/node_modules
+    - runtimes/js/capture/node_modules
+    - runtimes/js/elements/node_modules
+    - runtimes/js/overlay/node_modules
+    - runtimes/js/react/node_modules
+    - runtimes/js/react/react-18/node_modules
+    - runtimes/js/runtime/node_modules
+    - runtimes/js/unplugin/node_modules
+    - runtimes/js/vue/node_modules
+    - studio/node_modules
 
 publish:
   - kind: image
