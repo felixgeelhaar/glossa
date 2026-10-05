@@ -2505,6 +2505,92 @@ paths:
         "422": { $ref: "#/components/responses/StructuralQAFailed" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
 
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: listUnitTMMatches
+      tags: [translation-memory]
+      summary: Translation-memory matches for one unit
+      description: |
+        The memory's matches for one translation unit — the message the
+        key names, in the locale — scored as `lookupTranslationMemory`
+        scores them, from the tenant-wide units and the project's own,
+        best first. It is the translation workspace's read, and the only
+        one a member with visibility `assigned` has (RFC 0006 §3.3): the
+        unit must be in an assignment of theirs, and anything else —
+        another unit, another project — is `404`. A match is text and a
+        score, never the matched unit: for an `assigned` member no id or
+        key of the remembered unit is returned (`message_key` is omitted),
+        so the memory does not tell a vendor what else is in the
+        project. It records no hit. Needs `knowledge.read`. Problem
+        codes: `invalid_query`, `invalid_syntax` (400).
+      security:
+        - session: []
+        - bearer: []
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 5 } }
+        - { name: min_score, in: query, required: false, schema: { type: integer, minimum: 50, maximum: 101, default: 50 } }
+        - name: target_syntax
+          in: query
+          required: false
+          description: The syntax of each `target_text`; by default the one the message's source is written in.
+          schema: { $ref: "#/components/schemas/Syntax" }
+      x-glossa-unpaged: |
+        The matches of one unit are at most 50, ranked, and nobody pages
+        through a unit's candidates.
+      responses:
+        "200":
+          description: The matches, best first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnitTMMatches" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/MessagePath"
+      - $ref: "#/components/parameters/LocalePath"
+    get:
+      operationId: listUnitAISuggestions
+      tags: [ai-suggestions]
+      summary: AI suggestions for one unit
+      description: |
+        The newest suggestions (at most 5) for one translation unit — the
+        message the key names, in the locale — as its workspace shows
+        them: the text, its score with the explanation, the routed
+        action, risks and findings. It is the read a member with
+        visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+        assignment of theirs, and anything else is `404`. The job,
+        provider, model, calls, cost and the translation-memory units it
+        drew on are not part of it; they stay with
+        `getAISuggestion`. `decidable` is false for an `assigned`
+        member, who writes the translation instead of accepting a
+        suggestion. Needs `intelligence.read`.
+      security:
+        - session: []
+        - bearer: []
+      x-glossa-unpaged: |
+        A unit's workspace shows at most its five newest suggestions; a
+        cap is a stronger promise than a cursor.
+      responses:
+        "200":
+          description: The unit's suggestions, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnitAISuggestions" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions:
     parameters:
       - $ref: "#/components/parameters/TenantPath"
@@ -6777,7 +6863,7 @@ paths:
       description: |
         The body is one `glossa.usages/v1` document: where one
         application's messages are used at one commit, as
-        `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+        `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
         write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
         It is validated by the schema's rules — members it doesn't define
         are ignored within v1, anything else it refuses is
@@ -6810,7 +6896,7 @@ paths:
           in: query
           required: true
           description: >-
-            The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`),
+            The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`),
             `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
           schema: { $ref: "#/components/schemas/ContextSource" }
       requestBody:
@@ -8901,21 +8987,92 @@ paths:
       tags: [workflows]
       summary: A workflow instance
       description: |
-        Its definition version, subject, state and status. Needs
-        `workflows.read`. Problem codes: `workflow_instances_unavailable`
-        (503).
+        Its definition version, subject, state and status. The `ETag` is
+        the definition version the instance runs on: what a rebase's
+        `If-Match` names. Needs `workflows.read`. Problem codes:
+        `workflow_instances_unavailable` (503).
       security:
         - session: []
         - bearer: []
       responses:
         "200":
           description: The instance.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WorkflowInstance" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase:
+    parameters:
+      - $ref: "#/components/parameters/TenantPath"
+      - $ref: "#/components/parameters/ProjectPath"
+      - $ref: "#/components/parameters/WorkflowInstancePath"
+    post:
+      operationId: rebaseWorkflowInstance
+      x-glossa-idempotency: If-Match names the version the instance runs on, so a retry of a rebase that landed answers 412 rather than moving it twice.
+      tags: [workflows]
+      summary: Move a running instance to a newer version of its definition
+      description: |
+        A running instance stays on the version it started with until a
+        workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+        instance's state by name: the target version — `version`, or the
+        definition's latest when the body names none — must be newer, and
+        must have that state as one an instance can wait in. A rebase
+        changes what happens next, never what already happened: it runs
+        no entry action again (the assignments and approvals the state
+        asked for stand), and a pending due date keeps its time. An
+        instance that has not started yet starts on the new version at
+        its next event.
+
+        The rebase is recorded in the instance's transition log as event
+        `rebase` (its one action says which versions), and published as
+        `workflow.instance.rebased` naming who did it. `If-Match` is the
+        instance's `ETag`: the version it runs on.
+
+        Needs `workflows.manage` in the project. Problem codes:
+        `workflow_instance_finished` (409: nothing left to run),
+        `invalid_workflow_rebase` (422: the version is not newer, or the
+        definition has no such version), `workflow_rebase_state_missing`
+        (422: the target has no such state), `workflow_rebase_state_final`
+        (422: the state is final in the target), `precondition_failed`
+        (412), `precondition_required` (428),
+        `workflow_instances_unavailable` (503).
+      security:
+        - session: []
+          csrf: []
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RebaseWorkflowInstance" }
+      responses:
+        "200":
+          description: The instance on its new version.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowInstance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "422":
+          description: The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions:
@@ -9010,8 +9167,10 @@ paths:
         `invalid_assignment` (422: no units, too many, a key the
         project does not have, a due date in the past),
         `unknown_party` (422: no such member, group or vendor),
-        `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-        `not_found` (404: the project).
+        `workflow_limit_reached` (409: the assignee already holds 1,000
+        open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+        (422), `invalid_idempotency_key` (400), `not_found` (404: the
+        project).
       security:
         - session: []
           csrf: []
@@ -9037,6 +9196,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
 
   /v1/tenants/{tenant}/assignment-reports:
@@ -12276,6 +12436,60 @@ components:
         matches:
           type: array
           items: { $ref: "#/components/schemas/TMMatch" }
+    UnitTMMatch:
+      type: object
+      description: >-
+        A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit
+        it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`.
+      required: [score, kind, source_normalized, target, target_text, target_syntax, target_syntax_fallback, variables_adapted, project_scoped]
+      properties:
+        score: { type: integer, minimum: 50, maximum: 101 }
+        kind: { type: string, enum: [context, exact, fuzzy] }
+        source_normalized: { type: string, description: "The remembered source, normalized: what a fuzzy match is compared with." }
+        target: { type: string, description: "The remembered target in MF2, its variables renamed to the unit's by position." }
+        target_text: { type: string, description: The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it. }
+        target_syntax: { $ref: "#/components/schemas/Syntax" }
+        target_syntax_fallback: { type: boolean }
+        variables_adapted: { type: boolean, description: False when a target variable had no counterpart and kept its name. }
+        project_scoped: { type: boolean, description: "True for a unit the project owns, false for a tenant-wide one." }
+        message_key:
+          allOf: [{ $ref: "#/components/schemas/MessageKey" }]
+          description: The key of the message the match was learned from. Never returned to a member with visibility `assigned`.
+    UnitTMMatches:
+      type: object
+      required: [source_normalized, items]
+      properties:
+        source_normalized: { type: string, description: "The unit's own source, normalized." }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UnitTMMatch" }
+    UnitAISuggestion:
+      type: object
+      description: >-
+        An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and
+        provenance of `AISuggestion` are not part of it.
+      required: [id, locale, source_revision, message, findings, term_findings, score, explanation, action, risk_tags, status, outdated, decidable, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/Id" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        source_revision: { type: integer }
+        message: { type: string, description: The translation in canonical MF2 syntax. }
+        findings: { type: array, items: { $ref: "#/components/schemas/QAFinding" } }
+        term_findings: { type: array, items: { $ref: "#/components/schemas/AITermFinding" } }
+        score: { type: number, format: double, minimum: 0, maximum: 1 }
+        explanation: { type: array, items: { $ref: "#/components/schemas/AIConfidenceFactor" } }
+        action: { $ref: "#/components/schemas/AIAction" }
+        action_note: { type: string }
+        risk_tags: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/AISuggestionStatus" }
+        outdated: { type: boolean, description: The message's source has been revised since the suggestion was made. }
+        decidable: { type: boolean, description: "Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`." }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    UnitAISuggestions:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/UnitAISuggestion" } }
     TMConcordanceMatch:
       type: object
       required: [similarity, unit]
@@ -13701,7 +13915,7 @@ components:
       type: object
       required: [name, version]
       properties:
-        name: { type: string, maxLength: 214, description: "A package name: `@glossa/unplugin`, `glossa`." }
+        name: { type: string, maxLength: 214, description: "A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`." }
         version: { type: string, maxLength: 256, description: A semantic version. }
     UsagesDocument:
       type: object
@@ -15411,7 +15625,7 @@ components:
         units:
           type: array
           minItems: 1
-          maxItems: 1000
+          maxItems: 10000
           items:
             type: object
             required: [message, locale]
@@ -15505,6 +15719,11 @@ components:
         status: { $ref: "#/components/schemas/WorkflowInstanceStatus" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    RebaseWorkflowInstance:
+      type: object
+      additionalProperties: false
+      properties:
+        version: { type: integer, minimum: 2, description: "The version to move to; the definition's latest when absent." }
     WorkflowInstanceList:
       type: object
       required: [items]

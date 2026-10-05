@@ -108,6 +108,8 @@ spec:
               value: {{ $v.purge.jitter | quote }}
             - name: GLOSSA_PURGE_BATCH_SIZE
               value: {{ $v.purge.batchSize | quote }}
+            - name: GLOSSA_WORKFLOW_INSTANCE_RETENTION
+              value: {{ $v.workflow.instanceRetention | quote }}
             - name: GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES
               value: {{ $v.context.storageQuotaBytes | int64 | quote }}
             {{- /* MCP (RFC 0005 §7) is off unless a deployment asks for

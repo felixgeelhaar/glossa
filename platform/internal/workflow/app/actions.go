@@ -150,7 +150,12 @@ func (r *Runner) run(
 			o.Outcome, o.Detail = ActionRefused, err.Error()
 			return append(outcomes, o), nil, true, nil
 		case errors.Is(err, ErrUnavailable), errors.Is(err, ErrUnknownParty), errors.Is(err, ErrUnsupportedSubject),
-			errors.Is(err, domain.ErrInvalidAssignment), errors.Is(err, domain.ErrInvalidApproval):
+			errors.Is(err, domain.ErrInvalidAssignment), errors.Is(err, domain.ErrInvalidApproval),
+			// An assignee at the limit of open assignments (§9.6): the
+			// instance stays where it was, as for any work it could not
+			// ask for, rather than the outbox retrying until a slot
+			// frees.
+			errors.Is(err, ErrLimit):
 			o.Outcome, o.Detail = ActionFailed, err.Error()
 			return append(outcomes, o), nil, true, nil
 		default:

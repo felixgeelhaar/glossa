@@ -163,15 +163,19 @@ func (s *scenario) releaseApprovals() {
 		}
 		// Whatever the API said, the edge decides: the pointer must not
 		// have moved.
-		time.Sleep(3 * time.Second)
-		m, ferr := s.fetchManifest(key, "production")
-		if ferr != nil {
-			return ferr
-		}
-		if m.Release.ID != stable.ID {
-			s.edgeRows = append(s.edgeRows, edgeRow{When: "right after the publish", Served: "release " + short(m.Release.ID)})
-			return fmt.Errorf("the pointer moved at once: the edge serves release %s, not the previous %s",
-				short(m.Release.ID), short(stable.ID))
+		if err := staysFor(3*time.Second, func() (string, error) {
+			m, ferr := s.fetchManifest(key, "production")
+			if ferr != nil {
+				return "", ferr
+			}
+			if m.Release.ID != stable.ID {
+				s.edgeRows = append(s.edgeRows, edgeRow{When: "right after the publish", Served: "release " + short(m.Release.ID)})
+				return fmt.Sprintf("the pointer moved at once: the edge serves release %s, not the previous %s",
+					short(m.Release.ID), short(stable.ID)), nil
+			}
+			return "", nil
+		}); err != nil {
+			return err
 		}
 		s.edgeRows = append(s.edgeRows, edgeRow{When: "right after the publish", Served: "previous release", OK: true})
 		if err != nil {
@@ -244,13 +248,17 @@ func (s *scenario) approvalSequence(key, previous, request string) {
 		if err := decide(s.reviewer1); err != nil {
 			return fmt.Errorf("the first approval: %w", err)
 		}
-		time.Sleep(3 * time.Second)
-		m, err := s.fetchManifest(key, "production")
-		if err != nil {
+		if err := staysFor(3*time.Second, func() (string, error) {
+			m, err := s.fetchManifest(key, "production")
+			if err != nil {
+				return "", err
+			}
+			if m.Release.ID != previous {
+				return "one approval moved the pointer: the edge serves " + short(m.Release.ID), nil
+			}
+			return "", nil
+		}); err != nil {
 			return err
-		}
-		if m.Release.ID != previous {
-			return fmt.Errorf("one approval moved the pointer: the edge serves %s", short(m.Release.ID))
 		}
 		s.edgeRows = append(s.edgeRows, edgeRow{When: "after one approval", Served: "previous release", OK: true})
 		return nil
@@ -283,7 +291,10 @@ func (s *scenario) approvalSequence(key, previous, request string) {
 			map[string]any{"text": "Noch nicht geprüft", "syntax": "mf2", "state": "needs_review", "origin": "human"}); err != nil {
 			return err
 		}
-		before, _ := s.fetchManifest(key, "production")
+		before, err := s.fetchManifest(key, "production")
+		if err != nil {
+			return fmt.Errorf("the edge's manifest before the forced publish: %w", err)
+		}
 		var out struct {
 			RequestID string `json:"release_request_id"`
 		}
@@ -292,10 +303,17 @@ func (s *scenario) approvalSequence(key, previous, request string) {
 		}, http.StatusAccepted, &out); err != nil {
 			return fmt.Errorf("the forced publish did not become a request: %w", err)
 		}
-		time.Sleep(3 * time.Second)
-		after, _ := s.fetchManifest(key, "production")
-		if after.Release.ID != before.Release.ID {
-			return fmt.Errorf("the forced publish moved the pointer without approvals")
+		if err := staysFor(3*time.Second, func() (string, error) {
+			after, err := s.fetchManifest(key, "production")
+			if err != nil {
+				return "", err
+			}
+			if after.Release.ID != before.Release.ID {
+				return "the forced publish moved the pointer without approvals", nil
+			}
+			return "", nil
+		}); err != nil {
+			return err
 		}
 		var req map[string]any
 		if _, err := s.reviewer1.try(http.MethodGet, s.releaseRequestsPath(s.projectB)+"/"+out.RequestID, nil, http.StatusOK, &req); err != nil {

@@ -20,7 +20,34 @@ const (
 	// EventBindingChanged: a binding was created or removed, so what
 	// runs for some project's subjects changed.
 	EventBindingChanged = "workflow.binding_changed"
+	// EventInstanceRebased: a running instance was moved to a newer
+	// version of its definition, in the state it was in (RFC 0006 §2.3).
+	EventInstanceRebased = "workflow.instance.rebased"
 )
+
+// InstanceRebased is the payload of workflow.instance.rebased: which
+// instance, from which version to which, and the state it kept. A state
+// is a name in the definition, never text anyone wrote about a subject.
+type InstanceRebased struct {
+	InstanceID   string `json:"instance_id"`
+	ProjectID    string `json:"project_id"`
+	DefinitionID string `json:"definition_id"`
+	SubjectKind  string `json:"subject_kind"`
+	// Locale is a translation unit's; empty for a release request.
+	Locale      string `json:"locale,omitempty"`
+	FromVersion int    `json:"from_version"`
+	ToVersion   int    `json:"to_version"`
+	// State is the state the instance was in and stays in; empty for an
+	// instance that had not started.
+	State string `json:"state"`
+}
+
+// InstanceRebasedOf builds the payload for from, rebased to version.
+func InstanceRebasedOf(from Instance, version int) InstanceRebased {
+	return InstanceRebased{InstanceID: from.ID.String(), ProjectID: from.Project.String(),
+		DefinitionID: from.Definition.String(), SubjectKind: string(from.Kind), Locale: from.Locale,
+		FromVersion: from.Version, ToVersion: version, State: from.State}
+}
 
 // Binding changes.
 const (

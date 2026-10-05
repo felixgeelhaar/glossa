@@ -2382,6 +2382,27 @@ func (e TranslationRevisionKind) Valid() bool {
 	}
 }
 
+// Defines values for UnitTMMatchKind.
+const (
+	UnitTMMatchKindContext UnitTMMatchKind = "context"
+	UnitTMMatchKindExact   UnitTMMatchKind = "exact"
+	UnitTMMatchKindFuzzy   UnitTMMatchKind = "fuzzy"
+)
+
+// Valid indicates whether the value is a known member of the UnitTMMatchKind enum.
+func (e UnitTMMatchKind) Valid() bool {
+	switch e {
+	case UnitTMMatchKindContext:
+		return true
+	case UnitTMMatchKindExact:
+		return true
+	case UnitTMMatchKindFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageKind.
 const (
 	UsageKindAccessor  UsageKind = "accessor"
@@ -7407,6 +7428,12 @@ type QualityUnmeasured struct {
 // QualityUnmeasuredNumber defines model for QualityUnmeasured.Number.
 type QualityUnmeasuredNumber string
 
+// RebaseWorkflowInstance defines model for RebaseWorkflowInstance.
+type RebaseWorkflowInstance struct {
+	// Version The version to move to; the definition's latest when absent.
+	Version *int `json:"version,omitempty"`
+}
+
 // Registration defines model for Registration.
 type Registration struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -8755,6 +8782,85 @@ type TranslationTerminologyFindings struct {
 	TargetText string `json:"target_text"`
 }
 
+// UnitAISuggestion An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it.
+type UnitAISuggestion struct {
+	Action     AIAction `json:"action"`
+	ActionNote *string  `json:"action_note,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Decidable Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`.
+	Decidable   bool                 `json:"decidable"`
+	Explanation []AIConfidenceFactor `json:"explanation"`
+	Findings    []QAFinding          `json:"findings"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Message The translation in canonical MF2 syntax.
+	Message string `json:"message"`
+
+	// Outdated The message's source has been revised since the suggestion was made.
+	Outdated       bool               `json:"outdated"`
+	RiskTags       []string           `json:"risk_tags"`
+	Score          float64            `json:"score"`
+	SourceRevision int                `json:"source_revision"`
+	Status         AISuggestionStatus `json:"status"`
+	TermFindings   []AITermFinding    `json:"term_findings"`
+}
+
+// UnitAISuggestions defines model for UnitAISuggestions.
+type UnitAISuggestions struct {
+	Items []UnitAISuggestion `json:"items"`
+}
+
+// UnitTMMatch A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`.
+type UnitTMMatch struct {
+	Kind UnitTMMatchKind `json:"kind"`
+
+	// MessageKey The key of the message the match was learned from. Never returned to a member with visibility `assigned`.
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+
+	// ProjectScoped True for a unit the project owns, false for a tenant-wide one.
+	ProjectScoped bool `json:"project_scoped"`
+	Score         int  `json:"score"`
+
+	// SourceNormalized The remembered source, normalized: what a fuzzy match is compared with.
+	SourceNormalized string `json:"source_normalized"`
+
+	// Target The remembered target in MF2, its variables renamed to the unit's by position.
+	Target string `json:"target"`
+
+	// TargetSyntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	TargetSyntax         Syntax `json:"target_syntax"`
+	TargetSyntaxFallback bool   `json:"target_syntax_fallback"`
+
+	// TargetText The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it.
+	TargetText string `json:"target_text"`
+
+	// VariablesAdapted False when a target variable had no counterpart and kept its name.
+	VariablesAdapted bool `json:"variables_adapted"`
+}
+
+// UnitTMMatchKind defines model for UnitTMMatch.Kind.
+type UnitTMMatchKind string
+
+// UnitTMMatches defines model for UnitTMMatches.
+type UnitTMMatches struct {
+	Items []UnitTMMatch `json:"items"`
+
+	// SourceNormalized The unit's own source, normalized.
+	SourceNormalized string `json:"source_normalized"`
+}
+
 // UnusedMessage defines model for UnusedMessage.
 type UnusedMessage struct {
 	// Id An opaque identifier.
@@ -8948,7 +9054,7 @@ type UsagesDocumentUsage struct {
 
 // UsagesTool defines model for UsagesTool.
 type UsagesTool struct {
-	// Name A package name: `@glossa/unplugin`, `glossa`.
+	// Name A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`.
 	Name string `json:"name"`
 
 	// Version A semantic version.
@@ -10163,7 +10269,7 @@ type ListContextBuildsParams struct {
 
 // CreateContextBuildParams defines parameters for CreateContextBuild.
 type CreateContextBuildParams struct {
-	// Source The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
+	// Source The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
 	Source ContextSource `form:"source" json:"source"`
 }
 
@@ -10384,6 +10490,15 @@ type ListTranslationRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListUnitTMMatchesParams defines parameters for ListUnitTMMatches.
+type ListUnitTMMatchesParams struct {
+	Limit    *int `form:"limit,omitempty" json:"limit,omitempty"`
+	MinScore *int `form:"min_score,omitempty" json:"min_score,omitempty"`
+
+	// TargetSyntax The syntax of each `target_text`; by default the one the message's source is written in.
+	TargetSyntax *Syntax `form:"target_syntax,omitempty" json:"target_syntax,omitempty"`
+}
+
 // ListMessageUsagesParams defines parameters for ListMessageUsages.
 type ListMessageUsagesParams struct {
 	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
@@ -10586,6 +10701,12 @@ type ListWorkflowInstancesParams struct {
 
 	// SubjectId A subject `id` (a message's or a release request's).
 	SubjectId *Id `form:"subject_id,omitempty" json:"subject_id,omitempty"`
+}
+
+// RebaseWorkflowInstanceParams defines parameters for RebaseWorkflowInstance.
+type RebaseWorkflowInstanceParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
 }
 
 // ListWorkflowTransitionsParams defines parameters for ListWorkflowTransitions.
@@ -11081,6 +11202,9 @@ type CreateWaiverJSONRequestBody = CreateWaiver
 
 // CreateWorkflowBindingJSONRequestBody defines body for CreateWorkflowBinding for application/json ContentType.
 type CreateWorkflowBindingJSONRequestBody = CreateWorkflowBinding
+
+// RebaseWorkflowInstanceJSONRequestBody defines body for RebaseWorkflowInstance for application/json ContentType.
+type RebaseWorkflowInstanceJSONRequestBody = RebaseWorkflowInstance
 
 // CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
 type CreateStyleGuideJSONRequestBody = CreateStyleGuide
@@ -12396,8 +12520,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12416,8 +12542,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -14422,7 +14550,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -14453,7 +14581,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -15502,6 +15630,23 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslation(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListUnitAISuggestions AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ReviewTranslationWithBody Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -15534,6 +15679,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUnitTMMatches Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMessageUsages Where a message appears (its current usages)
 	//
@@ -16202,12 +16365,77 @@ type ClientInterface interface {
 
 	// GetWorkflowInstance A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkflowTransitions An instance's transition log
 	//
@@ -18943,8 +19171,10 @@ func (c *Client) ListAssignments(ctx context.Context, tenant TenantPath, params 
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type.
 //
@@ -18973,8 +19203,10 @@ func (c *Client) CreateAssignmentWithBody(ctx context.Context, tenant TenantPath
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -22099,7 +22331,7 @@ func (c *Client) ListContextBuilds(ctx context.Context, tenant TenantPath, proje
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -22140,7 +22372,7 @@ func (c *Client) CreateContextBuildWithBody(ctx context.Context, tenant TenantPa
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -23809,6 +24041,33 @@ func (c *Client) PutTranslation(ctx context.Context, tenant TenantPath, project 
 	return c.Client.Do(req)
 }
 
+// ListUnitAISuggestions AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *Client) ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitAISuggestionsRequest(c.Server, tenant, project, message, locale)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ReviewTranslationWithBody Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -23862,6 +24121,34 @@ func (c *Client) ReviewTranslation(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTranslationRevisionsRequest(c.Server, tenant, project, message, locale, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListUnitTMMatches Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *Client) ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitTMMatchesRequest(c.Server, tenant, project, message, locale, params)
 	if err != nil {
 		return nil, err
 	}
@@ -24909,13 +25196,98 @@ func (c *Client) ListWorkflowInstances(ctx context.Context, tenant TenantPath, p
 
 // GetWorkflowInstance A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 func (c *Client) GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequestWithBody(c.Server, tenant, project, workflowInstance, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -37883,6 +38255,61 @@ func NewPutTranslationRequestWithBody(server string, tenant TenantPath, project 
 	return req, nil
 }
 
+// NewListUnitAISuggestionsRequest constructs an http.Request for the ListUnitAISuggestions method
+func NewListUnitAISuggestionsRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/ai-suggestions", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewReviewTranslationRequest calls the generic ReviewTranslation builder with application/json body
 func NewReviewTranslationRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ReviewTranslationParams, body ReviewTranslationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -38035,6 +38462,112 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 		if params.PageToken != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUnitTMMatchesRequest constructs an http.Request for the ListUnitTMMatches method
+func NewListUnitTMMatchesRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/tm-matches", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MinScore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "min_score", *params.MinScore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetSyntax != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_syntax", *params.TargetSyntax, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -40414,6 +40947,80 @@ func NewGetWorkflowInstanceRequest(server string, tenant TenantPath, project Pro
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRebaseWorkflowInstanceRequest calls the generic RebaseWorkflowInstance builder with application/json body
+func NewRebaseWorkflowInstanceRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRebaseWorkflowInstanceRequestWithBody(server, tenant, project, workflowInstance, params, "application/json", bodyReader)
+}
+
+// NewRebaseWorkflowInstanceRequestWithBody constructs an http.Request for the RebaseWorkflowInstance method, with any body, and a specified content type
+func NewRebaseWorkflowInstanceRequestWithBody(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_instance", workflowInstance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances/%s/rebase", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
 	}
 
 	return req, nil
@@ -44728,8 +45335,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44748,8 +45357,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -46868,7 +47479,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -46899,7 +47510,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -47998,6 +48609,25 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutTranslationResponse, error)
 
+	// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error)
+
 	// ReviewTranslationWithBodyWithResponse Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -48032,6 +48662,26 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
+
+	// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error)
 
 	// ListMessageUsagesWithResponse Where a message appears (its current usages)
 	//
@@ -48746,14 +49396,79 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowInstanceWithResponse A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*GetWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
 
 	// ListWorkflowTransitionsWithResponse An instance's transition log
 	//
@@ -53416,6 +54131,8 @@ type CreateAssignmentResponse struct {
 	ApplicationproblemJSON403 *Forbidden
 	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
 	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *UnprocessableEntity
 	// Headers201 the parsed response headers for an HTTP 201 response
@@ -53445,6 +54162,11 @@ func (r CreateAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
 // GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
 func (r CreateAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
 	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
 }
 
 // GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
@@ -63191,6 +63913,68 @@ func (r PutTranslationResponse) ContentType() string {
 	return ""
 }
 
+type ListUnitAISuggestionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitAISuggestions
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitAISuggestionsResponse) GetJSON200() *UnitAISuggestions {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitAISuggestionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitAISuggestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitAISuggestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitAISuggestionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // ReviewTranslationResponse200Headers the declared response headers of an HTTP 200 response for ReviewTranslation
 type ReviewTranslationResponse200Headers struct {
 	ETag *string
@@ -63351,6 +64135,75 @@ func (r ListTranslationRevisionsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListTranslationRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListUnitTMMatchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitTMMatches
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitTMMatchesResponse) GetJSON200() *UnitTMMatches {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitTMMatchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitTMMatchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitTMMatchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitTMMatchesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -65479,6 +66332,11 @@ func (r ListWorkflowInstancesResponse) ContentType() string {
 	return ""
 }
 
+// GetWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for GetWorkflowInstance
+type GetWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
 type GetWorkflowInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -65492,6 +66350,8 @@ type GetWorkflowInstanceResponse struct {
 	ApplicationproblemJSON404 *NotFound
 	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
 	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetWorkflowInstanceResponse200Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -65542,6 +66402,117 @@ func (r GetWorkflowInstanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetWorkflowInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RebaseWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for RebaseWorkflowInstance
+type RebaseWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
+type RebaseWorkflowInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowInstance
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *Problem
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RebaseWorkflowInstanceResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RebaseWorkflowInstanceResponse) GetJSON200() *WorkflowInstance {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON422() *Problem {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r RebaseWorkflowInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RebaseWorkflowInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RebaseWorkflowInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RebaseWorkflowInstanceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70467,8 +71438,10 @@ func (c *ClientWithResponses) ListAssignmentsWithResponse(ctx context.Context, t
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -70493,8 +71466,10 @@ func (c *ClientWithResponses) CreateAssignmentWithBodyWithResponse(ctx context.C
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -73285,7 +74260,7 @@ func (c *ClientWithResponses) ListContextBuildsWithResponse(ctx context.Context,
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -73322,7 +74297,7 @@ func (c *ClientWithResponses) CreateContextBuildWithBodyWithResponse(ctx context
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -74793,6 +75768,31 @@ func (c *ClientWithResponses) PutTranslationWithResponse(ctx context.Context, te
 	return ParsePutTranslationResponse(rsp)
 }
 
+// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *ClientWithResponses) ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error) {
+	rsp, err := c.ListUnitAISuggestions(ctx, tenant, project, message, locale, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitAISuggestionsResponse(rsp)
+}
+
 // ReviewTranslationWithBodyWithResponse Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -74844,6 +75844,32 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTranslationRevisionsResponse(rsp)
+}
+
+// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *ClientWithResponses) ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error) {
+	rsp, err := c.ListUnitTMMatches(ctx, tenant, project, message, locale, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitTMMatchesResponse(rsp)
 }
 
 // ListMessageUsagesWithResponse Where a message appears (its current usages)
@@ -75781,9 +76807,10 @@ func (c *ClientWithResponses) ListWorkflowInstancesWithResponse(ctx context.Cont
 
 // GetWorkflowInstanceWithResponse A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -75794,6 +76821,82 @@ func (c *ClientWithResponses) GetWorkflowInstanceWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstanceWithBody(ctx, tenant, project, workflowInstance, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstance(ctx, tenant, project, workflowInstance, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
 }
 
 // ListWorkflowTransitionsWithResponse An instance's transition log
@@ -80154,6 +81257,13 @@ func ParseCreateAssignmentResponse(rsp *http.Response) (*CreateAssignmentRespons
 			return nil, err
 		}
 		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest UnprocessableEntity
@@ -88521,6 +89631,53 @@ func ParsePutTranslationResponse(rsp *http.Response) (*PutTranslationResponse, e
 	return response, nil
 }
 
+// ParseListUnitAISuggestionsResponse parses an HTTP response from a ListUnitAISuggestionsWithResponse call
+func ParseListUnitAISuggestionsResponse(rsp *http.Response) (*ListUnitAISuggestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitAISuggestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitAISuggestions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseReviewTranslationResponse parses an HTTP response from a ReviewTranslationWithResponse call
 func ParseReviewTranslationResponse(rsp *http.Response) (*ReviewTranslationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -88625,6 +89782,60 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUnitTMMatchesResponse parses an HTTP response from a ListUnitTMMatchesWithResponse call
+func ParseListUnitTMMatchesResponse(rsp *http.Response) (*ListUnitTMMatchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitTMMatchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitTMMatches
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -90438,6 +91649,121 @@ func ParseGetWorkflowInstanceResponse(rsp *http.Response) (*GetWorkflowInstanceR
 		}
 		response.ApplicationproblemJSON503 = &dest
 
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRebaseWorkflowInstanceResponse parses an HTTP response from a RebaseWorkflowInstanceWithResponse call
+func ParseRebaseWorkflowInstanceResponse(rsp *http.Response) (*RebaseWorkflowInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RebaseWorkflowInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RebaseWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

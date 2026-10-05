@@ -44,6 +44,35 @@ SET state = sqlc.arg(state), snapshot = sqlc.narg(snapshot), status = sqlc.arg(s
     updated_at = sqlc.arg(updated_at), finished_at = sqlc.narg(finished_at)
 WHERE id = sqlc.arg(id);
 
+-- name: RebaseInstance :execrows
+-- Moves a locked, active instance to another version of its definition
+-- (migration 0056 grants the column). Its state, status and timer stay.
+UPDATE workflow_instances
+SET version = sqlc.arg(version), snapshot = sqlc.narg(snapshot), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND status = 'active';
+
+-- name: DeleteFinishedInstances :execrows
+-- Retention (migration 0056): up to max_rows instances that finished
+-- before the cutoff, oldest first, with their transition logs (the
+-- foreign key cascades). The policy lets the application role delete
+-- nothing but finished instances; the WHERE says so too.
+DELETE FROM workflow_instances
+WHERE id IN (
+    SELECT f.id FROM workflow_instances f
+    WHERE f.status = 'finished' AND f.finished_at < sqlc.arg(cutoff)::timestamptz
+    ORDER BY f.finished_at, f.id
+    LIMIT sqlc.arg(max_rows)
+    FOR UPDATE SKIP LOCKED
+);
+
+-- name: ListTenantsWithExpiredInstances :many
+-- System scope workflow.retention (db.SystemTx): which tenants hold an
+-- instance that finished before the cutoff. Reads only the columns
+-- migrations 0043 and 0056 grant glossa_system.
+SELECT DISTINCT tenant_id FROM workflow_instances
+WHERE status = 'finished' AND finished_at < sqlc.arg(cutoff)
+LIMIT sqlc.arg(max_rows);
+
 -- name: HasTransition :one
 SELECT EXISTS (
     SELECT 1 FROM workflow_transitions

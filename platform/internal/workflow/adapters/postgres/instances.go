@@ -24,18 +24,39 @@ import (
 type Instances struct {
 	uow   *db.UnitOfWork
 	scope db.SystemScope
+	// retention is the retention sweep's system scope: the tenant, the
+	// status and when an instance finished (migration 0056).
+	retention db.SystemScope
 }
 
 // NewInstances returns the instance store on uow.
 func NewInstances(uow *db.UnitOfWork) *Instances {
-	return &Instances{uow: uow, scope: db.NewSystemScope("workflow.timers")}
+	return &Instances{uow: uow, scope: db.NewSystemScope("workflow.timers"), retention: db.NewSystemScope("workflow.retention")}
 }
 
 var (
 	_ app.InstanceTransactor = (*Instances)(nil)
 	_ app.InstanceQueries    = (*Instances)(nil)
 	_ app.TimerScanner       = (*Instances)(nil)
+	_ app.RetentionScanner   = (*Instances)(nil)
 )
+
+// TenantsWithExpiredInstances implements app.RetentionScanner in the
+// system scope workflow.retention, which reads the tenant, the status
+// and finished_at (migrations 0043 and 0056) and nothing else.
+func (s *Instances) TenantsWithExpiredInstances(ctx context.Context, cutoff time.Time, limit int) ([]tenancy.ID, error) {
+	var out []tenancy.ID
+	err := s.uow.InSystemTx(ctx, s.retention, func(ctx context.Context, tx *db.SystemTx) error {
+		rows, err := workflowsql.New(tx).ListTenantsWithExpiredInstances(ctx, workflowsql.ListTenantsWithExpiredInstancesParams{
+			Cutoff: pgtype.Timestamptz{Time: cutoff, Valid: true}, MaxRows: int32Of(limit),
+		})
+		for _, r := range rows {
+			out = append(out, tenancy.ID(r))
+		}
+		return err
+	})
+	return out, err
+}
 
 // InTenant implements app.InstanceTransactor.
 func (s *Instances) InTenant(ctx context.Context, fn func(context.Context, app.InstanceStore) error) error {
@@ -169,6 +190,34 @@ func (s *instanceStore) InsertDefinition(ctx context.Context, rec domain.Definit
 		return err
 	}
 	return ds.InsertVersion(ctx, v)
+}
+
+func (s *instanceStore) LatestVersion(ctx context.Context, definition uuid.UUID) (int, error) {
+	r, err := s.q.GetDefinition(ctx, definition)
+	if err != nil {
+		return 0, storeError(err)
+	}
+	return int(r.Latest), nil
+}
+
+func (s *instanceStore) RebaseInstance(ctx context.Context, i domain.Instance, snapshot []byte) error {
+	n, err := s.q.RebaseInstance(ctx, workflowsql.RebaseInstanceParams{
+		ID: i.ID, Version: int32Of(i.Version), Snapshot: snapshot, UpdatedAt: i.UpdatedAt,
+	})
+	if err != nil {
+		return storeError(err)
+	}
+	if n != 1 {
+		return app.ErrNotFound
+	}
+	return nil
+}
+
+func (s *instanceStore) DeleteFinished(ctx context.Context, cutoff time.Time, limit int) (int, error) {
+	n, err := s.q.DeleteFinishedInstances(ctx, workflowsql.DeleteFinishedInstancesParams{
+		Cutoff: cutoff, MaxRows: int32Of(limit),
+	})
+	return int(n), storeError(err)
 }
 
 func (s *instanceStore) SeedDefault(ctx context.Context, rec *domain.DefinitionRecord, v *domain.Version, at time.Time) (bool, error) {

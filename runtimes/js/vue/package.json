@@ -1,8 +1,7 @@
 {
-  "name": "@glossa/vue",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @glossa/runtime.",
+  "name": "@felixgeelhaar/glossa-vue",
+  "version": "0.4.0",
+  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @felixgeelhaar/glossa-runtime.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -26,15 +25,20 @@
   },
   "size-limit": [
     {
-      "name": "@glossa/vue, own code (vue and @glossa/runtime excluded)",
+      "name": "@felixgeelhaar/glossa-vue, own code (vue and @felixgeelhaar/glossa-runtime excluded)",
       "path": "dist/index.js",
-      "ignore": ["vue", "@glossa/runtime"],
+      "ignore": [
+        "vue",
+        "@felixgeelhaar/glossa-runtime"
+      ],
       "limit": "1.5 KB"
     },
     {
-      "name": "@glossa/vue with @glossa/runtime (vue excluded)",
+      "name": "@felixgeelhaar/glossa-vue with @felixgeelhaar/glossa-runtime (vue excluded)",
       "path": "dist/index.js",
-      "ignore": ["vue"],
+      "ignore": [
+        "vue"
+      ],
       "limit": "8 KB"
     }
   ],
@@ -42,8 +46,8 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@glossa/elements": "workspace:*",
-    "@glossa/runtime": "workspace:*"
+    "@felixgeelhaar/glossa-elements": "workspace:^",
+    "@felixgeelhaar/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "11.2.0",
@@ -63,5 +67,11 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/vue#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

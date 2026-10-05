@@ -155,10 +155,7 @@ func TestAuditVerifyUsage(t *testing.T) {
 	}
 	w.json(&e, "audit").want(t, ExitUsage)
 	w.json(&e, "audit", "verify", "--public-key", k).want(t, ExitUsage)
-	w.json(&e, "audit", "list").want(t, ExitUsage)
-	if e.Error.Code != "unavailable_command" {
-		t.Errorf("audit list: %+v", e.Error)
-	}
+	w.json(&e, "audit", "frobnicate").want(t, ExitUsage)
 
 	// An empty directory, or one missing a file, is an export that does
 	// not verify (exit 1), not a mistake on the command line.

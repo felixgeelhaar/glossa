@@ -28,7 +28,7 @@ func (s *server) metrics() string {
 func usagesDoc(commit, branch string, usages ...map[string]any) map[string]any {
 	return map[string]any{
 		"schema": "glossa.usages/v1", "application": "web", "commit": commit, "branch": branch,
-		"tool": map[string]any{"name": "@glossa/unplugin", "version": "0.1.0"}, "usages": usages,
+		"tool": map[string]any{"name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0"}, "usages": usages,
 		"future_field": "ignored within v1",
 	}
 }
@@ -206,7 +206,7 @@ func TestContextIsComposed(t *testing.T) {
 	if _, err := s.db.Super.Exec(ctx, `
 		INSERT INTO context_builds (id, tenant_id, project_id, application_id, commit_sha, branch, on_default_branch,
 		                            source, tool_name, digest, usage_count, created_by, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, 'abcdef1', 'main', true, 'plugin', '@glossa/unplugin', $4, 0, 'test', now())`,
+		VALUES (gen_random_uuid(), $1, $2, $3, 'abcdef1', 'main', true, 'plugin', '@felixgeelhaar/glossa-unplugin', $4, 0, 'test', now())`,
 		org.ID, project.ID, application.ID, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
 	}

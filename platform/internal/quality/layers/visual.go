@@ -14,7 +14,7 @@ import (
 // The layer computes nothing itself. The measurements need live layout
 // — `scrollWidth`, `getComputedStyle`, `document.fonts.check()` — which
 // exists only while the page is open, so they are taken in the browser,
-// in the product's CI, by `@glossa/capture`'s probe pass. What is left
+// in the product's CI, by `@felixgeelhaar/glossa-capture`'s probe pass. What is left
 // here is the part that must not live in a browser: the identity of a
 // finding (its fingerprint), where it is (the locus), and the rule that
 // decides when one may be believed.

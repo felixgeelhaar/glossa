@@ -46,6 +46,14 @@ var _ app.WorkStore = (*workStore)(nil)
 
 // ── assignments ─────────────────────────────────────────────────────
 
+func (s *workStore) LiveAssignmentsOf(ctx context.Context, assignee domain.Assignee) (int, error) {
+	if err := s.q.LockAssignee(ctx, assignee.String()); err != nil {
+		return 0, err
+	}
+	n, err := s.q.CountLiveAssignmentsOf(ctx, assignee.String())
+	return int(n), err
+}
+
 func (s *workStore) InsertAssignment(ctx context.Context, a domain.Assignment) error {
 	err := s.q.InsertAssignment(ctx, worksql.InsertAssignmentParams{
 		ID: a.ID, ProjectID: a.ProjectID, InstanceID: nullUUID(a.InstanceID), Assignee: a.Assignee.String(),

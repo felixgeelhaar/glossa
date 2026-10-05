@@ -16,6 +16,10 @@ export interface FakeKnowledge extends KnowledgePort {
   readonly concepts_: TermConcept[];
   readonly guides: StyleGuide[];
   readonly units: TMUnit[];
+  /** The source of each message key, which the server reads from Catalog. */
+  readonly sources: Map<string, string>;
+  /** Behave as for an assigned member: matches carry no `message_key`. */
+  hideKeys: boolean;
   /**
    * Approve a translation into memory. `target` is MF2; `targetMf1` is the
    * same target in MF1, when MF1 can express it.
@@ -93,6 +97,8 @@ export function createFakeKnowledge(): FakeKnowledge {
     concepts_: concepts,
     guides,
     units,
+    sources: new Map(),
+    hideKeys: false,
     remember(source, target, over = {}, targetMf1) {
       const u: TMUnit = {
         id: id("unit"),
@@ -147,6 +153,36 @@ export function createFakeKnowledge(): FakeKnowledge {
           target_model: u.target_model,
           variables_adapted: true,
           unit: u,
+        })),
+      };
+    },
+    async unitTMMatches(_tenant, _project, key, locale, q = {}) {
+      calls.push(["unitTMMatches", key, locale, q]);
+      const source = port.sources.get(key);
+      if (source === undefined) throw new ApiError(404, "not_found", "No such unit.");
+      const r = await port.lookupTM("t", {
+        source,
+        syntax: "mf1",
+        source_locale: "en",
+        target_locale: locale,
+        message_key: key,
+        limit: q.limit,
+        min_score: q.min_score,
+        target_syntax: q.target_syntax,
+      } as never);
+      return {
+        source_normalized: r.source_normalized,
+        items: r.matches.map((m) => ({
+          score: m.score,
+          kind: m.kind,
+          source_normalized: m.unit.source_normalized,
+          target: m.target,
+          target_text: m.target_text,
+          target_syntax: m.target_syntax,
+          target_syntax_fallback: m.target_syntax_fallback,
+          variables_adapted: m.variables_adapted,
+          project_scoped: Boolean(m.unit.project_id),
+          ...(port.hideKeys || !m.unit.message_key ? {} : { message_key: m.unit.message_key }),
         })),
       };
     },

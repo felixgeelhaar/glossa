@@ -1544,6 +1544,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Translation-memory matches for one unit
+         * @description The memory's matches for one translation unit — the message the
+         *     key names, in the locale — scored as `lookupTranslationMemory`
+         *     scores them, from the tenant-wide units and the project's own,
+         *     best first. It is the translation workspace's read, and the only
+         *     one a member with visibility `assigned` has (RFC 0006 §3.3): the
+         *     unit must be in an assignment of theirs, and anything else —
+         *     another unit, another project — is `404`. A match is text and a
+         *     score, never the matched unit: for an `assigned` member no id or
+         *     key of the remembered unit is returned (`message_key` is omitted),
+         *     so the memory does not tell a vendor what else is in the
+         *     project. It records no hit. Needs `knowledge.read`. Problem
+         *     codes: `invalid_query`, `invalid_syntax` (400).
+         */
+        get: operations["listUnitTMMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI suggestions for one unit
+         * @description The newest suggestions (at most 5) for one translation unit — the
+         *     message the key names, in the locale — as its workspace shows
+         *     them: the text, its score with the explanation, the routed
+         *     action, risks and findings. It is the read a member with
+         *     visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+         *     assignment of theirs, and anything else is `404`. The job,
+         *     provider, model, calls, cost and the translation-memory units it
+         *     drew on are not part of it; they stay with
+         *     `getAISuggestion`. `decidable` is false for an `assigned`
+         *     member, who writes the translation instead of accepting a
+         *     suggestion. Needs `intelligence.read`.
+         */
+        get: operations["listUnitAISuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions": {
         parameters: {
             query?: never;
@@ -4625,7 +4704,7 @@ export interface paths {
          * Upload a build's usages (glossa context push)
          * @description The body is one `glossa.usages/v1` document: where one
          *     application's messages are used at one commit, as
-         *     `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+         *     `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
          *     write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
          *     It is validated by the schema's rules — members it doesn't define
          *     are ignored within v1, anything else it refuses is
@@ -6262,13 +6341,64 @@ export interface paths {
         };
         /**
          * A workflow instance
-         * @description Its definition version, subject, state and status. Needs
-         *     `workflows.read`. Problem codes: `workflow_instances_unavailable`
-         *     (503).
+         * @description Its definition version, subject, state and status. The `ETag` is
+         *     the definition version the instance runs on: what a rebase's
+         *     `If-Match` names. Needs `workflows.read`. Problem codes:
+         *     `workflow_instances_unavailable` (503).
          */
         get: operations["getWorkflowInstance"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a running instance to a newer version of its definition
+         * @description A running instance stays on the version it started with until a
+         *     workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+         *     instance's state by name: the target version — `version`, or the
+         *     definition's latest when the body names none — must be newer, and
+         *     must have that state as one an instance can wait in. A rebase
+         *     changes what happens next, never what already happened: it runs
+         *     no entry action again (the assignments and approvals the state
+         *     asked for stand), and a pending due date keeps its time. An
+         *     instance that has not started yet starts on the new version at
+         *     its next event.
+         *
+         *     The rebase is recorded in the instance's transition log as event
+         *     `rebase` (its one action says which versions), and published as
+         *     `workflow.instance.rebased` naming who did it. `If-Match` is the
+         *     instance's `ETag`: the version it runs on.
+         *
+         *     Needs `workflows.manage` in the project. Problem codes:
+         *     `workflow_instance_finished` (409: nothing left to run),
+         *     `invalid_workflow_rebase` (422: the version is not newer, or the
+         *     definition has no such version), `workflow_rebase_state_missing`
+         *     (422: the target has no such state), `workflow_rebase_state_final`
+         *     (422: the state is final in the target), `precondition_failed`
+         *     (412), `precondition_required` (428),
+         *     `workflow_instances_unavailable` (503).
+         */
+        post: operations["rebaseWorkflowInstance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6348,8 +6478,10 @@ export interface paths {
          *     `invalid_assignment` (422: no units, too many, a key the
          *     project does not have, a due date in the past),
          *     `unknown_party` (422: no such member, group or vendor),
-         *     `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-         *     `not_found` (404: the project).
+         *     `workflow_limit_reached` (409: the assignee already holds 1,000
+         *     open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+         *     (422), `invalid_idempotency_key` (400), `not_found` (404: the
+         *     project).
          */
         post: operations["createAssignment"];
         delete?: never;
@@ -8587,6 +8719,56 @@ export interface components {
             source_normalized: string;
             matches: components["schemas"]["TMMatch"][];
         };
+        /** @description A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`. */
+        UnitTMMatch: {
+            score: number;
+            /** @enum {string} */
+            kind: "context" | "exact" | "fuzzy";
+            /** @description The remembered source, normalized: what a fuzzy match is compared with. */
+            source_normalized: string;
+            /** @description The remembered target in MF2, its variables renamed to the unit's by position. */
+            target: string;
+            /** @description The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it. */
+            target_text: string;
+            target_syntax: components["schemas"]["Syntax"];
+            target_syntax_fallback: boolean;
+            /** @description False when a target variable had no counterpart and kept its name. */
+            variables_adapted: boolean;
+            /** @description True for a unit the project owns, false for a tenant-wide one. */
+            project_scoped: boolean;
+            /** @description The key of the message the match was learned from. Never returned to a member with visibility `assigned`. */
+            message_key?: components["schemas"]["MessageKey"];
+        };
+        UnitTMMatches: {
+            /** @description The unit's own source, normalized. */
+            source_normalized: string;
+            items: components["schemas"]["UnitTMMatch"][];
+        };
+        /** @description An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it. */
+        UnitAISuggestion: {
+            id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+            source_revision: number;
+            /** @description The translation in canonical MF2 syntax. */
+            message: string;
+            findings: components["schemas"]["QAFinding"][];
+            term_findings: components["schemas"]["AITermFinding"][];
+            /** Format: double */
+            score: number;
+            explanation: components["schemas"]["AIConfidenceFactor"][];
+            action: components["schemas"]["AIAction"];
+            action_note?: string;
+            risk_tags: string[];
+            status: components["schemas"]["AISuggestionStatus"];
+            /** @description The message's source has been revised since the suggestion was made. */
+            outdated: boolean;
+            /** @description Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`. */
+            decidable: boolean;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        UnitAISuggestions: {
+            items: components["schemas"]["UnitAISuggestion"][];
+        };
         TMConcordanceMatch: {
             /** @description Trigram word similarity of the phrase to the side searched. */
             similarity: number;
@@ -9802,7 +9984,7 @@ export interface components {
          */
         UsageKind: "t" | "component" | "element" | "accessor" | "template";
         UsagesTool: {
-            /** @description A package name: `@glossa/unplugin`, `glossa`. */
+            /** @description A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`. */
             name: string;
             /** @description A semantic version. */
             version: string;
@@ -11292,6 +11474,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        RebaseWorkflowInstance: {
+            /** @description The version to move to; the definition's latest when absent. */
+            version?: number;
         };
         WorkflowInstanceList: {
             items: components["schemas"]["WorkflowInstance"][];
@@ -14003,6 +14189,76 @@ export interface operations {
             412: components["responses"]["PreconditionFailed"];
             422: components["responses"]["StructuralQAFailed"];
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listUnitTMMatches: {
+        parameters: {
+            query?: {
+                limit?: number;
+                min_score?: number;
+                /** @description The syntax of each `target_text`; by default the one the message's source is written in. */
+                target_syntax?: components["schemas"]["Syntax"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTMMatches"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listUnitAISuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unit's suggestions, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitAISuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listTranslationRevisions: {
@@ -18125,7 +18381,7 @@ export interface operations {
     createContextBuild: {
         parameters: {
             query: {
-                /** @description The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
+                /** @description The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
                 source: components["schemas"]["ContextSource"];
             };
             header?: never;
@@ -19853,6 +20109,7 @@ export interface operations {
             /** @description The instance. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -19862,6 +20119,58 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rebaseWorkflowInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebaseWorkflowInstance"];
+            };
+        };
+        responses: {
+            /** @description The instance on its new version. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInstance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            /** @description The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -19973,6 +20282,7 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
         };
     };

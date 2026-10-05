@@ -202,6 +202,27 @@ func TestIntegrationConfig(t *testing.T) {
 	}
 }
 
+func TestWorkflowInstanceRetention(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Workflow.InstanceRetention != 180*24*time.Hour {
+		t.Errorf("default = %s", cfg.Workflow.InstanceRetention)
+	}
+	base["GLOSSA_WORKFLOW_INSTANCE_RETENTION"] = "720h"
+	if cfg, err = config.Load(env(base)); err != nil || cfg.Workflow.InstanceRetention != 720*time.Hour {
+		t.Errorf("720h = %s (%v)", cfg.Workflow.InstanceRetention, err)
+	}
+	for _, bad := range []string{"23h", "0", "soon"} {
+		base["GLOSSA_WORKFLOW_INSTANCE_RETENTION"] = bad
+		if _, err := config.Load(env(base)); err == nil || !strings.Contains(err.Error(), "GLOSSA_WORKFLOW_INSTANCE_RETENTION") {
+			t.Errorf("%q: err = %v", bad, err)
+		}
+	}
+}
+
 func TestPurgeConfig(t *testing.T) {
 	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
 	cfg, err := config.Load(env(base))

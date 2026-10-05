@@ -114,6 +114,9 @@ type RunnerDeps struct {
 	Releases ReleaseRequests
 	Actors   Actors
 	Timers   TimerScanner
+	// Retention finds the tenants whose finished instances are past
+	// their retention; SweepRetention needs it.
+	Retention RetentionScanner
 	// Metrics records transitions and the instance and assignment
 	// gauges (RFC 0006 §10.1); Workload counts the gauges. Either may be
 	// nil, and then nothing is recorded.

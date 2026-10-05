@@ -204,7 +204,7 @@ type placedUse struct {
 func documentOf(application, commit, branch string, uses ...placedUse) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, `{"schema":"glossa.usages/v1","application":%q,"commit":%q,"branch":%q,`+
-		`"tool":{"name":"@glossa/unplugin","version":"0.1.0"},"usages":[`, application, sha(commit), branch)
+		`"tool":{"name":"@felixgeelhaar/glossa-unplugin","version":"0.1.0"},"usages":[`, application, sha(commit), branch)
 	for i, u := range uses {
 		if i > 0 {
 			b.WriteByte(',')

@@ -467,7 +467,7 @@ func toAssignmentJSON(x remote.Assignment, keys map[string]string) assignmentJSO
 // 0006 §3).
 var assignmentsFixes = map[string]string{
 	"assignment_state":       "`glossa assignments show <id>` shows its state: only an open assignment can be accepted, and only a live one (open or accepted) completed or declined",
-	"invalid_assignment":     "check --units (keys the project has, at most 1,000) and --due (in the future)",
+	"invalid_assignment":     "check --units (keys the project has, at most 10,000) and --due (in the future)",
 	"unknown_party":          "check --to: a member's ID or address, a role (translator, reviewer, …), or a group's or vendor's name or ID",
 	"idempotency_key_reused": "run the command again: it sends a fresh key",
 	"invalid_query":          "check --state, --locale and --message",

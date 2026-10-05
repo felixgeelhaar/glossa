@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRuntime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 
 import { INLINE_ID, inlineRelease, inlineScript, inlineStream, renderPage } from "./page.js";
 import type { InlineRelease } from "./page.js";

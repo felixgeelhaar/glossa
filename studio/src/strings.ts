@@ -4,6 +4,7 @@
  * mechanical change later: these keys become messages.
  */
 import { ApiError } from "./api/errors";
+import { auditProblems, auditStrings } from "./strings-audit";
 import { directoryProblems, directoryStrings } from "./strings-directory";
 import { instanceProblems, instanceStrings } from "./strings-instances";
 import { releaseOpsProblems, releaseOpsStrings } from "./strings-release-ops";
@@ -56,6 +57,7 @@ export const strings = {
     workflows: "Workflows",
     groups: "Groups",
     vendors: "Vendors",
+    audit: "Audit log",
   },
   tenantSettings: {
     knowledgeLink: "Translation memory & termbase",
@@ -704,7 +706,6 @@ export const strings = {
     insert: "Insert",
     sourceDiff: "Its source, compared with this one:",
     from: (key: string) => `From ${key}`,
-    imported: "Imported",
     scopeProject: "this project",
     scopeTenant: "workspace-wide",
     variablesKept: "a variable kept its name — check it",
@@ -755,7 +756,7 @@ export const strings = {
     moreUsages: (n: number) => `Showing the first ${n.toLocaleString()} usages.`,
     noData: "No usage data yet.",
     noDataHint:
-      "Usages come from the build: run glossa extract --upload, add @glossa/unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
+      "Usages come from the build: run glossa extract --upload, add @felixgeelhaar/glossa-unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
     unused: "Unused",
     unusedLead: "No current build uses this message.",
     unusedHint: "Dynamic keys are invisible to every collector, so this is only reported — nothing is obsoleted automatically.",
@@ -911,6 +912,7 @@ export const strings = {
   ai: {
     title: "AI suggestion",
     none: "No AI suggestion for this message yet. “Fill with AI” asks for one.",
+    outdated: "The source has changed since this suggestion was made.",
     status: { pending: "Pending", accepted: "Accepted", rejected: "Rejected", auto_applied: "Auto-applied", superseded: "Superseded" } as Record<string, string>,
     band: { very_high: "Very high confidence", high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as Record<string, string>,
     score: (x: string) => `score ${x}`,
@@ -1895,6 +1897,7 @@ export const strings = {
   workflows: workflowStrings,
   instances: instanceStrings,
   directory: directoryStrings,
+  audit: auditStrings,
   releaseOps: releaseOpsStrings,
   shortcuts: {
     title: "Keyboard shortcuts",
@@ -1998,6 +2001,7 @@ export const strings = {
     ...workflowProblems,
     ...instanceProblems,
     ...directoryProblems,
+    ...auditProblems,
     ...releaseOpsProblems,
   } as Record<string, string>,
 };

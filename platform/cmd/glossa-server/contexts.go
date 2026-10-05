@@ -90,6 +90,7 @@ import (
 	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
 	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
 	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
+	workflowdomain "github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
 // contexts are the bounded contexts besides Identity, wired to each
@@ -249,6 +250,10 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, quali
 // in bursts of up to 60 (a CI run uploads a few per application).
 const contextUploadTimeout = 2 * time.Minute
 
+// assignmentBodyTimeout bounds reading and answering a createAssignment
+// whose body may run to MaxAssignmentBodyBytes.
+const assignmentBodyTimeout = time.Minute
+
 // captureUploadTimeout bounds reading a capture upload: up to
 // contextdomain.MaxCaptureUploadBytes (200 MB) of images from CI.
 const captureUploadTimeout = 10 * time.Minute
@@ -274,6 +279,7 @@ type contextDeps struct {
 	branches    config.Branches
 	context     config.Context
 	github      config.GitHub
+	workflow    config.Workflow
 	// studioURL is where the pull request's sticky comment links to the
 	// branch (GLOSSA_STUDIO_URL); edgeURL is where a branch
 	// environment's manifest is served (GLOSSA_EDGE_PUBLIC_URL, empty
@@ -311,7 +317,7 @@ func buildContexts(
 	c, err := newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
-		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		github: cfg.GitHub, workflow: cfg.Workflow, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
 		identity: identity,
 	})
 	c.objects = objects
@@ -339,7 +345,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		return contexts{}, err
 	}
 	knowledge := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(localization, catalog),
-		knowledgesources.NewProjects(catalog), knowledgeapp.WithLogger(deps.logger))
+		knowledgesources.NewProjects(catalog), knowledgeapp.WithMessages(knowledgesources.NewMessages(catalog)), knowledgeapp.WithLogger(deps.logger))
 	if err := knowledge.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
@@ -405,7 +411,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		return contexts{}, err
 	}
 	c := contexts{
-		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog, wf.work), workflowRuntime: wf,
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog, wf.work).WithRebase(wf.runner), workflowRuntime: wf,
 		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
@@ -473,6 +479,9 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		})
 	}
 	c.purgeJobs = newPurgeJobs(usageContext, catalog, quality, c.githubInbox, c.githubChecks, deps.logger)
+	// Workflow's retention (RFC 0006 §2.5, wave 6): finished instances and
+	// their transition logs past GLOSSA_WORKFLOW_INSTANCE_RETENTION.
+	c.purgeJobs = append(c.purgeJobs, workflowRetentionJob(wf.runner, deps.workflow.InstanceRetention, deps.logger))
 	// The quality summary's four other sources (RFC 0005 §8). Quality is
 	// built before three of them, so this direction is wired here; it
 	// only reads, and each call is an authorized use case of the service
@@ -645,6 +654,8 @@ func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPol
 			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
 			// while it streams, with its own problem code.
 			return httpserver.BodyPolicy{Timeout: cfg.UploadTimeout}, true
+		case workflowapi.CreateAssignmentPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: workflowdomain.MaxAssignmentBodyBytes, Timeout: assignmentBodyTimeout}, true
 		case integrationapi.DownloadPath(r.Method, r.URL.Path):
 			return httpserver.BodyPolicy{MaxBytes: 1, Timeout: cfg.UploadTimeout}, true
 		}

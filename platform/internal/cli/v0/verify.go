@@ -12,7 +12,7 @@ import (
 
 // `glossa import --from v0 --verify` (RFC 0006 §7.3): every key in every
 // locale is rendered by v0.3's own formatter (@felixgeelhaar/glossa-format)
-// over v0.3's text and by @glossa/runtime over the release the edge
+// over v0.3's text and by @felixgeelhaar/glossa-runtime over the release the edge
 // serves, with the same arguments, and the two outputs are compared.
 // This file is the Go half: which renderings to ask for, and what a
 // difference means. verify.mjs is the Node half that renders.

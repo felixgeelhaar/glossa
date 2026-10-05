@@ -77,7 +77,7 @@ func commands() []command {
 		{"push", "Send the source catalog's messages to the server", runPush},
 		{"pull", "Write translations to local catalogs", runPull},
 		{"extract", "Find message usages in source code", runExtract},
-		{"context", "Upload a usages document (from @glossa/unplugin or extract)", runContext},
+		{"context", "Upload a usages document (from @felixgeelhaar/glossa-unplugin or extract)", runContext},
 		{"capture", "Screenshot the app's pages with where each message renders", runCaptureCmd},
 		{"generate", "Generate typed message accessors (TypeScript, Vue, React, Go)", runGenerate},
 		{"check", "Check the project: structure, arguments, completeness", runCheck},
@@ -106,7 +106,7 @@ func commands() []command {
 		{"approve", "Approve a release request or a translation (a person's session); list what waits", runApprove},
 		{"deny", "Deny a release request or a translation, with a reason", runDeny},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
-		{"audit", "Verify a signed audit export offline (glossa.audit/v1)", runAudit},
+		{"audit", "The audit trail: list, export, CSV; verify an export offline (glossa.audit/v1)", runAudit},
 		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
 	}
 }

@@ -234,10 +234,27 @@ type InstanceStore interface {
 	// InsertDefinition stores a new definition and its first version: the
 	// release approval default, seeded on first use.
 	InsertDefinition(ctx context.Context, rec domain.DefinitionRecord, v domain.Version) error
+
+	// LatestVersion is the number of a definition's latest version
+	// (ErrNotFound for a definition this tenant does not have).
+	LatestVersion(ctx context.Context, definition uuid.UUID) (int, error)
+	// RebaseInstance stores a locked, active instance moved to another
+	// version, with the snapshot to Restore from there (RFC 0006 §2.3).
+	RebaseInstance(ctx context.Context, i domain.Instance, snapshot []byte) error
+	// DeleteFinished deletes up to limit instances that finished before
+	// cutoff, oldest first, with their transition logs, and says how
+	// many. It never deletes an active instance.
+	DeleteFinished(ctx context.Context, cutoff time.Time, limit int) (int, error)
 }
 
 // TimerScanner finds, outside any tenant, the tenants holding an
 // instance whose timer has fallen due.
 type TimerScanner interface {
 	TenantsWithDueTimers(ctx context.Context, now time.Time, limit int) ([]tenancy.ID, error)
+}
+
+// RetentionScanner finds, outside any tenant, the tenants holding an
+// instance that finished before cutoff.
+type RetentionScanner interface {
+	TenantsWithExpiredInstances(ctx context.Context, cutoff time.Time, limit int) ([]tenancy.ID, error)
 }

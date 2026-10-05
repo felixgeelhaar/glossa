@@ -31,6 +31,7 @@ const canCreate = computed(() => allows(grant.value, "catalog.write"));
 const tenantName = computed(() => membershipFor(tenant.value)?.tenant.name ?? "");
 /** RFC 0006: workflows are read with `workflows.read`; groups and vendors exist only in an organization (an individual tenant is refused `individual_tenant`). */
 const canReadWorkflows = computed(() => allows(grant.value, "workflows.read"));
+const canReadAudit = computed(() => allows(grant.value, "audit.read"));
 const isOrganization = computed(() => membershipFor(tenant.value)?.tenant.kind === "organization" && allows(grant.value, "members.read"));
 
 const list = ref<Project[]>([]);
@@ -131,6 +132,9 @@ async function create(): Promise<void> {
         </RouterLink>
         <RouterLink v-if="isOrganization" class="btn" :to="{ name: 'vendors', params: { tenant } }" :title="strings.tenantSettings.settingsLead" data-testid="nav-vendors">
           {{ strings.nav.workspaceSettings }}: {{ strings.nav.vendors }}
+        </RouterLink>
+        <RouterLink v-if="canReadAudit" class="btn" :to="{ name: 'audit-log', params: { tenant } }" :title="strings.tenantSettings.settingsLead" data-testid="nav-audit">
+          {{ strings.nav.workspaceSettings }}: {{ strings.nav.audit }}
         </RouterLink>
         <button v-if="canCreate && !creating" type="button" class="btn btn-primary" @click="creating = true">{{ strings.projects.create }}</button>
       </div>

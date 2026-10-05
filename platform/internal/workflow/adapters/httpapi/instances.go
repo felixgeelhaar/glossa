@@ -3,12 +3,14 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
@@ -113,7 +115,51 @@ func (a *API) GetWorkflowInstance(ctx context.Context, req apiv1.GetWorkflowInst
 	if err != nil {
 		return nil, mapError(err, nil)
 	}
-	return apiv1.GetWorkflowInstance200JSONResponse(toInstance(v)), nil
+	// The ETag is the version the instance runs on: what a rebase's
+	// If-Match names (RFC 0006 §2.3).
+	return apiv1.GetWorkflowInstance200JSONResponse{Body: toInstance(v),
+		Headers: apiv1.GetWorkflowInstance200ResponseHeaders{ETag: apiconv.ETag(v.Version)}}, nil
+}
+
+// Rebaser moves a running instance to a newer version of its definition:
+// the instance runner, which owns every write to an instance.
+type Rebaser interface {
+	Rebase(ctx context.Context, in app.RebaseInput) (app.InstanceView, error)
+}
+
+// WithRebase serves rebaseWorkflowInstance through r; without one it
+// answers workflow_instances_unavailable, as the reads do without a
+// store.
+func (a *API) WithRebase(r Rebaser) *API {
+	a.rebase = r
+	return a
+}
+
+// RebaseWorkflowInstance moves one of the project's running instances
+// to a newer version of its definition, if its If-Match is still the
+// version it runs on.
+func (a *API) RebaseWorkflowInstance(ctx context.Context, req apiv1.RebaseWorkflowInstanceRequestObject) (apiv1.RebaseWorkflowInstanceResponseObject, error) {
+	project, id, err := instanceAddress(req.Project, req.WorkflowInstance)
+	if err != nil {
+		return nil, err
+	}
+	ifVersion, err := apiconv.IfMatch(req.Params.IfMatch)
+	if err != nil {
+		return nil, err
+	}
+	if a.rebase == nil {
+		return nil, mapError(app.ErrInstancesUnavailable, nil)
+	}
+	in := app.RebaseInput{Project: project, Instance: id, IfVersion: ifVersion}
+	if req.Body != nil && req.Body.Version != nil {
+		in.Version = *req.Body.Version
+	}
+	v, err := a.rebase.Rebase(ctx, in)
+	if err != nil {
+		return nil, mapError(err, problem.New(http.StatusPreconditionFailed, problem.CodePreconditionFailed, detailStaleInstanceVersion))
+	}
+	return apiv1.RebaseWorkflowInstance200JSONResponse{Body: toInstance(v),
+		Headers: apiv1.RebaseWorkflowInstance200ResponseHeaders{ETag: apiconv.ETag(v.Version)}}, nil
 }
 
 // ListWorkflowTransitions pages an instance's transition log, oldest

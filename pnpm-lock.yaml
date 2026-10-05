@@ -24,43 +24,6 @@ importers:
         specifier: ^2.27.0
         version: 2.31.0(@types/node@22.20.4)
 
-  apps/admin:
-    dependencies:
-      '@felixgeelhaar/glossa-elements':
-        specifier: workspace:^
-        version: link:../../packages/elements
-      '@felixgeelhaar/glossa-format':
-        specifier: workspace:^
-        version: link:../../packages/format
-      '@felixgeelhaar/glossa-sdk':
-        specifier: workspace:^
-        version: link:../../packages/sdk
-      '@felixgeelhaar/glossa-ui':
-        specifier: workspace:^
-        version: link:../../packages/ui
-      lit:
-        specifier: ^3.2.0
-        version: 3.3.3
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.19
-      axe-core:
-        specifier: ^4.11.4
-        version: 4.11.4
-      jsdom:
-        specifier: ^25.0.0
-        version: 25.0.1
-      typescript:
-        specifier: ^5.5.0
-        version: 5.9.3
-      vite:
-        specifier: ^6.4.3
-        version: 6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-      vitest:
-        specifier: ^4.1.0
-        version: 4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
-
   messageformat/js:
     dependencies:
       '@messageformat/icu-messageformat-1':
@@ -110,40 +73,6 @@ importers:
       vitest:
         specifier: ^4.1.0
         version: 4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
-
-  packages/elements:
-    dependencies:
-      '@felixgeelhaar/glossa-format':
-        specifier: workspace:*
-        version: link:../format
-      '@felixgeelhaar/glossa-sdk':
-        specifier: workspace:*
-        version: link:../sdk
-      '@lit/context':
-        specifier: ^1.1.0
-        version: 1.1.6
-      lit:
-        specifier: ^3.2.0
-        version: 3.3.3
-    devDependencies:
-      '@size-limit/preset-small-lib':
-        specifier: ^11.0.0
-        version: 11.2.0(size-limit@11.2.0)
-      jsdom:
-        specifier: ^25.0.0
-        version: 25.0.1
-      prettier:
-        specifier: ^3.0.0
-        version: 3.8.3
-      size-limit:
-        specifier: ^11.0.0
-        version: 11.2.0
-      typescript:
-        specifier: ^5.5.0
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.0
-        version: 4.1.0(@types/node@22.20.4)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@8.3.0(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
 
   packages/format:
     devDependencies:
@@ -206,22 +135,22 @@ importers:
 
   runtimes/js/astro:
     dependencies:
-      '@glossa/elements':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-elements':
+        specifier: workspace:^
         version: link:../elements
-      '@glossa/runtime':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-runtime':
+        specifier: workspace:^
         version: link:../runtime
-      '@glossa/unplugin':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-unplugin':
+        specifier: workspace:^
         version: link:../unplugin
-      '@glossa/vue':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-vue':
+        specifier: workspace:^
         version: link:../vue
     devDependencies:
       '@astrojs/vue':
         specifier: 7.0.3
-        version: 7.0.3(@types/node@22.19.19)(astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(vue@3.5.43(typescript@5.9.3))(yaml@2.9.1)
+        version: 7.0.3(@types/node@22.19.19)(astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(vue@3.5.43(typescript@5.9.3))(yaml@2.9.1)
       '@size-limit/preset-small-lib':
         specifier: 11.2.0
         version: 11.2.0(size-limit@11.2.0)
@@ -230,7 +159,7 @@ importers:
         version: 22.19.19
       astro:
         specifier: 7.3.3
-        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
       size-limit:
         specifier: 11.2.0
         version: 11.2.0
@@ -246,16 +175,16 @@ importers:
 
   runtimes/js/capture:
     devDependencies:
-      '@glossa/elements':
+      '@felixgeelhaar/glossa-elements':
         specifier: workspace:*
         version: link:../elements
-      '@glossa/react':
+      '@felixgeelhaar/glossa-react':
         specifier: workspace:*
         version: link:../react
-      '@glossa/runtime':
+      '@felixgeelhaar/glossa-runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@glossa/vue':
+      '@felixgeelhaar/glossa-vue':
         specifier: workspace:*
         version: link:../vue
       '@playwright/test':
@@ -303,8 +232,8 @@ importers:
 
   runtimes/js/elements:
     dependencies:
-      '@glossa/runtime':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-runtime':
+        specifier: workspace:^
         version: link:../runtime
       '@lit/context':
         specifier: 1.1.6
@@ -334,8 +263,8 @@ importers:
 
   runtimes/js/overlay:
     dependencies:
-      '@glossa/capture':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-capture':
+        specifier: workspace:^
         version: link:../capture
       lit:
         specifier: 3.3.3
@@ -344,16 +273,16 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@glossa/elements':
+      '@felixgeelhaar/glossa-elements':
         specifier: workspace:*
         version: link:../elements
-      '@glossa/messageformat':
+      '@felixgeelhaar/glossa-messageformat':
         specifier: workspace:*
         version: link:../../../messageformat/js
-      '@glossa/runtime':
+      '@felixgeelhaar/glossa-runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@glossa/unplugin':
+      '@felixgeelhaar/glossa-unplugin':
         specifier: workspace:*
         version: link:../unplugin
       '@playwright/test':
@@ -392,11 +321,11 @@ importers:
 
   runtimes/js/react:
     dependencies:
-      '@glossa/elements':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-elements':
+        specifier: workspace:^
         version: link:../elements
-      '@glossa/runtime':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-runtime':
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@size-limit/preset-small-lib':
@@ -432,7 +361,7 @@ importers:
 
   runtimes/js/react/react-18:
     devDependencies:
-      '@glossa/react':
+      '@felixgeelhaar/glossa-react':
         specifier: workspace:*
         version: link:..
       '@types/node':
@@ -453,7 +382,7 @@ importers:
 
   runtimes/js/runtime:
     devDependencies:
-      '@glossa/messageformat':
+      '@felixgeelhaar/glossa-messageformat':
         specifier: workspace:*
         version: link:../../../messageformat/js
       '@size-limit/preset-small-lib':
@@ -480,8 +409,8 @@ importers:
 
   runtimes/js/unplugin:
     dependencies:
-      '@glossa/runtime':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-runtime':
+        specifier: workspace:^
         version: link:../runtime
       '@jridgewell/trace-mapping':
         specifier: 0.3.31
@@ -493,10 +422,10 @@ importers:
         specifier: 3.4.0
         version: 3.4.0(esbuild@0.28.2)(rolldown@1.2.9)(rollup@4.63.4)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(webpack@5.111.1(esbuild@0.28.2)(lightningcss@1.33.0))
     devDependencies:
-      '@glossa/react':
+      '@felixgeelhaar/glossa-react':
         specifier: workspace:*
         version: link:../react
-      '@glossa/vue':
+      '@felixgeelhaar/glossa-vue':
         specifier: workspace:*
         version: link:../vue
       '@types/node':
@@ -516,7 +445,7 @@ importers:
         version: 8.20.0
       astro:
         specifier: 7.3.3
-        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -547,11 +476,11 @@ importers:
 
   runtimes/js/vue:
     dependencies:
-      '@glossa/elements':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-elements':
+        specifier: workspace:^
         version: link:../elements
-      '@glossa/runtime':
-        specifier: workspace:*
+      '@felixgeelhaar/glossa-runtime':
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@size-limit/preset-small-lib':
@@ -578,7 +507,7 @@ importers:
 
   studio:
     dependencies:
-      '@glossa/messageformat':
+      '@felixgeelhaar/glossa-messageformat':
         specifier: workspace:*
         version: link:../messageformat/js
       '@klarlabs-studio/ui':
@@ -606,7 +535,7 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@glossa/overlay':
+      '@felixgeelhaar/glossa-overlay':
         specifier: workspace:*
         version: link:../runtimes/js/overlay
       '@playwright/test':
@@ -2598,10 +2527,6 @@ packages:
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
-
-  axe-core@4.11.4:
-    resolution: {integrity: sha512-KunSNx+TVpkAw/6ULfhnx+HWRecjqZGTOyquAoWHYLRSdK1tB5Ihce1ZW+UY3fj33bYAFWPu7W/GRSmmrCGuxA==}
-    engines: {node: '>=4'}
 
   axe-core@4.13.0:
     resolution: {integrity: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==}
@@ -5306,12 +5231,12 @@ snapshots:
       is-docker: 4.0.0
       package-manager-detector: 1.8.0
 
-  '@astrojs/vue@7.0.3(@types/node@22.19.19)(astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(vue@3.5.43(typescript@5.9.3))(yaml@2.9.1)':
+  '@astrojs/vue@7.0.3(@types/node@22.19.19)(astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(vue@3.5.43(typescript@5.9.3))(yaml@2.9.1)':
     dependencies:
       '@vitejs/plugin-vue': 6.0.9(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
       '@vitejs/plugin-vue-jsx': 5.1.6(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
       '@vue/compiler-sfc': 3.5.43
-      astro: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+      astro: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
       vite: 8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
       vite-plugin-vue-devtools: 8.2.1(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
       vue: 3.5.43(typescript@5.9.3)
@@ -6779,14 +6704,6 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.0(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))':
-    dependencies:
-      '@vitest/spy': 4.1.0
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-
   '@vitest/mocker@4.1.0(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))':
     dependencies:
       '@vitest/spy': 4.1.0
@@ -7363,8 +7280,6 @@ snapshots:
   async@3.2.6: {}
 
   asynckit@0.4.0: {}
-
-  axe-core@4.11.4: {}
 
   axe-core@4.13.0: {}
 
@@ -9676,23 +9591,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1):
-    dependencies:
-      esbuild: 0.25.12
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
-      postcss: 8.5.26
-      rollup: 4.60.4
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 22.19.19
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      lightningcss: 1.33.0
-      terser: 5.51.2
-      tsx: 4.23.13
-      yaml: 2.9.1
-
   vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1):
     dependencies:
       esbuild: 0.25.12
@@ -9745,35 +9643,6 @@ snapshots:
   vitefu@1.1.3(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)):
     optionalDependencies:
       vite: 8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-
-  vitest@4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)):
-    dependencies:
-      '@vitest/expect': 4.1.0
-      '@vitest/mocker': 4.1.0(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
-      '@vitest/pretty-format': 4.1.0
-      '@vitest/runner': 4.1.0
-      '@vitest/snapshot': 4.1.0
-      '@vitest/spy': 4.1.0
-      '@vitest/utils': 4.1.0
-      es-module-lexer: 2.1.0
-      expect-type: 1.3.0
-      magic-string: 0.30.21
-      obug: 2.1.1
-      pathe: 2.0.3
-      picomatch: 4.0.7
-      std-env: 4.1.0
-      tinybench: 2.9.0
-      tinyexec: 1.2.4
-      tinyglobby: 0.2.17
-      tinyrainbow: 3.1.0
-      vite: 6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/node': 22.19.19
-      happy-dom: 20.14.5
-      jsdom: 25.0.1
-    transitivePeerDependencies:
-      - msw
 
   vitest@4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)):
     dependencies:

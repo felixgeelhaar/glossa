@@ -360,15 +360,18 @@ func (s *scenario) projectBPath() bool {
 		if err := s.decide(s.reviewer1, appr); err != nil {
 			return fmt.Errorf("the first reviewer's decision: %w", err)
 		}
-		time.Sleep(2 * time.Second) // give the outbox every chance to do the wrong thing
-		st, _, err := s.translationState(s.projectB)
-		if err != nil {
-			return err
-		}
-		if st == "approved" {
-			return fmt.Errorf("one approval made it `approved`")
-		}
-		return nil
+		// Give the outbox every chance to do the wrong thing, and watch
+		// the whole window rather than look once at its end.
+		return staysFor(3*time.Second, func() (string, error) {
+			st, _, err := s.translationState(s.projectB)
+			if err != nil {
+				return "", err
+			}
+			if st == "approved" {
+				return "one approval made it `approved`", nil
+			}
+			return "", nil
+		})
 	}) {
 		s.unreachedWorkflow("B: two distinct reviewers make it `approved`")
 		return false
