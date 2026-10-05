@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@glossa/runtime/dev";
+import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@felixgeelhaar/glossa-runtime/dev";
 
 import { INLINE_ID } from "../src/page.js";
 import type { InlineRelease } from "../src/page.js";
@@ -79,7 +79,7 @@ const build = (environment?: string) =>
     env: {
       ...process.env,
       ASTRO_TELEMETRY_DISABLED: "1",
-      // What names the build in CI (@glossa/unplugin reads them).
+      // What names the build in CI (@felixgeelhaar/glossa-unplugin reads them).
       GITHUB_SHA: COMMIT,
       GITHUB_HEAD_REF: "feat/astro-usages",
       ...(environment ? { GLOSSA_FIXTURE_ENVIRONMENT: environment } : {}),
@@ -146,14 +146,14 @@ describe("astro build with glossa()", () => {
     expect(inlined(plain)).toBeUndefined();
   });
 
-  it("writes .glossa/usages.json beside dist with @glossa/unplugin, across the server and island builds", async () => {
+  it("writes .glossa/usages.json beside dist with @felixgeelhaar/glossa-unplugin, across the server and island builds", async () => {
     const doc = JSON.parse(await readFile(join(fixture, ".glossa", "usages.json"), "utf8"));
     expect(doc).toMatchObject({
       schema: "glossa.usages/v1",
       application: "astro-fixture",
       commit: COMMIT,
       branch: "feat/astro-usages",
-      tool: { name: "@glossa/unplugin" },
+      tool: { name: "@felixgeelhaar/glossa-unplugin" },
     });
     const at = (u: { key: string; file: string; line: number; column: number; kind: string; route?: string; component?: string }) =>
       `${u.key} ${u.file}:${u.line}:${u.column} ${u.kind} ${u.component ?? "-"} ${u.route ?? "-"}`;

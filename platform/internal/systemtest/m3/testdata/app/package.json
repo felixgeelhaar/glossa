@@ -3,5 +3,5 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Brotwerk's shop: the M3 exit test's fixture application. Generated; built by `pnpm --filter @glossa/unplugin build:m3`, never installed."
+  "description": "Brotwerk's shop: the M3 exit test's fixture application. Generated; built by `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`, never installed."
 }

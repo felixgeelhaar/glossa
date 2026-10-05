@@ -1,4 +1,4 @@
-/** Options of `@glossa/unplugin`. */
+/** Options of `@felixgeelhaar/glossa-unplugin`. */
 import type { Routes } from "./usage.js";
 
 export interface GlossaPluginOptions {

@@ -15,7 +15,7 @@ export default defineConfig({
   i18n: { locales: ["de", "en"], defaultLocale: "de" },
   integrations: [
     vue({
-      appEntrypoint: "@glossa/astro/vue",
+      appEntrypoint: "@felixgeelhaar/glossa-astro/vue",
       template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith("glossa-") } },
     }),
     glossa(
@@ -36,7 +36,7 @@ export default defineConfig({
     ),
   ],
   vite: {
-    // What installing @glossa/astro from npm would resolve to.
+    // What installing @felixgeelhaar/glossa-astro from npm would resolve to.
     resolve: {
       alias: [{ find: /^@glossa\/astro\/(.+)$/, replacement: `${dist}$1.js` }],
       dedupe: ["vue"],

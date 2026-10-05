@@ -106,7 +106,7 @@ func (s *scenario) runRuntime(rt string, in driverInput) (map[string]*string, er
 	case "js":
 		runtimeDir := filepath.Join(repoRoot(), "runtimes", "js", "runtime")
 		if _, err := os.Stat(filepath.Join(runtimeDir, "dist", "index.js")); err != nil {
-			return nil, fmt.Errorf("@glossa/runtime is not built (runtimes/js/runtime/dist): `make system-m5` builds it")
+			return nil, fmt.Errorf("@felixgeelhaar/glossa-runtime is not built (runtimes/js/runtime/dist): `make system-m5` builds it")
 		}
 		cmd = exec.Command("node", filepath.Join(here, "testdata", "rollout", "rollout.mjs"), inPath, outPath, runtimeDir)
 	case "go":

@@ -132,8 +132,8 @@ func repoRoot(t *testing.T) string {
 }
 
 // TestGeneratedTypeScriptTypeChecks compiles the generated module and
-// each framework registration against the real @glossa/vue and
-// @glossa/react sources with tsc, plus a consumer whose @ts-expect-error
+// each framework registration against the real @felixgeelhaar/glossa-vue and
+// @felixgeelhaar/glossa-react sources with tsc, plus a consumer whose @ts-expect-error
 // lines prove missing and mistyped arguments fail at compile time.
 func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 	root := repoRoot(t)
@@ -166,9 +166,9 @@ func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 			write(registration, string(fw.render("messages.ts")))
 			write("consumer.ts", consumerTS+fw.consumer)
 			paths := map[string]string{
-				"@glossa/" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
-				"@glossa/runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
-				"@glossa/elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
+				"@felixgeelhaar/glossa-" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
+				"@felixgeelhaar/glossa-runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
+				"@felixgeelhaar/glossa-elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
 			}
 			for k, v := range fw.paths {
 				paths[k] = v
@@ -223,9 +223,9 @@ messages.cart.checkout({ extra: 1 });
 
 const vueConsumerTS = `
 import { useTypedMessages } from "./glossa-vue.js";
-import { useGlossa } from "@glossa/vue";
+import { useGlossa } from "@felixgeelhaar/glossa-vue";
 
-// The registration types @glossa/vue's own t().
+// The registration types @felixgeelhaar/glossa-vue's own t().
 export function inSetup(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();
@@ -239,9 +239,9 @@ export function inSetup(): string {
 const reactConsumerTS = `
 import { createElement } from "react";
 import { useTypedMessages } from "./glossa-react.js";
-import { T, useGlossa } from "@glossa/react";
+import { T, useGlossa } from "@felixgeelhaar/glossa-react";
 
-// The registration types @glossa/react's own t() and <T>.
+// The registration types @felixgeelhaar/glossa-react's own t() and <T>.
 export function Component(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();

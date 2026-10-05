@@ -17,7 +17,7 @@ var failsIf = map[string]string{
 	"12.3": "any pointer moves before the second approval as seen at the edge, or a rollback waits.",
 	"12.4": "any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other.",
 	"12.5": "a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks.",
-	"12.6": "any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing.",
+	"12.6": "any rendering differs between v0.3's formatter and @felixgeelhaar/glossa-runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing.",
 	"12.7": "any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say.",
 }
 
@@ -354,7 +354,7 @@ func (s *scenario) reportV03(b *bytes.Buffer) {
 		if len(rows) == 0 {
 			return
 		}
-		w("%s\n\n| Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |\n|---|---|---|---|---|\n", title)
+		w("%s\n\n| Key | Locale | Arguments | v0.3's formatter | @felixgeelhaar/glossa-runtime |\n|---|---|---|---|---|\n", title)
 		for i, m := range rows {
 			if i == 40 {
 				w("| … | | | %d more | |\n", len(rows)-40)
