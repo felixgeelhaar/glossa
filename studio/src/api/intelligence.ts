@@ -100,6 +100,12 @@ export interface IntelligencePort {
   /** Newest first. */
   suggestions(tenant: string, q: SuggestionQuery, pageSize?: number, pageToken?: string): Promise<Page<I.AISuggestion>>;
   suggestion(tenant: string, id: string): Promise<Versioned<I.AISuggestion>>;
+  /**
+   * The newest suggestions for one unit (a message's key in a locale),
+   * as its workspace shows them — the read an assigned member (a vendor)
+   * has, without the job, cost or memory units behind them.
+   */
+  unitSuggestions(tenant: string, project: string, key: string, locale: string, signal?: AbortSignal): Promise<I.UnitAISuggestion[]>;
   /** Accept as is, or with `text` the edit instead (MF2 unless `syntax` says otherwise). */
   accept(tenant: string, id: string, edit?: { text: string; syntax?: "mf1" | "mf2" }, etag?: string): Promise<I.AISuggestion>;
   reject(tenant: string, id: string, reason?: string, etag?: string): Promise<I.AISuggestion>;
@@ -201,6 +207,18 @@ export const apiIntelligence: IntelligencePort = {
         ),
       ),
     ),
+  unitSuggestions: async (tenant, project, message, locale, signal) =>
+    (
+      await value(
+        read(
+          client.GET("/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions", {
+            params: { path: { tenant, project, message, locale } },
+            ...(signal ? { signal } : {}),
+          }),
+          I.UnitAISuggestions,
+        ),
+      )
+    ).items,
   suggestion: (tenant, ai_suggestion) =>
     read(client.GET("/v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}", { params: { path: { tenant, ai_suggestion } } }), I.AISuggestion),
   accept: (tenant, ai_suggestion, edit, etag) =>

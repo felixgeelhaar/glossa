@@ -90,6 +90,9 @@ func (c *CostEstimate) add(o CostEstimate) {
 // nothing: no fill, no job, no TM hit count, no spend. Needs
 // intelligence.translate for every locale, like the fill.
 func (s *Service) PreviewFill(ctx context.Context, project uuid.UUID, req FillRequest) (FillPreview, error) {
+	if err := authz.InProject(ctx, project); err != nil {
+		return FillPreview{}, err
+	}
 	locales, _, err := s.checkFill(ctx, &req)
 	if err != nil {
 		return FillPreview{}, err

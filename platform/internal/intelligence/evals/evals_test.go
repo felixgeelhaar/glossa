@@ -141,7 +141,7 @@ func TestCassetteMismatchFailsLoudly(t *testing.T) {
 		Providers: map[string]domain.Provider{"anthropic": cas.Provider("anthropic")},
 		Routing:   app.DefaultRouting(), Prices: app.DefaultPrices(),
 	})
-	if err == nil || !strings.Contains(err.Error(), "description: A different description") || !strings.Contains(err.Error(), "TestRecordCassettes") {
+	if err == nil || !strings.Contains(err.Error(), "description: A different description") || !strings.Contains(err.Error(), "TestRecord.*Cassettes") {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -69,7 +69,7 @@ func (s *Service) inImport(ctx context.Context, dryRun bool, fn func(context.Con
 // text is already active in the scope is unchanged, so importing a file
 // twice adds nothing; TM imports only ever add. Needs knowledge.write.
 func (s *Service) ImportTMUnits(ctx context.Context, project *uuid.UUID, units []domain.ImportedText, dryRun bool) ([]ImportResult, error) {
-	by, err := actor(ctx, authz.KnowledgeWrite)
+	by, err := writeScope(ctx, authz.KnowledgeWrite, project)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ type ConceptImport struct {
 // category for it). A concept ID taken by another scope is invalid.
 // Needs knowledge.write.
 func (s *Service) ImportConcepts(ctx context.Context, project *uuid.UUID, items []ConceptImport, overwrite, dryRun bool) ([]ImportResult, error) {
-	by, err := actor(ctx, authz.KnowledgeWrite)
+	by, err := writeScope(ctx, authz.KnowledgeWrite, project)
 	if err != nil {
 		return nil, err
 	}

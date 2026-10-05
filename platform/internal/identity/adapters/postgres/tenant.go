@@ -40,15 +40,18 @@ func (s *tenantStore) CurrentTenant(ctx context.Context) (tenancy.Tenant, error)
 
 func (s *tenantStore) InsertMember(ctx context.Context, m domain.Member, by domain.Actor) (bool, error) {
 	n, err := s.q.InsertMember(ctx, identitysql.InsertMemberParams{
-		ID:        m.ID.UUID(),
-		PersonID:  nullUUID(m.PersonID.UUID()),
-		Email:     m.Email.String(),
-		Roles:     m.Roles.Strings(),
-		Locales:   m.Locales.Strings(),
-		Status:    string(m.Status),
-		Version:   int32(m.Version), //nolint:gosec // versions stay tiny
-		CreatedBy: by.String(),
-		CreatedAt: m.CreatedAt,
+		ID:         m.ID.UUID(),
+		PersonID:   nullUUID(m.PersonID.UUID()),
+		Email:      m.Email.String(),
+		Roles:      m.Roles.Strings(),
+		Locales:    m.Locales.Strings(),
+		Projects:   m.Restriction.Projects.UUIDs(),
+		VendorID:   nullUUID(m.Restriction.Vendor.UUID()),
+		Visibility: string(m.Restriction.Visibility),
+		Status:     string(m.Status),
+		Version:    int32(m.Version), //nolint:gosec // versions stay tiny
+		CreatedBy:  by.String(),
+		CreatedAt:  m.CreatedAt,
 	})
 	return n == 1, storeError(err)
 }
@@ -62,6 +65,7 @@ func (s *tenantStore) Member(ctx context.Context, id domain.MemberID) (app.Membe
 		ID: row.ID, TenantID: row.TenantID, PersonID: row.PersonID, Email: row.Email, Roles: row.Roles,
 		Locales: row.Locales, Status: row.Status, Version: row.Version, CreatedBy: row.CreatedBy,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Projects: row.Projects, VendorID: row.VendorID, Visibility: row.Visibility,
 	})
 	return app.MemberView{Member: m, DisplayName: row.DisplayName}, err
 }
@@ -75,17 +79,22 @@ func member(row identitysql.IdentityMember) (domain.Member, error) {
 	if err != nil {
 		return domain.Member{}, err
 	}
+	r, err := restriction(row.Projects, row.VendorID, row.Visibility)
+	if err != nil {
+		return domain.Member{}, fmt.Errorf("identity: stored restriction of member %s: %w", row.ID, err)
+	}
 	return domain.Member{
-		ID:        domain.MemberID(row.ID),
-		TenantID:  tenancy.ID(row.TenantID),
-		PersonID:  domain.PersonID(row.PersonID.UUID),
-		Email:     email,
-		Roles:     roles,
-		Locales:   locales,
-		Status:    domain.MemberStatus(row.Status),
-		Version:   int(row.Version),
-		CreatedAt: row.CreatedAt.UTC(),
-		UpdatedAt: row.UpdatedAt.UTC(),
+		ID:          domain.MemberID(row.ID),
+		TenantID:    tenancy.ID(row.TenantID),
+		PersonID:    domain.PersonID(row.PersonID.UUID),
+		Email:       email,
+		Roles:       roles,
+		Locales:     locales,
+		Restriction: r,
+		Status:      domain.MemberStatus(row.Status),
+		Version:     int(row.Version),
+		CreatedAt:   row.CreatedAt.UTC(),
+		UpdatedAt:   row.UpdatedAt.UTC(),
 	}, nil
 }
 
@@ -113,6 +122,7 @@ func (s *tenantStore) Members(ctx context.Context, after domain.MemberID, limit 
 			ID: r.ID, TenantID: r.TenantID, PersonID: r.PersonID, Email: r.Email, Roles: r.Roles,
 			Locales: r.Locales, Status: r.Status, Version: r.Version, CreatedBy: r.CreatedBy,
 			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			Projects: r.Projects, VendorID: r.VendorID, Visibility: r.Visibility,
 		})
 		if err != nil {
 			return nil, err
@@ -126,6 +136,20 @@ func (s *tenantStore) UpdateMemberAccess(ctx context.Context, m domain.Member) e
 	n, err := s.q.UpdateMemberAccess(ctx, identitysql.UpdateMemberAccessParams{
 		ID: m.ID.UUID(), Roles: m.Roles.Strings(), Locales: m.Locales.Strings(),
 		Version: int32(m.Version), UpdatedAt: m.UpdatedAt, //nolint:gosec // versions stay tiny
+	})
+	if err != nil {
+		return storeError(err)
+	}
+	if n == 0 {
+		return app.ErrStaleVersion
+	}
+	return nil
+}
+
+func (s *tenantStore) UpdateMemberRestriction(ctx context.Context, m domain.Member) error {
+	n, err := s.q.UpdateMemberRestriction(ctx, identitysql.UpdateMemberRestrictionParams{
+		ID: m.ID.UUID(), Projects: m.Restriction.Projects.UUIDs(), VendorID: nullUUID(m.Restriction.Vendor.UUID()),
+		Visibility: string(m.Restriction.Visibility), Version: int32(m.Version), UpdatedAt: m.UpdatedAt, //nolint:gosec // versions stay tiny
 	})
 	if err != nil {
 		return storeError(err)
@@ -163,7 +187,7 @@ func (s *tenantStore) DeleteMember(ctx context.Context, id domain.MemberID) erro
 func (s *tenantStore) InsertToken(ctx context.Context, t domain.APIToken) (bool, error) {
 	n, err := s.q.InsertToken(ctx, identitysql.InsertTokenParams{
 		ID: t.ID.UUID(), Name: t.Name, TokenHash: t.Hash, Hint: t.Hint, Scopes: t.Scopes.Strings(),
-		CreatedBy: t.CreatedBy.String(), CreatedAt: t.CreatedAt, ExpiresAt: timestamptz(t.ExpiresAt),
+		Projects: t.Projects.UUIDs(), CreatedBy: t.CreatedBy.String(), CreatedAt: t.CreatedAt, ExpiresAt: timestamptz(t.ExpiresAt),
 	})
 	return n == 1, storeError(err)
 }
@@ -185,8 +209,12 @@ func apiToken(row identitysql.IdentityApiToken) (domain.APIToken, error) {
 	if err != nil {
 		return domain.APIToken{}, fmt.Errorf("identity: stored creator of token %s: %w", row.ID, err)
 	}
+	projects, err := projectScope(row.Projects)
+	if err != nil {
+		return domain.APIToken{}, fmt.Errorf("identity: stored projects of token %s: %w", row.ID, err)
+	}
 	return domain.APIToken{
-		ID: domain.TokenID(row.ID), TenantID: tenancy.ID(row.TenantID), Name: row.Name, Scopes: scopes,
+		ID: domain.TokenID(row.ID), TenantID: tenancy.ID(row.TenantID), Name: row.Name, Scopes: scopes, Projects: projects,
 		Hint: row.Hint, Hash: row.TokenHash, CreatedBy: by, CreatedAt: row.CreatedAt.UTC(),
 		ExpiresAt: timePtr(row.ExpiresAt), LastUsedAt: timePtr(row.LastUsedAt), RevokedAt: timePtr(row.RevokedAt),
 	}, nil

@@ -177,6 +177,9 @@ type JobFilter struct {
 	Locale    string
 	FillID    *uuid.UUID
 	MessageID *uuid.UUID
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // JobOutcome is how a claimed job ends.
@@ -197,6 +200,9 @@ type SuggestionFilter struct {
 	Locale    string
 	MessageID *uuid.UUID
 	JobID     *uuid.UUID
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // QueueCursor is a review-queue keyset position.
@@ -207,6 +213,20 @@ type QueueCursor struct {
 }
 
 // LocaleDecisions are people's decisions on one locale's suggestions.
+// LocaleQueueAge is one locale's review queue: how deep it is and how
+// long the items in it have been waiting (RFC 0005 §8). The queue
+// itself already existed; its age is what a dashboard needs.
+//
+// The percentiles stand for something only while Waiting > 0. An empty
+// queue has a measured depth of 0 and no median wait at all, and the
+// two are different facts: "nobody waits" and "nobody is waiting".
+type LocaleQueueAge struct {
+	Locale  string
+	Waiting int
+	// P50, P90 and Oldest are how long the pending items have waited.
+	P50, P90, Oldest time.Duration
+}
+
 type LocaleDecisions struct {
 	Locale           string
 	Accepted         int
@@ -233,6 +253,9 @@ type DisclosureFilter struct {
 	MessageID *uuid.UUID
 	ProjectID *uuid.UUID
 	Provider  string
+	// Projects, when not nil, limits the rows to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // Store is Intelligence's persistence in tenant scope. Row-level
@@ -299,6 +322,9 @@ type Store interface {
 	Suggestions(ctx context.Context, f SuggestionFilter, before *Cursor, limit int) ([]domain.SuggestionRecord, error)
 	ReviewQueue(ctx context.Context, project uuid.UUID, locales []string, after *QueueCursor, limit int) ([]domain.SuggestionRecord, error)
 	DecisionStats(ctx context.Context, project uuid.UUID, since time.Time) ([]LocaleDecisions, error)
+	// QueueAges is, per locale, how many suggestions are still pending
+	// and how long they have been waiting as of now.
+	QueueAges(ctx context.Context, project uuid.UUID, locales []string, now time.Time) ([]LocaleQueueAge, error)
 
 	InsertDisclosures(ctx context.Context, ds []DisclosureRecord) error
 	Disclosures(ctx context.Context, f DisclosureFilter, before *Cursor, limit int) ([]DisclosureRecord, error)

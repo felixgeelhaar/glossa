@@ -72,6 +72,17 @@ func author(ctx context.Context, perm authz.Permission) (domain.Author, error) {
 	return domain.Author(p.Actor.String()), nil
 }
 
+// authorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func authorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (domain.Author, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return domain.Author(p.Actor.String()), nil
+}
+
 // idempotentID derives a create's ID from its Idempotency-Key, or
 // returns uuid.Nil when there is no key.
 func idempotentID(operation, scope string, by domain.Author, key string) (uuid.UUID, error) {

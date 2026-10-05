@@ -237,6 +237,9 @@ type JobFilter struct {
 	TenantWide bool
 	Kind       *domain.Kind
 	State      *domain.State
+	// Projects, when not nil, limits the jobs to these projects: a
+	// project-scoped caller's (RFC 0006 §4.1). The use case sets it.
+	Projects []uuid.UUID
 }
 
 // JobCursor is the keyset position after a listed job (newest first).
@@ -272,6 +275,11 @@ type Store interface {
 	Items(ctx context.Context, job uuid.UUID, f ItemFilter, afterSeq, limit int) ([]domain.Item, error)
 	ProjectJobs(ctx context.Context, project uuid.UUID) ([]domain.Job, error)
 	DeleteProjectJobs(ctx context.Context, project uuid.UUID) error
+	// CheckHealth is the project's concluded pull-request checks since a
+	// time, with the percentiles of how long they took. Tenant scope,
+	// not the system scope the check queue's worker runs in: this is a
+	// person reading their own project, and RLS is what says so.
+	CheckHealth(ctx context.Context, project uuid.UUID, since time.Time) (CheckHealth, error)
 	Publish(ctx context.Context, e outbox.Event) error
 }
 

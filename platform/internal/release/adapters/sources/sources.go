@@ -14,6 +14,7 @@ import (
 
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
@@ -44,6 +45,19 @@ func notFound(err error) error {
 func (p *Port) CheckProject(ctx context.Context, project uuid.UUID) error {
 	_, err := p.catalog.GetProject(ctx, catalogdomain.ProjectID(project))
 	return notFound(err)
+}
+
+// CheckPolicy implements app.Source: the check-policy document the
+// project stores, which is where the publish gate's requirements come
+// from (RFC 0005 §4.1). It is an ordinary authorized Catalog use case,
+// so Release learns nothing its caller could not read through the API,
+// and a project that stored no document reads as checkpolicy's default.
+func (p *Port) CheckPolicy(ctx context.Context, project uuid.UUID) (checkpolicy.Policy, error) {
+	pr, err := p.catalog.GetProject(ctx, catalogdomain.ProjectID(project))
+	if err != nil {
+		return checkpolicy.Policy{}, notFound(err)
+	}
+	return pr.Settings.Policy(), nil
 }
 
 // Snapshot implements app.Source: Catalog's active messages joined with

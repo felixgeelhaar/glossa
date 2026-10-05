@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -47,9 +48,33 @@ type fakeStore struct {
 	sighted      map[uuid.UUID][]string
 	lastPrevious uuid.UUID
 
+	// linguistic is the linguistic-QA job table (migration 0038); its
+	// methods are in linguistic_test.go, beside the tests that use them.
+	linguistic map[uuid.UUID]domain.LinguisticJob
+
+	// The daily sweep's half (RFC 0005 §13 wave 7): how many waivers
+	// and runs the store says it retired, and what it was asked.
+	expiring    int
+	oldRuns     int
+	sweepErr    error
+	sweptAt     time.Time
+	sweptCutoff time.Time
+	sweptLimit  int
+
+	// trend is the findings-by-day rollup a test set, and rolledUp the
+	// days a recorded run restated.
+	trend    []domain.DailyFindings
+	rolledUp []time.Time
+
+	// published are the domain events the writes raised, in order.
+	published []outbox.Event
+
 	// What the last ListFindings and run lookup passed down.
+	lastTrendFrom time.Time
+	lastTrendTo   time.Time
 	lastRunFilter app.FindingFilter
 	lastRun       app.RunFilter
+	lastTriggers  []domain.Trigger
 	lastAfter     string
 	lastLimit     int
 	lastNow       time.Time
@@ -100,6 +125,47 @@ func (f *fakeStore) CountFindings(context.Context, domain.CheckRun, time.Time) (
 	return f.run.Counts, nil
 }
 
+// CountFindingsByLayer groups whatever rows a test set by locale and
+// layer, so the summary reads a breakdown that sums to the counts
+// beside it.
+func (f *fakeStore) CountFindingsByLayer(
+	_ context.Context, _ domain.CheckRun, _ time.Time,
+) ([]domain.LocaleLayerCount, error) {
+	byLocale := map[string][]domain.Finding{}
+	for _, r := range f.rows {
+		byLocale[r.Locus.Locale] = append(byLocale[r.Locus.Locale], r.Finding)
+	}
+	locales := make([]string, 0, len(byLocale))
+	for locale := range byLocale {
+		locales = append(locales, locale)
+	}
+	slices.Sort(locales)
+	var out []domain.LocaleLayerCount
+	for _, locale := range locales {
+		for _, c := range domain.ByLayer(byLocale[locale]) {
+			out = append(out, domain.LocaleLayerCount{Locale: locale, LayerCount: c})
+		}
+	}
+	return out, nil
+}
+
+// RollUpFindingsByDay records the day a run restated.
+func (f *fakeStore) RollUpFindingsByDay(_ context.Context, _ uuid.UUID, day time.Time) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	f.rolledUp = append(f.rolledUp, day.UTC())
+	return nil
+}
+
+// FindingsByDay hands back the trend a test set.
+func (f *fakeStore) FindingsByDay(
+	_ context.Context, _ uuid.UUID, from, to time.Time,
+) ([]domain.DailyFindings, error) {
+	f.lastTrendFrom, f.lastTrendTo = from, to
+	return f.trend, nil
+}
+
 // ListCaptureFindings hands back the rows a test set, and remembers
 // what it was asked for: the query does the filtering, and what the
 // service must get right is which capture and region it asks about.
@@ -136,6 +202,19 @@ func (f *fakeStore) InsertFindings(_ context.Context, _, _ uuid.UUID, fs []domai
 	return nil
 }
 
+// Publish keeps the events a write raised, so a test can ask what the
+// rest of the platform was told.
+func (f *fakeStore) Publish(_ context.Context, e outbox.Event) error {
+	if !f.records {
+		panic("not on this path")
+	}
+	if err := e.Validate(); err != nil { // what the outbox would refuse
+		return err
+	}
+	f.published = append(f.published, e)
+	return nil
+}
+
 // ListCheckRuns returns the runs the impact preview is measured
 // against, newest first, and nothing when a test set none.
 func (f *fakeStore) ListCheckRuns(
@@ -145,6 +224,18 @@ func (f *fakeStore) ListCheckRuns(
 		return f.runs[:limit], nil
 	}
 	return f.runs, nil
+}
+
+// HasCheckRunOf answers from the runs a test set, and remembers the
+// triggers it was asked about.
+func (f *fakeStore) HasCheckRunOf(_ context.Context, _ uuid.UUID, triggers []domain.Trigger) (bool, error) {
+	f.lastTriggers = triggers
+	for _, r := range f.runs {
+		if slices.Contains(triggers, r.Trigger) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *fakeStore) InsertPolicyVersion(_ context.Context, v app.PolicyVersion) (bool, error) {
@@ -229,6 +320,11 @@ type knownProjects struct {
 	projectVersion int
 	// open maps open branch names to their pull requests.
 	open map[string]int
+	// messages is the catalog's key → message ID, which is what a
+	// reported finding's fingerprint is computed over. askedKeys are the
+	// keys the last resolution asked about.
+	messages  map[string]uuid.UUID
+	askedKeys []string
 	// conflict makes the next save lose the race.
 	conflict bool
 	// saved and savedIfMatch record what the last save asked for.
@@ -241,6 +337,25 @@ func (c *knownProjects) Project(_ context.Context, project uuid.UUID) error {
 		return app.ErrProjectNotFound
 	}
 	return nil
+}
+
+// MessageIDs resolves only the keys the catalog was given: a key it
+// does not know is absent, and the finding's identity then falls back
+// to the key.
+func (c *knownProjects) MessageIDs(
+	_ context.Context, project uuid.UUID, keys []string,
+) (map[string]uuid.UUID, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	c.askedKeys = append(c.askedKeys, keys...)
+	out := map[string]uuid.UUID{}
+	for _, k := range keys {
+		if id, ok := c.messages[k]; ok {
+			out[k] = id
+		}
+	}
+	return out, nil
 }
 
 func (c *knownProjects) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {

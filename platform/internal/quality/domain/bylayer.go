@@ -39,19 +39,32 @@ func ByLayer(fs []Finding) []LayerCount {
 		c.Count(fs[i])
 	}
 	out := make([]LayerCount, 0, len(counts))
-	for _, l := range Layers {
-		if c, ok := counts[l]; ok {
-			out = append(out, LayerCount{Layer: l, Counts: *c})
-			delete(counts, l)
+	for l, c := range counts {
+		out = append(out, LayerCount{Layer: l, Counts: *c})
+	}
+	return SortLayerCounts(out)
+}
+
+// SortLayerCounts puts counts into Layers order, for the callers that
+// count in SQL rather than over findings — the quality summary's second
+// number does (RFC 0005 §8). A layer this build has never heard of is
+// kept, after the known ones and in name order, so the columns always
+// sum to the run's own counts.
+func SortLayerCounts(cs []LayerCount) []LayerCount {
+	rank := func(l Layer) int {
+		for i, k := range Layers {
+			if k == l {
+				return i
+			}
 		}
+		return len(Layers)
 	}
-	rest := make([]Layer, 0, len(counts))
-	for l := range counts {
-		rest = append(rest, l)
-	}
-	sort.Slice(rest, func(i, j int) bool { return rest[i] < rest[j] })
-	for _, l := range rest {
-		out = append(out, LayerCount{Layer: l, Counts: *counts[l]})
-	}
-	return out
+	sort.SliceStable(cs, func(i, j int) bool {
+		ri, rj := rank(cs[i].Layer), rank(cs[j].Layer)
+		if ri != rj {
+			return ri < rj
+		}
+		return cs[i].Layer < cs[j].Layer
+	})
+	return cs
 }

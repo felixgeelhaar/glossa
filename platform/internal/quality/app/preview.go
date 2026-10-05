@@ -55,6 +55,24 @@ type Preview struct {
 	// number of people who would wake up to a red pull request they did
 	// not cause.
 	OpenPullRequests int
+	// PullRequests names them: each open pull request among
+	// NewlyFailingRefs, in ref order. Its length is OpenPullRequests. A
+	// count says how many people would wake up to a red pull request; a
+	// name is what lets whoever saves the policy go and tell them.
+	PullRequests []PullRequestImpact
+}
+
+// PullRequestImpact is one open pull request a candidate policy would
+// newly fail.
+type PullRequestImpact struct {
+	// Ref is the pull request's branch.
+	Ref string
+	// Number is the pull request's number on its repository.
+	Number int
+	// URL is where it is on the web, "" when the project has no
+	// repository to point at (or the caller may not read the
+	// integration that knows).
+	URL string
 }
 
 // PreviewPolicy answers what candidate would do to runs, against what
@@ -64,7 +82,7 @@ func PreviewPolicy(current, candidate checkpolicy.Policy, runs []PreviewRun) Pre
 	out := Preview{Runs: len(runs)}
 	var targets []checkpolicy.Target
 	newly, no := map[string]bool{}, map[string]bool{}
-	pullRequests := map[int]bool{}
+	pullRequests := map[int]string{}
 	for _, r := range runs {
 		for _, f := range r.Findings {
 			if f.Severity == domain.Waived {
@@ -78,7 +96,7 @@ func PreviewPolicy(current, candidate checkpolicy.Policy, runs []PreviewRun) Pre
 		case was.Passed() && !now.Passed():
 			newly[r.Ref] = true
 			if r.Open && r.PullRequest > 0 {
-				pullRequests[r.PullRequest] = true
+				pullRequests[r.PullRequest] = r.Ref
 			}
 		case !was.Passed() && now.Passed():
 			no[r.Ref] = true
@@ -87,6 +105,16 @@ func PreviewPolicy(current, candidate checkpolicy.Policy, runs []PreviewRun) Pre
 	out.ImpactReport = checkpolicy.Impact(current, candidate, targets)
 	out.NewlyFailingRefs, out.NoLongerFailingRefs = sortedKeys(newly), sortedKeys(no)
 	out.OpenPullRequests = len(pullRequests)
+	for n, ref := range pullRequests {
+		out.PullRequests = append(out.PullRequests, PullRequestImpact{Ref: ref, Number: n})
+	}
+	sort.Slice(out.PullRequests, func(i, j int) bool {
+		a, b := out.PullRequests[i], out.PullRequests[j]
+		if a.Ref != b.Ref {
+			return a.Ref < b.Ref
+		}
+		return a.Number < b.Number
+	})
 	return out
 }
 

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
@@ -38,8 +39,11 @@ type API struct {
 	// origin, for the CORS middleware. A field so it can be stubbed.
 	originLookup func(ctx context.Context, origin string) (bool, error)
 	csrfKey      []byte
-	logger       *slog.Logger
-	errs         errorWriter
+	// trustedProxies are the proxies whose X-Forwarded-For names the
+	// client (SetTrustedProxies).
+	trustedProxies []netip.Prefix
+	logger         *slog.Logger
+	errs           errorWriter
 }
 
 // New returns the API. csrfKey derives CSRF tokens from sessions.
@@ -202,6 +206,14 @@ func (a *API) FinishPasskeySignIn(ctx context.Context, req apiv1.FinishPasskeySi
 
 func (a *API) SignOut(ctx context.Context, _ apiv1.SignOutRequestObject) (apiv1.SignOutResponseObject, error) {
 	c, ok := callerFrom(ctx)
+	if ok && c.device != "" {
+		// `glossa logout`: the device's session ends, the person's
+		// others don't, and there is no cookie to clear.
+		if err := a.svc.SignOutDevice(ctx, c.device); err != nil {
+			return nil, err
+		}
+		return apiv1.SignOut204Response{}, nil
+	}
 	if !ok || c.session == "" {
 		return nil, app.ErrUnauthenticated
 	}
@@ -232,8 +244,14 @@ func (a *API) GetMe(ctx context.Context, _ apiv1.GetMeRequestObject) (apiv1.GetM
 		return nil, err
 	}
 	c, _ := callerFrom(ctx)
+	// A device session needs no CSRF token, and there is no cookie to
+	// derive one from: it gets none.
+	csrf := ""
+	if c.session != "" {
+		csrf = a.csrfToken(c.session)
+	}
 	out := apiv1.GetMe200JSONResponse{
-		Person: toPerson(me.Person), CsrfToken: a.csrfToken(c.session),
+		Person: toPerson(me.Person), CsrfToken: csrf,
 		Memberships: make([]apiv1.Membership, 0, len(me.Memberships)),
 	}
 	for _, m := range me.Memberships {
@@ -413,6 +431,20 @@ func (a *API) GetTenant(ctx context.Context, _ apiv1.GetTenantRequestObject) (ap
 	return apiv1.GetTenant200JSONResponse(toTenant(t)), nil
 }
 
+// projectScope reads a project scope from a request body. A malformed
+// id is the body's fault (400), not a project that is "not found".
+func projectScope(ids *[]string) ([]string, error) {
+	if ids == nil {
+		return nil, nil
+	}
+	for _, id := range *ids {
+		if _, err := domain.ParseProjectRef(id); err != nil {
+			return nil, badRequest(codeInvalidProjectScope, fmt.Sprintf("%q is not a project id", id))
+		}
+	}
+	return *ids, nil
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""
@@ -450,7 +482,18 @@ func (a *API) AddMember(ctx context.Context, req apiv1.AddMemberRequestObject) (
 	if req.Body.Locales != nil {
 		locales = *req.Body.Locales
 	}
-	m, replayed, err := a.svc.AddMember(ctx, string(req.Body.Email), fromRoles(req.Body.Roles), locales, deref(req.Params.IdempotencyKey))
+	projects, err := projectScope(req.Body.Projects)
+	if err != nil {
+		return nil, err
+	}
+	inv := app.Invitation{
+		Email: string(req.Body.Email), Roles: fromRoles(req.Body.Roles), Locales: locales, Projects: projects,
+		Vendor: deref(req.Body.VendorId),
+	}
+	if req.Body.Visibility != nil {
+		inv.Visibility = string(*req.Body.Visibility)
+	}
+	m, replayed, err := a.svc.InviteMember(ctx, inv, deref(req.Params.IdempotencyKey))
 	if err != nil {
 		return nil, err
 	}
@@ -484,16 +527,46 @@ func (a *API) UpdateMember(ctx context.Context, req apiv1.UpdateMemberRequestObj
 	if err != nil {
 		return nil, err
 	}
-	var change app.MemberChange
-	if req.Body.Roles != nil {
-		change.Roles = ptr(fromRoles(*req.Body.Roles))
+	b := req.Body
+	access := b.Roles != nil || b.Locales != nil
+	restriction := b.Projects != nil || b.VendorId != nil || b.Visibility != nil
+	var m app.MemberView
+	switch {
+	case access && restriction:
+		return nil, badRequest(codeAccessAndRestriction,
+			"change roles and locales, or projects, vendor_id and visibility — one or the other per request")
+	case restriction:
+		m, err = a.restrictMember(ctx, id, version, b)
+	default:
+		var change app.MemberChange
+		if b.Roles != nil {
+			change.Roles = ptr(fromRoles(*b.Roles))
+		}
+		change.Locales = b.Locales
+		m, err = a.svc.UpdateMember(ctx, id, version, change)
 	}
-	change.Locales = req.Body.Locales
-	m, err := a.svc.UpdateMember(ctx, id, version, change)
 	if err != nil {
 		return nil, err
 	}
 	return apiv1.UpdateMember200JSONResponse{Body: toMember(m), Headers: apiv1.UpdateMember200ResponseHeaders{ETag: ptr(etag(m.Version))}}, nil
+}
+
+// restrictMember changes a member's project scope, vendor and
+// visibility (RFC 0006 §3.3, §4.1).
+func (a *API) restrictMember(ctx context.Context, id domain.MemberID, version int, b *apiv1.UpdateMemberJSONRequestBody) (app.MemberView, error) {
+	var c app.RestrictionChange
+	if b.Projects != nil {
+		projects, err := projectScope(b.Projects)
+		if err != nil {
+			return app.MemberView{}, err
+		}
+		c.Projects = &projects
+	}
+	c.Vendor = b.VendorId
+	if b.Visibility != nil {
+		c.Visibility = ptr(string(*b.Visibility))
+	}
+	return a.svc.RestrictMember(ctx, id, version, c)
 }
 
 func (a *API) RemoveMember(ctx context.Context, req apiv1.RemoveMemberRequestObject) (apiv1.RemoveMemberResponseObject, error) {
@@ -534,7 +607,13 @@ func (a *API) ListTokens(ctx context.Context, req apiv1.ListTokensRequestObject)
 }
 
 func (a *API) CreateToken(ctx context.Context, req apiv1.CreateTokenRequestObject) (apiv1.CreateTokenResponseObject, error) {
-	created, err := a.svc.CreateToken(ctx, req.Body.Name, fromScopes(req.Body.Scopes), req.Body.ExpiresAt, deref(req.Params.IdempotencyKey))
+	projects, err := projectScope(req.Body.Projects)
+	if err != nil {
+		return nil, err
+	}
+	created, err := a.svc.IssueToken(ctx, app.TokenRequest{
+		Name: req.Body.Name, Scopes: fromScopes(req.Body.Scopes), Projects: projects, ExpiresAt: req.Body.ExpiresAt,
+	}, deref(req.Params.IdempotencyKey))
 	if err != nil {
 		return nil, err
 	}

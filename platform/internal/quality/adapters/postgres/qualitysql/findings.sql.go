@@ -52,6 +52,79 @@ func (q *Queries) CountRunFindings(ctx context.Context, arg CountRunFindingsPara
 	return i, err
 }
 
+const countRunFindingsByLayer = `-- name: CountRunFindingsByLayer :many
+SELECT f.locale, f.layer,
+       count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'error')::int AS errors,
+       count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'warning')::int AS warnings,
+       count(*) FILTER (WHERE w.id IS NOT NULL)::int AS waived
+FROM quality_findings f
+LEFT JOIN LATERAL (
+    SELECT w.id
+    FROM quality_waivers w
+    WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+      AND (w.expires_at IS NULL OR w.expires_at > $1::timestamptz)
+      AND (w.scope = 'project' OR w.ref = $2::text)
+      AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+    LIMIT 1
+) w ON true
+WHERE f.run_id = $3
+GROUP BY f.locale, f.layer
+`
+
+type CountRunFindingsByLayerParams struct {
+	Now   time.Time
+	Ref   string
+	RunID uuid.UUID
+}
+
+type CountRunFindingsByLayerRow struct {
+	Locale   string
+	Layer    string
+	Errors   int32
+	Warnings int32
+	Waived   int32
+}
+
+// The same counts, per locale and layer: the quality summary's second
+// number (RFC 0005 §8, "outstanding findings by layer and severity,
+// plus waived"), which it needs both per project and per locale.
+//
+// The locale is ” for the layers that have none — `structure`,
+// `completeness` and `source` say what is wrong with a message, not
+// with a translation of it — so a project's total is every row and a
+// locale's is the rows carrying it. Grouping in one pass is what keeps
+// twenty locales from being twenty queries.
+//
+// A layer with no findings is not a row here. Which layers ran at all
+// is the run's own `layers` column, and it is a different question —
+// the one that tells "clean" from "not looked at", which is why the
+// summary reports both.
+func (q *Queries) CountRunFindingsByLayer(ctx context.Context, arg CountRunFindingsByLayerParams) ([]CountRunFindingsByLayerRow, error) {
+	rows, err := q.db.Query(ctx, countRunFindingsByLayer, arg.Now, arg.Ref, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountRunFindingsByLayerRow
+	for rows.Next() {
+		var i CountRunFindingsByLayerRow
+		if err := rows.Scan(
+			&i.Locale,
+			&i.Layer,
+			&i.Errors,
+			&i.Warnings,
+			&i.Waived,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLatestFinding = `-- name: GetLatestFinding :one
 SELECT layer, code, locale, message_key, namespace, explanation, source_revision
 FROM quality_findings

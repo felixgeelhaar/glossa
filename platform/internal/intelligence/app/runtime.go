@@ -13,6 +13,7 @@ import (
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
 )
 
@@ -29,6 +30,39 @@ type jobRuntime struct {
 // prices and the tenant's budget, over the enabled providers (each
 // limited to its model allow-list).
 func (s *Service) runtimeFor(ctx context.Context, j domain.Job) (jobRuntime, error) {
+	return s.runtimeOf(ctx, j.ProjectID, &j.ID)
+}
+
+// LinguisticRouter is the router one project's linguistic review runs
+// on (RFC 0005 §3.8): the tenant's enabled providers, the routing
+// policy in effect, the effective prices and — the part that matters —
+// the same monthly budget guard a translation job spends through.
+//
+// It exists because the linguistic layer is Quality's job and
+// Intelligence's model call, and the two meet at a router that can only
+// be built per tenant, from the caller's own context. A composition
+// root has no tenant, so it cannot hold one; it holds this accessor
+// instead. RFC 0005 §10 bounds the layer by the *existing* per-tenant
+// AI budget, and handing out the job runtime rather than a second one
+// is how that stays true.
+//
+// There is no Intelligence job behind the call — the job is Quality's —
+// so the spend is booked against the project with no job ID.
+func (s *Service) LinguisticRouter(ctx context.Context, project uuid.UUID) (*Router, error) {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
+		return nil, err
+	}
+	rt, err := s.runtimeOf(ctx, project, nil)
+	if err != nil {
+		return nil, err
+	}
+	return rt.router, nil
+}
+
+// runtimeOf builds the runtime for one project. job is the Intelligence
+// job the spend is booked against, or nil where the work belongs to
+// another context's job.
+func (s *Service) runtimeOf(ctx context.Context, project uuid.UUID, job *uuid.UUID) (jobRuntime, error) {
 	var (
 		rt        jobRuntime
 		providers []StoredProvider
@@ -39,18 +73,18 @@ func (s *Service) runtimeFor(ctx context.Context, j domain.Job) (jobRuntime, err
 		if rt.settings, err = s.settings(ctx, st, false); err != nil {
 			return err
 		}
-		ps, found, err := st.ProjectSettings(ctx, j.ProjectID)
+		ps, found, err := st.ProjectSettings(ctx, project)
 		if err != nil {
 			return err
 		}
-		rt.project = domain.DefaultProjectSettings(j.ProjectID)
+		rt.project = domain.DefaultProjectSettings(project)
 		if found {
 			rt.project = ps
 		}
 		if providers, err = st.AllProviders(ctx); err != nil {
 			return err
 		}
-		policy, err = routing(ctx, st, &j.ProjectID)
+		policy, err = routing(ctx, st, &project)
 		return err
 	})
 	if err != nil {
@@ -78,7 +112,7 @@ func (s *Service) runtimeFor(ctx context.Context, j domain.Job) (jobRuntime, err
 		byName[p.Name] = allowListed{next: prov, cfg: p.ProviderConfig}
 	}
 	prices := s.effectivePrices(rt.settings, providers)
-	budget := &budgetGuard{s: s, tenant: tenant, job: j.ID, project: j.ProjectID, prices: prices}
+	budget := &budgetGuard{s: s, tenant: tenant, job: job, project: project, prices: prices}
 	rt.router = NewRouter(byName, policy.Record.Policy, prices, budget)
 	return rt, nil
 }
@@ -109,9 +143,14 @@ func (a allowListed) Complete(ctx context.Context, req domain.CompletionRequest)
 // flight when the cap is reached finish, so a month can end at most
 // their cost over it.
 type budgetGuard struct {
-	s       *Service
-	tenant  uuid.UUID
-	job     uuid.UUID
+	s      *Service
+	tenant uuid.UUID
+	// job is the Intelligence job the spend belongs to, or nil where the
+	// call was made for another context's job (the linguistic layer's,
+	// RFC 0005 §3.8): the money is the tenant's either way, and the
+	// ledger row names the project rather than a job that does not
+	// exist here.
+	job     *uuid.UUID
 	project uuid.UUID
 	prices  domain.PriceTable
 }
@@ -139,9 +178,9 @@ func (b *budgetGuard) Check(ctx context.Context, _ domain.Scope, estimate domain
 
 // Record implements domain.BudgetGuard.
 func (b *budgetGuard) Record(ctx context.Context, _ domain.Scope, sp domain.Spend) error {
-	job, project := b.job, b.project
+	project := b.project
 	_, priced := b.prices[domain.PriceKey(sp.Provider, sp.Model)]
-	e := SpendEntry{ID: uuid.Must(uuid.NewV7()), JobID: &job, ProjectID: &project, Spend: sp, Priced: priced, OccurredAt: b.s.Now()}
+	e := SpendEntry{ID: uuid.Must(uuid.NewV7()), JobID: b.job, ProjectID: &project, Spend: sp, Priced: priced, OccurredAt: b.s.Now()}
 	if err := b.s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error { return st.InsertSpend(ctx, e) }); err != nil {
 		return err
 	}

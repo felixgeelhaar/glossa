@@ -85,6 +85,22 @@ type Config struct {
 	// DisableBidiIsolation turns off MF2 bidi isolation of placeholders
 	// for every call (see BidiIsolation for one call).
 	DisableBidiIsolation bool
+
+	// DisableRollout turns staged rollout support off (SPEC §1.4): the
+	// client ignores a manifest's `rollout`, serves the stable release,
+	// never fetches a candidate artifact, and Explain reports no rollout.
+	DisableRollout bool
+	// InstallationID is the process's cohort key under a staged rollout:
+	// any stable, non-empty text. Empty means a random 128-bit id, created
+	// the first time a rollout is read and kept in the cache directory (or
+	// for the life of the process when there is none).
+	InstallationID string
+	// PerRequestCohorts loads both sides of a staged rollout, so that each
+	// request renders from the side its own cohort key (WithCohortKey)
+	// selects, as a server serving many users should. Without it the
+	// client loads only the installation's side, and every request
+	// renders from that.
+	PerRequestCohorts bool
 }
 
 // Client loads releases and renders messages. It is safe for concurrent
@@ -96,6 +112,9 @@ type Client struct {
 	reporter *reporter
 	state    atomic.Pointer[snapshot]
 
+	idOnce sync.Once
+	id     string // the installation id, once a rollout needed it
+
 	refreshMu sync.Mutex
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
@@ -105,11 +124,34 @@ type Client struct {
 // snapshot is the client's view of the active release. It is replaced,
 // never mutated, so a render sees one consistent release.
 type snapshot struct {
+	// rel is the active release: under a staged rollout, the view the
+	// installation's cohort selects (in a per-request copy, the request's).
 	rel    *release
 	source Source
 	// fresh marks a release restored at startup: the startup load cycle
 	// spans New and the first refresh.
 	fresh bool
+	// ro holds the views of a valid rollout in the active manifest, nil
+	// without one; cohort is the cohort that selected rel.
+	ro     *rolloutViews
+	cohort int
+}
+
+// artifacts are every parsed artifact s holds, by digest. Nil-safe.
+func (s *snapshot) artifacts() map[string]catalog {
+	if s == nil || s.rel == nil {
+		return nil
+	}
+	if s.ro == nil {
+		return s.rel.bySHA
+	}
+	out := map[string]catalog{}
+	for _, v := range []*release{s.ro.stable, s.ro.candidate} {
+		if v != nil {
+			out = mergeCatalogs(out, v.bySHA)
+		}
+	}
+	return out
 }
 
 // New creates a client. It restores the persisted last-good release (or
@@ -203,32 +245,36 @@ func (c *Client) restore() {
 	bundled := c.loadBundled()
 	switch {
 	case bundled != nil && (persisted == nil || newer(bundled, persisted)):
-		c.state.Store(&snapshot{rel: bundled, source: SourceBundled, fresh: true})
+		bundled.fresh = true
+		c.state.Store(bundled)
 	case persisted != nil:
-		c.state.Store(&snapshot{rel: persisted, source: SourcePersisted, fresh: true})
+		persisted.fresh = true
+		c.state.Store(persisted)
 	}
 }
 
-func newer(a, b *release) bool {
-	return a.manifest.Release.Version > b.manifest.Release.Version
+// newer compares the versions of the views each snapshot activates
+// (SPEC §1.4).
+func newer(a, b *snapshot) bool {
+	return a.rel.manifest.Release.Version > b.rel.manifest.Release.Version
 }
 
-func (c *Client) loadPersisted() *release {
+func (c *Client) loadPersisted() *snapshot {
 	st, err := c.store.loadState()
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	if err == nil {
-		var rel *release
-		if rel, err = c.assemble(context.Background(), []byte(st.Manifest), st.ETag, SourcePersisted, nil); err == nil {
-			return rel
+		var snap *snapshot
+		if snap, err = c.assemble(context.Background(), []byte(st.Manifest), st.ETag, SourcePersisted, nil); err == nil {
+			return snap
 		}
 	}
 	c.reportLoad(fmt.Errorf("persisted release unusable: %w", err))
 	return nil
 }
 
-func (c *Client) loadBundled() *release {
+func (c *Client) loadBundled() *snapshot {
 	if c.cfg.Bundled == nil {
 		return nil
 	}
@@ -237,12 +283,12 @@ func (c *Client) loadBundled() *release {
 		c.reportLoad(fmt.Errorf("%w: bundled catalogs: %v", errSchema, err))
 		return nil
 	}
-	rel, err := c.assemble(context.Background(), raw, "", SourceBundled, nil)
+	snap, err := c.assemble(context.Background(), raw, "", SourceBundled, nil)
 	if err != nil {
 		c.reportLoad(fmt.Errorf("bundled release unusable: %w", err))
 		return nil
 	}
-	return rel
+	return snap
 }
 
 // Refresh revalidates the manifest with the edge and, when a new release
@@ -264,27 +310,27 @@ func (c *Client) Refresh(ctx context.Context) error {
 }
 
 func (c *Client) refresh(ctx context.Context) (bool, error) {
-	cur := c.state.Load().rel
+	cur := c.state.Load()
 	etag := ""
-	if cur != nil {
-		etag = cur.etag
+	if cur.rel != nil {
+		etag = cur.rel.etag
 	}
 	res, err := c.edge.manifest(ctx, etag)
 	if err != nil {
 		return false, err
 	}
 	if res.notModified {
-		if cur == nil {
+		if cur.rel == nil {
 			return false, fmt.Errorf("%w: edge answered 304 but no release is loaded", errNetwork)
 		}
 		return false, nil
 	}
-	rel, err := c.assemble(ctx, res.body, res.etag, SourceNetwork, cur)
+	snap, err := c.assemble(ctx, res.body, res.etag, SourceNetwork, cur)
 	if err != nil {
 		return false, err
 	}
-	c.state.Store(&snapshot{rel: rel, source: SourceNetwork})
-	c.persist(rel)
+	c.state.Store(snap)
+	c.persist(snap)
 	return true, nil
 }
 
@@ -304,18 +350,20 @@ func (c *Client) settle(activated bool) {
 	c.state.Store(&next)
 }
 
-// persist commits rel as the last-good release. Its artifacts were cached
-// as they verified; the manifest goes last.
-func (c *Client) persist(rel *release) {
+// persist commits snap as the last-good release: the manifest as served,
+// `rollout` included, so a restart computes the same side (SPEC §1.4).
+// Its artifacts were cached as they verified; the manifest goes last.
+func (c *Client) persist(snap *snapshot) {
 	if c.store == nil {
 		return
 	}
+	rel := snap.rel
 	if err := c.store.saveState(persistedState{ETag: rel.etag, Manifest: string(rel.raw)}); err != nil {
 		c.cfg.Logger.Warn("glossa: persisting the last-good release failed", "release", rel.manifest.Release.ID, "error", err)
 		return
 	}
 	keep := map[string]bool{}
-	for digest := range rel.bySHA {
+	for digest := range snap.artifacts() {
 		keep[digest] = true
 	}
 	c.store.prune(keep)

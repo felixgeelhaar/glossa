@@ -55,11 +55,33 @@ func openPRAt(t *testing.T, f *fixture, deliveryID string, openedAt time.Time) {
 }
 
 // untranslatedBranch is a branch whose one new key is untranslated in
-// both locales: a warning under v7, an error under v8.
-func untranslatedBranch(m *memSources, policy checkpolicy.Policy) {
-	m.policy = policy
-	m.status.NewKeys = []string{"checkout.pay"}
-	m.quality.Untranslated = map[string]int{"de": 1, "fr": 1}
+// both locales, together with the `glossa check` run CI recorded for
+// it: a warning under v7, an error under v8.
+//
+// The severity is the one the completeness layer emitted when CI ran,
+// which is against the project's *current* document — v8. Whether this
+// pull request is graded by that document or by the one it was opened
+// under is the grace's whole question, and it is now asked of the run
+// the check renders rather than of a second computation.
+func (f *fixture) untranslatedBranch(policy checkpolicy.Policy) {
+	f.sources.set(func(m *memSources) {
+		m.policy = policy
+		m.status.NewKeys = []string{"checkout.pay"}
+		m.quality.Untranslated = map[string]int{"de": 1, "fr": 1}
+	})
+	var fs []quality.Finding
+	for _, locale := range []string{"de", "fr"} {
+		fs = append(fs, quality.New(quality.Finding{
+			Layer: quality.LayerCompleteness, Code: checkpolicy.CodeMissingTranslation,
+			Severity: policy.Severity(locale),
+			Locus:    quality.Locus{Key: "checkout.pay", Locale: locale},
+			Message:  "checkout.pay has no translation in " + locale,
+		}))
+	}
+	f.recorded(headSHA, app.RecordedRun{
+		Ref: branchName, Commit: headSHA, Trigger: string(quality.TriggerCLI),
+		PolicyVersion: policy.Version, Layers: []quality.Layer{quality.LayerCompleteness}, Findings: fs,
+	})
 }
 
 // TestAGraceGradesAnOlderPullRequestAgainstTheVersionItOpenedUnder is
@@ -72,7 +94,7 @@ func TestAGraceGradesAnOlderPullRequestAgainstTheVersionItOpenedUnder(t *testing
 	f.connected(t)
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
-	f.sources.set(func(m *memSources) { untranslatedBranch(m, v8) })
+	f.untranslatedBranch(v8)
 	f.runCheck(t)
 
 	run := f.theCheck(t)
@@ -99,7 +121,7 @@ func TestAPullRequestOpenedAfterTheSaveGetsTheNewVersionAtOnce(t *testing.T) {
 	f.connected(t)
 	openPRAt(t, f, "d-open-late", policySavedAt.Add(6*time.Hour))
 	f.ci(headSHA)
-	f.sources.set(func(m *memSources) { untranslatedBranch(m, v8) })
+	f.untranslatedBranch(v8)
 	f.runCheck(t)
 
 	run := f.theCheck(t)
@@ -124,7 +146,7 @@ func TestThePinnedPullRequestMovesToTheCurrentVersionWhenTheGraceEnds(t *testing
 	f.connected(t)
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
-	f.sources.set(func(m *memSources) { untranslatedBranch(m, v8) })
+	f.untranslatedBranch(v8)
 	f.runCheck(t)
 	if c := f.theCheck(t).Conclusion; c != app.ConclusionSuccess {
 		t.Fatalf("conclusion = %q inside the grace, want success", c)
@@ -228,6 +250,12 @@ func TestAPinnedPullRequestStillAgreesWithTheTerminal(t *testing.T) {
 		serverView(m, commit, effective)
 		m.policy = v8 // the project's current document, as the server holds it
 	})
+	// CI graded against the current document, because that is the one
+	// the server hands `glossa check`. The pinned pull request renders
+	// that run against v7 — which is the case emitAgainst exists for.
+	byCI := qa.Run(commit, v8, append(qa.Default(),
+		qa.Precomputed(quality.LayerTerminology, []quality.Finding{waivedTerm()}))...)
+	f.recorded(headSHA, recordedRunOf(byCI, branchName))
 	f.runCheck(t)
 
 	run := f.theCheck(t)

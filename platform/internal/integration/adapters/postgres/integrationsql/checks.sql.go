@@ -26,29 +26,98 @@ func (q *Queries) CheckDepth(ctx context.Context) (int64, error) {
 	return column_1, err
 }
 
+const checkHealth = `-- name: CheckHealth :one
+WITH repositories AS (
+    SELECT DISTINCT repository_id FROM integration_git_connections WHERE project_id = $1
+), concluded AS (
+    SELECT c.conclusion, extract(epoch FROM c.completed_at - c.requested_at) AS latency_seconds
+    FROM integration_github_checks c
+    JOIN repositories r ON r.repository_id = c.repository_id
+    WHERE c.state = 'completed' AND c.completed_at IS NOT NULL AND c.completed_at >= $2
+)
+SELECT count(*)::integer AS concluded,
+       count(*) FILTER (WHERE conclusion = 'success')::integer AS succeeded,
+       count(*) FILTER (WHERE conclusion = 'failure')::integer AS failed,
+       count(*) FILTER (WHERE conclusion = 'neutral')::integer AS neutral,
+       -- -1 where nothing concluded: a percentile over no sample is not
+       -- zero, and the caller reads the sentinel as "not measured".
+       coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p50_seconds,
+       coalesce(percentile_cont(0.9) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p90_seconds
+FROM concluded
+`
+
+type CheckHealthParams struct {
+	ProjectID uuid.UUID
+	Since     pgtype.Timestamptz
+}
+
+type CheckHealthRow struct {
+	Concluded  int32
+	Succeeded  int32
+	Failed     int32
+	Neutral    int32
+	P50Seconds float64
+	P90Seconds float64
+}
+
+// CheckHealth is the pull-request check's pass rate and the time it
+// takes to reach a conclusion, for one project (RFC 0005 §8). Both
+// exist as Prometheus series already; this makes them a query, because
+// a dashboard cannot ask Prometheus about one project of one tenant.
+//
+// Tenant scope, not the system scope the queue runs in: this is a
+// person reading their own project, and RLS is what says so. The checks
+// of a project are the checks of the repositories its Git connections
+// name — one repository can feed several projects, so the join is
+// through the connection and not through the check.
+//
+// `neutral` counts as neither a pass nor a fail and is reported on its
+// own: it is what a check concludes when it had nothing to grade, and
+// folding it either way would move the rate for a reason nobody chose.
+func (q *Queries) CheckHealth(ctx context.Context, arg CheckHealthParams) (CheckHealthRow, error) {
+	row := q.db.QueryRow(ctx, checkHealth, arg.ProjectID, arg.Since)
+	var i CheckHealthRow
+	err := row.Scan(
+		&i.Concluded,
+		&i.Succeeded,
+		&i.Failed,
+		&i.Neutral,
+		&i.P50Seconds,
+		&i.P90Seconds,
+	)
+	return i, err
+}
+
 const claimCheck = `-- name: ClaimCheck :one
 WITH due AS (
     SELECT c.id
     FROM integration_github_checks c
-    WHERE c.state = 'queued' AND c.available_at <= now()
+    WHERE c.state = 'queued' AND c.available_at <= $1::timestamptz
     ORDER BY c.available_at, c.id
     LIMIT 1
     FOR UPDATE OF c SKIP LOCKED
 )
 UPDATE integration_github_checks e
 SET attempts     = e.attempts + 1,
-    available_at = now() + make_interval(secs => $1::float8),
+    available_at = $1::timestamptz + make_interval(secs => $2::float8),
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
 RETURNING e.id, e.tenant_id, e.installation_id, e.repository_id, e.pull_request, e.branch, e.head_sha, e.comment_id, e.runs, e.state, e.conclusion, e.attempts, e.failure, e.claim_token, e.requested_at, e.available_at, e.completed_at, e.updated_at, e.from_fork, e.opened_at
 `
 
+type ClaimCheckParams struct {
+	Now          time.Time
+	LeaseSeconds float64
+}
+
 // ClaimCheck leases the oldest due check. The row is the pull request,
 // so claiming it is what keeps one job per pull request: two jobs can
-// never race the one sticky comment.
-func (q *Queries) ClaimCheck(ctx context.Context, leaseSeconds float64) (IntegrationGithubCheck, error) {
-	row := q.db.QueryRow(ctx, claimCheck, leaseSeconds)
+// never race the one sticky comment. "Due" and the lease are measured
+// on the app's clock (now), the clock every available_at here is
+// written with — never Postgres's now(), which may differ from it.
+func (q *Queries) ClaimCheck(ctx context.Context, arg ClaimCheckParams) (IntegrationGithubCheck, error) {
+	row := q.db.QueryRow(ctx, claimCheck, arg.Now, arg.LeaseSeconds)
 	var i IntegrationGithubCheck
 	err := row.Scan(
 		&i.ID,
@@ -284,17 +353,17 @@ func (q *Queries) RerunCheck(ctx context.Context, arg RerunCheckParams) (int64, 
 
 const retryCheck = `-- name: RetryCheck :execrows
 UPDATE integration_github_checks
-SET available_at = now() + make_interval(secs => $1::float8),
-    failure      = $2,
+SET available_at = $1::timestamptz + make_interval(secs => $2::float8),
+    failure      = $3,
     claim_token  = NULL,
-    updated_at   = $3
+    updated_at   = $1
 WHERE id = $4 AND claim_token = $5::uuid
 `
 
 type RetryCheckParams struct {
+	Now          time.Time
 	DelaySeconds float64
 	Failure      string
-	Now          time.Time
 	ID           uuid.UUID
 	ClaimToken   uuid.UUID
 }
@@ -303,9 +372,9 @@ type RetryCheckParams struct {
 // everything it learned.
 func (q *Queries) RetryCheck(ctx context.Context, arg RetryCheckParams) (int64, error) {
 	result, err := q.db.Exec(ctx, retryCheck,
+		arg.Now,
 		arg.DelaySeconds,
 		arg.Failure,
-		arg.Now,
 		arg.ID,
 		arg.ClaimToken,
 	)

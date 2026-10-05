@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -43,6 +44,10 @@ type loadingFile struct {
 	PublicKeys    []fixtureKey  `json:"publicKeys"`
 	Steps         []loadingStep `json:"steps"`
 	RestartBefore []int         `json:"restartBefore"`
+	// InstallationID and RolloutSupport configure staged rollout (SPEC
+	// §1.4). An absent RolloutSupport means on.
+	InstallationID string `json:"installationId"`
+	RolloutSupport *bool  `json:"rolloutSupport"`
 }
 
 type fixtureKey struct {
@@ -68,6 +73,8 @@ type loadingStep struct {
 	ExpActiveRelease *string  `json:"expActiveRelease"`
 	ExpSource        Source   `json:"expSource"`
 	ExpErrors        []string `json:"expErrors"`
+	// ExpRollout is explain().rollout. Absent: not checked; null: none.
+	ExpRollout json.RawMessage `json:"expRollout"`
 }
 
 func loadFixtures[T any](t *testing.T, kind string) map[string]T {
@@ -223,6 +230,7 @@ func runLoadingSequence(t *testing.T, lf loadingFile) {
 		return newTestClient(t, Config{
 			EdgeURL: fakeEdgeURL, DeliveryKey: fakeKey, Environment: fakeEnv, PublicKeys: keys,
 			HTTPClient: &http.Client{Transport: edge}, CacheDir: dir,
+			InstallationID: lf.InstallationID, DisableRollout: lf.RolloutSupport != nil && !*lf.RolloutSupport,
 			OnError: func(e Error) { errs = append(errs, string(e.Type)) },
 		})
 	}
@@ -258,5 +266,21 @@ func checkLoadingStep(t *testing.T, c *Client, i int, step loadingStep, errs []s
 	}
 	if !slices.Equal(nonNil(errs), step.ExpErrors) {
 		t.Errorf("step %d (%s): errors %v, want %v", i, step.Description, errs, step.ExpErrors)
+	}
+	if len(step.ExpRollout) > 0 {
+		got, err := json.Marshal(loc.Explain(step.Read.ID).Rollout)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var have, want any
+		if err := json.Unmarshal(got, &have); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(step.ExpRollout, &want); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(have, want) {
+			t.Errorf("step %d (%s): explain().rollout %s, want %s", i, step.Description, got, step.ExpRollout)
+		}
 	}
 }

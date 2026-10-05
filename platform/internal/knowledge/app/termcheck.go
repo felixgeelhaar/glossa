@@ -57,7 +57,10 @@ type ProjectTranslation struct {
 	// no longer has the message.
 	Source    mf.Message
 	HasSource bool
-	Target    mf.Message
+	// SourceRevision is Source's revision number: the message's current
+	// one, which is what a check of this translation runs against.
+	SourceRevision int
+	Target         mf.Message
 }
 
 // ProjectTermCheck asks for terminology QA over a project's
@@ -83,6 +86,11 @@ type TranslationFindings struct {
 	Namespace string
 	Locale    bcp47.Tag
 	State     string
+	// SourceRevision is the source revision the findings were computed
+	// against: the message's current one, whose visible text SourceText
+	// is. A waiver on one of them is measured against it (RFC 0005
+	// §2.3), so moving the source brings a waived finding back.
+	SourceRevision int
 	// SourceText and TargetText are the visible texts the findings'
 	// spans point into.
 	SourceText string
@@ -106,7 +114,7 @@ type ProjectTermReport struct {
 // knowledge.read (and, through the ports, translations.read and
 // catalog.read).
 func (s *Service) CheckProjectTerminology(ctx context.Context, project uuid.UUID, c ProjectTermCheck) (ProjectTermReport, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.KnowledgeRead, project); err != nil {
 		return ProjectTermReport{}, err
 	}
 	if len(c.Locales) == 0 || len(c.Locales) > MaxCheckedLocales {
@@ -155,7 +163,7 @@ func (s *Service) CheckProjectTerminology(ctx context.Context, project uuid.UUID
 		}
 		out.Items = append(out.Items, TranslationFindings{
 			MessageID: r.MessageID, Key: r.Key, Namespace: r.Namespace, Locale: r.Locale, State: r.State,
-			SourceText: src, TargetText: tgt, Findings: fs,
+			SourceRevision: r.SourceRevision, SourceText: src, TargetText: tgt, Findings: fs,
 		})
 	}
 	return out, nil

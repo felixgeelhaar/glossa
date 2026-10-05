@@ -29,7 +29,7 @@ func contextLoop(t *testing.T, r runner, s *server, owner session, p string) {
 	s.do(owner.call("POST", p+"/applications", map[string]any{"slug": "web", "name": "Web", "platform": "web"}), http.StatusCreated, nil)
 	commit := strings.Repeat("c0ffee12", 5)
 	doc := `{"schema":"glossa.usages/v1","application":"web","commit":"` + commit + `","branch":"main",
-	  "tool":{"name":"@glossa/unplugin","version":"0.1.0"},
+	  "tool":{"name":"@felixgeelhaar/glossa-unplugin","version":"0.1.0"},
 	  "usages":[
 	    {"key":"checkout.pay","file":"src/Checkout.vue","line":12,"column":7,"component":"Checkout","route":"/checkout","kind":"t"},
 	    {"key":"gone.key","file":"src/Checkout.vue","line":20,"column":7,"component":"Checkout","route":"/checkout","kind":"t"}]}`

@@ -3,6 +3,7 @@ package app_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -154,6 +155,97 @@ func TestSavePolicyPreviewsWhatWouldNewlyFail(t *testing.T) {
 	}
 	if len(saved.Impact.Rules) != 1 || saved.Impact.Rules[0].NewlyFailing != 1 {
 		t.Errorf("per-rule impact = %+v, want the one rule accounting for the one failure", saved.Impact.Rules)
+	}
+}
+
+// pullRequestLinks answers where a project's pull requests are.
+type pullRequestLinks struct {
+	project uuid.UUID
+	urls    map[int]string
+	err     error
+	asked   []int
+}
+
+func (l *pullRequestLinks) PullRequestURLs(_ context.Context, project uuid.UUID, numbers []int) (map[int]string, error) {
+	l.asked = append(l.asked, numbers...)
+	if l.err != nil {
+		return nil, l.err
+	}
+	out := map[int]string{}
+	if project != l.project {
+		return out, nil
+	}
+	for _, n := range numbers {
+		if u, ok := l.urls[n]; ok {
+			out[n] = u
+		}
+	}
+	return out, nil
+}
+
+// terminologyRaise is a candidate that turns the stored legal
+// terminology warning into an error.
+func terminologyRaise() app.SavePolicy {
+	return app.SavePolicy{DryRun: true, Policy: checkpolicy.Policy{Rules: []checkpolicy.Rule{
+		{Selector: checkpolicy.Selector{Layer: "terminology", Namespace: "legal"}, Severity: checkpolicy.Error},
+	}}}
+}
+
+// TestSavePolicyNamesThePullRequestsItWouldBreak: the preview names the
+// pull request that would newly fail — its number and where it is —
+// rather than a branch and a count somebody has to look up (RFC 0005
+// §4.3, §12.4).
+func TestSavePolicyNamesThePullRequestsItWouldBreak(t *testing.T) {
+	svc, catalog, project := serviceAndCatalog(policyStore())
+	catalog.open = map[string]int{"feature/pay": 41}
+	links := &pullRequestLinks{project: project, urls: map[int]string{41: "https://github.com/acme/shop/pull/41"}}
+	svc.SetPullRequestLinks(links)
+
+	saved, err := svc.SavePolicy(writeCtx(t), project, terminologyRaise())
+	if err != nil {
+		t.Fatalf("SavePolicy: %v", err)
+	}
+	want := []app.PullRequestImpact{{Ref: "feature/pay", Number: 41, URL: "https://github.com/acme/shop/pull/41"}}
+	if !slices.Equal(saved.Impact.PullRequests, want) {
+		t.Errorf("pull requests = %+v, want %+v", saved.Impact.PullRequests, want)
+	}
+	// Asked about the ones it names and nothing else.
+	if !slices.Equal(links.asked, []int{41}) {
+		t.Errorf("asked about %v, want [41]", links.asked)
+	}
+}
+
+// Without a place to point — no GitHub integration, or a caller who may
+// not read it — the pull request is still named by its number: the
+// link is the extra, never the verdict.
+func TestSavePolicyNamesThePullRequestWithoutALink(t *testing.T) {
+	for name, links := range map[string]app.PullRequestLinks{
+		"no integration": nil,
+		"no permission":  &pullRequestLinks{err: &authz.DeniedError{Permission: authz.IntegrationRead}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc, catalog, project := serviceAndCatalog(policyStore())
+			catalog.open = map[string]int{"feature/pay": 41}
+			if links != nil {
+				svc.SetPullRequestLinks(links)
+			}
+			saved, err := svc.SavePolicy(writeCtx(t), project, terminologyRaise())
+			if err != nil {
+				t.Fatalf("SavePolicy: %v", err)
+			}
+			want := []app.PullRequestImpact{{Ref: "feature/pay", Number: 41}}
+			if !slices.Equal(saved.Impact.PullRequests, want) {
+				t.Errorf("pull requests = %+v, want %+v", saved.Impact.PullRequests, want)
+			}
+		})
+	}
+	// Any other failure is a failure: a preview that silently lost its
+	// links would look like one that had none to give.
+	svc, catalog, project := serviceAndCatalog(policyStore())
+	catalog.open = map[string]int{"feature/pay": 41}
+	svc.SetPullRequestLinks(&pullRequestLinks{err: errors.New("the database is gone")})
+	if _, err := svc.SavePolicy(writeCtx(t), project, terminologyRaise()); err == nil {
+		t.Error("SavePolicy succeeded with the link lookup failing")
 	}
 }
 

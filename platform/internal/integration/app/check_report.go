@@ -46,6 +46,13 @@ type CheckInput struct {
 	Status  BranchStatus
 	Quality BranchQuality
 	Usages  BranchUsages
+	// Recorded is the check run CI recorded for this commit, and the
+	// report's findings when there is one: `glossa check` computed
+	// them, the server stored them, and the pull request renders them
+	// (RFC 0005 §12.3). nil is the fallback — no run was recorded for
+	// this commit — and then the report falls back to what Integration
+	// can see for itself and says so in as many words.
+	Recorded *RecordedRun
 	// OpenedAt is when the pull request was opened, for the grace a
 	// stricter policy ships with: a pull request older than the save
 	// keeps grading against the version it opened under until the grace
@@ -83,6 +90,18 @@ type CheckReport struct {
 	Pinned         bool
 	GraceUntil     time.Time
 	Annotations    []CheckAnnotation
+	// Rendered names the recorded run this report rendered, or is nil
+	// when there was none. Reduced says this report *is* the fallback:
+	// Integration's own narrower view of the branch, computed here
+	// because nothing recorded a run for the commit. Which of the two a
+	// reader is looking at is said in the summary and in the sticky
+	// comment, because a green check has to say what was actually
+	// checked (RFC 0005 §12.3).
+	//
+	// The two are not each other's negation: a check that is still
+	// waiting, or a fork's, is neither, and says neither.
+	Rendered *RecordedRun
+	Reduced  bool
 }
 
 // BuildCheckReport turns what the contexts said into the check's
@@ -98,8 +117,9 @@ func BuildCheckReport(in CheckInput) CheckReport {
 	current := in.Policy.Version
 	in.Policy = in.Policy.Effective(in.OpenedAt, in.Now)
 	r := CheckReport{
-		Findings:      findings(in),
+		Findings:      reportedFindings(in),
 		PolicyVersion: in.Policy.Version, CurrentVersion: current, Pinned: pinned, GraceUntil: grace,
+		Rendered: in.Recorded, Reduced: in.Recorded == nil,
 	}
 	// The policy stays the evaluator: it grades every finding for this
 	// locale and namespace, drops the ones a rule switched off, ignores
@@ -121,8 +141,79 @@ func BuildCheckReport(in CheckInput) CheckReport {
 // nothing here, and the document's own require_complete applies.
 const checkEnvironment = ""
 
-// findings collects every finding the check reports, in the order the
-// summary lists them.
+// reportedFindings is where the report's findings come from: the run CI
+// recorded for this commit, or — when nothing recorded one —
+// Integration's own reduced view of the branch.
+//
+// The two are never mixed. A report that added the roll-ups to a
+// recorded run would count a missing translation twice: once per
+// message, as `glossa check` found it, and once per locale, as the
+// branch status rolls it up. The whole point of rendering the recorded
+// run is that the arithmetic is the CLI's, so nothing may be added to
+// it here.
+func reportedFindings(in CheckInput) []quality.Finding {
+	if in.Recorded != nil {
+		return locate(in.Usages, emitAgainst(in.Policy, in.Recorded.Findings))
+	}
+	return locate(in.Usages, findings(in))
+}
+
+// locate fills in where the product asks for the key a finding is
+// about, for the findings that do not already say.
+//
+// A finding `glossa check` recorded is about a message in a catalog and
+// carries no file, because a catalog is not a file. Context knows where
+// a key is used, and a locus with a file and a line is the only thing
+// GitHub can put on the diff — so without this a rendered run would be
+// a summary and nothing else, and a reviewer would have to map three
+// hundred findings onto their own source by hand.
+//
+// It adds no finding, removes none and regrades none. The counts, the
+// per-layer table and the conclusion are the same either way.
+func locate(u BranchUsages, fs []quality.Finding) []quality.Finding {
+	if len(u.Where) == 0 {
+		return fs
+	}
+	out := make([]quality.Finding, 0, len(fs))
+	for _, f := range fs {
+		if site, ok := u.Where[f.Locus.Key]; ok && !f.Located() {
+			f.Locus.File, f.Locus.Line = site.File, site.Line
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// emitAgainst restates the one severity a layer takes from the policy
+// before the rules ever see it: a missing translation is an error where
+// the policy requires that locale to be complete and a warning
+// elsewhere (checkpolicy.Policy.Severity).
+//
+// It matters exactly once, and it is the case the grace exists for. The
+// run was graded when it was recorded, against whatever version was
+// current then; a pinned pull request is graded against the version it
+// was opened under (RFC 0005 §4.3). Everything else a policy decides is
+// a rule, and Evaluate re-decides rules — but `require_complete` is not
+// a rule, so without this a pull request inside its grace would inherit
+// the stricter version's verdict through the run it rendered, and the
+// grace would quietly stop working.
+//
+// For an unpinned pull request it changes nothing: the version that
+// recorded the run is the version grading it, and the answer is the one
+// already stored.
+func emitAgainst(p checkpolicy.Policy, fs []quality.Finding) []quality.Finding {
+	out := make([]quality.Finding, 0, len(fs))
+	for _, f := range fs {
+		if f.Code == checkpolicy.CodeMissingTranslation && f.Severity != quality.Waived {
+			f.Severity = p.Severity(f.Locus.Locale)
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// findings collects every finding the reduced view reports, in the
+// order the summary lists them.
 //
 // The Quality context's findings are the report's spine: the server
 // computes them with the same layers `glossa check` links, so a finding
@@ -256,6 +347,12 @@ func checkTitle(r CheckReport) string {
 // both asking a per-layer question (RFC 0005 §2.1, §12.3).
 func checkSummary(in CheckInput, r CheckReport) string {
 	var b strings.Builder
+	// Where the findings came from is the summary's first line, before
+	// anything about the branch: a reduced view is now what a project
+	// that does not run `glossa check` gets straight away rather than
+	// after a thirty-minute wait, so it is common, and a reader must not
+	// have to get past the headline to learn it is not the check CI ran.
+	writeProvenance(&b, r)
 	fmt.Fprintf(&b, "**%s** proposes %s and %s; %s.\n\n",
 		mdCode(in.Status.Name),
 		plural(len(in.Status.NewKeys), "new key", "new keys"),
@@ -270,6 +367,59 @@ func checkSummary(in CheckInput, r CheckReport) string {
 	}
 	writePolicyNote(&b, r)
 	return b.String()
+}
+
+// ReducedViewNotice is what the check says when no `glossa check` run
+// was recorded for the commit. It is a string a test can look for,
+// because "did the pull request say which of the two it was showing" is
+// the property, not the wording.
+const ReducedViewNotice = "No `glossa check` run was recorded for this commit"
+
+// writeProvenance says where the findings below came from, and it says
+// it first.
+//
+// This is the honesty half of RFC 0005 §12.3. The check has two
+// sources now, and only one of them is the run the terminal graded. A
+// reader looking at a green check has to be able to tell "`glossa
+// check` found nothing" from "Glossa looked at the little it can see
+// by itself and found nothing", because the second is a much weaker
+// claim and looks exactly the same. Falling back silently would put
+// the divergence this milestone exists to remove back, invisibly.
+func writeProvenance(b *strings.Builder, r CheckReport) {
+	if run := r.Rendered; run != nil {
+		fmt.Fprintf(b, "These are the findings of the `glossa check` run CI recorded for this commit "+
+			"(`%s`, %s), rendered here — the same run, not a second one.",
+			run.Trigger, plural(len(run.Layers), "layer", "layers"))
+		if len(run.Layers) > 0 {
+			b.WriteString(" Layers computed: " + layerList(run.Layers) + ".")
+		}
+		if run.Truncated {
+			fmt.Fprintf(b, " The run holds more than the %d findings shown; the rest are in "+
+				"`glossa findings` and in Studio.", len(r.Findings))
+		}
+		b.WriteString("\n\n")
+		return
+	}
+	if !r.Reduced {
+		return
+	}
+	b.WriteString("⚠️ " + ReducedViewNotice + ", so what follows is **Glossa's own reduced view** of the " +
+		"branch and not the check CI ran. It is the QA the server already held for this branch's own keys — " +
+		"the warnings stored with each translation and a live terminology check — plus a per-locale roll-up " +
+		"of what is missing, outdated, unknown or would not parse. It does not run the `length`, `locale`, " +
+		"`source`, `style` or `visual` layers, and it cannot see a finding that only a full run computes. " +
+		"Add `glossa check` to this repository's CI, and this check reports exactly what the terminal " +
+		"reports.\n\n")
+}
+
+// layerList names layers in report order, as the policy and `--layer`
+// spell them.
+func layerList(ls []quality.Layer) string {
+	out := make([]string, 0, len(ls))
+	for _, l := range ls {
+		out = append(out, mdCode(string(l)))
+	}
+	return strings.Join(out, ", ")
 }
 
 // layerTable is the per-layer breakdown, with the run's totals under
@@ -463,8 +613,15 @@ func localeTable(in CheckInput) string {
 // A waived finding is annotated too, at `notice`: it is accepted, so it
 // must not look like a live warning, and it is not hidden, so it must
 // not vanish from the one place a reviewer is actually looking.
+//
+// The cap counts distinct annotations — what GitHub is actually sent,
+// since UnsentAnnotations sends each (path, line, message) once. A
+// finding repeated on one line, such as a missing translation in six
+// locales at the key's usage, is one annotation, and letting its repeats
+// spend the budget would drop the distinct findings behind them.
 func annotations(fs []quality.Finding) []CheckAnnotation {
 	var out []CheckAnnotation
+	seen := map[string]bool{}
 	for _, f := range fs {
 		if !f.Located() || len(out) == MaxAnnotations {
 			continue
@@ -483,6 +640,11 @@ func annotations(fs []quality.Finding) []CheckAnnotation {
 		message := f.Message
 		if f.Severity == quality.Waived {
 			message = "waived: " + message
+		}
+		if key := domain.AnnotationFingerprint(f.Locus.File, f.Locus.Line, message); seen[key] {
+			continue
+		} else {
+			seen[key] = true
 		}
 		out = append(out, CheckAnnotation{
 			Path: f.Locus.File, StartLine: f.Locus.Line, EndLine: f.Locus.Line, Level: level,
@@ -565,6 +727,13 @@ func StickyComment(project string, links CommentLinks, in CheckInput, r CheckRep
 	var b strings.Builder
 	b.WriteString("### Glossa — " + mdEscape(project) + "\n\n")
 	b.WriteString(verdictLine(r) + "\n\n")
+	// The comment says which of the two verdicts this is, as the check
+	// run does. A reader who only ever sees the comment must not be
+	// left thinking a reduced view is the check CI ran.
+	if r.Reduced {
+		b.WriteString("_" + ReducedViewNotice + ": this is Glossa's own reduced view of the branch, not the " +
+			"check CI ran. The check run says what it does and does not cover._\n\n")
+	}
 	if line := linkLine(links); line != "" {
 		b.WriteString(line + "\n\n")
 	}

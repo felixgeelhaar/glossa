@@ -76,7 +76,7 @@ func (s *Service) ImportTranslations(ctx context.Context, project uuid.UUID, ite
 
 // ImportTranslationsWith is ImportTranslations with options.
 func (s *Service) ImportTranslationsWith(ctx context.Context, project uuid.UUID, items []ImportItem, opts ImportOptions) ([]ImportResult, error) {
-	by, err := actor(ctx, authz.TranslationsRead)
+	by, err := actorIn(ctx, authz.TranslationsRead, project)
 	if err != nil {
 		return nil, err
 	}

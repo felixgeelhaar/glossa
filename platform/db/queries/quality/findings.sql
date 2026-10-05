@@ -183,3 +183,35 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) w ON true
 WHERE f.run_id = sqlc.arg(run_id);
+
+-- name: CountRunFindingsByLayer :many
+-- The same counts, per locale and layer: the quality summary's second
+-- number (RFC 0005 §8, "outstanding findings by layer and severity,
+-- plus waived"), which it needs both per project and per locale.
+--
+-- The locale is '' for the layers that have none — `structure`,
+-- `completeness` and `source` say what is wrong with a message, not
+-- with a translation of it — so a project's total is every row and a
+-- locale's is the rows carrying it. Grouping in one pass is what keeps
+-- twenty locales from being twenty queries.
+--
+-- A layer with no findings is not a row here. Which layers ran at all
+-- is the run's own `layers` column, and it is a different question —
+-- the one that tells "clean" from "not looked at", which is why the
+-- summary reports both.
+SELECT f.locale, f.layer,
+       count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'error')::int AS errors,
+       count(*) FILTER (WHERE w.id IS NULL AND f.severity = 'warning')::int AS warnings,
+       count(*) FILTER (WHERE w.id IS NOT NULL)::int AS waived
+FROM quality_findings f
+LEFT JOIN LATERAL (
+    SELECT w.id
+    FROM quality_waivers w
+    WHERE w.project_id = f.project_id AND w.fingerprint = f.fingerprint AND w.revoked_at IS NULL
+      AND (w.expires_at IS NULL OR w.expires_at > sqlc.arg(now)::timestamptz)
+      AND (w.scope = 'project' OR w.ref = sqlc.arg(ref)::text)
+      AND (f.source_revision IS NULL OR f.source_revision = w.source_revision)
+    LIMIT 1
+) w ON true
+WHERE f.run_id = sqlc.arg(run_id)
+GROUP BY f.locale, f.layer;

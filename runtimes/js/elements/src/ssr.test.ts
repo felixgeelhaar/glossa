@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { createRuntime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 
 import { prerender } from "./ssr.js";
 import { match, msg, release, text } from "./testing/release.js";

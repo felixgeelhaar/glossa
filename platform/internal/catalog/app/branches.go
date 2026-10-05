@@ -103,7 +103,7 @@ type BranchReport struct {
 // becomes source proposals, and nothing live changes. The branch is
 // created on its first push; a push on a closed branch reopens it.
 func (s *Service) PushBranch(ctx context.Context, project domain.ProjectID, in BranchPush) (BranchReport, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return BranchReport{}, err
 	}
@@ -212,7 +212,7 @@ type BranchUpsert struct {
 // It proposes nothing: only a push does. A closed branch reopens, a
 // merged one is refused (domain.ErrBranchMerged).
 func (s *Service) UpsertBranch(ctx context.Context, project domain.ProjectID, in BranchUpsert) (domain.Branch, bool, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Branch{}, false, err
 	}
@@ -270,7 +270,7 @@ type BranchFilter struct {
 
 // ListBranches lists a project's branches by name.
 func (s *Service) ListBranches(ctx context.Context, project domain.ProjectID, f BranchFilter, page pagination.Page) ([]domain.Branch, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, nil, err
 	}
 	if f.State != "" && f.State != domain.BranchOpen && f.State != domain.BranchMerged && f.State != domain.BranchClosed {
@@ -316,7 +316,7 @@ func (s *Service) branchByName(ctx context.Context, st Store, project domain.Pro
 
 // GetBranch reads one branch by ID.
 func (s *Service) GetBranch(ctx context.Context, project domain.ProjectID, id domain.BranchID) (domain.Branch, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return domain.Branch{}, err
 	}
 	var b domain.Branch
@@ -331,7 +331,7 @@ func (s *Service) GetBranch(ctx context.Context, project domain.ProjectID, id do
 // ListProposals lists a branch's proposals by key: what it proposes for
 // each key, and the message that key names.
 func (s *Service) ListProposals(ctx context.Context, project domain.ProjectID, branch string, page pagination.Page) ([]domain.Proposal, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, nil, err
 	}
 	name, err := parseBranchOrNotFound(branch)
@@ -359,7 +359,7 @@ func (s *Service) ListProposals(ctx context.Context, project domain.ProjectID, b
 // to it, and so the ones to publish again when its translations change
 // (RFC 0004 §4.2). Release reads it through its Source port.
 func (s *Service) OpenBranchesProposing(ctx context.Context, project domain.ProjectID, id domain.MessageID) ([]domain.BranchName, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, err
 	}
 	var out []domain.BranchName
@@ -827,7 +827,7 @@ func (s *Service) countOutdated(ctx context.Context, project domain.ProjectID, r
 
 // BranchStatus reports a branch's status as its last push left it.
 func (s *Service) BranchStatus(ctx context.Context, project domain.ProjectID, branch string) (BranchReport, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return BranchReport{}, err
 	}
 	name, err := parseBranchOrNotFound(branch)
@@ -900,7 +900,7 @@ func (s *Service) ReportBranchPreview(ctx context.Context, project domain.Projec
 func (s *Service) changeBranch(ctx context.Context, project domain.ProjectID, branch, event string,
 	change func(*domain.Branch, *branchWrite) (bool, error),
 ) (domain.Branch, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Branch{}, err
 	}
@@ -940,6 +940,11 @@ func (s *Service) changeBranch(ctx context.Context, project domain.ProjectID, br
 // them again. It returns how many it obsoleted. The purge job runs it
 // per tenant with a background principal holding catalog.write.
 func (s *Service) SweepProposals(ctx context.Context) (int, error) {
+	// It reaches every project of the tenant, so nobody limited to some
+	// projects runs it (RFC 0006 §4.1).
+	if err := authz.RequireUnscoped(ctx, authz.CatalogWrite); err != nil {
+		return 0, err
+	}
 	by, err := author(ctx, authz.CatalogWrite)
 	if err != nil {
 		return 0, err
@@ -1041,7 +1046,7 @@ func (s *Service) SweepAllProposals(ctx context.Context) (int, error) {
 // branches closed. Context's retention deletes a closed branch's builds
 // once the grace period has passed (RFC 0004 §2.3). Needs catalog.read.
 func (s *Service) ClosedBranches(ctx context.Context, project domain.ProjectID) (map[domain.BranchName]time.Time, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, err
 	}
 	var out map[domain.BranchName]time.Time
@@ -1086,7 +1091,7 @@ type Overlay struct {
 // BranchOverlay reads a branch's overlay in one transaction: the port
 // Release's branch environments build from.
 func (s *Service) BranchOverlay(ctx context.Context, project domain.ProjectID, branch string) (Overlay, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return Overlay{}, err
 	}
 	name, err := parseBranchOrNotFound(branch)
@@ -1113,7 +1118,7 @@ func (s *Service) BranchOverlay(ctx context.Context, project domain.ProjectID, b
 
 func branchEvent(typ string, b domain.Branch, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateBranch, AggregateID: b.ID.String(),
+		Type: typ, AggregateType: domain.AggregateBranch, AggregateID: b.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.BranchEventOf(b, by),
 	}
 }
@@ -1124,7 +1129,7 @@ func branchPushedEvent(rep BranchReport, by domain.Author) outbox.Event {
 		conflicting[i] = id.String()
 	}
 	return outbox.Event{
-		Type: domain.EventBranchPushed, AggregateType: domain.AggregateBranch, AggregateID: rep.Branch.ID.String(),
+		Type: domain.EventBranchPushed, AggregateType: domain.AggregateBranch, AggregateID: rep.Branch.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.BranchPushed{
 			BranchEvent: domain.BranchEventOf(rep.Branch, by), NewKeys: len(rep.NewKeys),
 			SourceProposals: len(rep.SourceProposals), Conflicts: len(rep.Conflicts), ConflictingBranches: conflicting,

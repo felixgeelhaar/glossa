@@ -5,6 +5,10 @@
  * findings shown as cropped and outlined screenshots, and the waiver
  * flow.
  *
+ * Wave 5 adds the project health header above it (RFC 0005 §8): the
+ * seven numbers, and the same three per locale with the layers that can
+ * run for each language at all (intent §41).
+ *
  * Three things this screen refuses to do, on purpose:
  * - hide a waived finding. It stays in its layer, marked, with the
  *   reason it was accepted for, and is counted on its own.
@@ -16,14 +20,18 @@
  * It consumes the Quality API and changes nothing about it.
  */
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useQuality, type Findings } from "../../api/quality";
 import type { CheckRun, Finding, Waiver } from "../../api/quality-schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import FindingItem from "../../components/quality/FindingItem.vue";
+import HealthHeader from "../../components/quality/HealthHeader.vue";
+import LocaleHealth from "../../components/quality/LocaleHealth.vue";
 import QualityFilters from "../../components/quality/QualityFilters.vue";
+import QualitySections from "../../components/quality/QualitySections.vue";
 import WaiveDialog from "../../components/quality/WaiveDialog.vue";
 import WaiverTable from "../../components/quality/WaiverTable.vue";
+import { unmeasured } from "../../lib/health";
 import { groupByLayer, isFiltered, notChecked, toFindingFilter, waiversById, type QualityFilterState } from "../../lib/quality";
 import { absoluteTime, relativeTime } from "../../lib/time";
 import { allows } from "../../session/permissions";
@@ -34,7 +42,7 @@ import { useProject } from "./context";
 const route = useRoute();
 const router = useRouter();
 const port = useQuality();
-const { tenant, projectId, locales, grant } = useProject();
+const { tenant, projectId, locales, grant, health, healthState, reloadHealth } = useProject();
 const s = strings.quality;
 const person = usePeople(() => tenant.value);
 const project = () => ({ tenant: tenant.value, project: projectId.value });
@@ -83,6 +91,19 @@ async function load(): Promise<void> {
 watch([projectId, filter], load, { immediate: true, deep: true });
 onBeforeUnmount(() => abort?.abort());
 
+/** The findings and the numbers above them, together: waiving one changes both. */
+async function refresh(): Promise<void> {
+  await Promise.all([load(), reloadHealth()]);
+}
+
+/**
+ * The locales to show health for. With no summary the project's own
+ * locales are listed with nothing measured, rather than not listed at
+ * all: "we know nothing about your German" is an answer, "German isn't
+ * here" is not.
+ */
+const healthLocaleRows = computed(() => health.value?.locales ?? unmeasured(locales.value));
+
 const run = computed(() => found.value?.run);
 const counts = computed(() => found.value?.counts ?? { errors: 0, warnings: 0, waived: 0 });
 const findings = computed(() => found.value?.items ?? []);
@@ -114,7 +135,7 @@ function closeWaive(): void {
 async function accepted(code: string): Promise<void> {
   dialogOpen.value = false;
   status.value = s.accepted(code);
-  await load();
+  await refresh();
 }
 async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
   busy.value = true;
@@ -122,7 +143,7 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
   try {
     await port.revokeWaiver(project(), waiver.id);
     status.value = s.revoked(finding?.code ?? waiver.accepts?.code ?? waiver.fingerprint);
-    await load();
+    await refresh();
   } catch (e) {
     error.value = e;
   } finally {
@@ -138,12 +159,18 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
         <h1>{{ s.title }}</h1>
         <p class="muted lead">{{ s.lead }}</p>
       </div>
-      <button type="button" class="btn" :disabled="loading" @click="load">{{ s.reload }}</button>
+      <button type="button" class="btn" :disabled="loading" @click="refresh">{{ s.reload }}</button>
     </div>
+
+    <QualitySections :tenant="tenant" :project-id="projectId" />
 
     <p v-if="!canWaive" class="alert" data-testid="quality-read-only">{{ s.readOnly }}</p>
     <ErrorAlert :error="error" />
     <p v-if="status" class="alert alert-ok" role="status" data-testid="quality-status">{{ status }}</p>
+    <!-- ── the seven numbers, and the same three per locale ───────── -->
+    <HealthHeader :summary="health" :state="healthState" />
+    <LocaleHealth :locales="healthLocaleRows" :measured="!!health" />
+
     <p v-if="loading && !found" class="muted" role="status">{{ strings.app.loading }}</p>
 
     <template v-else-if="found">
@@ -218,7 +245,10 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
 
       <!-- ── the waivers, and taking one back ─────────────────── -->
       <section class="stack-sm" aria-labelledby="waivers-h">
-        <h2 id="waivers-h">{{ s.waiversTitle }}</h2>
+        <div class="waivers-head">
+          <h2 id="waivers-h">{{ s.waiversTitle }}</h2>
+          <RouterLink :to="{ name: 'waivers', params: { tenant, project: projectId } }" data-testid="quality-manage-waivers">{{ s.manageWaivers }}</RouterLink>
+        </div>
         <p class="muted">{{ s.waiversLead }}</p>
         <WaiverTable :waivers="waivers" :can-revoke="canWaive" :busy="busy" :person="person" @revoke="revoke" />
       </section>
@@ -259,6 +289,13 @@ async function revoke(waiver: Waiver, finding?: Finding): Promise<void> {
 .summary {
   font-size: var(--kl-text-sm);
   font-weight: normal;
+}
+.waivers-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kl-space-3);
+  align-items: baseline;
+  justify-content: space-between;
 }
 .findings {
   list-style: none;

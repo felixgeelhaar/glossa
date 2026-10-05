@@ -18,6 +18,7 @@ import (
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
@@ -373,9 +374,9 @@ func (s *store) AppendRevision(ctx context.Context, r domain.Revision) error {
 	}))
 }
 
-func (s *store) TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, limit int) ([]app.TranslationRow, error) {
+func (s *store) TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, only []string, limit int) ([]app.TranslationRow, error) {
 	rows, err := s.q.ListTranslationsOfMessage(ctx, localizationsql.ListTranslationsOfMessageParams{
-		MessageID: message, After: after, MaxRows: int32Of(limit),
+		MessageID: message, After: after, OnlyLocales: only, MaxRows: int32Of(limit),
 	})
 	if err != nil {
 		return nil, storeError(err)
@@ -441,12 +442,14 @@ func (s *store) NewlyOutdated(ctx context.Context, message uuid.UUID, old, new i
 	return out, nil
 }
 
-func (s *store) SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) ([]app.TranslationRow, error) {
+func (s *store) SnapshotTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) ([]app.TranslationRow, error) {
 	names := make([]string, len(states))
 	for i, st := range states {
 		names[i] = string(st)
 	}
-	rows, err := s.q.SnapshotTranslations(ctx, localizationsql.SnapshotTranslationsParams{ProjectID: project, States: names})
+	rows, err := s.q.SnapshotTranslations(ctx, localizationsql.SnapshotTranslationsParams{
+		ProjectID: project, States: names, IncludeObsolete: includeObsolete,
+	})
 	if err != nil {
 		return nil, storeError(err)
 	}
@@ -475,6 +478,10 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 	for _, st := range q.States {
 		states = append(states, string(st))
 	}
+	var origins []string // nil: any provenance
+	for _, o := range q.Origins {
+		origins = append(origins, string(o))
+	}
 	outdated := pgtype.Bool{}
 	if q.Outdated != nil {
 		outdated = pgtype.Bool{Bool: *q.Outdated, Valid: true}
@@ -482,8 +489,9 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 	rows, err := s.q.PageProjectTranslations(ctx, localizationsql.PageProjectTranslationsParams{
 		ProjectID: project, Locales: locales,
 		AfterKey: q.After.Key, AfterMessage: q.After.Message, AfterLocale: q.After.Locale,
-		States: states, Outdated: outdated, Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
-		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, MaxRows: int32Of(q.Limit),
+		States: states, Origins: origins, Outdated: outdated,
+		Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
+		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, Units: units(q.Units), MaxRows: int32Of(q.Limit),
 	})
 	if err != nil {
 		return nil, storeError(err)
@@ -502,6 +510,19 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 		out = append(out, app.ProjectTranslationRow{TranslationRow: tr, Key: r.Key, Namespace: r.Namespace, MessageState: r.MessageState})
 	}
 	return out, nil
+}
+
+// units spells a unit filter as PageProjectTranslations matches it,
+// "<message id> <locale>"; nil is no filter, empty is nothing.
+func units(us []authz.Unit) []string {
+	if us == nil {
+		return nil
+	}
+	out := make([]string, len(us))
+	for i, u := range us {
+		out[i] = u.Message.String() + " " + u.Locale
+	}
+	return out
 }
 
 func (s *store) TranslationStats(ctx context.Context, project uuid.UUID) (app.StoredStats, error) {
@@ -524,6 +545,25 @@ func (s *store) TranslationStats(ctx context.Context, project uuid.UUID) (app.St
 			States: domain.StateCounts{
 				Draft: int(r.Draft), NeedsReview: int(r.NeedsReview), Approved: int(r.Approved), Rejected: int(r.Rejected),
 			},
+		})
+	}
+	return out, nil
+}
+
+func (s *store) LeadTimeSamples(
+	ctx context.Context, project uuid.UUID, q app.LeadTimeQuery,
+) ([]app.LeadTimeSample, error) {
+	rows, err := s.q.LeadTimeSamples(ctx, localizationsql.LeadTimeSamplesParams{
+		ProjectID: project, States: q.States, Since: q.Since.UTC(),
+		Locales: append([]string{}, q.Locales...), MaxRows: int32Of(q.Limit),
+	})
+	if err != nil {
+		return nil, storeError(err)
+	}
+	out := make([]app.LeadTimeSample, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, app.LeadTimeSample{
+			Locale: r.Locale, SourceChangedAt: r.SourceChangedAt.UTC(), TranslatedAt: r.TranslatedAt.UTC(),
 		})
 	}
 	return out, nil

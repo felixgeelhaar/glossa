@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
 )
@@ -48,6 +49,9 @@ type Env struct {
 	ReadSecret func(prompt string) (string, error)
 	// Version is the CLI's version, for --version and the User-Agent.
 	Version string
+	// Sleep waits between device sign-in polls (nil: sleep for real,
+	// until ctx ends).
+	Sleep func(ctx context.Context, d time.Duration) error
 }
 
 func (e *Env) getenv(k string) string {
@@ -67,17 +71,20 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"init", "Create glossa.yaml for this project", runInit},
-		{"login", "Store an API token for the server", runLogin},
-		{"logout", "Forget the stored API token", runLogout},
+		{"login", "Store an API token for the server, or sign in with --device", runLogin},
+		{"logout", "Forget the stored credential (and end a device sign-in)", runLogout},
 		{"whoami", "Show the server, token and tenant in use", runWhoami},
 		{"push", "Send the source catalog's messages to the server", runPush},
 		{"pull", "Write translations to local catalogs", runPull},
 		{"extract", "Find message usages in source code", runExtract},
-		{"context", "Upload a usages document (from @glossa/unplugin or extract)", runContext},
+		{"context", "Upload a usages document (from @felixgeelhaar/glossa-unplugin or extract)", runContext},
 		{"capture", "Screenshot the app's pages with where each message renders", runCaptureCmd},
 		{"generate", "Generate typed message accessors (TypeScript, Vue, React, Go)", runGenerate},
 		{"check", "Check the project: structure, arguments, completeness", runCheck},
-		{"status", "Show translation coverage per locale", runStatus},
+		{"findings", "List the findings the server stored, with the QA filters", runFindings},
+		{"waive", "Accept a finding, with a reason; list and revoke waivers", runWaive},
+		{"policy", "The check policy: show, diff (impact preview), export, import", runPolicy},
+		{"status", "Show translation coverage per locale, or --quality for the seven numbers", runStatus},
 		{"diff", "Compare local catalogs with the server", runDiff},
 		{"locales", "List the project's locales", runLocales},
 		{"messages", "List the project's messages", runMessages},
@@ -85,7 +92,7 @@ func commands() []command {
 		{"import", "Import XLIFF, JSON, PO, TMX or TBX files (--format), or Glossa v0.3 (--from v0)", runImport},
 		{"export", "Export XLIFF, JSON, TMX or TBX files, verified by SHA-256", runExport},
 		{"jobs", "List, show and cancel import and export jobs", runJobs},
-		{"release", "Publish, promote and roll back releases", runRelease},
+		{"release", "Publish, promote, roll back and roll out releases; release requests", runRelease},
 		{"branch", "Show or close a feature branch's proposals", runBranch},
 		{"preview", "Register where CI deployed a branch's preview", runPreview},
 		{"github", "List, add and remove Git connections (repository → project)", runGitHub},
@@ -94,7 +101,13 @@ func commands() []command {
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},
 		{"translate", "Fill locales with AI suggestions", runTranslate},
 		{"review", "Review AI suggestions: list, accept, reject", runReview},
+		{"workflow", "Lint, push, pull and bind workflow definitions; list instances and their log", runWorkflow},
+		{"assignments", "My work: list, show, accept, complete, decline; create assignments", runAssignments},
+		{"approve", "Approve a release request or a translation (a person's session); list what waits", runApprove},
+		{"deny", "Deny a release request or a translation, with a reason", runDeny},
 		{"ai", "Show AI consent, budget, providers and project policy", runAI},
+		{"audit", "The audit trail: list, export, CSV; verify an export offline (glossa.audit/v1)", runAudit},
+		{"mcp", "Speak MCP on stdin/stdout, proxying to the server's /mcp endpoint", runMCP},
 	}
 }
 
@@ -151,7 +164,7 @@ Usage: glossa <command> [flags]
 Commands:
 `)
 	for _, c := range commands() {
-		fmt.Fprintf(w, "  %-10s %s\n", c.name, c.summary)
+		fmt.Fprintf(w, "  %-11s %s\n", c.name, c.summary)
 	}
 	fmt.Fprint(w, `
 Flags every command takes:
@@ -160,7 +173,7 @@ Flags every command takes:
   --no-color   never color output (also NO_COLOR=1)
   --config     path to glossa.yaml (default: nearest one up from here)
 
-Exit codes: 0 ok · 1 check failed · 2 usage or config · 3 network or auth · 4 partial failure
+Exit codes: 0 ok · 1 check failed · 2 usage or config · 3 network or auth · 4 partial failure · 5 held for approval
 Run "glossa <command> --help" for a command's flags.
 `)
 }

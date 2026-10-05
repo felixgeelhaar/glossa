@@ -1,4 +1,4 @@
-.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3 system
+.PHONY: help api admin packages test lint fmt up down migrate-up migrate-down sqlc-gen platform-test platform-lint platform-integration system-m2 system-m3 system-m4 system-m4-studio system-m5 system-m5-deps system
 
 # Go modules of the rewrite (RFC 0002). apps/api is v0.3 and keeps its
 # own targets until it's retired.
@@ -15,8 +15,8 @@ api-test: ## Run Go tests.
 	cd apps/api && go test ./...
 
 # ── Web (admin + packages) ──────────────────────────────────────────
-admin: ## Run the Lit admin UI in dev mode.
-	pnpm --filter @glossa/admin dev
+admin: ## v0.3 admin UI: lives on branch release/v0.3 now (out of the workspace).
+	@echo "apps/admin left the pnpm workspace; check out release/v0.3 to run it" && exit 1
 
 packages: ## Build every TS package (topological order).
 	pnpm -r --filter "./packages/*" --filter "./messageformat/js" --filter "./runtimes/js/*" build
@@ -40,8 +40,24 @@ system-m2: ## M2 exit test (Docker): fill es/fr/ja through glossa-server; writes
 system-m3: ## M3 exit test (Docker + Chrome): context, the PR flow, the overlay guards and the documents; writes platform/internal/systemtest/m3/REPORT.md.
 	cd platform && go test -tags=system -timeout=900s -count=1 -v ./internal/systemtest/m3/...
 
-system: ## Both exit tests, one after the other (they each want Docker and a browser to themselves).
-	cd platform && go test -tags=system -timeout=1500s -count=1 -p 1 ./internal/systemtest/...
+system-m4-studio: ## Build Studio so the M4 exit test can open its quality view (RFC 0005 §12.8).
+	pnpm --filter @felixgeelhaar/glossa-messageformat build
+	pnpm --filter @felixgeelhaar/glossa-overlay... build
+	pnpm --filter @glossa/studio build
+	pnpm --filter @glossa/studio exec playwright install chromium
+
+system-m4: system-m4-studio ## M4 exit test (Docker + Chrome + Dart + a built Studio): RFC 0005 §12's eight criteria; writes platform/internal/systemtest/m4/REPORT.md.
+	cd platform && go test -tags=system -timeout=2700s -count=1 -v ./internal/systemtest/m4/...
+
+system-m5-deps: system-m4-studio ## Build what the M5 exit test renders and rolls out with: @felixgeelhaar/glossa-runtime, v0.3's formatter, the Dart runtime's packages.
+	pnpm --filter @felixgeelhaar/glossa-runtime build
+	pnpm --filter @felixgeelhaar/glossa-format build
+	cd runtimes/dart && dart pub get
+
+system-m5: system-m5-deps ## M5 exit test (Docker + Node + Dart + Python, and everything M2–M4 need): RFC 0006 §12's seven criteria; red from wave 1 by design; writes platform/internal/systemtest/m5/REPORT.md.
+	cd platform && go test -tags=system -timeout=5400s -count=1 -v ./internal/systemtest/m5/...
+
+system: system-m5 ## Every exit test, one after the other: M5's §12.7 runs the M2, M3 and M4 exit tests unchanged before its own.
 
 # ── Cross-cutting ───────────────────────────────────────────────────
 test: api-test platform-test web-test ## Backend + frontend tests.

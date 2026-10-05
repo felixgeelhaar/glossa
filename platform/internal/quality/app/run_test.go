@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"slices"
 	"testing"
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
@@ -91,8 +92,15 @@ func TestRunReportsCompatAndMissingTranslations(t *testing.T) {
 	if r.Locales[0].Code != "en" || !r.Locales[0].IsSource || r.Locales[0].Required {
 		t.Errorf("source report = %+v", r.Locales[0])
 	}
-	if want := []domain.Layer{domain.LayerStructure, domain.LayerParity, domain.LayerCompleteness}; len(r.Layers) != 3 ||
-		r.Layers[0] != want[0] || r.Layers[1] != want[1] || r.Layers[2] != want[2] {
+	// Every deterministic layer runs, in the order layers.Default()
+	// lists them. The four wave-1 and wave-2 layers joined the three
+	// M1 ones here, and a run that quietly stopped computing one would
+	// be the one failure mode a check may never have.
+	want := []domain.Layer{
+		domain.LayerStructure, domain.LayerParity, domain.LayerCompleteness,
+		domain.LayerStyle, domain.LayerLength, domain.LayerLocale, domain.LayerSource,
+	}
+	if !slices.Equal(r.Layers, want) {
 		t.Errorf("layers = %v, want %v", r.Layers, want)
 	}
 }
@@ -147,15 +155,23 @@ func TestServerWarningsAreKeptWhenTheKernelCantComputeThem(t *testing.T) {
 	if got := codes(fs)["de cart.items max-length-exceeded"]; got != domain.Warning {
 		t.Errorf("max-length-exceeded = %q", got)
 	}
-	// max_length keeps working through the new model, and arrives as a
-	// length finding would: layered, fingerprinted and locatable.
+	// max_length keeps working through the new model, and arrives
+	// layered, fingerprinted and locatable. The layer is `length` and
+	// no longer `parity`: RFC 0005 §3.3 owns the rule there, and the
+	// length layer relays the stored warning for exactly the caller
+	// this test is — one that has the warning and not the constraint.
+	seen := 0
 	for _, f := range fs {
 		if f.Code != "max-length-exceeded" {
 			continue
 		}
-		if f.Layer != domain.LayerParity || f.Fingerprint == "" || f.Locus.Key != "cart.items" {
+		seen++
+		if f.Layer != domain.LayerLength || f.Fingerprint == "" || f.Locus.Key != "cart.items" {
 			t.Errorf("max-length-exceeded = %+v", f)
 		}
+	}
+	if seen != 1 {
+		t.Errorf("%d max-length-exceeded findings, want one; two layers must not relay one warning", seen)
 	}
 }
 

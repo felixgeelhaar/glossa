@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
+	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
@@ -51,6 +53,12 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 	if err != nil {
 		return nil, err
 	}
+	// The style layer's guides, on the same terms as `glossa check`'s
+	// (check_style.go): read here, before Chrome starts, because a run
+	// that cannot compute a layer should say so before it captures forty
+	// pages. Without them this command would grade every project's style
+	// against nothing and call it clean.
+	inv.readStyles(ctx, run, f, policy)
 	return &captureCheck{run: run, policy: policy, overrides: overrides, flags: f}, nil
 }
 
@@ -61,17 +69,43 @@ func (inv *invocation) startCheck(ctx context.Context, cfg *config.Config) (*cap
 // counted against what the previous capture of the same (route,
 // viewport, locale) found, and the fingerprints of this run are left
 // behind for the next one.
-func (inv *invocation) finishCheck(cfg *config.Config, application string, out *captureJSON) *checkJSON {
+func (inv *invocation) finishCheck(
+	ctx context.Context, cfg *config.Config, header extract.Header, out *captureJSON,
+) *checkJSON {
 	c := out.checked
-	project := qa.Project(c.run.snapshot)
+	application := header.Application
+	// c.run.project(), not qa.Project(c.run.snapshot): the former carries
+	// the style guides startCheck read, and without them the style layer
+	// grades every locale against nothing and calls it clean.
+	project := c.run.project()
+	// The boxes this run measured are the length layer's layout budget
+	// (RFC 0005 §3.3): a region's width over the characters that filled
+	// it is the advance that region's font gave a character, and that
+	// predicts another locale's width with no browser and no second
+	// capture. It is the cheap half of the visual layer, and this is
+	// the one command that has the measurements to do it.
+	project.Regions = measured(out.shots)
 	visual, seen := layers.PromoteVisual(
 		inv.readSightings(cfg, application), probed(project, out.shots), c.policy.Visual())
 	inv.writeSightings(cfg, application, seen)
 	c.run.extra = append(c.run.extra, visual)
 	checkers, unavailable := c.run.checkers(c.flags)
 	c.run.unavailable = append(c.run.unavailable, unavailable...)
-	c.report = qa.RunProject(project, c.policy, checkers...)
+	c.report = c.run.waive(qa.RunProject(project, c.policy, checkers...), c.policy)
 	doc := checkDocument(c.run, c.report, c.policy, c.overrides, c.flags)
+	// And it goes on the record, exactly as `glossa check`'s does
+	// (check_record.go): default in CI, `--record` either way.
+	//
+	// It is the *same* check with one layer more, so a CI job that
+	// captures and checks must put the run it actually gated on on the
+	// record — the run with the visual layer in it. Leaving this one off
+	// would mean the pull request rendered a run with a layer missing
+	// from it while the terminal exited 1 on that very layer, which is
+	// the disagreement the whole milestone is about (RFC 0005 §12.3).
+	// The commit and the branch are the capture document's own, so the
+	// run and the captures it graded name one commit.
+	doc.Record = inv.recordCheck(ctx, c.run, doc, c.flags,
+		buildRef{Commit: header.Commit, Branch: header.Branch})
 	return &doc
 }
 
@@ -93,6 +127,38 @@ func probed(p *layers.Project, shots []capture.Shot) []layers.Probed {
 			},
 			Findings: p.Identify(s.Probes),
 		})
+	}
+	return out
+}
+
+// measured is every visible region of this run's captures, as the
+// length layer reads them.
+//
+// Only visible regions, because a box that rendered zero-size or
+// off-screen measured nothing. The region id is its index in the
+// capture's own regions, which is the spelling the probe pass uses
+// (`r_${i}` in probes.ts) and the one the ingest keeps, so a predicted
+// overflow and a measured clip name the same box.
+func measured(shots []capture.Shot) []layers.Region {
+	var out []layers.Region
+	for _, s := range shots {
+		keys := make(map[int]string, len(s.Capture.Renders))
+		for _, r := range s.Capture.Renders {
+			keys[r.Index] = r.Key
+		}
+		for i, r := range s.Capture.Regions {
+			key := r.Key
+			if key == "" && r.Index != nil {
+				key = keys[*r.Index]
+			}
+			if key == "" || !r.Visible {
+				continue
+			}
+			out = append(out, layers.Region{
+				Key: key, Locale: s.Capture.Locale, ID: fmt.Sprintf("r_%d", i),
+				Width: r.Box.Width, Height: r.Box.Height,
+			})
+		}
 	}
 	return out
 }

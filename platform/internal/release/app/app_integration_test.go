@@ -127,17 +127,17 @@ func TestPublishPromoteRollback(t *testing.T) {
 	}
 
 	// Promote: a preview release can't reach production; production's can reach staging.
-	if _, err := h.svc.Promote(ctx, p, "production", prev.ID); !errors.Is(err, domain.ErrIneligible) {
+	if _, err := h.svc.Promote(ctx, p, "production", prev.ID, app.PromoteInput{}); !errors.Is(err, domain.ErrIneligible) {
 		t.Errorf("draft release promoted into production: %v", err)
 	}
-	staging, err := h.svc.Promote(ctx, p, "staging", prod1.ID)
+	staging, err := h.svc.Promote(ctx, p, "staging", prod1.ID, app.PromoteInput{})
 	if err != nil || staging.Current != prod1.ID {
 		t.Fatalf("promote: %v %+v", err, staging)
 	}
 	if m, _ := h.served(t, p, "staging"); m.Environment != "staging" || m.Release.ID != prod1.ID.String() {
 		t.Errorf("staging manifest %+v", m)
 	}
-	if again, err := h.svc.Promote(ctx, p, "staging", prod1.ID); err != nil || again.Version != staging.Version {
+	if again, err := h.svc.Promote(ctx, p, "staging", prod1.ID, app.PromoteInput{}); err != nil || again.Version != staging.Version {
 		t.Errorf("promoting the served release moved the pointer: %v %d→%d", err, staging.Version, again.Version)
 	}
 
@@ -294,7 +294,7 @@ func TestPermissions(t *testing.T) {
 		t.Errorf("translator created a key: %v", err)
 	}
 	reader := authztest.Token(context.Background(), h.tenant, "read")
-	if _, err := h.svc.Promote(reader, p, "production", uuid.New()); !errors.Is(err, authz.ErrForbidden) {
+	if _, err := h.svc.Promote(reader, p, "production", uuid.New(), app.PromoteInput{}); !errors.Is(err, authz.ErrForbidden) {
 		t.Errorf("read token promoted: %v", err)
 	}
 	publisher := authztest.Token(context.Background(), h.tenant, "publish")

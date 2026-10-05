@@ -96,7 +96,7 @@ func (s *Service) FinishPasskeySignIn(ctx context.Context, key string, response 
 	if err != nil {
 		return SignedIn{}, err
 	}
-	return s.completeSignIn(ctx, rec)
+	return s.completeSignIn(ctx, rec, MethodPasskey)
 }
 
 // BeginPasskeyRegistration starts enrolling a passkey for a person.

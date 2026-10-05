@@ -53,8 +53,15 @@ export function findingErrors(p: ProbeFinding): string[] {
     : (validateFinding.errors ?? []).map((e) => `${e.instancePath} ${e.message ?? ""}`);
 }
 
-/** The captures.v1 document around one capture's `renders` and `regions`. */
-export const document = (c: Capture) => ({
+/**
+ * The captures.v1 document around one capture's `renders`, `regions` and —
+ * where the probe pass ran — its findings, as `glossa capture` wraps them.
+ *
+ * The findings go through JSON for the reason `stored` does: an absent
+ * `subject` is absent on the wire, not present and `undefined`, and the
+ * schema is about the wire.
+ */
+export const document = (c: Capture & { probes?: ProbeFinding[] }) => ({
   schema: "glossa.captures/v1",
   application: "web",
   commit: "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e",
@@ -69,12 +76,13 @@ export const document = (c: Capture) => ({
       image: { sha256: "0".repeat(64), width: 1280, height: 800 },
       renders: c.renders,
       regions: c.regions,
+      ...(c.probes ? { findings: JSON.parse(JSON.stringify(c.probes)) as unknown[] } : {}),
     },
   ],
 });
 
 /** The schema errors for `c`, or `[]`. */
-export function schemaErrors(c: Capture): string[] {
+export function schemaErrors(c: Capture & { probes?: ProbeFinding[] }): string[] {
   return validate(document(c))
     ? []
     : (validate.errors ?? []).map((e) => `${e.instancePath} ${e.message ?? ""}`);

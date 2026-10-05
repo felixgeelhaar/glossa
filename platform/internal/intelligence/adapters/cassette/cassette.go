@@ -71,7 +71,7 @@ func Key(provider string, req domain.CompletionRequest) string {
 func Load(path string) (*Cassette, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("cassette: %w (record it: go test ./internal/intelligence/evals -run TestRecordCassettes -record=scripted)", err)
+		return nil, fmt.Errorf("cassette: %w (record it: go test ./internal/intelligence/evals -run 'TestRecord.*Cassettes' -record=scripted)", err)
 	}
 	var c Cassette
 	if err := json.Unmarshal(raw, &c); err != nil {
@@ -183,7 +183,7 @@ func (e *MismatchError) Error() string {
 		fmt.Fprintf(&b, " Compared with the recorded %s request, these changed: %s.", e.Task, strings.Join(e.Changed, "; "))
 	}
 	b.WriteString(" A prompt, the knowledge the tools returned, routing or the model changed since the cassette was recorded." +
-		" Re-record it: `go test ./internal/intelligence/evals -run TestRecordCassettes -record=scripted` for hand-crafted answers," +
+		" Re-record it: `go test ./internal/intelligence/evals -run 'TestRecord.*Cassettes' -record=scripted` for hand-crafted answers," +
 		" or with -tags=live and -record=live (needs the provider's API key) against the real provider, then review the diff.")
 	return b.String()
 }

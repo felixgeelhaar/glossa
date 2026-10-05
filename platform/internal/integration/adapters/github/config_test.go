@@ -92,6 +92,30 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
+// A pull request's address is the web host's, not the API's: on GitHub
+// Enterprise Server the two differ, and a link to the API would open a
+// JSON document.
+func TestPullRequestURLIsOnTheWebHost(t *testing.T) {
+	for _, c := range []struct {
+		web, repo string
+		number    int
+		want      string
+	}{
+		{github.DefaultWebURL, "acme/shop", 11, "https://github.com/acme/shop/pull/11"},
+		{"https://ghe.acme.test", "platform/web app", 7, "https://ghe.acme.test/platform/web%20app/pull/7"},
+		// Nothing to point at: no repository, or no pull request.
+		{github.DefaultWebURL, "", 11, ""},
+		{github.DefaultWebURL, "acme/shop", 0, ""},
+		// A label that is not owner/name is not a path to invent.
+		{github.DefaultWebURL, "shop", 11, ""},
+	} {
+		cfg := github.Config{WebURL: c.web}
+		if got := cfg.PullRequestURL(c.repo, c.number); got != c.want {
+			t.Errorf("PullRequestURL(%q, %d) on %s = %q, want %q", c.repo, c.number, c.web, got, c.want)
+		}
+	}
+}
+
 func TestLoadConfigReportsEveryProblem(t *testing.T) {
 	_, enabled, err := github.LoadConfig(env(map[string]string{
 		github.EnvAppID:      "abc",

@@ -199,6 +199,11 @@ func (a *API) ListProjectTranslations(ctx context.Context, req apiv1.ListProject
 			f.States = append(f.States, string(st))
 		}
 	}
+	if req.Params.Origin != nil {
+		for _, o := range *req.Params.Origin {
+			f.Origins = append(f.Origins, string(o))
+		}
+	}
 	if req.Params.KeyPrefix != nil {
 		f.KeyPrefix = *req.Params.KeyPrefix
 	}

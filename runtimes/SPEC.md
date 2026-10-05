@@ -1,6 +1,6 @@
 # Glossa runtime and delivery contract (v1)
 
-**Status:** Accepted — 2026-09-19, clarified after the first two implementations (JS, Go) · **Implements:** RFC 0002 §7–§8, intent §13, §33–§39, §51
+**Status:** Accepted — 2026-09-19, clarified after the first two implementations (JS, Go); amended 2026-10-01 with staged rollout (§1.4, RFC 0006 §5.2) · **Implements:** RFC 0002 §7–§8, intent §13, §33–§39, §51
 
 This is the contract between the delivery plane (the Release context and `glossa-edge`) and every runtime (JS, Go, Dart, and later Swift and Kotlin). A runtime is conformant when it passes the scenarios in [`testdata/`](./testdata) and follows the MUST rules below. The words MUST, SHOULD and MAY are used as in RFC 2119.
 
@@ -43,6 +43,7 @@ One manifest per (project, environment). It names the release currently served a
 - `fallback` maps a locale to its ordered fallback locales. `"*"` is the default chain for any locale without its own entry. Fallback is a graph (intent §39): entries MAY chain (`de-AT → de-CH → de`), and runtimes MUST detect cycles and stop at the first repeat.
 - `artifacts[locale][namespace]` names one artifact by the SHA-256 of its exact bytes. The `default` namespace always exists for every listed locale, even if empty. More namespaces arrive with bundle splitting (RFC 0002 §8). Until namespace routing is specified, runtimes load and merge **all** namespaces of each locale in the chain.
 - Unknown top-level fields MUST be ignored. A different `schema` major version MUST be rejected, keeping the last good release (§3).
+- A manifest MAY carry `rollout`, a candidate release for a share of installations (§1.4). The top-level `release`, `locales`, `fallback` and `artifacts` are always the **stable** release.
 
 ### 1.2 Artifact
 
@@ -68,6 +69,68 @@ One artifact holds one namespace of one locale. Schema: [`testdata/schemas/artif
 - Runtimes MUST verify an artifact's bytes against its manifest `sha256` before using it, and MUST discard it on mismatch.
 - `signatures[].sig` is an Ed25519 signature over the **RFC 8785 (JCS) canonicalization** of the manifest with the `signatures` member removed.
 - A runtime configured with one or more public keys MUST reject a manifest without a valid signature from one of them. A runtime without configured keys MAY skip signature verification; TLS still protects the transport. Server-side runtimes (Go) and mobile OTA SHOULD be configured with keys.
+
+### 1.4 Staged rollout
+
+*Added 2026-10-01 (RFC 0006 §5.2; the owner's decision in RFC 0006 §15 Q5: per-installation cohorts, any percentage per step, manual halt only).* An additive, minor change under §8. A runtime that predates this section ignores `rollout` (§1.1) and serves the stable release; see *Runtimes without rollout support* below.
+
+A rollout serves a **candidate** release to a stable share of installations while every other installation keeps the stable release. The runtime decides which side it is on, from the signed manifest; the edge is unchanged and serves one manifest to everyone.
+
+```json
+"rollout": {
+  "id": "ro_7Kq…",
+  "percent": 10,
+  "salt": "Zk3x9QpL0aTq7bWc1nYe2g",
+  "candidate": {
+    "release": { "id": "rel_9Qy…", "version": 43, "createdAt": "2026-10-01T08:00:00Z" },
+    "locales": [ … ],
+    "fallback": { … },
+    "artifacts": { … }
+  }
+}
+```
+
+- `candidate.release`, `locales`, `fallback` and `artifacts` have exactly the meaning and schema of the top-level members of the same names. `schema`, `project`, `environment`, `sourceLocale` and `signatures` are shared by both releases.
+- The **stable view** of a manifest is the manifest without `rollout`. The **candidate view** is the manifest with `release`, `locales`, `fallback` and `artifacts` replaced by the candidate's, and without `rollout`. A runtime activates one view, and everything else in this contract — §3's loading and atomic activation, §4's resolution, §6's `explain()` — applies to the view it activated.
+- The signature (§1.3) covers the whole manifest, `rollout` included. A runtime verifies the manifest before it reads anything in `rollout`.
+- `percent` is an integer from 0 to 100, written as a JSON number without a fraction or an exponent. Steps are free: any percentage may follow any other.
+- `salt` is 22 base64url characters (16 random bytes, unpadded). It is used **as text**: runtimes never decode it. It stays the same for the life of a rollout — advancing changes only `percent` — so an installation in the candidate at one percentage is in it at every higher one. A new rollout gets a new `salt` and a new `id`.
+- `id` names the rollout for `explain()` and the audit log. It is not part of the cohort function.
+- There is no member that halts a rollout automatically, and none will be added in v1: halting is a person's decision. Aborting removes `rollout` from the manifest; completing makes the candidate the top-level release and removes `rollout`.
+- A `rollout` that doesn't match the schema (a `percent` outside 0–100 or not an integer, a `salt` of another form, a `candidate` missing a member) is ignored: the runtime activates the stable view and reports a `schema` error (§6). Unknown members inside `rollout` and `candidate` are ignored, as at the top level.
+
+**Cohort key.** The text that decides an installation's side.
+
+- **Installation id** — client runtimes (browser, mobile, Dart, JS) and the Go runtime by default: 128 bits from a cryptographically secure random source, created the first time a manifest with a `rollout` is read, persisted in the same store as the last-good release (§3), and kept for as long as that store survives. Its key is its text form: **32 lowercase hexadecimal digits**. It is never sent anywhere (§6, telemetry).
+- **Per-request key** — the Go runtime only. A server process serves many users, so one installation id would move a whole server in or out. The application MAY attach a key to a request's context (`glossa.WithCohortKey(ctx, key)`); a non-empty key is used as given, with no case folding and no Unicode normalization, and an empty or absent one falls back to the process's installation id. A runtime with per-request keys loads both views and resolves each request against the view its key selects; the activation rules below apply to each view separately.
+
+**Cohort function.** For the manifest's `salt` *s* and a cohort key *k*:
+
+```
+digest  = SHA-256( UTF-8(s) ‖ UTF-8(k) )      the two byte strings concatenated, nothing between them
+cohort  = ( digest[0]·2²⁴ + digest[1]·2¹⁶ + digest[2]·2⁸ + digest[3] ) mod 10000
+                                              the first four bytes as a big-endian unsigned 32-bit integer
+side    = candidate  if  cohort < percent × 100,  else stable
+```
+
+All arithmetic is on integers; no floating point is involved anywhere. `percent` 0 puts no installation in the candidate and 100 puts every one in. (2³² mod 10000 = 7296, so cohorts 0–7295 are each about one part in 430,000 more likely than the rest — immaterial at any percentage.)
+
+| `salt` | key | cohort |
+|---|---|---|
+| `AAAAAAAAAAAAAAAAAAAAAA` | `00000000000000000000000000000000` | 1550 |
+| `AAAAAAAAAAAAAAAAAAAAAA` | `user-42` | 4935 |
+| `AAAAAAAAAAAAAAAAAAAAAA` | `jürgen@example.com` | 4213 |
+
+Every runtime MUST reproduce these vectors and [`testdata/rollout/cohorts.json`](./testdata/rollout/cohorts.json) id for id.
+
+**Activation.**
+
+- A runtime computes its side for every manifest it verifies, wherever the manifest came from (network, persisted, bundled). A persisted manifest is kept as served, `rollout` included, so a restart computes the same side from the same key.
+- **Stable side:** the runtime activates the stable view, and MUST NOT fetch any of the candidate's artifacts.
+- **Candidate side:** the runtime activates the candidate view under §3's rules — atomically, after every artifact it needs has loaded and verified. If the candidate view can't be activated (an artifact unavailable from every source, an integrity failure, a candidate that fails the schema), the runtime activates the **stable view** of the same manifest instead, under the same rules, and reports the failure (§6). It never serves a half-activated candidate, and it never stays on an older release because a candidate failed when the stable view loads.
+- When §3 compares bundled and persisted releases by `release.version`, it compares the versions of the views each would activate.
+
+**Runtimes without rollout support.** Every runtime MUST let the application turn rollout support off. With it off — and in every runtime that predates this section — the runtime ignores `rollout`: it activates the stable view, never fetches a candidate artifact, and reports `rollout: null` in `explain()`. Such a runtime never joins a rollout; it receives the candidate when the rollout completes and the candidate becomes the top-level release. This is safe by construction, and it is why the candidate is nested and the stable release stays at the top level: the opposite layout would put every runtime that predates this section on the candidate at *any* percentage, including ones that cannot fall back from it. The signature still verifies, because it covers the manifest as served. `testdata/loading/rollout-old-runtime.json` pins it, and the runtimes written before this section pass it unchanged.
 
 ## 2. Delivery endpoints (`glossa-edge`)
 
@@ -150,7 +213,7 @@ To render message `id`, walk the chain and use the first locale whose loaded art
 
 ## 5. Formatting
 
-- Runtimes format with an MF2 interpreter over the data model, as `@glossa/runtime` does. They MUST pass the runtime cases of the Unicode MessageFormat suite and `messageformat/testdata/glossa/runtime-format.json` (implementation-defined outputs excepted, and documented).
+- Runtimes format with an MF2 interpreter over the data model, as `@felixgeelhaar/glossa-runtime` does. They MUST pass the runtime cases of the Unicode MessageFormat suite and `messageformat/testdata/glossa/runtime-format.json` (implementation-defined outputs excepted, and documented).
 - Formatting MUST NOT throw. A failing expression renders its MF2 fallback representation (`{$name}`), and the error is reported (§6).
 - Bidi isolation is on by default, per the MF2 spec. The active locale's `direction` from the manifest is exposed to the application, so it can set `dir`.
 - Runtimes that render MF2 markup as HTML MUST follow [`testdata/markup.json`](./testdata/markup.json): only markup named on its `safeTags` list becomes an element, markup options never become attributes (a translation can't add a link), text is escaped, and other markup renders just its content.
@@ -179,6 +242,7 @@ Every runtime exposes:
   - `source` is where the **active release** was loaded from: `network`, `persisted` or `bundled`. It becomes `memory` once a later refresh brings nothing new (a `304` or a failure). The startup load (construction plus the first refresh) keeps its original source. It's `inline` whenever the inline default or the message ID is rendered.
   - `steps[].outcome` is `found`, `missing` or `not-loaded` (the locale's artifacts aren't loaded, e.g. `explain` for locales other than the active chain).
   - Fallback targets that aren't in `manifest.locales` stay in the chain and resolve as `missing`.
+  - `rollout` (§1.4) is `{ "id", "percent", "cohort", "side" }` when the active release's manifest carries a valid `rollout` and rollout support is on, and `null` otherwise. `cohort` is this installation's (in Go, this request's key's) cohort under that rollout; `side` is the view actually active, `candidate` or `stable` — so `side: "stable"` with `cohort < percent × 100` shows a candidate that failed to activate. `release` is the active view's release.
 - An **error channel** for load, verification and format errors. Each error is `{ type, detail, messageId?, locale?, releaseId? }`, with types `network`, `integrity`, `signature`, `schema`, `format` and `missing-message`. Runtimes MUST rate-limit repeats of the same error: errors are the same when all five fields are equal, and a repeat within 60 s is dropped. `missing-message` is reported only while a release is active; a cold start without any release reports `network` once, not one error per message.
 - Runtimes MUST NOT send telemetry anywhere unless the application explicitly enables it (intent §17).
 
@@ -200,6 +264,8 @@ Every runtime exposes:
 ```
 
 Loading-order behaviour (persisted last-good, atomic activation, integrity failure, signature rejection, schema version, cold offline start) is covered by `testdata/loading/*.json`. Each file lists a sequence of edge responses and the expected active release after each one. Runtimes drive these through a fake transport. Field reference: [`testdata/README.md`](./testdata/README.md).
+
+Staged rollout (§1.4) is covered by `testdata/loading/rollout-*.json` (an installation on the stable side and on the candidate side, a candidate that falls back to the stable view, an invalid `rollout`, a runtime without rollout support) and by `testdata/rollout/cohorts.json`: 10,000 installation ids with the cohort each gets under one salt, the number in the candidate at several percentages, and boundary and cohort-key vectors. The generator computes those cohorts from this section's formula and shares no code with any runtime, so runtimes that agree with it agree with the SPEC, not with each other.
 
 Every runtime runs both suites in CI. A bug found in any runtime becomes a new case here first.
 

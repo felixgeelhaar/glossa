@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -138,6 +139,51 @@ func TestAuditRowKeepsTheShape(t *testing.T) {
 	args := string(r.Arguments)
 	if !strings.Contains(args, `"de"`) || !strings.Contains(args, "string(len=42)") {
 		t.Errorf("arguments = %s, want the locale verbatim and the text as a length", args)
+	}
+}
+
+// Every toolset the domain knows is a toolset the column admits. The
+// CHECK on mcp_tool_calls.toolset is a second, independent statement of
+// domain.Toolsets(), and a value added on one side without the other
+// would lose an audit row rather than fail a tool call — the one
+// failure mode an append-only ledger cannot recover from.
+func TestEveryToolsetIsAdmittedByTheLedger(t *testing.T) {
+	ctx := t.Context()
+	if err := env.Reset(ctx); err != nil {
+		t.Fatal(err)
+	}
+	tenant, err := env.SeedTenant(ctx, "toolsets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	uow := db.NewUnitOfWork(env.App)
+	audit := mcppg.NewAudit(uow)
+	for _, ts := range domain.Toolsets() {
+		e := entry("release_publish", domain.OutcomeOK, identity.NewTokenID())
+		e.Toolset = ts
+		if err := audit.Record(tenancy.ContextWithTenant(ctx, tenant), e); err != nil {
+			t.Errorf("the ledger refused the %s toolset: %v", ts, err)
+		}
+	}
+	rows := read(t, uow, tenant)
+	if len(rows) != len(domain.Toolsets()) {
+		t.Fatalf("rows = %d, want %d", len(rows), len(domain.Toolsets()))
+	}
+	var stored []string
+	for _, r := range rows {
+		stored = append(stored, r.Toolset)
+	}
+	for _, ts := range domain.Toolsets() {
+		if !slices.Contains(stored, ts.String()) {
+			t.Errorf("the %s toolset is not on the ledger: %v", ts, stored)
+		}
+	}
+	// And a toolset nothing mints is refused, so the CHECK is a real
+	// constraint and not a column that takes anything.
+	e := entry("member_remove", domain.OutcomeOK, identity.NewTokenID())
+	e.Toolset = "admin"
+	if err := audit.Record(tenancy.ContextWithTenant(ctx, tenant), e); err == nil {
+		t.Error("the ledger admitted an `admin` toolset; MCP exposes none")
 	}
 }
 

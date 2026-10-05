@@ -288,7 +288,7 @@ func (a *API) ListProjectTerminologyFindings(ctx context.Context, req apiv1.List
 	for i, it := range r.Items {
 		out.Items[i] = apiv1.TranslationTerminologyFindings{
 			MessageId: it.MessageID.String(), MessageKey: it.Key, Namespace: it.Namespace, Locale: it.Locale.String(),
-			State: apiv1.ReviewState(it.State), SourceText: it.SourceText, TargetText: it.TargetText,
+			State: apiv1.ReviewState(it.State), SourceRevision: it.SourceRevision, SourceText: it.SourceText, TargetText: it.TargetText,
 			Findings: termFindings(it.Findings, it.SourceText, it.TargetText),
 		}
 	}
