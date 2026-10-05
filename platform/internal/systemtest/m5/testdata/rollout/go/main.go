@@ -6,12 +6,13 @@
 //	go run ./internal/systemtest/m5/testdata/rollout/go <input.json> <output.json>
 //
 // It lives under testdata so `go build ./...` and `go vet ./...` never
-// compile it: it is written against the rollout surface SPEC §1.4 adds
-// to the Go runtime — an installation id in Config, and a switch that
-// turns rollout support off — and until wave 2 builds that, it does not
-// compile. That compile error is §12.4's reason for the Go runtime, in
-// the report. The slice that implements rollout in the Go runtime makes
-// the field names here agree with its own.
+// compile it with the platform. It drives the Go runtime's SPEC §1.4
+// surface (RFC 0006 wave 2): Config.InstallationID, the process's cohort
+// key — one client per installation id, as one process per installation
+// would be — and Config.DisableRollout, the switch that turns rollout
+// support off. Per-request keys (glossa.WithCohortKey with
+// Config.PerRequestCohorts) are the server form of the same function and
+// are checked against the same table in the runtime's own tests.
 package main
 
 import (

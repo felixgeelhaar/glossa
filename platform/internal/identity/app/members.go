@@ -54,11 +54,8 @@ func (s *Service) AddMember(ctx context.Context, email string, roles, locales []
 
 // Invitation is a member to invite. Projects, Vendor and Visibility are
 // the member's restriction (RFC 0006 §3.3, §4.1); left empty, the
-// member is unrestricted, as every member is today.
-//
-// The restriction is stored and validated but NOT ENFORCED until
-// RFC 0006 wave 2 (domain.RestrictionEnforced): a member invited with
-// one can, for now, read and do everything their roles allow.
+// member is unrestricted. An inviter who is project-scoped themselves
+// can only invite within their own scope.
 type Invitation struct {
 	Email      string
 	Roles      []string
@@ -89,6 +86,9 @@ func (s *Service) InviteMember(ctx context.Context, inv Invitation, idemKey stri
 	}
 	r, err := parseRestriction(ctx, inv.Projects, inv.Vendor, inv.Visibility)
 	if err != nil {
+		return MemberView{}, false, err
+	}
+	if r.Projects, err = withinActor(p, r.Projects); err != nil {
 		return MemberView{}, false, err
 	}
 	if idemKey != "" {
@@ -154,6 +154,24 @@ func parseRestriction(ctx context.Context, projects []string, vendor, visibility
 	return r, nil
 }
 
+// withinActor keeps a project scope the actor sets — on an invitation, a
+// member or a token — inside the actor's own (RFC 0006 §4.1): an
+// unscoped actor sets any scope, a scoped actor's "every project" means
+// their projects, and naming a project outside them is refused. Without
+// it a project-scoped admin could invite themselves a second, unscoped
+// account.
+func withinActor(actor authz.Principal, ps domain.ProjectScope) (domain.ProjectScope, error) {
+	switch {
+	case actor.Projects.All():
+		return ps, nil
+	case ps.All():
+		return actor.Projects, nil
+	case !ps.Within(actor.Projects):
+		return domain.ProjectScope{}, domain.ErrScopeExceedsGrant
+	}
+	return ps, nil
+}
+
 // vendorExists checks a named vendor is the tenant's (RLS hides any
 // other tenant's), so the foreign key never has to say it.
 func vendorExists(ctx context.Context, st TenantStore, id domain.VendorID) error {
@@ -175,9 +193,8 @@ type RestrictionChange struct {
 // RestrictMember changes a member's project scope, vendor and visibility
 // if the member is still at version ifMatch. Adding, changing or
 // removing a vendor also needs vendors.manage.
-//
-// NOT ENFORCED until RFC 0006 wave 2 (domain.RestrictionEnforced): the
-// change is stored and published, and no read path consults it yet.
+// It takes effect on the member's next request: their principal is
+// built from the stored membership every time.
 func (s *Service) RestrictMember(ctx context.Context, id domain.MemberID, ifMatch int, c RestrictionChange) (MemberView, error) {
 	if err := authz.Require(ctx, authz.MembersManage); err != nil {
 		return MemberView{}, err
@@ -194,6 +211,9 @@ func (s *Service) RestrictMember(ctx context.Context, id domain.MemberID, ifMatc
 		}
 		r, err := applyRestriction(ctx, m.Restriction, c)
 		if err != nil {
+			return err
+		}
+		if r.Projects, err = withinActor(p, r.Projects); err != nil {
 			return err
 		}
 		if err := vendorExists(ctx, st, r.Vendor); err != nil {

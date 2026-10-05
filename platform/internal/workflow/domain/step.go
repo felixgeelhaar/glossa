@@ -58,6 +58,12 @@ type Subject struct {
 	Approvers []string
 	// TMMatch is the best translation-memory match score, in [0, 1].
 	TMMatch float64
+	// Required and RequiredFrom are the subject's own approval
+	// requirement: for a release request, its environment's `approval`
+	// (RFC 0006 §5.1) — how many people, and of which party. Zero for a
+	// translation unit. For a release request Author is the requester.
+	Required     int
+	RequiredFrom Party
 }
 
 // FindingCount is how many open findings a subject has in one layer at

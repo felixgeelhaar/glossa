@@ -49,6 +49,9 @@ type fakeReleases struct {
 	// gate is the error Publish answers with, standing in for the
 	// environment's completeness requirement.
 	gate error
+	// held, when set, makes every publish and promote a release request
+	// (RFC 0006 §5.1): the release is recorded, nothing moves.
+	held *tools.Held
 	// version counts the releases this fake has published.
 	version int
 }
@@ -73,6 +76,9 @@ func (f *fakeReleases) Publish(
 	f.published = append(f.published, in)
 	f.version++
 	id := uuid.New()
+	if f.held != nil {
+		return tools.Published{Release: f.release(id, in.Environment, f.version), Held: f.held}, nil
+	}
 	f.history[in.Environment] = append(f.history[in.Environment], id)
 	f.serving[in.Environment] = id
 	return tools.Published{Release: f.release(id, in.Environment, f.version)}, nil
@@ -85,6 +91,9 @@ func (f *fakeReleases) Promote(
 		return tools.Deployed{}, tools.ErrNotFound
 	}
 	f.promoted = append(f.promoted, id)
+	if f.held != nil {
+		return tools.Deployed{Environment: environment, Release: f.release(id, "staging", 7), Held: f.held}, nil
+	}
 	moved := f.serving[environment] != id
 	f.serving[environment] = id
 	return tools.Deployed{Environment: environment, Release: f.release(id, "staging", 7), Moved: moved}, nil
@@ -637,5 +646,54 @@ func TestAReleaseCallIsAuditedWithoutItsNote(t *testing.T) {
 	}
 	if !strings.HasPrefix(got["note"], "string(len=") {
 		t.Errorf("note = %q, want only its length", got["note"])
+	}
+}
+
+// ── release approvals (RFC 0006 §5.1) ───────────────────────────────
+
+// A publish or promote held for approval moved nothing, and an agent
+// must be told exactly that: never "published to production" about a
+// release production does not serve.
+func TestAHeldPublishOrPromoteIsReportedAsHeldNeverAsDeployed(t *testing.T) {
+	w := seed()
+	r := seedReleases(w)
+	r.held = &tools.Held{RequestID: uuid.NewString(), Environment: "production", Approvals: 2}
+	svc, sess := publishSession(t, w, &recordingAudit{}, domain.ToolsetPublish, "read", "publish")
+
+	res, err := call(t, svc, sess, tools.ReleasePublishName, map[string]any{
+		"project": w.project.String(), "environment": "production",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, ok := res.Data.(tools.Published)
+	if !ok || pub.Held == nil || pub.Held.RequestID != r.held.RequestID {
+		t.Fatalf("data = %#v, want the held request", res.Data)
+	}
+	for _, want := range []string{"NOT deployed", r.held.RequestID, "2 people"} {
+		if !strings.Contains(res.Explanation, want) {
+			t.Errorf("publish explanation %q lacks %q", res.Explanation, want)
+		}
+	}
+	if strings.Contains(res.Explanation, "was published to") {
+		t.Errorf("a held publish reads as deployed: %q", res.Explanation)
+	}
+
+	before := r.serving["production"]
+	res, err = call(t, svc, sess, tools.ReleasePromoteName, map[string]any{
+		"project": w.project.String(), "environment": "production", "release": uuid.NewString(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, ok := res.Data.(tools.Deployed)
+	if !ok || dep.Held == nil || dep.Moved {
+		t.Fatalf("data = %#v, want a held promote that moved nothing", res.Data)
+	}
+	if !strings.Contains(res.Explanation, "NOT deployed") || strings.Contains(res.Explanation, "was promoted to") {
+		t.Errorf("promote explanation = %q", res.Explanation)
+	}
+	if r.serving["production"] != before {
+		t.Errorf("a held promote moved the pointer: %v", r.serving)
 	}
 }

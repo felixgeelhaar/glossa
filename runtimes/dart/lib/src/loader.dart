@@ -46,6 +46,7 @@ import 'errors.dart';
 import 'locale.dart';
 import 'manifest.dart';
 import 'parts.dart';
+import 'rollout.dart';
 import 'store.dart';
 import 'transport.dart';
 import 'verify.dart';
@@ -83,6 +84,13 @@ class GlossaClient {
   /// without a valid signature from one of them unusable (SPEC §1.3);
   /// without them signature verification is off and TLS is the only
   /// protection, which SPEC §1.3 permits but mobile OTA should not rely on.
+  ///
+  /// [rollout] turns staged rollout support (SPEC §1.4) on, the default,
+  /// or off: off, a manifest's `rollout` is ignored, the stable release is
+  /// served and no candidate artifact is ever fetched. [installationId]
+  /// replaces this installation's cohort key; without it the runtime
+  /// creates a random one the first time a rollout is read and keeps it in
+  /// [store] when that is an [InstallationIdStore], in memory otherwise.
   GlossaClient({
     String? edge,
     String? deliveryKey,
@@ -94,6 +102,8 @@ class GlossaClient {
     this.transport,
     Duration refreshInterval = const Duration(minutes: 5),
     Duration errorInterval = const Duration(seconds: 60),
+    this._rollout = true,
+    this._installationId,
   }) : _base = edge == null || deliveryKey == null
            ? null
            : '${edge.replaceAll(RegExp(r'/+$'), '')}/v1/$deliveryKey',
@@ -120,7 +130,12 @@ class GlossaClient {
   final Transport? transport;
 
   final String? _base;
+  final bool _rollout;
   final List<GlossaPublicKey> _publicKeys;
+
+  /// The cohort key (SPEC §1.4): the option, the persisted id, or a new
+  /// one — settled the first time a rollout needs it.
+  String? _installationId;
   final ErrorChannel _errors;
 
   /// The active release. Assigning this field *is* the activation.
@@ -298,8 +313,8 @@ class GlossaClient {
       // Unreadable storage is "nothing persisted", never a failed start.
       _report(ErrorType.schema, 'persisted release unreadable: $e');
     }
-    final ours = bundled == null ? null : _versionOf(bundled!.manifest);
-    final theirs = _versionOf(persisted?.bytes);
+    final ours = bundled == null ? null : await _versionOf(bundled!.manifest);
+    final theirs = await _versionOf(persisted?.bytes);
     // An app update may ship a newer catalog than the one on disk.
     final bundledWins = ours != null && (theirs == null || ours > theirs);
 
@@ -321,13 +336,54 @@ class GlossaClient {
         await _activate(bundled!.manifest, Source.bundled);
   }
 
-  int? _versionOf(String? manifestBytes) {
+  /// The version of the view [manifestBytes] would activate (SPEC §1.4):
+  /// the candidate's for an installation in it, the stable one otherwise.
+  Future<int?> _versionOf(String? manifestBytes) async {
     if (manifestBytes == null) return null;
     try {
-      return Manifest.decode(manifestBytes).release.version;
+      final manifest = Manifest.decode(manifestBytes);
+      final rollout = _rollout ? Rollout.of(manifest) : null;
+      if (rollout != null &&
+          rollout.includes(cohortOf(rollout.salt, await _installation()))) {
+        return rollout.candidateView(manifest).release.version;
+      }
+      return manifest.release.version;
     } on SchemaException {
-      return null;
+      // An invalid rollout or candidate: activation falls back to stable.
+      try {
+        return Manifest.decode(manifestBytes).release.version;
+      } on SchemaException {
+        return null;
+      }
     }
+  }
+
+  /// This installation's cohort key (SPEC §1.4): the `installationId`
+  /// option, or the id persisted beside the last-good release, or a new
+  /// random one, persisted there when the store can keep it.
+  Future<String> _installation() async {
+    final known = _installationId;
+    if (known != null) return known;
+    final keeper = store is InstallationIdStore
+        ? store! as InstallationIdStore
+        : null;
+    String? id;
+    try {
+      id = await keeper?.installationId();
+    } on Object {
+      id = null; // Unreadable: a new id, as for a first start.
+    }
+    // Another activation may have settled it while this one awaited.
+    if (_installationId != null) return _installationId!;
+    if (id == null || !isInstallationId(id)) {
+      id = newInstallationId();
+      try {
+        await keeper?.putInstallationId(id);
+      } on Object {
+        // Not persisted: this process keeps it, the next draws a new one.
+      }
+    }
+    return _installationId ??= id;
   }
 
   /// Verify a manifest, load everything its active chain needs, then swap
@@ -366,24 +422,90 @@ class GlossaClient {
       }
     }
 
+    // SPEC §1.4: the signature covers `rollout`, so it is read only now.
+    Rollout? rollout;
+    if (_rollout) {
+      try {
+        rollout = Rollout.of(manifest);
+      } on SchemaException catch (e) {
+        // Invalid: ignored, and the stable view is activated.
+        _report(ErrorType.schema, e.detail, releaseId: manifest.release.id);
+      }
+    }
+    if (rollout == null) {
+      return _take(manifest, manifest, manifestBytes, source, etag, null);
+    }
+    final cohort = cohortOf(rollout.salt, await _installation());
+    RolloutInfo info(RolloutSide side) => RolloutInfo(
+      id: rollout!.id,
+      percent: rollout.percent,
+      cohort: cohort,
+      side: side,
+    );
+    if (rollout.includes(cohort)) {
+      Manifest? candidate;
+      try {
+        candidate = rollout.candidateView(manifest);
+      } on SchemaException catch (e) {
+        _report(
+          ErrorType.schema,
+          e.detail,
+          releaseId: rollout.candidateReleaseId ?? manifest.release.id,
+        );
+      }
+      if (candidate != null &&
+          await _take(
+            manifest,
+            candidate,
+            manifestBytes,
+            source,
+            etag,
+            info(RolloutSide.candidate),
+          )) {
+        return true;
+      }
+    }
+    // The stable side, or a candidate that could not be activated: the
+    // stable view of the same manifest, never the release before it.
+    return _take(
+      manifest,
+      manifest,
+      manifestBytes,
+      source,
+      etag,
+      info(RolloutSide.stable),
+    );
+  }
+
+  /// Load everything [view]'s active chain needs, then swap it in. [view]
+  /// is [manifest] itself or its rollout's candidate view; [manifestBytes]
+  /// are [manifest]'s, as served, which is what persists.
+  Future<bool> _take(
+    Manifest manifest,
+    Manifest view,
+    String manifestBytes,
+    Source source,
+    String? etag,
+    RolloutInfo? rollout,
+  ) async {
     final active =
-        lookupLocale(_requested, manifest.localeCodes) ?? manifest.sourceLocale;
+        lookupLocale(_requested, view.localeCodes) ?? view.sourceLocale;
     final needed = <String>{
-      for (final locale in fallbackChain(active, manifest))
-        ...?manifest.artifacts[locale]?.values,
+      for (final locale in fallbackChain(active, view))
+        ...?view.artifacts[locale]?.values,
     };
     final loaded = <String, Artifact>{};
     for (final sha in needed) {
-      final artifact = await _artifactFor(sha, manifest.release.id);
+      final artifact = await _artifactFor(sha, view.release.id);
       // A half-loaded release is never activated: the previous one keeps
       // serving until every artifact of the chain is in hand.
       if (artifact == null) return false;
       loaded[sha] = artifact;
     }
 
-    _commit(manifest, manifestBytes, loaded, source, etag);
+    _commit(view, manifestBytes, loaded, source, etag, rollout);
     if (source != Source.bundled) {
-      await _persist(manifest, manifestBytes, etag);
+      await _persist(view, manifestBytes, etag);
     }
     return true;
   }
@@ -395,12 +517,14 @@ class GlossaClient {
     Map<String, Artifact> loaded,
     Source source,
     String? etag,
+    RolloutInfo? rollout,
   ) {
     final catalog = Catalog.fromArtifacts(
       manifest: manifest,
       artifacts: {..._artifacts, ...loaded},
       source: source,
       errors: _errors,
+      rollout: rollout,
     );
     final localizer = catalog.forLocales(_requested);
     // Everything above is built first and off to the side; these two
@@ -493,7 +617,9 @@ class GlossaClient {
     return artifact;
   }
 
-  /// Write the release to the store, **manifest last** (`store.dart`).
+  /// Write the release to the store, **manifest last** (`store.dart`):
+  /// the artifacts of the active view [manifest], and the manifest's bytes
+  /// as served, `rollout` included, so a restart decides the side again.
   Future<void> _persist(
     Manifest manifest,
     String manifestBytes,

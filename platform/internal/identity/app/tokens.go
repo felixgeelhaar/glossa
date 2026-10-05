@@ -60,12 +60,9 @@ func (s *Service) CreateToken(ctx context.Context, name string, scopes []string,
 }
 
 // TokenRequest is a token to issue. Projects limits it to some projects
-// (RFC 0006 §4.1); empty is every project.
-//
-// Projects is stored but NOT ENFORCED until RFC 0006 wave 2
-// (domain.RestrictionEnforced): a project-scoped token still reaches
-// every project of its tenant. Wave 2 also refuses a token wider than
-// its creator's own project scope.
+// (RFC 0006 §4.1); empty is every project. A token is never wider than
+// its creator: a project-scoped creator's token is cut to their scope,
+// and naming a project outside it is refused.
 type TokenRequest struct {
 	Name      string
 	Scopes    []string
@@ -86,6 +83,9 @@ func (s *Service) IssueToken(ctx context.Context, req TokenRequest, idemKey stri
 	}
 	projects, err := domain.ParseProjectScope(req.Projects)
 	if err != nil {
+		return CreatedToken{}, err
+	}
+	if projects, err = withinActor(p, projects); err != nil {
 		return CreatedToken{}, err
 	}
 	tok, secret, err := domain.NewAPIToken(p.Tenant, req.Name, sc, req.ExpiresAt, p.Actor, s.now())

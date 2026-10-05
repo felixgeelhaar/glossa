@@ -1,14 +1,14 @@
 /**
  * A fake of the Studio API endpoints the overlay calls, in memory: messages,
  * translations with ETags and revision history, the MessageFormat preview
- * (the real MF2 parser, from @glossa/messageformat), terminology findings,
+ * (the real MF2 parser, from @felixgeelhaar/glossa-messageformat), terminology findings,
  * AI fill previews, fills, suggestions and acceptance. It serves both the
  * component tests (as a `fetch`) and the browser tests (from Playwright's
  * route handler). Every request and response body is checked against the
  * OpenAPI schemas when a validator is given (see `contract.ts`). Test-only.
  */
-import { parseMF2 } from "@glossa/messageformat";
-import type { Message as Model } from "@glossa/runtime";
+import { parseMF2 } from "@felixgeelhaar/glossa-messageformat";
+import type { Message as Model } from "@felixgeelhaar/glossa-runtime";
 
 export const TENANT = "ten_1";
 export const PROJECT = "prj_1";

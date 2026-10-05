@@ -64,10 +64,10 @@ const (
 	// PermAssignmentsManage creates, reassigns and withdraws assignments.
 	PermAssignmentsManage Permission = "assignments.manage"
 	// PermApprovalsDecide grants or denies an approval. It is
-	// locale-scoped for translation subjects (environment-scoped for
-	// release subjects once release approvals exist) and human-only: no
-	// token scope, CI ceiling or background principal ever holds it
-	// (RFC 0006 §3.2, §9.3).
+	// locale-scoped for translation subjects and environment-scoped for
+	// release subjects (RFC 0006 §4.2, §5.1; see EnvironmentScoped), and
+	// human-only: no token scope, CI ceiling or background principal
+	// ever holds it (RFC 0006 §3.2, §9.3).
 	PermApprovalsDecide Permission = "approvals.decide"
 	// PermVendorsManage creates and changes vendors and who belongs to
 	// them.
@@ -77,6 +77,13 @@ const (
 	// PermAuditExport exports the audit log; only an owner holds it by
 	// default.
 	PermAuditExport Permission = "audit.export"
+	// PermAuditImport writes entries into the tenant's audit trail that
+	// no act on this platform caused: v0.3's history (RFC 0006 §7.2,
+	// amended in wave 4). Only an owner holds it, no token scope reaches
+	// it and no background principal is given it — an entry attributed
+	// to someone else is the one thing a tamper-evident trail must not
+	// take from anyone less.
+	PermAuditImport Permission = "audit.import"
 )
 
 // AllPermissions lists every permission, sorted.
@@ -84,7 +91,7 @@ func AllPermissions() []Permission {
 	return []Permission{
 		PermApprovalsDecide,
 		PermAssignmentsManage, PermAssignmentsRead,
-		PermAuditExport, PermAuditRead,
+		PermAuditExport, PermAuditImport, PermAuditRead,
 		PermCatalogRead, PermCatalogWrite,
 		PermIntegrationImport, PermIntegrationManage, PermIntegrationRead,
 		PermIntelligenceManage, PermIntelligenceRead, PermIntelligenceTranslate,
@@ -105,6 +112,14 @@ func (p Permission) LocaleScoped() bool {
 	return p == PermTranslationsWrite || p == PermTranslationsReview || p == PermIntelligenceTranslate ||
 		p == PermIntegrationImport || p == PermApprovalsDecide
 }
+
+// EnvironmentScoped reports whether p, when it decides about a release
+// request, is limited by a principal's environment scope instead of its
+// locale scope (RFC 0006 §4.2): approvals.decide is locale-scoped for a
+// translation and environment-scoped for a release, which ships every
+// locale at once. Holding it in any locale is holding it; where it may
+// be used is the environment scope's to say (authz.RequireInEnvironment).
+func (p Permission) EnvironmentScoped() bool { return p == PermApprovalsDecide }
 
 // HumanOnly reports whether p is a human decision — reviewing or
 // approving text — that no API token scope grants (RFC 0006 §9.3).
@@ -133,9 +148,10 @@ var readAll = []Permission{
 // rolePermissions is the role matrix; TestRolePermissionMatrix pins it.
 var rolePermissions = map[Role][]Permission{
 	RoleOwner: AllPermissions(),
-	// Only an owner manages owners and, by default, exports the audit log.
+	// Only an owner manages owners and, by default, exports the audit log
+	// or imports history into it.
 	RoleAdmin: slices.DeleteFunc(AllPermissions(), func(p Permission) bool {
-		return p == PermOwnersManage || p == PermAuditExport
+		return p == PermOwnersManage || p == PermAuditExport || p == PermAuditImport
 	}),
 	RoleDeveloper: append(slices.Clone(readAll),
 		PermTokensRead, PermTokensManage, PermCatalogWrite, PermTranslationsWrite, PermReleasesPublish,
@@ -212,14 +228,22 @@ const (
 	// ScopeAdmin manages the tenant, its members, its tokens and its AI
 	// configuration — never its owners.
 	ScopeAdmin Scope = "admin"
+	// ScopeWorkflows reads, saves and binds workflow definitions (RFC
+	// 0006 §4.2) — what `glossa workflow push` from CI needs. It is
+	// opt-in: no other scope implies it and no default set holds it, so
+	// an existing token never starts changing how work flows. It grants
+	// no review and no approvals.decide: a token that writes the process
+	// still cannot take the human decisions in it (§3.2, §9.3).
+	ScopeWorkflows Scope = "workflows"
 )
 
 var scopePermissions = map[Scope][]Permission{
 	ScopeRead: append(slices.Clone(readAll), PermTokensRead),
 	ScopeWrite: {PermCatalogWrite, PermTranslationsWrite, PermKnowledgeWrite, PermIntelligenceTranslate,
 		PermIntegrationImport, PermIntegrationManage},
-	ScopePublish: {PermReleasesPublish},
-	ScopeAdmin:   {PermTenantManage, PermMembersManage, PermTokensManage, PermIntelligenceManage},
+	ScopePublish:   {PermReleasesPublish},
+	ScopeAdmin:     {PermTenantManage, PermMembersManage, PermTokensManage, PermIntelligenceManage},
+	ScopeWorkflows: {PermWorkflowsRead, PermWorkflowsManage},
 }
 
 // Scopes is a non-empty, sorted, duplicate-free set of token scopes.
@@ -257,9 +281,9 @@ func (ss Scopes) Strings() []string {
 // each for every locale or for a LocaleScope. The zero Grant allows
 // nothing.
 //
-// A Grant does not yet carry project scope or assignment visibility
-// (RFC 0006 §4.1, §3.3): see Restriction, which is modelled and stored
-// but NOT ENFORCED until wave 2.
+// A Grant carries no project scope or assignment visibility (RFC 0006
+// §4.1, §3.3): those ride beside it on authz.Principal, which checks
+// them with every project-addressed permission.
 type Grant struct {
 	perms map[Permission]LocaleScope
 }
@@ -369,6 +393,16 @@ func (g Grant) Allows(p Permission) bool {
 func (g Grant) AllowsFor(p Permission, l Locale) bool {
 	scope, ok := g.perms[p]
 	return ok && scope.Covers(l)
+}
+
+// Holds reports whether p is granted at all, for every locale or for
+// some. It is the grant's half of an environment-scoped check
+// (Permission.EnvironmentScoped): a reviewer limited to de holds
+// approvals.decide, and whether they may decide a release request is a
+// question of environments, not of locales.
+func (g Grant) Holds(p Permission) bool {
+	_, ok := g.perms[p]
+	return ok
 }
 
 // Locales returns the locales p is granted for; ok is false when p isn't

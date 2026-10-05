@@ -107,11 +107,16 @@ func (q *Queries) DeletePasskeyOfPerson(ctx context.Context, arg DeletePasskeyOf
 }
 
 const deleteSession = `-- name: DeleteSession :execrows
-DELETE FROM identity_sessions WHERE token_hash = $1
+DELETE FROM identity_sessions WHERE token_hash = $1 AND kind = $2
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, tokenHash string) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteSession, tokenHash)
+type DeleteSessionParams struct {
+	TokenHash string
+	Kind      string
+}
+
+func (q *Queries) DeleteSession(ctx context.Context, arg DeleteSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSession, arg.TokenHash, arg.Kind)
 	if err != nil {
 		return 0, err
 	}
@@ -270,12 +275,25 @@ func (q *Queries) GetPersonByID(ctx context.Context, id uuid.UUID) (GetPersonByI
 }
 
 const getSession = `-- name: GetSession :one
-SELECT token_hash, person_id, created_at, expires_at FROM identity_sessions WHERE token_hash = $1
+SELECT token_hash, person_id, created_at, expires_at FROM identity_sessions
+WHERE token_hash = $1 AND kind = $2
 `
 
-func (q *Queries) GetSession(ctx context.Context, tokenHash string) (IdentitySession, error) {
-	row := q.db.QueryRow(ctx, getSession, tokenHash)
-	var i IdentitySession
+type GetSessionParams struct {
+	TokenHash string
+	Kind      string
+}
+
+type GetSessionRow struct {
+	TokenHash string
+	PersonID  uuid.UUID
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSessionRow, error) {
+	row := q.db.QueryRow(ctx, getSession, arg.TokenHash, arg.Kind)
+	var i GetSessionRow
 	err := row.Scan(
 		&i.TokenHash,
 		&i.PersonID,
@@ -409,8 +427,9 @@ func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) erro
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO identity_sessions (token_hash, person_id, created_at, expires_at)
-VALUES ($1, $2, $3, $4)
+
+INSERT INTO identity_sessions (token_hash, person_id, created_at, expires_at, kind)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertSessionParams struct {
@@ -418,14 +437,19 @@ type InsertSessionParams struct {
 	PersonID  uuid.UUID
 	CreatedAt time.Time
 	ExpiresAt time.Time
+	Kind      string
 }
 
+// Sessions come in two kinds (0054): a browser's, sent as the cookie,
+// and a device's, sent as a glossa_dev_ bearer. Each is found and ended
+// only as its own kind; signing out everywhere ends both.
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
 	_, err := q.db.Exec(ctx, insertSession,
 		arg.TokenHash,
 		arg.PersonID,
 		arg.CreatedAt,
 		arg.ExpiresAt,
+		arg.Kind,
 	)
 	return err
 }

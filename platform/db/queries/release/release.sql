@@ -43,8 +43,8 @@ SELECT * FROM release_environments WHERE project_id = sqlc.arg(project_id) ORDER
 
 -- name: UpdateEnvironment :execrows
 UPDATE release_environments
-SET policy = sqlc.arg(policy), current_release_id = sqlc.narg(current_release_id), version = sqlc.arg(version),
-    updated_at = sqlc.arg(updated_at)
+SET policy = sqlc.arg(policy), approval = sqlc.narg(approval), current_release_id = sqlc.narg(current_release_id),
+    version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
 WHERE project_id = sqlc.arg(project_id) AND name = sqlc.arg(name) AND version = sqlc.arg(expected_version);
 
 -- name: DeleteProjectEnvironments :many

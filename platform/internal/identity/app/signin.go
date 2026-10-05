@@ -82,7 +82,7 @@ func (s *Service) RedeemSignInLink(ctx context.Context, token string) (SignedIn,
 	if err != nil {
 		return SignedIn{}, err
 	}
-	return s.completeSignIn(ctx, person)
+	return s.completeSignIn(ctx, person, MethodMagicLink)
 }
 
 func linkError(err error) error {
@@ -191,6 +191,7 @@ func (s *Service) SignInWithPassword(ctx context.Context, email, password, totpC
 	key := authgo.LockoutKeyFromEmail(e)
 	if err := s.lockout.Guard(ctx, key); err != nil {
 		if errors.Is(err, authgo.ErrAccountLocked) {
+			s.auditLockedSignIn(ctx, e, MethodPassword)
 			return SignedIn{}, ErrAccountLocked
 		}
 		return SignedIn{}, err
@@ -205,23 +206,26 @@ func (s *Service) SignInWithPassword(ctx context.Context, email, password, totpC
 		return SignedIn{}, err
 	}
 	if err := s.checkPassword(rec, password); err != nil {
+		s.auditSignInFailure(ctx, rec.ID, MethodPassword, FailureInvalidCredentials)
 		return SignedIn{}, s.fail(ctx, key, err)
 	}
 	if !rec.EmailVerified() && s.EmailEnabled() {
+		s.auditSignInFailure(ctx, rec.ID, MethodPassword, FailureEmailUnverified)
 		return SignedIn{}, ErrEmailUnverified
 	}
 	if rec.TOTPEnabled {
 		if totpCode == "" {
-			return SignedIn{}, ErrTOTPRequired
+			return SignedIn{}, ErrTOTPRequired // the first of two steps, not a failure
 		}
 		if err := s.totp.Verify(ctx, userID(rec.ID), totpCode); err != nil {
+			s.auditSignInFailure(ctx, rec.ID, MethodPassword, FailureTOTPInvalid)
 			return SignedIn{}, s.fail(ctx, key, totpError(err))
 		}
 	}
 	if err := s.lockout.Clear(ctx, key); err != nil {
 		return SignedIn{}, err
 	}
-	return s.completeSignIn(ctx, rec)
+	return s.completeSignIn(ctx, rec, MethodPassword)
 }
 
 // checkPassword verifies against the decoy when there is no account or
@@ -330,22 +334,39 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) err
 
 // SignOut revokes one session by its raw cookie value.
 func (s *Service) SignOut(ctx context.Context, sessionToken string) error {
-	tok, err := authgo.TokenFromString(sessionToken)
+	return s.signOutWith(ctx, s.sessions, sessionToken)
+}
+
+func (s *Service) signOutWith(ctx context.Context, sessions *authgo.SessionService, raw string) error {
+	tok, err := authgo.TokenFromString(raw)
 	if err != nil {
 		return ErrUnauthenticated
 	}
-	return s.sessions.Revoke(ctx, tok)
+	return sessions.Revoke(ctx, tok)
 }
 
-// SignOutEverywhere revokes all of a person's sessions.
+// SignOutEverywhere revokes all of a person's sessions, the sessions of
+// the devices they signed in included (RFC 0006 §7.2), and withdraws
+// any device they approved that has not yet taken its session, so no
+// device signs in after the person signed out everywhere.
 func (s *Service) SignOutEverywhere(ctx context.Context, person domain.PersonID) error {
+	// Approvals first: a device redeeming meanwhile either took its
+	// session before this (and RevokeAll ends it) or finds its
+	// approval withdrawn.
+	err := s.tx.InSystem(ctx, func(ctx context.Context, st SystemStore) error {
+		return st.WithdrawDeviceApprovals(ctx, person)
+	})
+	if err != nil {
+		return err
+	}
 	return s.sessions.RevokeAll(ctx, userID(person))
 }
 
 // completeSignIn runs after any successful authentication of a person:
 // it makes sure their individual tenant exists, accepts their open
-// invitations, and issues the session.
-func (s *Service) completeSignIn(ctx context.Context, rec PersonRecord) (SignedIn, error) {
+// invitations, issues the session, and records the sign-in in the audit
+// trail of each tenant it opens.
+func (s *Service) completeSignIn(ctx context.Context, rec PersonRecord, method string) (SignedIn, error) {
 	if err := s.ensureIndividualTenant(ctx, rec); err != nil {
 		return SignedIn{}, err
 	}
@@ -354,6 +375,7 @@ func (s *Service) completeSignIn(ctx context.Context, rec PersonRecord) (SignedI
 	if err != nil {
 		return SignedIn{}, fmt.Errorf("identity: issue session: %w", err)
 	}
+	s.auditSignIn(ctx, rec.ID, method)
 	return SignedIn{Person: rec, SessionToken: sess.Token().String(), ExpiresAt: sess.ExpiresAt()}, nil
 }
 

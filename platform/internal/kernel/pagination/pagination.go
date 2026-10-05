@@ -73,6 +73,17 @@ func Trim[T any](rows []T, p Page, key func(T) string) ([]T, *string) {
 	return rows, &next
 }
 
+// Token is the next_page_token for a page whose store computed its own
+// sort key — one that pages without Trim — or nil when after is "" (the
+// last page). Parse reads it back into Page.After.
+func Token(after string) *string {
+	if after == "" {
+		return nil
+	}
+	t := encode(after)
+	return &t
+}
+
 func encode(after string) string {
 	return tokenVersion + base64.RawURLEncoding.EncodeToString([]byte(after))
 }

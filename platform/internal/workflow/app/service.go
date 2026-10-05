@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
@@ -24,15 +25,13 @@ const (
 
 // Service implements Workflow's definition and binding use cases.
 //
-// Events. Saving a definition publishes nothing in wave 1: nothing
-// subscribes yet, and every outbox event is about to carry its Actor
-// (the parallel wave-1 outbox slice). The stored rows already say who
-// and when (created_by, created_at); the wave-2 API slice publishes
-// workflow.definition_saved and workflow.binding_changed with the actor
-// it takes from the principal, exactly as it records created_by here.
+// Events. Every write publishes its domain event (domain/events.go) in
+// the transaction that made it, naming the principal as its actor —
+// the same principal created_by records.
 type Service struct {
 	tx          Transactor
 	permissions Permissions
+	catalog     Catalog
 	now         func() time.Time
 }
 
@@ -41,6 +40,11 @@ type Option func(*Service)
 
 // WithClock sets the time source.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithCatalog sets the port projects are checked through. Without one,
+// a project id is taken as given: rows are keyed by it, and another
+// tenant's project still finds nothing under row-level security.
+func WithCatalog(c Catalog) Option { return func(s *Service) { s.catalog = c } }
 
 // New returns a Service. permissions may be nil, and then an
 // actor_has_permission guard is checked for its shape only.
@@ -78,6 +82,9 @@ func (s *Service) CreateDefinition(ctx context.Context, in NewDefinition) (Saved
 	if err != nil {
 		return Saved{}, err
 	}
+	if err := s.createScope(ctx, in.ProjectID); err != nil {
+		return Saved{}, err
+	}
 	d, err := s.compile(in.Document)
 	if err != nil {
 		return Saved{}, err
@@ -97,7 +104,10 @@ func (s *Service) CreateDefinition(ctx context.Context, in NewDefinition) (Saved
 		if err := st.InsertDefinition(ctx, rec); err != nil {
 			return err
 		}
-		return st.InsertVersion(ctx, v)
+		if err := st.InsertVersion(ctx, v); err != nil {
+			return err
+		}
+		return publishSaved(ctx, st, rec, v)
 	})
 	if err != nil {
 		return Saved{}, err
@@ -124,6 +134,9 @@ func (s *Service) SaveVersion(ctx context.Context, definition uuid.UUID, ifLates
 		if err != nil {
 			return err
 		}
+		if err := writeScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
 		if rec.Latest != ifLatest {
 			return fmt.Errorf("%w: version %d is the latest, not %d", ErrConflict, rec.Latest, ifLatest)
 		}
@@ -139,9 +152,31 @@ func (s *Service) SaveVersion(ctx context.Context, definition uuid.UUID, ifLates
 		}
 		rec.Latest = v.Number
 		out = Saved{Definition: rec, Version: v, Findings: d.Findings}
-		return nil
+		return publishSaved(ctx, st, rec, v)
 	})
 	return out, err
+}
+
+func publishSaved(ctx context.Context, st Store, rec domain.DefinitionRecord, v domain.Version) error {
+	actor, err := authz.EventActor(ctx)
+	if err != nil {
+		return err
+	}
+	return st.Publish(ctx, outbox.Event{
+		Type: domain.EventDefinitionSaved, AggregateType: domain.AggregateDefinition,
+		AggregateID: rec.ID.String(), Actor: actor, Payload: domain.DefinitionSavedOf(rec, v),
+	})
+}
+
+func publishBinding(ctx context.Context, st Store, b domain.Binding, change string) error {
+	actor, err := authz.EventActor(ctx)
+	if err != nil {
+		return err
+	}
+	return st.Publish(ctx, outbox.Event{
+		Type: domain.EventBindingChanged, AggregateType: domain.AggregateBinding,
+		AggregateID: b.ID.String(), Actor: actor, Payload: domain.BindingChangedOf(b, change),
+	})
 }
 
 // Lint compiles doc without saving it: what `glossa workflow lint` and
@@ -182,8 +217,10 @@ func (s *Service) compile(doc []byte) (*domain.Definition, error) {
 func (s *Service) Definition(ctx context.Context, id uuid.UUID) (domain.DefinitionRecord, error) {
 	var out domain.DefinitionRecord
 	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
-		out, err = st.GetDefinition(ctx, id)
-		return err
+		if out, err = st.GetDefinition(ctx, id); err != nil {
+			return err
+		}
+		return readScope(ctx, out.ProjectID)
 	})
 	return out, err
 }
@@ -192,7 +229,7 @@ func (s *Service) Definition(ctx context.Context, id uuid.UUID) (domain.Definiti
 // tenant's and its own), or every live one for uuid.Nil.
 func (s *Service) Definitions(ctx context.Context, project uuid.UUID) ([]domain.DefinitionRecord, error) {
 	var out []domain.DefinitionRecord
-	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
+	err := s.readProject(ctx, project, func(ctx context.Context, st Store) (err error) {
 		out, err = st.ListDefinitions(ctx, project)
 		return err
 	})
@@ -203,6 +240,13 @@ func (s *Service) Definitions(ctx context.Context, project uuid.UUID) ([]domain.
 func (s *Service) Version(ctx context.Context, definition uuid.UUID, n int) (domain.Version, error) {
 	var out domain.Version
 	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
+		rec, err := st.GetDefinition(ctx, definition)
+		if err != nil {
+			return err
+		}
+		if err := readScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
 		out, err = st.GetVersion(ctx, definition, n)
 		return err
 	})
@@ -213,10 +257,13 @@ func (s *Service) Version(ctx context.Context, definition uuid.UUID, n int) (dom
 func (s *Service) Versions(ctx context.Context, definition uuid.UUID) ([]domain.Version, error) {
 	var out []domain.Version
 	err := s.read(ctx, func(ctx context.Context, st Store) error {
-		if _, err := st.GetDefinition(ctx, definition); err != nil {
+		rec, err := st.GetDefinition(ctx, definition)
+		if err != nil {
 			return err
 		}
-		var err error
+		if err := readScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
 		out, err = st.ListVersions(ctx, definition)
 		return err
 	})
@@ -235,12 +282,26 @@ func (s *Service) DeleteDefinition(ctx context.Context, id uuid.UUID) error {
 		if err != nil {
 			return err
 		}
-		if err := st.DeleteBindingsOf(ctx, id); err != nil {
+		if err := writeScope(ctx, rec.ProjectID); err != nil {
+			return err
+		}
+		removed, err := st.DeleteBindingsOf(ctx, id)
+		if err != nil {
 			return err
 		}
 		now := s.now().UTC()
 		rec.DeletedAt = &now
-		return st.MarkDeleted(ctx, rec)
+		if err := st.MarkDeleted(ctx, rec); err != nil {
+			return err
+		}
+		actor, err := authz.EventActor(ctx)
+		if err != nil {
+			return err
+		}
+		return st.Publish(ctx, outbox.Event{
+			Type: domain.EventDefinitionDeleted, AggregateType: domain.AggregateDefinition,
+			AggregateID: rec.ID.String(), Actor: actor, Payload: domain.DefinitionDeletedOf(rec, removed),
+		})
 	})
 }
 
@@ -260,6 +321,9 @@ func (s *Service) Bind(ctx context.Context, in NewBinding) (domain.Binding, erro
 	if err != nil {
 		return domain.Binding{}, err
 	}
+	if err := s.project(ctx, in.ProjectID); err != nil {
+		return domain.Binding{}, err
+	}
 	var out domain.Binding
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		rec, err := st.GetDefinition(ctx, in.DefinitionID)
@@ -277,24 +341,42 @@ func (s *Service) Bind(ctx context.Context, in NewBinding) (domain.Binding, erro
 			return err
 		}
 		b.ID, b.CreatedBy, b.CreatedAt = uuid.New(), actor, s.now().UTC()
-		out, err = st.InsertBinding(ctx, b)
-		return err
+		if out, err = st.InsertBinding(ctx, b); err != nil {
+			return err
+		}
+		return publishBinding(ctx, st, out, domain.BindingCreated)
 	})
 	return out, err
 }
 
-// Unbind removes a binding.
-func (s *Service) Unbind(ctx context.Context, id uuid.UUID) error {
+// Unbind removes one of project's bindings. A binding of another
+// project is not found: the project in the path is part of its address.
+func (s *Service) Unbind(ctx context.Context, project, id uuid.UUID) error {
 	if _, err := s.authorize(ctx, PermWorkflowsManage); err != nil {
 		return err
 	}
-	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error { return st.DeleteBinding(ctx, id) })
+	if err := s.project(ctx, project); err != nil {
+		return err
+	}
+	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		b, err := st.GetBinding(ctx, id)
+		if err != nil {
+			return err
+		}
+		if b.ProjectID != project {
+			return ErrNotFound
+		}
+		if err := st.DeleteBinding(ctx, id); err != nil {
+			return err
+		}
+		return publishBinding(ctx, st, b, domain.BindingDeleted)
+	})
 }
 
 // Bindings lists a project's bindings in creation order.
 func (s *Service) Bindings(ctx context.Context, project uuid.UUID) ([]domain.Binding, error) {
 	var out []domain.Binding
-	err := s.read(ctx, func(ctx context.Context, st Store) (err error) {
+	err := s.readProject(ctx, project, func(ctx context.Context, st Store) (err error) {
 		out, err = st.ListBindings(ctx, project, "")
 		return err
 	})
@@ -317,7 +399,7 @@ func (s *Service) Resolve(ctx context.Context, t domain.Target) (Resolution, boo
 		out   Resolution
 		found bool
 	)
-	err := s.read(ctx, func(ctx context.Context, st Store) error {
+	err := s.readProject(ctx, t.ProjectID, func(ctx context.Context, st Store) error {
 		bs, err := st.ListBindings(ctx, t.ProjectID, t.Subject)
 		if err != nil {
 			return err
@@ -345,6 +427,67 @@ func (s *Service) read(ctx context.Context, fn func(context.Context, Store) erro
 		return err
 	}
 	return s.tx.InTenant(ctx, fn)
+}
+
+// readProject is read for something addressed under project; uuid.Nil
+// (the tenant's own scope) checks no project.
+func (s *Service) readProject(ctx context.Context, project uuid.UUID, fn func(context.Context, Store) error) error {
+	if _, err := s.authorize(ctx, PermWorkflowsRead); err != nil {
+		return err
+	}
+	if project != uuid.Nil {
+		if err := s.project(ctx, project); err != nil {
+			return err
+		}
+	}
+	return s.tx.InTenant(ctx, fn)
+}
+
+// project checks project is one the caller may address and is this
+// tenant's, through Catalog. Scope comes first, so a project outside the
+// caller's scope answers exactly as one that doesn't exist (RFC 0006
+// §4.1) without asking Catalog anything.
+func (s *Service) project(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return ErrProjectNotFound
+	}
+	if err := authz.InProject(ctx, project); err != nil {
+		return err
+	}
+	if s.catalog == nil {
+		return nil
+	}
+	return s.catalog.Project(ctx, project)
+}
+
+// createScope is writeScope for a definition that doesn't exist yet: the
+// project it names is also checked against Catalog, because nothing has
+// loaded it. It runs before the transaction, as s.project must.
+func (s *Service) createScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return authz.RequireUnscoped(ctx, PermWorkflowsManage)
+	}
+	return s.project(ctx, project)
+}
+
+// readScope answers a project's definitions outside the caller's
+// project scope as not found (RFC 0006 §4.1); the tenant's own
+// (uuid.Nil) are everyone's to read. It checks a row already loaded, so
+// it asks only authz, never Catalog, and is safe inside a transaction.
+func readScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return nil
+	}
+	return authz.InProject(ctx, project)
+}
+
+// writeScope is readScope for a change: the tenant's definitions apply
+// to every project, so nobody limited to some changes them.
+func writeScope(ctx context.Context, project uuid.UUID) error {
+	if project == uuid.Nil {
+		return authz.RequireUnscoped(ctx, PermWorkflowsManage)
+	}
+	return authz.InProject(ctx, project)
 }
 
 // authorize checks perm and returns who is acting, as stored in

@@ -87,7 +87,7 @@ function jsKeys(keys: SnippetInput["publicKeys"], indent: string): string {
 }
 
 function runtime(i: SnippetInput): string {
-  return `import { createRuntime } from "@glossa/runtime";
+  return `import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 
 const glossa = createRuntime({
   edge: ${q(i.edge)},
@@ -101,7 +101,7 @@ console.log(glossa.t("app.title", {}, { default: "My app" }));`;
 
 function vue(i: SnippetInput): string {
   return `import { createApp } from "vue";
-import { createGlossa } from "@glossa/vue";
+import { createGlossa } from "@felixgeelhaar/glossa-vue";
 import App from "./App.vue";
 
 createApp(App)
@@ -120,7 +120,7 @@ const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 function elements(i: SnippetInput): string {
   const keys = i.publicKeys.length ? `\n  public-keys="${attr(i.publicKeys.map((k) => `${k.keyId}:${k.key}`).join(","))}"` : "";
   return `<script type="module">
-  import "@glossa/elements";
+  import "@felixgeelhaar/glossa-elements";
 </script>
 
 <glossa-provider
@@ -163,9 +163,9 @@ ${parse}\tclient, err := glossa.New(glossa.Config{
 
 export function snippets(i: SnippetInput): Snippet[] {
   return [
-    { id: "runtime", label: "JavaScript", install: "npm install @glossa/runtime", language: "ts", code: runtime(i) },
-    { id: "vue", label: "Vue", install: "npm install @glossa/vue", language: "ts", code: vue(i) },
-    { id: "elements", label: "Web components", install: "npm install @glossa/elements", language: "html", code: elements(i) },
+    { id: "runtime", label: "JavaScript", install: "npm install @felixgeelhaar/glossa-runtime", language: "ts", code: runtime(i) },
+    { id: "vue", label: "Vue", install: "npm install @felixgeelhaar/glossa-vue", language: "ts", code: vue(i) },
+    { id: "elements", label: "Web components", install: "npm install @felixgeelhaar/glossa-elements", language: "html", code: elements(i) },
     { id: "go", label: "Go", install: "go get github.com/felixgeelhaar/glossa/runtimes/go", language: "go", code: go(i) },
   ];
 }

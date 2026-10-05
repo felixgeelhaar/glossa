@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -124,6 +125,12 @@ type VisualFindingsRecorded struct {
 func (s *Service) RecordVisualFindings(
 	ctx context.Context, in RecordVisualFindings,
 ) (out VisualFindingsRecorded, err error) {
+	// Context calls it inside its own authorized capture upload; the
+	// project is checked again here so the port can't be the way round
+	// a project scope (RFC 0006 §4.1).
+	if err := authz.InProject(ctx, in.Project); err != nil {
+		return VisualFindingsRecorded{}, err
+	}
 	if n := in.Findings(); n > MaxRunFindings {
 		return VisualFindingsRecorded{}, fmt.Errorf("%w: %d findings, at most %d", ErrTooManyFindings, n, MaxRunFindings)
 	}

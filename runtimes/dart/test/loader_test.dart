@@ -81,6 +81,7 @@ void main() {
         'release': null,
         'source': 'inline',
         'steps': <Object?>[],
+        'rollout': null,
       });
       await client.dispose();
     },

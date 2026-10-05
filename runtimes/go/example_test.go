@@ -185,7 +185,8 @@ func ExampleLocalizer_Explain() {
 	//       "locale": "en",
 	//       "outcome": "found"
 	//     }
-	//   ]
+	//   ],
+	//   "rollout": null
 	// }
 }
 

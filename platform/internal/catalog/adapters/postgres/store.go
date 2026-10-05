@@ -121,8 +121,12 @@ func (s *store) LockProject(ctx context.Context, id domain.ProjectID) (domain.Pr
 	return project(row)
 }
 
-func (s *store) Projects(ctx context.Context, after domain.ProjectID, limit int) ([]domain.Project, error) {
-	rows, err := s.q.ListProjects(ctx, catalogsql.ListProjectsParams{After: after.UUID(), MaxRows: int32Of(limit)})
+func (s *store) Projects(ctx context.Context, after domain.ProjectID, only []uuid.UUID, limit int) ([]domain.Project, error) {
+	params := catalogsql.ListProjectsParams{After: after.UUID(), MaxRows: int32Of(limit)}
+	if only != nil {
+		params.FilterIds, params.Ids = true, only
+	}
+	rows, err := s.q.ListProjects(ctx, params)
 	if err != nil {
 		return nil, storeError(err)
 	}
@@ -390,6 +394,13 @@ func (s *store) Messages(ctx context.Context, project domain.ProjectID, f app.Me
 	if f.KeyPrefix != "" {
 		pattern := LikePattern(f.KeyPrefix)
 		params.KeyLike = text(&pattern)
+	}
+	if f.IDs != nil {
+		params.FilterIds = true
+		params.Ids = make([]uuid.UUID, len(f.IDs))
+		for i, id := range f.IDs {
+			params.Ids[i] = id.UUID()
+		}
 	}
 	rows, err := s.q.ListMessages(ctx, params)
 	if err != nil {

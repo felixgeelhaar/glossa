@@ -94,25 +94,105 @@ func TestTheRFCsExampleLoadsAndRuns(t *testing.T) {
 	}
 }
 
+// TestTheReleaseApprovalDefault is RFC 0006 §5.1's seeded definition,
+// loaded like any other: a release request is pending while it asks
+// whom its environment requires; one grant of two is not enough, two
+// distinct ones approve it and run the deploy, never counting the
+// requester; a denial denies it; and a deploy, a refusal and a
+// withdrawal each end it.
+func TestTheReleaseApprovalDefault(t *testing.T) {
+	d := compile(t, defaults.ReleaseApproval())
+	if d.Name != defaults.ReleaseApprovalName || d.Subject != domain.SubjectReleaseRequest {
+		t.Fatalf("default = %s %s", d.Name, d.Subject)
+	}
+	subject := func(approvers ...string) domain.Subject {
+		return domain.Subject{Kind: domain.SubjectReleaseRequest, Author: "person:requester", Required: 2,
+			RequiredFrom: domain.Party{Role: "reviewer"}, Approvers: approvers}
+	}
+	state, entered := d.Start(domain.Step{Subject: subject()})
+	if state != "pending" || len(entered.Effects) != 1 || entered.Effects[0].Use != "request_approval_as_required" {
+		t.Fatalf("start: %s %+v", state, entered.Effects)
+	}
+	granted := func(approvers ...string) domain.Step {
+		return domain.Step{Subject: subject(approvers...), Trigger: domain.Trigger{Event: domain.EventApprovalGranted}}
+	}
+	for name, step := range map[string]domain.Step{
+		"one grant":                granted("person:a"),
+		"the requester and one":    granted("person:requester", "person:a"),
+		"the same person, twice":   granted("person:a", "person:a"),
+		"nobody, on a stray event": granted(),
+	} {
+		if to, _, ok, err := d.Advance("pending", step); err != nil || ok {
+			t.Errorf("%s: moved to %s (%v)", name, to, err)
+		}
+	}
+	to, moved, ok, err := d.Advance("pending", granted("person:a", "person:b"))
+	if err != nil || !ok || to != "approved" {
+		t.Fatalf("two grants: %s %v %v", to, ok, err)
+	}
+	if len(moved.Effects) != 1 || moved.Effects[0].Use != "deploy_release" {
+		t.Fatalf("approving ran %+v, want the deploy", moved.Effects)
+	}
+	to, moved, ok, err = d.Advance("pending", domain.Step{Subject: subject(), Trigger: domain.Trigger{Event: domain.EventApprovalDenied}})
+	if err != nil || !ok || to != "denied" || !d.Final(to) || moved.Effects[0].Use != "deny_release" {
+		t.Fatalf("a denial: %s %v %v %+v", to, ok, err, moved.Effects)
+	}
+	for from, events := range map[string]map[domain.EventName]string{
+		"approved": {domain.EventReleaseRequestDeployed: "deployed", domain.EventReleaseRequestRefused: "refused",
+			domain.EventReleaseRequestWithdrawn: "withdrawn"},
+		"pending": {domain.EventReleaseRequestRefused: "refused", domain.EventReleaseRequestWithdrawn: "withdrawn"},
+	} {
+		for ev, want := range events {
+			to, _, ok, err := d.Advance(from, domain.Step{Subject: subject(), Trigger: domain.Trigger{Event: ev}})
+			if err != nil || !ok || to != want || !d.Final(to) {
+				t.Errorf("%s --%s--> %s (%v %v), want final %s", from, ev, to, ok, err, want)
+			}
+		}
+	}
+}
+
 // TestTheDefaultIsADocument holds §2.1 rule 2 from the other side: the
 // default review workflow loads through the same Compile as any
-// tenant's, with nothing compiled in, and waits for a reviewer's
-// decision without making one.
+// tenant's, with nothing compiled in. What it does is RFC 0006 §12.1's
+// (the owner's decision over §2.3's "reproduces ReviewRequired"): a
+// source change sends the translation back to review and asks one
+// reviewer; their approval, never the author's, approves it.
 func TestTheDefaultIsADocument(t *testing.T) {
 	d := compile(t, defaults.Review())
 	if d.Name != "review" || d.Subject != domain.SubjectTranslation {
 		t.Fatalf("default = %s %s", d.Name, d.Subject)
 	}
-	if len(d.Actions) != 0 || len(d.Guards) != 0 {
-		t.Errorf("the default binds guards %v and actions %v; it must only wait for Localization's review", d.Guards, d.Actions)
+	state, _ := d.Start(domain.Step{})
+	if state != "current" {
+		t.Fatalf("start: %s", state)
 	}
-	state, step := d.Start(domain.Step{})
-	if state != "awaiting_review" || len(step.Effects) != 0 {
-		t.Fatalf("start: %s %+v", state, step.Effects)
+	to, step, ok, err := d.Advance(state, domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationOutdated}})
+	if err != nil || !ok || to != "reviewing" {
+		t.Fatalf("translation.outdated: %s %v %v", to, ok, err)
 	}
-	to, _, ok, err := d.Advance(state, domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationReviewed}})
+	var demoted, asked bool
+	for _, e := range step.Effects {
+		switch p := e.Params.(type) {
+		case domain.SetReviewState:
+			demoted = p.State == "needs_review"
+		case domain.RequestApproval:
+			asked = p.N == 1 && p.From.Role == "reviewer"
+		}
+	}
+	if !demoted || !asked {
+		t.Fatalf("a source change ran %+v; want needs_review and one reviewer asked", step.Effects)
+	}
+	g, ok := d.Guards["one_approval"]
+	if !ok || g.Use != "approvals_at_least" {
+		t.Fatalf("guards = %+v", d.Guards)
+	}
+	if p, ok := g.Params.(domain.ApprovalsAtLeast); !ok || !p.DistinctFromAuthor {
+		t.Errorf("the default's approval counts its author: %+v", g.Params)
+	}
+	// A translator's own revision ends at once: nothing waits.
+	to, _, ok, err = d.Advance("current", domain.Step{Trigger: domain.Trigger{Event: domain.EventTranslationRevised}})
 	if err != nil || !ok || !d.Final(to) {
-		t.Fatalf("translation.reviewed: %s %v %v", to, ok, err)
+		t.Fatalf("translation.revised: %s %v %v", to, ok, err)
 	}
 }
 

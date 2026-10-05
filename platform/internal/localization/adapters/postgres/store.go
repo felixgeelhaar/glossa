@@ -18,6 +18,7 @@ import (
 
 	mf "github.com/felixgeelhaar/glossa/messageformat"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
@@ -373,9 +374,9 @@ func (s *store) AppendRevision(ctx context.Context, r domain.Revision) error {
 	}))
 }
 
-func (s *store) TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, limit int) ([]app.TranslationRow, error) {
+func (s *store) TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, only []string, limit int) ([]app.TranslationRow, error) {
 	rows, err := s.q.ListTranslationsOfMessage(ctx, localizationsql.ListTranslationsOfMessageParams{
-		MessageID: message, After: after, MaxRows: int32Of(limit),
+		MessageID: message, After: after, OnlyLocales: only, MaxRows: int32Of(limit),
 	})
 	if err != nil {
 		return nil, storeError(err)
@@ -490,7 +491,7 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 		AfterKey: q.After.Key, AfterMessage: q.After.Message, AfterLocale: q.After.Locale,
 		States: states, Origins: origins, Outdated: outdated,
 		Namespace: optText(q.Namespace), MessageState: optText(q.MessageState),
-		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, MaxRows: int32Of(q.Limit),
+		KeyLike: likePattern(q.KeyPrefix), Keys: q.Keys, Units: units(q.Units), MaxRows: int32Of(q.Limit),
 	})
 	if err != nil {
 		return nil, storeError(err)
@@ -509,6 +510,19 @@ func (s *store) ProjectTranslations(ctx context.Context, project uuid.UUID, q ap
 		out = append(out, app.ProjectTranslationRow{TranslationRow: tr, Key: r.Key, Namespace: r.Namespace, MessageState: r.MessageState})
 	}
 	return out, nil
+}
+
+// units spells a unit filter as PageProjectTranslations matches it,
+// "<message id> <locale>"; nil is no filter, empty is nothing.
+func units(us []authz.Unit) []string {
+	if us == nil {
+		return nil
+	}
+	out := make([]string, len(us))
+	for i, u := range us {
+		out[i] = u.Message.String() + " " + u.Locale
+	}
+	return out
 }
 
 func (s *store) TranslationStats(ctx context.Context, project uuid.UUID) (app.StoredStats, error) {

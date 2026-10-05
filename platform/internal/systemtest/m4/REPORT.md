@@ -101,7 +101,7 @@ finding names was read back through the API and the stored screenshot cropped to
 
 | Message | Locale | Capture | Region | Box (CSS px) | Screenshot | Crop | Distinct colours |
 |---|---|---|---|---|---|---|---:|
-| `checkout.crust.label` | `ja` | `01a0f68` | `r_17` | 119×18 at (105, 675) | 1280×1303 (136301 bytes) | 119×18 px | 115 |
+| `checkout.crust.label` | `ja` | `01a0f87` | `r_17` | 119×18 at (105, 675) | 1280×1303 (136301 bytes) | 119×18 px | 115 |
 
 - `glossa context push` uploaded 152 usages, one of them `checkout.pickup.reminder` at `src/pages/CheckoutPage.vue:31` — a key no catalog has.
 - The head commit revises 4 German sources; the French `checkout.payment.activity` keeps its text and loses `{$amount}`, and the Japanese `checkout.roll.help` keeps the link the source dropped.
@@ -110,9 +110,9 @@ finding names was read back through the API and the stored screenshot cropped to
 - `glossa check --json` exited 1 with conclusion `failure`: 4 errors, 558 warnings, 0 waived, graded against policy v3 from the server.
 - All 562 findings validate against `glossa.finding/v1` (schema, fingerprint, layer, code, severity, locus).
 - The visual layer is real: `glossa capture --check` drove Chrome over `/kasse` in German and Japanese at 1280×800, and the Japanese pay button clipped — 1 `text-clipped` finding(s) on the Japanese capture (0 on the German one), and the server stored 1 probe findings with the upload.
-- The region the finding names (`r_17` on capture `01a0f68`) was read back through the API and the stored screenshot cropped to it: 119×18 CSS px at (105, 675) → 119×18 pixels of a 1280×1303 screenshot, 115 distinct colours.
+- The region the finding names (`r_17` on capture `01a0f87`) was read back through the API and the stored screenshot cropped to it: 119×18 CSS px at (105, 675) → 119×18 pixels of a 1280×1303 screenshot, 115 distinct colours.
 - No single command computes all nine layers: `glossa check --terminology` has the terminology layer and no browser, `glossa capture --check` has the visual layer and takes no `--terminology` flag. The table below counts both runs of the workflow together.
-- `help.legacy.title` was obsoleted while its translations stayed: `glossa check` reported `unknown-key` in `en`, `es`, `fr`, `ja`, each a warning against the obsolete message's ID (`01a0f68`), and the pull request annotated it at `src/pages/HelpPage.vue:23` — the line the help page still asks for the key on, from the build's usages.
+- `help.legacy.title` was obsoleted while its translations stayed: `glossa check` reported `unknown-key` in `en`, `es`, `fr`, `ja`, each a warning against the obsolete message's ID (`01a0f87`), and the pull request annotated it at `src/pages/HelpPage.vue:23` — the line the help page still asks for the key on, from the build's usages.
 
 ## §12.3 — the PR check agrees (the exit criterion)
 
@@ -120,7 +120,7 @@ Pull request #11 on `acme/shop`, head `6b28d05`, opened by a signed `pull_reques
 fixtures sign. Nothing creates a check run through `/v1` — `openCheck` is reached only from webhook
 processing — so the test does what a product does and assumes no API shortcut.
 
-The check run: `Glossa`, completed/`failure`, "3 problems and 633 warnings", 200 annotations over 4 PATCHes, 1 sticky comment.
+The check run: `Glossa`, completed/`failure`, "3 problems and 633 warnings", 200 annotations over 5 PATCHes, 1 sticky comment.
 
 The terminal's side is `glossa capture --check` on this commit — the workflow's run that carries every layer the server can have.
 
@@ -147,18 +147,18 @@ Two surfaces, one verdict.
 | What | What happened |
 |---|---|
 | a waiver with a blank reason | 400 `waiver_reason_required` — the reason is required and non-empty |
-| waive `term_missing` (`f_337cf`) with a reason | waiver `01a0f68`, scope `project`, against source revision 1 |
+| waive `term_missing` (`f_afd30`) with a reason | waiver `01a0f87`, scope `project`, against source revision 1 |
 | re-run `glossa check` | the finding is `waived`; 558→557 warnings, 0→1 waived, conclusion `failure`→`failure` |
 | change the German source behind it | the finding is `warning` again: the waiver was made against source revision 1 and the finding is now at 2 |
-| waive the `number-convention` on `checkout.total.label` (`f_839a3`) | `waived`, against source revision 1 |
+| waive the `number-convention` on `checkout.total.label` (`f_b696a`) | `waived`, against source revision 1 |
 | change the German source behind **that** one | `warning` again: the waiver was made against source revision 1 and the finding is now at 2 — waived against a German that no longer ships |
 
 ### The rollout
 
 | What | What happened |
 |---|---|
-| `POST …/check-policy` with `dry_run: true` | 1263 stored findings examined over 2 runs: 2 raised, 0 lowered, 0 silenced; 2 findings newly failing, on `feature/opening-hours`; **1 open pull requests** would newly fail: #10 `feature/opening-hours` <http://127.0.0.1:65481/acme/shop/pull/10> |
-| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-15T08:13:26.652672Z |
+| `POST …/check-policy` with `dry_run: true` | 1263 stored findings examined over 2 runs: 2 raised, 0 lowered, 0 silenced; 2 findings newly failing, on `feature/opening-hours`; **1 open pull requests** would newly fail: #10 `feature/opening-hours` <http://127.0.0.1:57167/acme/shop/pull/10> |
+| save v4 with a 14-day grace | v3 keeps grading the pull requests opened before it, until 2026-10-15T17:12:11.950834Z |
 | the open pull request (`feature/checkout-copy`, opened under v3) | still graded against v3, and its summary says so: “Graded against the project's check policy v3 — the version this pull request was opened under.” |
 | the pull request the preview named (#10, `feature/opening-hours`, opened under v3) | a new commit after the save: still graded against v3, and still `success` — the grace keeps it green until it closes or the grace runs out |
 | a pull request opened after the save (`feature/pickup-copy`) | graded against v4 and `failure`: the visual layer carries 1 errors |
@@ -171,8 +171,8 @@ Pull request #10 (`feature/opening-hours`) was opened and checked while `main` s
 |---|---|
 | publish to `production` with `fr` incomplete | 409 `policy_not_met` — release: the environment's check policy is not met: production: fr must be complete and is 3 of 156 messages short |
 | force it with no reason | 400 `force_reason_required` |
-| force it with a reason | 201 — release `01a0f68`, version 1 |
-| the record | deployment #1 by `person:01a0f686-3d27-715b-9999-05bf8473ba32`, `forced: true`, with the reason it was forced for |
+| force it with a reason | 201 — release `01a0f87`, version 1 |
+| the record | deployment #1 by `person:01a0f873-a740-7b42-801c-6c1cfaaf5d76`, `forced: true`, with the reason it was forced for |
 
 ## §12.6 — MCP
 
@@ -207,13 +207,13 @@ that is the path being exercised. The in-context grant **is** a live one, minted
 | `ed25519_test.dart` | RFC 8032 signature vectors and their rejections | 9 | 0 | 0 |
 | `jcs_test.dart` | RFC 8785 canonicalization vectors | 52 | 0 | 0 |
 | `loader_test.dart` | the §3 loading cases a fixture cannot ship | 12 | 0 | 0 |
-| `loading_test.dart` | runtimes/testdata/loading — including `signatures.json`: an unsigned manifest with keys configured | 7 | 0 | 0 |
+| `loading_test.dart` | runtimes/testdata/loading — including `signatures.json`: an unsigned manifest with keys configured | 9 | 0 | 0 |
 | `locale_test.dart` | the BCP 47 suites the Go and JS runtimes share | 37 | 0 | 0 |
 | `markup_test.dart` | runtimes/testdata/markup.json | 22 | 0 | 0 |
 | `purity_test.dart` | §6.4's AOT and web rules: no `dart:mirrors`, no `dart:ffi`, no `dart:io` in the core | 4 | 0 | 0 |
 | `runtime_format_test.dart` | messageformat/testdata/glossa/runtime-format.json | 131 | 0 | 41 |
 | `scenarios_test.dart` | runtimes/testdata/scenarios — and `explain()` field for field (SPEC §6) | 24 | 0 | 0 |
-| **Total** | | **307** | **0** | **41** |
+| **Total** | | **309** | **0** | **41** |
 
 `explain()` is asserted field for field against SPEC §6 inside `scenarios_test.dart` — locale, chain,
 `resolvedFrom`, release id and version, source and every step — and the unsigned manifest is
@@ -283,7 +283,7 @@ OK — 343.1 kB of 400.0 kB, the delta over a baseline that already has package:
   What the budget is: 150 kB was §6.4's original figure and nothing meets it by this method. Wave 4 replaced it with 400.0 kB deliberately, after measuring. See RFC 0005 §6.4 and §15, question 6, which records the decision and its reasoning.
 ```
 
-Measured in 103 s on this machine.
+Measured in 54 s on this machine.
 
 **Startup** — measured and recorded, not gated on wall clock: §6.4's numbers are written for a mid-range
 Android device and neither a laptop nor a CI runner is one. What the tool does enforce are the two
@@ -298,23 +298,23 @@ manifest under test: 202594 bytes (control: 19621 bytes)
 the shared fixture verifies against its own key: yes
 
 warm cache: 500 messages, 87360 artifact bytes on disk
-activation from the persisted store: 7.655 ms
+activation from the persisted store: 2.432 ms
 
 — §6.4 device budgets, recorded ————————————————————————————
-  verify 200 kB manifest + signature       178.87 ms   (OVER the 30 ms budget)
-  first t() after a warm cache               0.11 ms   (within the 5 ms budget)
-  longest event-loop stall on activation     2.55 ms   (within the 16.7 ms budget)
-  (steady state after warm-up: verification 30.21 ms, canonicalization 12.55 ms of it.)
+  verify 200 kB manifest + signature         9.29 ms   (within the 30 ms budget)
+  first t() after a warm cache               0.05 ms   (within the 5 ms budget)
+  longest event-loop stall on activation     2.44 ms   (within the 16.7 ms budget)
+  (steady state after warm-up: verification 9.08 ms, canonicalization 4.30 ms of it.)
   These are wall clock on this machine. §6.4 names a mid-range Android device; neither a laptop nor a CI runner is one, so none of the three fails this program. The device numbers belong to the M4 exit report (§12).
 
 — enforced, because they hold on every machine ——————————————
-  canonicalization cost per byte, 202594 B over 19621 B  ×1.03 (linear is ×1.00, ceiling ×3.00)
-  first t() ÷ one verification  0.4 % (ceiling 25 %)
+  canonicalization cost per byte, 202594 B over 19621 B  ×0.94 (linear is ×1.00, ceiling ×3.00)
+  first t() ÷ one verification  0.5 % (ceiling 25 %)
 
 OK — both enforced properties hold.
 ```
 
-Measured in 11 s on this machine.
+Measured in 2 s on this machine.
 
 ## §12.8 — the dashboard
 
@@ -325,14 +325,14 @@ Measured in 11 s on this machine.
 | AI acceptance rate and mean edit distance | {acceptance_rate:0,accepted:0,decisions:0,edited:0,mean_edit_distance:0,rejected:0} |
 | Review queue depth and age | {depth:0} |
 | Context coverage: usages and visible regions | {active_messages:156,with_region:0,with_usage:150} |
-| Lead time, p50/p90 | {p50_seconds:24.533486,p90_seconds:24.583811,samples:305} |
-| Check health: pass rate and median time to a conclusion | {failed:2,latency:{p50_seconds:19.554842,p90_seconds:22.8126828,samples:3},median_seconds:19.554842,neutral:0,pass_rate:… |
+| Lead time, p50/p90 | {p50_seconds:11.178263,p90_seconds:11.195435,samples:305} |
+| Check health: pass rate and median time to a conclusion | {failed:2,latency:{p50_seconds:5.406886,p90_seconds:8.2987772,samples:3},median_seconds:5.406886,neutral:0,pass_rate:0.3… |
 
 `studio/e2e/m4/quality-exit.spec.ts` signed in against **this** server, opened `/t/…/p/…/quality`, found seven stats in the
 health header, and asserted each rendered value against the summary above — computing the expected
 rendering from the API's JSON with plain `Intl` rather than by calling Studio's own formatters, so the
 comparison cannot agree with itself. A number the API did not measure has to read "Not measured" and
-carry `data-measured="false"`; a zero there would be a claim the API never made. (5 s)
+carry `data-measured="false"`; a zero there would be a claim the API never made. (3 s)
 
 ## No provider, no network
 

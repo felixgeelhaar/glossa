@@ -31,7 +31,7 @@ func TestIngestUsagesResolvesKeysAndPublishesTheBuild(t *testing.T) {
 
 	b := got.Build
 	if got.Replayed || got.UnknownKeys != 1 || b.UsageCount != 3 || !b.OnDefaultBranch || b.ApplicationID != f.apps["web"] ||
-		b.Commit.String() != sha("9f2c1e7ab4") || b.Source != domain.SourcePlugin || b.Tool.Name != "@glossa/unplugin" {
+		b.Commit.String() != sha("9f2c1e7ab4") || b.Source != domain.SourcePlugin || b.Tool.Name != "@felixgeelhaar/glossa-unplugin" {
 		t.Errorf("ingested = %+v", got)
 	}
 	if n := count(t, "SELECT count(*) FROM context_usages WHERE build_id = $1 AND message_id = $2", b.ID, f.ids["checkout.pay"]); n != 2 {

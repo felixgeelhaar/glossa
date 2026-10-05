@@ -381,3 +381,29 @@ func toDisclosure(d app.DisclosureRecord) apiv1.AIDisclosure {
 	}
 	return out
 }
+
+// toUnitSuggestions maps suggestions to the unit workspace's view: the
+// text, score and explanation, and nothing of the job behind them.
+func toUnitSuggestions(rs []app.UnitSuggestion) []apiv1.UnitAISuggestion {
+	out := make([]apiv1.UnitAISuggestion, len(rs))
+	for i, u := range rs {
+		r := u.Record
+		v := apiv1.UnitAISuggestion{
+			Id: r.ID.String(), Locale: r.Locale, SourceRevision: r.SourceRevision, Message: r.Message,
+			Findings: apiconv.Findings(r.Findings), TermFindings: []apiv1.AITermFinding{}, Score: r.Confidence.Score,
+			Explanation: make([]apiv1.AIConfidenceFactor, len(r.Confidence.Explanation)), Action: apiv1.AIAction(r.Action),
+			ActionNote: nonEmpty(r.ActionNote), RiskTags: nonNil(r.RiskTags), Status: apiv1.AISuggestionStatus(r.Status),
+			Outdated: u.Outdated, Decidable: u.Decidable, CreatedAt: r.CreatedAt,
+		}
+		for _, f := range r.TermFindings {
+			v.TermFindings = append(v.TermFindings, apiv1.AITermFinding{
+				Code: apiv1.AITermFindingCode(f.Code), ConceptId: f.ConceptID, TermId: nonEmpty(f.TermID), Term: f.Term, Message: f.Message,
+			})
+		}
+		for j, f := range r.Confidence.Explanation {
+			v.Explanation[j] = apiv1.AIConfidenceFactor{Factor: f.Factor, Value: f.Value, Contribution: f.Contribution, Reason: f.Reason}
+		}
+		out[i] = v
+	}
+	return out
+}

@@ -1,7 +1,9 @@
 package domain_test
 
 import (
+	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
@@ -13,7 +15,7 @@ import (
 var pinnedPermissions = []string{
 	"approvals.decide",
 	"assignments.manage", "assignments.read",
-	"audit.export", "audit.read",
+	"audit.export", "audit.import", "audit.read",
 	"catalog.read", "catalog.write",
 	"integration.import", "integration.manage", "integration.read",
 	"intelligence.manage", "intelligence.read", "intelligence.translate",
@@ -35,7 +37,7 @@ var pinnedPermissions = []string{
 // Changing a row is a product decision, not a refactor.
 var pinnedRoleMatrix = map[string][]string{
 	"owner": {
-		"approvals.decide", "assignments.manage", "assignments.read", "audit.export", "audit.read",
+		"approvals.decide", "assignments.manage", "assignments.read", "audit.export", "audit.import", "audit.read",
 		"catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read",
 		"intelligence.manage", "intelligence.read", "intelligence.translate", "knowledge.read", "knowledge.write",
 		"members.manage", "members.read", "owners.manage", "releases.publish", "releases.read",
@@ -43,8 +45,8 @@ var pinnedRoleMatrix = map[string][]string{
 		"translations.read", "translations.review", "translations.write",
 		"vendors.manage", "workflows.manage", "workflows.read",
 	},
-	// admin: everything but owners and the audit export, which only an
-	// owner holds by default (§4.2).
+	// admin: everything but owners, the audit export and the audit
+	// import, which only an owner holds by default (§4.2, §7.2).
 	"admin": {
 		"approvals.decide", "assignments.manage", "assignments.read", "audit.read",
 		"catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read",
@@ -97,6 +99,13 @@ var pinnedScopeMatrix = map[string][]string{
 		"assignments.read", "catalog.read", "integration.read", "intelligence.manage", "intelligence.read",
 		"knowledge.read", "members.manage", "members.read", "releases.read", "tenant.manage", "tenant.read",
 		"tokens.manage", "tokens.read", "translations.read", "workflows.read",
+	},
+	// workflows: what `glossa workflow push` needs, and nothing a person
+	// decides — no review, no approvals.decide, no assignments.manage.
+	"workflows": {
+		"assignments.read", "catalog.read", "integration.read", "intelligence.read", "knowledge.read",
+		"members.read", "releases.read", "tenant.read", "tokens.read", "translations.read",
+		"workflows.manage", "workflows.read",
 	},
 }
 
@@ -159,7 +168,7 @@ func TestNoScopeCombinationReachesAHumanOnlyPermission(t *testing.T) {
 			t.Errorf("%s must be human-only", p)
 		}
 	}
-	all := []string{"read", "write", "publish", "admin"}
+	all := []string{"read", "write", "publish", "admin", "workflows"}
 	for mask := 1; mask < 1<<len(all); mask++ {
 		var names []string
 		for i, s := range all {
@@ -188,6 +197,33 @@ func TestNoScopeCombinationReachesAHumanOnlyPermission(t *testing.T) {
 	}
 }
 
+// The workflows scope is opt-in (RFC 0006 §4.2): no other scope, alone
+// or together, reaches workflows.manage, so every token issued before it
+// existed — and every token issued without naming it — keeps leaving the
+// process alone. Nor does the CI ceiling.
+func TestTheWorkflowsScopeIsOptIn(t *testing.T) {
+	others, err := domain.ParseScopes([]string{"read", "write", "publish", "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, held := domain.GrantForScopes(others).Locales(domain.PermWorkflowsManage); held {
+		t.Error("read, write, publish and admin together reach workflows.manage; only the workflows scope may")
+	}
+	if slices.Contains(domain.CIPermissions(), domain.PermWorkflowsManage) {
+		t.Error("the CI ceiling holds workflows.manage")
+	}
+	only, err := domain.ParseScopes([]string{"workflows"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := domain.GrantForScopes(only)
+	for _, p := range []domain.Permission{domain.PermApprovalsDecide, domain.PermTranslationsReview, domain.PermAssignmentsManage} {
+		if _, held := g.Locales(p); held {
+			t.Errorf("the workflows scope reaches %s", p)
+		}
+	}
+}
+
 func TestApprovalsDecideIsLocaleScoped(t *testing.T) {
 	g := domain.GrantForMember(mustRoles(t, "reviewer"), mustLocales(t, "de"))
 	if !g.AllowsFor(domain.PermApprovalsDecide, mustLocale(t, "de-AT")) {
@@ -195,6 +231,47 @@ func TestApprovalsDecideIsLocaleScoped(t *testing.T) {
 	}
 	if g.AllowsFor(domain.PermApprovalsDecide, mustLocale(t, "ja")) || g.Allows(domain.PermApprovalsDecide) {
 		t.Error("a reviewer scoped to de must not decide ja approvals")
+	}
+}
+
+// TestApprovalsDecideIsEnvironmentScopedForReleases pins who decides a
+// release request (RFC 0006 §4.2, §5.1): approvals.decide is the only
+// environment-scoped permission, held — in any locale — by owner, admin
+// and reviewer and by no other role or token scope; and an environment
+// scope is every environment until it names some.
+func TestApprovalsDecideIsEnvironmentScopedForReleases(t *testing.T) {
+	for _, p := range domain.AllPermissions() {
+		if got, want := p.EnvironmentScoped(), p == domain.PermApprovalsDecide; got != want {
+			t.Errorf("%s.EnvironmentScoped() = %v, want %v", p, got, want)
+		}
+	}
+	holds := map[string]bool{"owner": true, "admin": true, "reviewer": true, "developer": false, "translator": false}
+	for role, want := range holds {
+		g := domain.GrantForMember(mustRoles(t, role), mustLocales(t, "de"))
+		if got := g.Holds(domain.PermApprovalsDecide); got != want {
+			t.Errorf("%s limited to de holds approvals.decide = %v, want %v", role, got, want)
+		}
+	}
+	for _, s := range []string{"read", "write", "publish", "admin"} {
+		ss, err := domain.ParseScopes([]string{s})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if domain.GrantForScopes(ss).Holds(domain.PermApprovalsDecide) {
+			t.Errorf("token scope %s holds approvals.decide", s)
+		}
+	}
+
+	all, err := domain.ParseEnvironmentScope(nil)
+	if err != nil || !all.All() || !all.Covers("production") {
+		t.Fatalf("an empty environment scope = %+v (%v), want every environment", all, err)
+	}
+	some, err := domain.ParseEnvironmentScope([]string{"staging", "production", "staging"})
+	if err != nil || some.All() || !some.Covers("production") || some.Covers("development") {
+		t.Fatalf("scope = %v (%v)", some.Strings(), err)
+	}
+	if _, err := domain.ParseEnvironmentScope([]string{"Prod"}); !errors.Is(err, domain.ErrInvalidEnvironmentScope) {
+		t.Errorf("an invalid name = %v, want ErrInvalidEnvironmentScope", err)
 	}
 }
 

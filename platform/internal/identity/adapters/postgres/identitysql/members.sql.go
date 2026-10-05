@@ -279,7 +279,7 @@ func (q *Queries) LockMember(ctx context.Context, id uuid.UUID) (IdentityMember,
 
 const systemGetActiveMembership = `-- name: SystemGetActiveMembership :one
 
-SELECT id, roles, locales FROM identity_members
+SELECT id, roles, locales, projects, visibility FROM identity_members
 WHERE person_id = $1 AND tenant_id = $2 AND status = 'active'
 `
 
@@ -289,16 +289,24 @@ type SystemGetActiveMembershipParams struct {
 }
 
 type SystemGetActiveMembershipRow struct {
-	ID      uuid.UUID
-	Roles   []string
-	Locales []string
+	ID         uuid.UUID
+	Roles      []string
+	Locales    []string
+	Projects   []uuid.UUID
+	Visibility string
 }
 
 // System scope (db.SystemTx), before a tenant is chosen.
 func (q *Queries) SystemGetActiveMembership(ctx context.Context, arg SystemGetActiveMembershipParams) (SystemGetActiveMembershipRow, error) {
 	row := q.db.QueryRow(ctx, systemGetActiveMembership, arg.PersonID, arg.TenantID)
 	var i SystemGetActiveMembershipRow
-	err := row.Scan(&i.ID, &i.Roles, &i.Locales)
+	err := row.Scan(
+		&i.ID,
+		&i.Roles,
+		&i.Locales,
+		&i.Projects,
+		&i.Visibility,
+	)
 	return i, err
 }
 
@@ -450,8 +458,7 @@ type UpdateMemberRestrictionParams struct {
 	ID         uuid.UUID
 }
 
-// Project scope, vendor and visibility: modelled, not enforced until
-// RFC 0006 wave 2 (see domain.RestrictionEnforced).
+// Project scope, vendor and visibility (RFC 0006 §3.3, §4.1).
 func (q *Queries) UpdateMemberRestriction(ctx context.Context, arg UpdateMemberRestrictionParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateMemberRestriction,
 		arg.Projects,

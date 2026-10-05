@@ -32,7 +32,7 @@ func TestGenerateWritesTypedAccessorsAndChecksStaleness(t *testing.T) {
 		t.Errorf("glossa-vue.ts = %s", vue)
 	}
 	if react := w.read("src/glossa/glossa-react.ts"); !strings.Contains(react, `from "./messages.js"`) ||
-		!strings.Contains(react, `declare module "@glossa/react"`) {
+		!strings.Contains(react, `declare module "@felixgeelhaar/glossa-react"`) {
 		t.Errorf("glossa-react.ts = %s", react)
 	}
 	if goSrc := w.read("internal/msg/messages.go"); !strings.Contains(goSrc, "package msg") ||

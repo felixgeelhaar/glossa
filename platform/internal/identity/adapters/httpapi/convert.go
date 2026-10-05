@@ -55,8 +55,14 @@ func fromRoles(rs []apiv1.Role) []string {
 func toMember(m app.MemberView) apiv1.Member {
 	out := apiv1.Member{
 		Id: m.ID.String(), Email: openapi_types.Email(m.Email.String()), Status: apiv1.MemberStatus(m.Status),
-		Roles: toRoles(m.Roles), Locales: m.Locales.Strings(),
-		CreatedAt: m.CreatedAt.UTC(), UpdatedAt: m.UpdatedAt.UTC(),
+		Roles: toRoles(m.Roles), Locales: m.Locales.Strings(), Projects: m.Restriction.Projects.Strings(),
+		Visibility: apiv1.VisibilityAll, CreatedAt: m.CreatedAt.UTC(), UpdatedAt: m.UpdatedAt.UTC(),
+	}
+	if m.Restriction.Visibility == domain.VisibilityAssigned {
+		out.Visibility = apiv1.VisibilityAssigned
+	}
+	if !m.Restriction.Vendor.IsZero() {
+		out.VendorId = ptr(m.Restriction.Vendor.String())
 	}
 	if !m.PersonID.IsZero() {
 		id := m.PersonID.String()
@@ -74,7 +80,7 @@ func toToken(t domain.APIToken) apiv1.Token {
 		scopes[i] = apiv1.Scope(s)
 	}
 	return apiv1.Token{
-		Id: t.ID.String(), Name: t.Name, Hint: t.Hint, Scopes: scopes, CreatedBy: t.CreatedBy.String(),
+		Id: t.ID.String(), Name: t.Name, Hint: t.Hint, Scopes: scopes, Projects: t.Projects.Strings(), CreatedBy: t.CreatedBy.String(),
 		CreatedAt: t.CreatedAt.UTC(), ExpiresAt: t.ExpiresAt, LastUsedAt: t.LastUsedAt, RevokedAt: t.RevokedAt,
 	}
 }

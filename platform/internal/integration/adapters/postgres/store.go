@@ -199,7 +199,7 @@ func (s *store) RetryJob(ctx context.Context, j domain.Job, delay time.Duration)
 
 func (s *store) Jobs(ctx context.Context, f app.JobFilter, before *app.JobCursor, limit int) ([]domain.Job, error) {
 	p := integrationsql.ListJobsParams{Direction: string(f.Direction), ProjectID: nullUUID(f.ProjectID),
-		TenantWide: f.TenantWide, MaxRows: i32(limit)}
+		TenantWide: f.TenantWide, Projects: f.Projects, MaxRows: i32(limit)}
 	if f.State != nil {
 		p.State = text(string(*f.State))
 	}

@@ -123,3 +123,11 @@ WHERE c.build_id = ANY(sqlc.arg(build_ids)::uuid[]) AND r.message_id IS NOT NULL
 -- name: ListProjectImages :many
 -- Every image a capture of the project references.
 SELECT DISTINCT image_digest FROM context_captures WHERE project_id = sqlc.arg(project_id);
+
+-- name: CaptureShowsAny :one
+-- Whether the capture has a region of any of the messages: what an
+-- assigned member may see a screenshot for (RFC 0006 §3.3).
+SELECT EXISTS (
+    SELECT 1 FROM context_regions
+    WHERE capture_id = sqlc.arg(capture_id)::uuid AND message_id = ANY(sqlc.arg(message_ids)::uuid[])
+)::boolean;

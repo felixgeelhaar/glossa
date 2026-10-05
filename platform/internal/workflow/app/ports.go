@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
@@ -24,7 +25,9 @@ var (
 	// already taken in its scope, or a binding whose selector another
 	// binding already has.
 	ErrConflict = errors.New("workflow: conflict")
-	// ErrLimit is a tenant at its limit of live definitions (§9.6).
+	// ErrLimit is a count limit of RFC 0006 §9.6 reached: a tenant at
+	// its limit of live definitions, or an assignee at its limit of open
+	// assignments.
 	ErrLimit = errors.New("workflow: limit reached")
 	// ErrOutOfScope is a project-scoped definition bound to another
 	// project.
@@ -32,6 +35,13 @@ var (
 	// ErrUnknownPermission is an actor_has_permission guard naming a
 	// permission Identity does not have.
 	ErrUnknownPermission = errors.New("workflow: unknown permission")
+	// ErrProjectNotFound is a project this tenant does not have.
+	ErrProjectNotFound = errors.New("workflow: project not found")
+	// ErrInstancesUnavailable is a read of instances on a server that
+	// wires no instance store.
+	ErrInstancesUnavailable = errors.New("workflow: instances are not available on this server")
+	// ErrInvalidQuery is an instance filter that cannot be answered.
+	ErrInvalidQuery = errors.New("workflow: invalid query")
 )
 
 // Transactor runs fn in one tenant transaction.
@@ -70,7 +80,25 @@ type Store interface {
 	// creation order.
 	ListBindings(ctx context.Context, project uuid.UUID, subject domain.SubjectKind) ([]domain.Binding, error)
 	DeleteBinding(ctx context.Context, id uuid.UUID) error
-	DeleteBindingsOf(ctx context.Context, definition uuid.UUID) error
+	// DeleteBindingsOf removes a definition's bindings and says how
+	// many there were.
+	DeleteBindingsOf(ctx context.Context, definition uuid.UUID) (int, error)
+
+	// Publish records a domain event in this transaction (outbox).
+	Publish(ctx context.Context, e outbox.Event) error
+}
+
+// Catalog is Catalog's application port, as Workflow uses it: Workflow
+// keys rows by Catalog's project id without a foreign key (migration
+// 0040) and learns about projects, and resolves message keys, only
+// through here.
+type Catalog interface {
+	// Project answers ErrProjectNotFound for a project this tenant does
+	// not have.
+	Project(ctx context.Context, project uuid.UUID) error
+	// MessageID resolves a message key; ErrNotFound for a key the
+	// project does not have, ErrProjectNotFound for the project.
+	MessageID(ctx context.Context, project uuid.UUID, key string) (uuid.UUID, error)
 }
 
 // Permissions answers whether a permission exists, so a definition's

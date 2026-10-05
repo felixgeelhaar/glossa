@@ -18,7 +18,7 @@
  */
 import { createContext, createElement, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { createRuntime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 import type {
   Explanation,
   ManifestLocale,
@@ -26,7 +26,7 @@ import type {
   Runtime,
   RuntimeOptions,
   TranslateOptions,
-} from "@glossa/runtime";
+} from "@felixgeelhaar/glossa-runtime";
 
 export interface GlossaOptions extends RuntimeOptions {
   /** Use this runtime instead of creating one (e.g. one runtime shared by several React roots). */
@@ -46,7 +46,7 @@ export type MessageValues = Record<string, unknown>;
 /**
  * Message ID → its values: the shape `glossa generate` emits. Register it once
  * to type every `useGlossa().t` call and `<T id>` (see README):
- * `declare module "@glossa/react" { interface GlossaRegister { messages: Messages } }`.
+ * `declare module "@felixgeelhaar/glossa-react" { interface GlossaRegister { messages: Messages } }`.
  */
 export interface GlossaRegister {}
 

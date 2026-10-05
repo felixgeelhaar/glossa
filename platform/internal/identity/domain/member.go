@@ -34,9 +34,8 @@ type Member struct {
 	Roles    Roles
 	Locales  LocaleScope
 	// Restriction is the member's project scope, vendor and visibility
-	// (RFC 0006 §3.3, §4.1). NOT ENFORCED until RFC 0006 wave 2 — see
-	// RestrictionEnforced: a restricted member can still read and do
-	// everything their roles allow, in every project.
+	// (RFC 0006 §3.3, §4.1), enforced by package authz in every read
+	// and write path (see RestrictionEnforced).
 	Restriction Restriction
 	Status      MemberStatus
 	// Version increments with every change; it is the member's ETag.
@@ -69,7 +68,6 @@ func Invite(tenant tenancy.ID, kind tenancy.Kind, email authgo.Email, roles Role
 
 // InviteWith opens an invitation narrowed by r: limited to some
 // projects, or for a vendor's person who sees only their assignments.
-// r is NOT ENFORCED until RFC 0006 wave 2 (see RestrictionEnforced).
 func InviteWith(tenant tenancy.ID, kind tenancy.Kind, email authgo.Email, roles Roles, locales LocaleScope, r Restriction, actor Grant, now time.Time) (Member, error) {
 	if kind == tenancy.KindIndividual {
 		return Member{}, ErrIndividualTenant
@@ -155,8 +153,7 @@ func (m *Member) ChangeAccess(roles Roles, locales LocaleScope, actor Grant, act
 
 // Restrict replaces the member's project scope, vendor and visibility.
 // The application layer decides who may (members.manage, and
-// vendors.manage to name a vendor). r is NOT ENFORCED until RFC 0006
-// wave 2 (see RestrictionEnforced).
+// vendors.manage to name a vendor).
 func (m *Member) Restrict(r Restriction, now time.Time) error {
 	r = r.normalized()
 	if err := r.check(m.Roles); err != nil {

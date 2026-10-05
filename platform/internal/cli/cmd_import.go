@@ -38,15 +38,19 @@ type importJSON struct {
 	Summary      map[string]map[string]int `json:"summary"`
 	Items        []importItem              `json:"items"`
 	// A --v0-db import also reports the restore it read, v0.3's locales
-	// with their labels, the plans other waves complete (invitations:
-	// Identity, wave 3; audit_entries: Audit, wave 4 — nothing is sent or
-	// written by this command), and every v0.3 field it does not carry.
+	// with their labels, its users as invitations (planned or held, and
+	// with --invite what became of each), the audit-entry plan (Audit,
+	// wave 4: nothing is written by this command), and every v0.3 field
+	// it does not carry.
 	Restore      *v0.Restore     `json:"restore,omitempty"`
 	Locales      []v0.LocaleInfo `json:"locales,omitempty"`
 	Invitations  []v0.Invitation `json:"invitations,omitempty"`
 	AuditEntries []v0.AuditEntry `json:"audit_entries,omitempty"`
-	NotCarried   []v0.NotCarried `json:"not_carried,omitempty"`
-	Warnings     []string        `json:"warnings,omitempty"`
+	// History is what --history sent to the Audit context and what it
+	// recorded.
+	History    *historyJSON    `json:"history,omitempty"`
+	NotCarried []v0.NotCarried `json:"not_carried,omitempty"`
+	Warnings   []string        `json:"warnings,omitempty"`
 }
 
 type importFlags struct {
@@ -54,11 +58,15 @@ type importFlags struct {
 	db, tenant                 string
 	locales                    string
 	dryRun                     bool
+	invite                     bool
+	history                    bool
 }
 
 const importUsage = `import --format xliff|json|po|tmx|tbx <file> [--apply | --overwrite] [options]
        glossa import --from v0 --v0-url URL --v0-project SLUG [--v0-key-env GLOSSA_V0_KEY] [--locales de,en] [--dry-run]
-       glossa import --from v0 --v0-db DSN [--v0-tenant SLUG] --v0-project SLUG [--locales de,en] [--dry-run]
+       glossa import --from v0 --v0-db DSN [--v0-tenant SLUG] --v0-project SLUG [--locales de,en] [--dry-run | --invite --history]
+       glossa import --from v0 (--v0-db DSN | --v0-url URL) --v0-project SLUG --verify --edge URL --environment ENV
+             [--delivery-key-env GLOSSA_DELIVERY_KEY] [--format-module DIR] [--runtime-module DIR] [--node PATH]
 
 An interchange file (--format) goes through the server's import jobs. Without --apply or
 --overwrite it is a dry run: every check of a merge, nothing written. Options per format:
@@ -72,7 +80,20 @@ Exit codes: 0 ok, 1 conflicts or invalid items, 2 usage, 3 refused, 4 the job fa
 --from v0 imports a Glossa v0.3 project through its API (--v0-url), or from a restored v0.3
 backup (--v0-db): that also carries key descriptions, who last changed each translation and when,
 and reports v0.3's locale labels, its users as invitation plans and its history as an audit-entry
-plan. --v0-db refuses any database that platform/scripts/v0-restore.sh did not restore and mark.`
+plan. --v0-db refuses any database that platform/scripts/v0-restore.sh did not restore and mark.
+--invite also sends the planned invitations (never the held ones) with their mapped roles and
+locales; an address that is already a member or invited is reported, not invited twice. It needs
+a token that may invite (the admin scope). --history also imports v0.3's history into the
+organisation's audit trail as imported entries — who changed which translation when, with SHA-256
+digests of the text before and after, never the text — once per row however often it runs. Only an
+owner may (audit.import); no API token scope reaches it.
+
+--verify imports nothing: it renders every key in every v0.3 locale twice, with v0.3's own formatter
+(@felixgeelhaar/glossa-format) over v0.3's text and with @felixgeelhaar/glossa-runtime over the release glossa-edge
+serves in --environment, with arguments generated from each message, and compares. It needs Node.js
+22+ and both packages built (found from the working directory, or --format-module/--runtime-module).
+Exit 0 when every rendering matches or differs only by v0.3's known apostrophe defect (reported and
+counted), 1 on any other difference.`
 
 func runImport(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags(importUsage)
@@ -85,8 +106,12 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.tenant, "v0-tenant", "", "--from v0 --v0-db: the v0.3 tenant slug, when two tenants have the project's slug")
 	fs.StringVar(&f.locales, "locales", "", "--from v0: only these locales' translations (comma-separated)")
 	fs.BoolVar(&f.dryRun, "dry-run", false, "report what the import would do without writing (--format: the default)")
+	fs.BoolVar(&f.invite, "invite", false, "--from v0 --v0-db: send the planned invitations, not only report them")
+	fs.BoolVar(&f.history, "history", false, "--from v0 --v0-db: import v0.3's history into the audit trail (owner only)")
 	var ff fileImportFlags
 	ff.register(fs)
+	var vf verifyFlags
+	vf.register(fs)
 	pos, err := inv.parse(fs, args)
 	if err != nil {
 		return err
@@ -95,7 +120,8 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	case f.from != "" && ff.format != "":
 		return usageError(inv.name, "--from and --format exclude each other: --format imports a file, --from v0 a Glossa v0.3 project")
 	case ff.format != "":
-		for _, name := range []string{"v0-url", "v0-project", "v0-key-env", "v0-db", "v0-tenant", "locales"} {
+		for _, name := range append([]string{"v0-url", "v0-project", "v0-key-env", "v0-db", "v0-tenant", "locales", "invite", "history", "verify"},
+			verifyFlagNames...) {
 			if isSet(fs, name) {
 				return usageError(inv.name, "--%s belongs to --from v0", name)
 			}
@@ -119,11 +145,21 @@ func runImport(ctx context.Context, inv *invocation, args []string) error {
 	if err := noMore(inv, pos); err != nil {
 		return err
 	}
+	if vf.verify {
+		return inv.importV0Verify(ctx, fs, f, vf)
+	}
+	for _, name := range verifyFlagNames {
+		if isSet(fs, name) {
+			return usageError(inv.name, "--%s belongs to --verify", name)
+		}
+	}
 	if f.db != "" {
 		return inv.importV0DB(ctx, fs, f)
 	}
-	if isSet(fs, "v0-tenant") {
-		return usageError(inv.name, "--v0-tenant belongs to --v0-db")
+	for _, name := range []string{"v0-tenant", "invite", "history"} {
+		if isSet(fs, name) {
+			return usageError(inv.name, "--%s belongs to --v0-db", name)
+		}
 	}
 	if f.url == "" {
 		return usageError(inv.name, "--v0-url (the v0.3 API, e.g. https://glossa.example.com/api/v1) or --v0-db (a restored v0.3 backup) is required")

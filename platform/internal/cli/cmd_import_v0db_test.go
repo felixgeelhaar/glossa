@@ -19,6 +19,19 @@ func TestImportV0DBUsage(t *testing.T) {
 		t.Errorf("error = %+v", doc.Error)
 	}
 	w.json(&doc, "import", "--format", "json", "f.json", "--v0-db", "postgres://x/y").want(t, ExitUsage)
+	// --invite sends what --v0-db plans, and only for real.
+	w.json(&doc, "import", "--from", "v0", "--v0-url", "http://x", "--invite").want(t, ExitUsage)
+	if !strings.Contains(doc.Error.Message, "--invite belongs to --v0-db") {
+		t.Errorf("error = %+v", doc.Error)
+	}
+	w.json(&doc, "import", "--from", "v0", "--v0-db", "postgres://x/y", "--invite", "--dry-run").want(t, ExitUsage)
+	if !strings.Contains(doc.Error.Message, "--dry-run sends nothing") {
+		t.Errorf("error = %+v", doc.Error)
+	}
+	w.json(&doc, "import", "--format", "json", "f.json", "--invite").want(t, ExitUsage)
+	if srv.members.posts != 0 {
+		t.Errorf("a refused command sent %d invitations", srv.members.posts)
+	}
 	w.json(&doc, "import", "--from", "v0").want(t, ExitUsage)
 	if !strings.Contains(doc.Error.Message, "--v0-db") {
 		t.Errorf("error = %+v; the usage must name both sources", doc.Error)

@@ -338,6 +338,15 @@ def first_installation(salt, want):
     return installation_id(n)
 
 
+def first_installation_both(salt, want, other_salt, other_want):
+    """The first fixture installation id whose cohorts under two salts
+    satisfy `want` and `other_want`."""
+    n = 0
+    while not (want(cohort(salt, installation_id(n))) and other_want(cohort(other_salt, installation_id(n)))):
+        n += 1
+    return installation_id(n)
+
+
 def with_rollout(stable, candidate, rollout_id, percent, salt):
     """The stable manifest carrying `candidate` as a rollout (unsigned)."""
     m = {k: copy.deepcopy(v) for k, v in stable.items() if k != "signatures"}
@@ -350,14 +359,20 @@ def with_rollout(stable, candidate, rollout_id, percent, salt):
 
 ROLLOUT_SALT = "c3RhZ2VkLXJvbGxvdXQtMQ"  # 22 base64url characters, as SPEC §1.4 requires
 ROLLOUT_ID = "ro_fixture"
+OTHER_ROLLOUT_SALT = "b3RoZXItcm9sbG91dC0yMg"
+OTHER_ROLLOUT_ID = "ro_fixture_2"
+
+# Sequences whose manifests deliberately break the schema's `rollout`
+# member. Everything else in them must still validate.
+INVALID_ROLLOUT_SEQUENCES = {"rollout-invalid"}
 
 
 def rollout_sequences():
-    """Loading sequences for SPEC §1.4 that today's runtimes — which predate
-    it — already pass: what a runtime does when its installation is outside
-    the candidate, and what one without rollout support does. The sequences
-    that put an installation *on* the candidate are not written yet; see
-    testdata/README.md and RFC 0006 §5.2's wave-1 amendment."""
+    """Loading sequences for SPEC §1.4: an installation outside the
+    candidate and a runtime without rollout support — which every runtime
+    written before §1.4 passes by ignoring `rollout` — and the sequences
+    that put an installation *on* the candidate, which only a runtime that
+    implements §1.4 passes (RFC 0006 §13, wave 2)."""
     r1, b1 = build_release("rel_1", 1, "en", [("en", "ltr"), ("de", "ltr")], {},
                            {"en": {"hello": text("Hello v1")}, "de": {"hello": text("Hallo v1")}})
     r2, b2 = build_release("rel_2", 2, "en", [("en", "ltr"), ("de", "ltr")], {},
@@ -424,6 +439,77 @@ def rollout_sequences():
         "restartBefore": [2],
     }
 
+    # An installation inside the candidate at 10 %: it activates the
+    # candidate, keeps it across a restart (the persisted manifest decides
+    # the side again) and an advance, returns to stable when the rollout is
+    # aborted, and is outside a new rollout under another salt: a new
+    # rollout is a new draw, not a continuation of the old one.
+    in_id = first_installation_both(ROLLOUT_SALT, lambda c: c < 1000, OTHER_ROLLOUT_SALT, lambda c: c >= 5000)
+    in_cohort, other_cohort = cohort(ROLLOUT_SALT, in_id), cohort(OTHER_ROLLOUT_SALT, in_id)
+    at_10_other = sign(with_rollout(r1, r2, OTHER_ROLLOUT_ID, 10, OTHER_ROLLOUT_SALT))
+    cand = lambda percent: {"id": ROLLOUT_ID, "percent": percent, "cohort": in_cohort, "side": "candidate"}
+    yield "rollout-candidate-side", {
+        "description": f"An installation whose cohort ({in_cohort}) is inside 10 % activates the candidate, keeps it "
+                       "through restart and advance, returns to stable on abort, and is drawn again by a new rollout",
+        "publicKeys": [{"keyId": TEST_KEY_ID, "key": TEST_PUBLIC_KEY}],
+        "installationId": in_id,
+        "steps": [
+            step("cold start, a rollout of rel_2 at 10 %: the installation is in the candidate",
+                 ok(at_10, '"m1"'), everything, "rel_2", "network", "Hello v2", cand(10)),
+            step("revalidate, not modified", {"status": 304}, everything, "rel_2", "memory", "Hello v2", cand(10)),
+            step("process restart, edge down: the persisted manifest puts it on the candidate again",
+                 down, {}, "rel_2", "persisted", "Hello v2", cand(10), ["network"]),
+            step("advanced to 50 %: still in the candidate", ok(at_50, '"m2"'), everything, "rel_2", "network",
+                 "Hello v2", cand(50)),
+            step("aborted: the manifest carries no rollout, so the installation is back on stable",
+                 ok(sign(r1), '"m3"'), everything, "rel_1", "network", "Hello v1", None),
+            step("a new rollout under another salt: the installation's new cohort is outside it",
+                 ok(at_10_other, '"m4"'), stable_only, "rel_1", "network", "Hello v1",
+                 {"id": OTHER_ROLLOUT_ID, "percent": 10, "cohort": other_cohort, "side": "stable"}),
+        ],
+        "restartBefore": [2],
+    }
+
+    # A candidate that can't be activated falls back to the stable view of
+    # the same manifest (rel_2 here, not the previously active rel_1), and
+    # `explain()` shows a cohort inside the percentage on the stable side.
+    r3, b3 = build_release("rel_3", 3, "en", [("en", "ltr"), ("de", "ltr")], {},
+                           {"en": {"hello": text("Hello v3")}, "de": {"hello": text("Hallo v3")}})
+    corrupt3 = {d: body.replace("v3", "vX") for d, body in b3.items()}  # bytes no longer match the hash
+    r2_rolling_r3 = sign(with_rollout(r2, r3, ROLLOUT_ID, 10, ROLLOUT_SALT))
+    side3 = lambda s: {"id": ROLLOUT_ID, "percent": 10, "cohort": in_cohort, "side": s}
+    yield "rollout-candidate-fallback", {
+        "description": "A candidate whose artifact fails integrity is never half-activated: the installation gets "
+                       "the stable view of the same manifest, not the release it had before",
+        "publicKeys": [{"keyId": TEST_KEY_ID, "key": TEST_PUBLIC_KEY}],
+        "installationId": in_id,
+        "steps": [
+            step("release 1, no rollout", ok(sign(r1), '"m1"'), b1, "rel_1", "network", "Hello v1", None),
+            step("rel_2 published with a rollout of rel_3 at 10 %; rel_3's artifacts are corrupt",
+                 ok(r2_rolling_r3, '"m2"'), {**b1, **b2, **corrupt3}, "rel_2", "network", "Hello v2",
+                 side3("stable"), ["integrity"]),
+            step("the same manifest, rel_3 served correctly", ok(r2_rolling_r3, '"m2b"'), {**b2, **b3}, "rel_3",
+                 "network", "Hello v3", side3("candidate")),
+        ],
+    }
+
+    # A `rollout` that doesn't match the schema is ignored with a `schema`
+    # error: the stable view, no candidate fetch, `rollout: null`.
+    invalid = with_rollout(r1, r2, ROLLOUT_ID, 100, ROLLOUT_SALT)
+    invalid["rollout"]["salt"] = "not-a-salt"
+    yield "rollout-invalid", {
+        "description": "An invalid `rollout` (a salt that isn't 22 base64url characters) is ignored with a schema "
+                       "error, even at 100 %; a valid one afterwards is joined",
+        "publicKeys": [{"keyId": TEST_KEY_ID, "key": TEST_PUBLIC_KEY}],
+        "installationId": in_id,
+        "steps": [
+            step("cold start, an invalid rollout of rel_2 at 100 %", ok(sign(invalid), '"m1"'), stable_only,
+                 "rel_1", "network", "Hello v1", None, ["schema"]),
+            step("a valid rollout of rel_2 at 100 %", ok(at_100, '"m2"'), everything, "rel_2", "network",
+                 "Hello v2", {"id": ROLLOUT_ID, "percent": 100, "cohort": in_cohort, "side": "candidate"}),
+        ],
+    }
+
 
 def rollout_cohorts():
     """The cohort table of RFC 0006 §12.4: 10,000 installation ids with the
@@ -443,7 +529,7 @@ def rollout_cohorts():
                        (9999, "the highest cohort: in the candidate only at 100 %")]:
         key = first_installation(ROLLOUT_SALT, lambda c, w=want: c == w)
         vectors.append({"salt": ROLLOUT_SALT, "key": key, "cohort": want, "note": note})
-    other_salt = "b3RoZXItcm9sbG91dC0yMg"
+    other_salt = OTHER_ROLLOUT_SALT
     vectors.append({"salt": other_salt, "key": ids[0], "cohort": cohort(other_salt, ids[0]),
                     "note": "the first installation under another rollout's salt"})
     for key, note in [("user-42", "a Go per-request cohort key: any non-empty string, hashed as UTF-8"),
@@ -532,7 +618,7 @@ def edge_fixtures():
 # ── Safe markup (formatted parts → HTML) ────────────────────────────────
 
 # Inline, attribute-free phrasing elements a translation may produce. The
-# single source of truth: @glossa/elements' SAFE_TAGS and the Go runtime's
+# single source of truth: @felixgeelhaar/glossa-elements' SAFE_TAGS and the Go runtime's
 # safeTags are tested against this list.
 SAFE_TAGS = ("b strong i em u s small mark sub sup code kbd samp var abbr cite dfn q "
              "del ins bdi span br wbr").split()
@@ -557,7 +643,7 @@ def markup_fixture():
         return {"description": description, "parts": parts, "html": html}
 
     return {
-        "$comment": "Formatted parts -> HTML, the rules of @glossa/elements/parts and the Go runtime's HTML/th. "
+        "$comment": "Formatted parts -> HTML, the rules of @felixgeelhaar/glossa-elements/parts and the Go runtime's HTML/th. "
                     "`safeTags`: the only markup names that become elements; `voidTags`: the safe tags rendered "
                     "without children or a closing tag. Markup options are always dropped. Text is escaped "
                     "(& < >). Unsafe markup keeps just its content. Unclosed markup closes at the end; a close "
@@ -657,8 +743,12 @@ def main():
     for name, seq in rollout_sequences():
         for st in seq["steps"]:
             m = st["edge"]["manifest"]
-            if m.get("status") == 200:
-                validate_release(m["body"], {}, v)
+            if m.get("status") != 200:
+                continue
+            body = m["body"]
+            if name in INVALID_ROLLOUT_SEQUENCES and not v[1].is_valid(body):
+                body = {k: val for k, val in body.items() if k != "rollout"}
+            validate_release(body, {}, v)
         outputs[ROOT / "loading" / f"{name}.json"] = render(seq)
     table = rollout_cohorts()
     assert json.loads(render_cohorts(table)) == table

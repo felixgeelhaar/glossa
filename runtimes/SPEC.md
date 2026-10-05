@@ -213,7 +213,7 @@ To render message `id`, walk the chain and use the first locale whose loaded art
 
 ## 5. Formatting
 
-- Runtimes format with an MF2 interpreter over the data model, as `@glossa/runtime` does. They MUST pass the runtime cases of the Unicode MessageFormat suite and `messageformat/testdata/glossa/runtime-format.json` (implementation-defined outputs excepted, and documented).
+- Runtimes format with an MF2 interpreter over the data model, as `@felixgeelhaar/glossa-runtime` does. They MUST pass the runtime cases of the Unicode MessageFormat suite and `messageformat/testdata/glossa/runtime-format.json` (implementation-defined outputs excepted, and documented).
 - Formatting MUST NOT throw. A failing expression renders its MF2 fallback representation (`{$name}`), and the error is reported (§6).
 - Bidi isolation is on by default, per the MF2 spec. The active locale's `direction` from the manifest is exposed to the application, so it can set `dir`.
 - Runtimes that render MF2 markup as HTML MUST follow [`testdata/markup.json`](./testdata/markup.json): only markup named on its `safeTags` list becomes an element, markup options never become attributes (a translation can't add a link), text is escaped, and other markup renders just its content.
@@ -265,7 +265,7 @@ Every runtime exposes:
 
 Loading-order behaviour (persisted last-good, atomic activation, integrity failure, signature rejection, schema version, cold offline start) is covered by `testdata/loading/*.json`. Each file lists a sequence of edge responses and the expected active release after each one. Runtimes drive these through a fake transport. Field reference: [`testdata/README.md`](./testdata/README.md).
 
-Staged rollout (§1.4) is covered by `testdata/loading/rollout-*.json` (an installation on the stable side, a runtime without rollout support) and by `testdata/rollout/cohorts.json`: 10,000 installation ids with the cohort each gets under one salt, the number in the candidate at several percentages, and boundary and cohort-key vectors. The generator computes those cohorts from this section's formula and shares no code with any runtime, so runtimes that agree with it agree with the SPEC, not with each other.
+Staged rollout (§1.4) is covered by `testdata/loading/rollout-*.json` (an installation on the stable side and on the candidate side, a candidate that falls back to the stable view, an invalid `rollout`, a runtime without rollout support) and by `testdata/rollout/cohorts.json`: 10,000 installation ids with the cohort each gets under one salt, the number in the candidate at several percentages, and boundary and cohort-key vectors. The generator computes those cohorts from this section's formula and shares no code with any runtime, so runtimes that agree with it agree with the SPEC, not with each other.
 
 Every runtime runs both suites in CI. A bug found in any runtime becomes a new case here first.
 

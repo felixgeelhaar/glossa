@@ -16,6 +16,10 @@ package m5_test
 // rather than another, only on the operation existing.
 
 // Workflow (§2, §8): definitions, bindings, instances, transitions.
+// These are in the spec since wave 2 (tag `workflows`); the paths below
+// are the spec's: definitions are the tenant's (a project's own one is
+// created with `?project=`), bindings and instances are addressed under
+// their project, and an instance's log is under the instance.
 func (s *scenario) workflowDefinitionsPath() string { return s.tenantPath("/workflow-definitions") }
 func (s *scenario) workflowBindingsPath(project string) string {
 	return s.projectPathOf(project, "/workflow-bindings")
@@ -27,7 +31,16 @@ func (s *scenario) workflowTransitionsPath(project, instance string) string {
 	return s.projectPathOf(project, "/workflow-instances/"+instance+"/transitions")
 }
 
-// Assignments, approvals, groups and vendors (§3, §4.3).
+// Assignments, approvals, groups and vendors (§3, §4.3). In the spec
+// since wave 3 (tags `assignments`, `approvals`, `groups`, `vendors`),
+// tenant-level with a project filter. GET …/assignments answers what
+// the caller may see — a manager every assignment, everyone else (a
+// vendor's member included) their own work; an assignment is created
+// with `project_id` once and its units by message key; its actions are
+// …/acceptance, …/completion and …/decline. Approvals are listed by
+// `project`, `message` (a key) and `locale`, carry a `state`, and take
+// decisions as `{"decision": "granted"|"denied", "reason"}`. A member is
+// invited into a vendor with `vendor_id`, `visibility` and `projects`.
 func (s *scenario) assignmentsPath() string         { return s.tenantPath("/assignments") }
 func (s *scenario) assignmentPath(id string) string { return s.tenantPath("/assignments/" + id) }
 func (s *scenario) approvalsPath() string           { return s.tenantPath("/approvals") }
@@ -36,7 +49,14 @@ func (s *scenario) approvalDecisions(id string) string {
 }
 func (s *scenario) vendorsPath() string { return s.tenantPath("/vendors") }
 
-// Release requests and rollouts (§5).
+// Release requests and rollouts (§5). In the spec since wave 4 (tags
+// `release-requests`, `rollouts`). A publish or promote into an
+// environment with an `approval` answers 202 with the release's `id` and
+// `release_request_id`; a request is read under …/release-requests and
+// granted with `{"decision": "granted"}` at …/approvals (201). A rollout
+// starts with `{"release_id", "percent"}` (201, ETag), advances with a
+// PATCH of `{"percent"}` carrying that ETag as If-Match, and ends at
+// …/completion or …/abort.
 func (s *scenario) releaseRequestsPath(project string) string {
 	return s.projectPathOf(project, "/release-requests")
 }
@@ -56,6 +76,11 @@ func (s *scenario) rolloutPath(project, env, id string) string {
 func (s *scenario) auditEntriesPath() string        { return s.tenantPath("/audit-entries") }
 func (s *scenario) auditExportJobsPath() string     { return s.tenantPath("/audit-export-jobs") }
 func (s *scenario) auditExportJob(id string) string { return s.tenantPath("/audit-export-jobs/" + id) }
+
+// auditKeysPath is where glossa-server publishes the audit key's public
+// half (RFC 0006 §6.2, amended in wave 4): deployment-wide, outside
+// /v1, readable without a token.
+const auditKeysPath = "/.well-known/glossa-audit-keys.json"
 
 // The member fields §3.3 and §4.1 add to an invitation.
 const (

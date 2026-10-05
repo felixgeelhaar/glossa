@@ -64,8 +64,11 @@ type ProjectTranslationQuery struct {
 	KeyPrefix    string
 	MessageState *string
 	Keys         []string
-	After        TranslationCursor
-	Limit        int
+	// Units, when not nil, limits the listing to these units: an
+	// assigned member's (RFC 0006 §3.3). Empty and not nil is nothing.
+	Units []authz.Unit
+	After TranslationCursor
+	Limit int
 }
 
 // TranslationCursor is the keyset position after a listed translation:
@@ -166,15 +169,19 @@ func (f TranslationFilter) query(page pagination.Page) (ProjectTranslationQuery,
 // ListProjectTranslations lists a project's translations in some locales
 // across messages, by message key and then locale, with each message's
 // key, namespace and state — the CLI's and Studio's bulk read. It is one
-// query per page over Localization's projection of the catalog.
+// query per page over Localization's projection of the catalog. An
+// assigned member's listing holds only their units, filtered in the
+// query (RFC 0006 §3.3).
 func (s *Service) ListProjectTranslations(ctx context.Context, project uuid.UUID, f TranslationFilter, page pagination.Page) ([]ProjectTranslationView, *string, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	vis, err := authz.Visible(ctx, authz.TranslationsRead, project)
+	if err != nil {
 		return nil, nil, err
 	}
 	q, err := f.query(page)
 	if err != nil {
 		return nil, nil, err
 	}
+	q.Units = vis.Units()
 	if _, err := s.catalog.Project(ctx, project); err != nil {
 		return nil, nil, err
 	}

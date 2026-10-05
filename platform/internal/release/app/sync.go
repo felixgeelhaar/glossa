@@ -22,7 +22,8 @@ func (s *Service) syncNow(ctx context.Context, project uuid.UUID, environment st
 }
 
 // SyncEnvironment writes the manifest of the release an environment
-// serves to storage, where glossa-edge reads it. It holds the
+// serves — and of its active rollout's candidate, if any — to storage,
+// where glossa-edge reads it. It holds the
 // environment's row lock while writing, so two syncs (or a sync and a
 // pointer move) can't reorder: the last write always describes the
 // current pointer. It is idempotent: the same release, environment and
@@ -43,7 +44,23 @@ func (s *Service) SyncEnvironment(ctx context.Context, project uuid.UUID, enviro
 		if err != nil {
 			return err
 		}
-		body, err := s.ManifestBytes(rel, environment)
+		m := rel.Manifest(environment)
+		// An active rollout adds its candidate (RFC 0006 §5.2), nested so
+		// a runtime that predates SPEC §1.4 serves the stable release.
+		// Read under the environment's lock, which every rollout change
+		// takes first, so the member and the pointer are one state.
+		ro, err := st.ActiveRollout(ctx, project, environment, false)
+		switch {
+		case err == nil:
+			candidate, err := st.Release(ctx, project, ro.Candidate)
+			if err != nil {
+				return err
+			}
+			m = m.WithRollout(ro, candidate)
+		case !isNotFound(err):
+			return err
+		}
+		body, err := m.Encode(s.signer)
 		if err != nil {
 			return err
 		}
@@ -54,7 +71,8 @@ func (s *Service) SyncEnvironment(ctx context.Context, project uuid.UUID, enviro
 	})
 }
 
-// ManifestBytes is the signed manifest of rel as environment serves it.
+// ManifestBytes is the signed manifest of rel as environment serves it
+// without a rollout.
 func (s *Service) ManifestBytes(rel domain.Release, environment string) ([]byte, error) {
 	return rel.Manifest(environment).Encode(s.signer)
 }

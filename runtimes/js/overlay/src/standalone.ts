@@ -1,13 +1,13 @@
 /**
  * The script Studio serves at `/overlay/v1/overlay.js` (RFC 0004 §5.1),
- * bundled with Lit and `@glossa/capture` by `scripts/bundle.mjs` into
+ * bundled with Lit and `@felixgeelhaar/glossa-capture` by `scripts/bundle.mjs` into
  * `dist/bundle/overlay.js`. Running it defines `<glossa-overlay>` and hands
- * `activate` to the overlay loader (`@glossa/runtime/dev`), which added this
+ * `activate` to the overlay loader (`@felixgeelhaar/glossa-runtime/dev`), which added this
  * script with its SRI hash after checking the page's runtimes. It's a
  * module script, so the handover goes through a well-known symbol rather
  * than exports.
  */
-import type { OverlayModule } from "@glossa/runtime/dev";
+import type { OverlayModule } from "@felixgeelhaar/glossa-runtime/dev";
 
 import { activate } from "./activate.js";
 

@@ -270,9 +270,13 @@ WHERE ($1::uuid IS NULL OR job_id = $1::uuid)
   AND ($2::uuid IS NULL OR message_id = $2::uuid)
   AND ($3::uuid IS NULL OR project_id = $3::uuid)
   AND ($4::text IS NULL OR provider = $4::text)
-  AND ($5::timestamptz IS NULL OR (occurred_at, id) < ($5::timestamptz, $6::uuid))
+  -- projects limits the rows to a project-scoped caller's projects
+  -- (RFC 0006 §4.1), in the query so a page's size says nothing about
+  -- the others.
+  AND ($5::uuid[] IS NULL OR project_id = ANY ($5::uuid[]))
+  AND ($6::timestamptz IS NULL OR (occurred_at, id) < ($6::timestamptz, $7::uuid))
 ORDER BY occurred_at DESC, id DESC
-LIMIT $7::int
+LIMIT $8::int
 `
 
 type ListDisclosuresParams struct {
@@ -280,6 +284,7 @@ type ListDisclosuresParams struct {
 	MessageID uuid.NullUUID
 	ProjectID uuid.NullUUID
 	Provider  pgtype.Text
+	Projects  []uuid.UUID
 	BeforeAt  pgtype.Timestamptz
 	BeforeID  uuid.UUID
 	MaxRows   int32
@@ -291,6 +296,7 @@ func (q *Queries) ListDisclosures(ctx context.Context, arg ListDisclosuresParams
 		arg.MessageID,
 		arg.ProjectID,
 		arg.Provider,
+		arg.Projects,
 		arg.BeforeAt,
 		arg.BeforeID,
 		arg.MaxRows,
@@ -333,9 +339,13 @@ WHERE ($1::uuid IS NULL OR project_id = $1::uuid)
   AND ($3::text IS NULL OR locale = $3::text)
   AND ($4::uuid IS NULL OR message_id = $4::uuid)
   AND ($5::uuid IS NULL OR job_id = $5::uuid)
-  AND ($6::timestamptz IS NULL OR (created_at, id) < ($6::timestamptz, $7::uuid))
+  -- projects limits the rows to a project-scoped caller's projects
+  -- (RFC 0006 §4.1), in the query so a page's size says nothing about
+  -- the others.
+  AND ($6::uuid[] IS NULL OR project_id = ANY ($6::uuid[]))
+  AND ($7::timestamptz IS NULL OR (created_at, id) < ($7::timestamptz, $8::uuid))
 ORDER BY created_at DESC, id DESC
-LIMIT $8::int
+LIMIT $9::int
 `
 
 type ListSuggestionsParams struct {
@@ -344,6 +354,7 @@ type ListSuggestionsParams struct {
 	Locale    pgtype.Text
 	MessageID uuid.NullUUID
 	JobID     uuid.NullUUID
+	Projects  []uuid.UUID
 	BeforeAt  pgtype.Timestamptz
 	BeforeID  uuid.UUID
 	MaxRows   int32
@@ -356,6 +367,7 @@ func (q *Queries) ListSuggestions(ctx context.Context, arg ListSuggestionsParams
 		arg.Locale,
 		arg.MessageID,
 		arg.JobID,
+		arg.Projects,
 		arg.BeforeAt,
 		arg.BeforeID,
 		arg.MaxRows,

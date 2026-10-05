@@ -23,9 +23,17 @@
 //     statekit.FromJSON, lint-on-save, and bindings with the platform's
 //     one precedence rule.
 //   - app: saving definitions as immutable versions, binding them,
-//     resolving the binding for a subject.
-//   - adapters/postgres: the workflow_* tables (migration 0040).
-//   - defaults: the default definition, as a document.
+//     resolving the binding for a subject; the instance runner (an
+//     outbox subscriber that steps instances, actions run as the
+//     triggering actor) and its timer sweep; assignments and approvals.
+//   - adapters/postgres: the workflow_* tables (migrations 0040, 0043,
+//     0044).
+//   - adapters/sources, adapters/identity: the runner's ports onto
+//     Catalog, Localization, Quality, Intelligence and Identity.
+//   - adapters/release: release requests (RFC 0006 §5.1) — the
+//     runner's port onto Release, and Release's port onto approvals.
+//   - defaults: the default definitions (review, release approval), as
+//     documents.
 //
 // Workflow depends on the other contexts' ports; none of them depends
 // on Workflow.

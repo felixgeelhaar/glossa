@@ -2,41 +2,40 @@ package domain
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 )
 
-// RestrictionEnforced is false: project scope and assignment visibility
-// are modelled, validated and stored, and NOTHING ENFORCES THEM YET.
+// RestrictionEnforced is true: project scope and assignment visibility
+// are enforced, by package authz, in every context's read and write
+// paths (RFC 0006 §13, wave 2):
 //
-// RFC 0006 §13 splits the work: wave 1 (this) adds the model; wave 2
-// makes every read path in every context honour it at once, proved by a
-// sweep over every endpoint generated from the OpenAPI document (§12.2).
-// Enforcing it in a few paths first would only give a false sense of
-// safety, so until wave 2:
+//   - authz.Principal carries the restriction — project scope,
+//     visibility and member — and, for a token, its project scope; a CI
+//     token and an in-context grant are scoped to their one project;
+//   - a project outside a principal's scope answers as if it did not
+//     exist (authz.ErrNotVisible, rendered as each surface's not-found);
+//   - a member with VisibilityAssigned reads only the units their
+//     assignments cover (authz.Coverage), plus what translating them
+//     needs, writes translations only in them, and is refused every
+//     other permission but tenant.read; with no Coverage wired they see
+//     nothing.
 //
-//   - a project-scoped member or token can still reach every project;
-//   - a member with VisibilityAssigned (every vendor member) can still
-//     read everything their roles allow across the whole tenant;
-//   - no authz.Principal carries a Restriction, and the system-scope
-//     membership and token lookups that build principals cannot read the
-//     columns that store one.
-//
-// Do not give a vendor access to a tenant on the strength of these
-// fields. Wave 2 flips this constant together with the enforcement, and
-// TestRestrictionIsModelledButNotYetEnforced fails until it does both.
-const RestrictionEnforced = false
+// TestRestrictionIsEnforced in this package and authz's tests pin the
+// rules; cmd/glossa-server's route-enforcement table records the
+// decision for every operation in the OpenAPI document and fails for
+// one that has none.
+const RestrictionEnforced = true
 
 // maxProjectScope bounds a member's or token's project list.
 const maxProjectScope = 100
 
 // ProjectScope is the projects a member's roles, or a token's scopes,
 // apply to (RFC 0006 §4.1). The zero value is every project — which is
-// every membership and token that exists today.
-//
-// NOT ENFORCED until RFC 0006 wave 2: see RestrictionEnforced.
+// every membership and token without one.
 type ProjectScope struct{ projects []ProjectRef }
 
 // ParseProjectScope canonicalizes, sorts and de-duplicates project ids.
@@ -57,6 +56,30 @@ func ParseProjectScope(ids []string) (ProjectScope, error) {
 	}
 	slices.SortFunc(out, func(a, b ProjectRef) int { return strings.Compare(a.String(), b.String()) })
 	return ProjectScope{projects: out}, nil
+}
+
+// ProjectScopeOf is the scope of exactly project: a CI token's and an
+// in-context grant's, each minted for one project.
+func ProjectScopeOf(project ProjectRef) ProjectScope {
+	return ProjectScope{projects: []ProjectRef{project}}
+}
+
+// Within reports whether outer covers every project s covers: the check
+// that a token or a member is never scoped wider than the actor who
+// scoped it.
+func (s ProjectScope) Within(outer ProjectScope) bool {
+	if outer.All() {
+		return true
+	}
+	if s.All() {
+		return false
+	}
+	for _, p := range s.projects {
+		if !outer.Covers(p) {
+			return false
+		}
+	}
+	return true
 }
 
 // All reports whether the scope is every project.
@@ -85,6 +108,52 @@ func (s ProjectScope) UUIDs() []uuid.UUID {
 	return out
 }
 
+// maxEnvironmentScope bounds an environment scope.
+const maxEnvironmentScope = 50
+
+// environmentPattern is Release's environment name (release/delivery's
+// ValidEnvironment), mirrored: Identity imports no other context.
+var environmentPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// EnvironmentScope is the release environments an environment-scoped
+// permission applies to (RFC 0006 §4.2): approvals.decide on a release
+// request is decided per environment. The zero value is every
+// environment — which is every member and every token today: nothing
+// stores a narrower one yet, so the scope exists to be checked
+// (authz.RequireInEnvironment) and pinned, and a stored per-member
+// scope is additive. Names are Release's environment names.
+type EnvironmentScope struct{ names []string }
+
+// ParseEnvironmentScope validates, sorts and de-duplicates environment
+// names. An empty list is every environment.
+func ParseEnvironmentScope(names []string) (EnvironmentScope, error) {
+	var out []string
+	for _, n := range names {
+		if !environmentPattern.MatchString(n) || n == "a" {
+			return EnvironmentScope{}, fmt.Errorf("%w: %q is not an environment name", ErrInvalidEnvironmentScope, n)
+		}
+		if !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	if len(out) > maxEnvironmentScope {
+		return EnvironmentScope{}, fmt.Errorf("%w: %d environments (at most %d)", ErrInvalidEnvironmentScope, len(out), maxEnvironmentScope)
+	}
+	slices.Sort(out)
+	return EnvironmentScope{names: out}, nil
+}
+
+// All reports whether the scope is every environment.
+func (s EnvironmentScope) All() bool { return len(s.names) == 0 }
+
+// Covers reports whether the scope includes environment.
+func (s EnvironmentScope) Covers(environment string) bool {
+	return s.All() || slices.Contains(s.names, environment)
+}
+
+// Strings returns the names, sorted; empty for every environment.
+func (s EnvironmentScope) Strings() []string { return slices.Clone(s.names) }
+
 // Visibility says how much of the tenant a member reads (RFC 0006 §3.3).
 type Visibility string
 
@@ -94,7 +163,7 @@ const (
 	VisibilityAll Visibility = "all"
 	// VisibilityAssigned reads only the translation units of the
 	// member's assignments and what translating them needs. Every vendor
-	// member has it. NOT ENFORCED until RFC 0006 wave 2.
+	// member has it.
 	VisibilityAssigned Visibility = "assigned"
 )
 
@@ -115,9 +184,8 @@ func ParseVisibility(s string) (Visibility, error) {
 // they read the tenant or only their assignments (§3.3). The zero value
 // is unrestricted.
 //
-// NOT ENFORCED until RFC 0006 wave 2: see RestrictionEnforced. It is
-// stored and validated; no read path, no authz check and no principal
-// consults it yet.
+// Identity puts it on every principal it builds for the member, and
+// package authz enforces it (see RestrictionEnforced).
 type Restriction struct {
 	Projects ProjectScope
 	// Vendor is zero unless the member works for a vendor.

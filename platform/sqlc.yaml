@@ -219,3 +219,31 @@ sql:
         emit_interface: false
         emit_exported_queries: false
         omit_unused_structs: true
+
+  # Workflow's assignments and approvals (RFC 0006 §3), generated apart
+  # from definitions and instances so each can change on its own.
+  - name: workflow_work
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/workflow_work
+    gen:
+      go:
+        package: worksql
+        out: internal/workflow/adapters/postgres/worksql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true
+
+  - name: audit
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/audit
+    gen:
+      go:
+        package: auditsql
+        out: internal/audit/adapters/postgres/auditsql
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exported_queries: false
+        omit_unused_structs: true

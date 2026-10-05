@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres/workflowsql"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
@@ -28,11 +29,23 @@ func NewTransactor(uow *db.UnitOfWork) *Transactor { return &Transactor{uow: uow
 // InTenant implements app.Transactor.
 func (t *Transactor) InTenant(ctx context.Context, fn func(context.Context, app.Store) error) error {
 	return t.uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
-		return fn(ctx, &store{q: workflowsql.New(tx)})
+		return fn(ctx, &store{q: workflowsql.New(tx), tx: tx})
 	})
 }
 
-type store struct{ q *workflowsql.Queries }
+type store struct {
+	q *workflowsql.Queries
+	// tx is the transaction the queries run in, kept so a domain event
+	// lands with the rows that raised it.
+	tx *db.TenantTx
+}
+
+// Publish implements app.Store: the event goes in the transaction that
+// made the change, so a rollback leaves no announcement of it.
+func (s *store) Publish(ctx context.Context, e outbox.Event) error {
+	_, err := outbox.Publish(ctx, s.tx, e)
+	return err
+}
 
 var _ app.Store = (*store)(nil)
 
@@ -204,9 +217,9 @@ func (s *store) DeleteBinding(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *store) DeleteBindingsOf(ctx context.Context, definition uuid.UUID) error {
-	_, err := s.q.DeleteBindingsOfDefinition(ctx, definition)
-	return err
+func (s *store) DeleteBindingsOf(ctx context.Context, definition uuid.UUID) (int, error) {
+	n, err := s.q.DeleteBindingsOfDefinition(ctx, definition)
+	return int(n), err
 }
 
 // ── rows ────────────────────────────────────────────────────────────
