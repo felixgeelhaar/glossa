@@ -258,7 +258,7 @@ func (s *store) Units(ctx context.Context, f app.UnitFilter, after uuid.UUID, li
 	rows, err := s.q.ListTMUnits(ctx, knowledgesql.ListTMUnitsParams{
 		After: after, SourceLocale: nullTag(f.SourceLocale), TargetLocale: nullTag(f.TargetLocale),
 		ProjectID: nullUUID(f.ProjectID), TranslationID: nullUUID(f.TranslationID), State: f.State,
-		MaxRows: int32Of(limit),
+		Projects: f.Projects, MaxRows: int32Of(limit),
 	})
 	if err != nil {
 		return nil, storeError(err)
@@ -470,7 +470,8 @@ func (s *store) LockConcept(ctx context.Context, id uuid.UUID) (domain.Concept, 
 
 func (s *store) Concepts(ctx context.Context, f app.ConceptFilter, after uuid.UUID, limit int) ([]domain.Concept, error) {
 	p := knowledgesql.ListConceptsParams{
-		After: after, ProjectID: nullUUID(f.ProjectID), Locale: nullTag(f.Locale), MaxRows: int32Of(limit),
+		After: after, ProjectID: nullUUID(f.ProjectID), Locale: nullTag(f.Locale), Projects: f.Projects,
+		MaxRows: int32Of(limit),
 	}
 	if f.Domain != nil {
 		p.Domain = pgtype.Text{String: *f.Domain, Valid: true}
@@ -697,7 +698,7 @@ func (s *store) LockStyleGuide(ctx context.Context, id uuid.UUID) (domain.StyleG
 func (s *store) StyleGuides(ctx context.Context, f app.StyleFilter, after uuid.UUID, limit int) ([]domain.StyleGuide, error) {
 	rows, err := s.q.ListStyleGuides(ctx, knowledgesql.ListStyleGuidesParams{
 		After: after, TenantOnly: f.TenantOnly, ProjectID: nullUUID(f.ProjectID), Locale: nullTag(f.Locale),
-		MaxRows: int32Of(limit),
+		Projects: f.Projects, MaxRows: int32Of(limit),
 	})
 	if err != nil {
 		return nil, storeError(err)

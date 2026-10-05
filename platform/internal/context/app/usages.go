@@ -63,7 +63,7 @@ func (s *Service) MessageUsages(ctx context.Context, project, message uuid.UUID,
 }
 
 func (s *Service) messageUsages(ctx context.Context, project, message uuid.UUID, branch string, limit int) ([]UsageView, error) {
-	view, err := s.readView(ctx, project, branch)
+	view, err := s.messageView(ctx, project, message, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,10 @@ func (s *Service) UsagesOfKey(ctx context.Context, project uuid.UUID, key string
 
 // messageOf resolves a key to its message now (ErrMessageNotFound).
 func (s *Service) messageOf(ctx context.Context, project uuid.UUID, key string) (uuid.UUID, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	// Visible, not RequireIn: an assigned member reads the usages and
+	// screenshots of the messages their units are in (RFC 0006 §3.3),
+	// and Catalog's port resolves only those keys for them.
+	if _, err := authz.Visible(ctx, authz.CatalogRead, project); err != nil {
 		return uuid.Nil, err
 	}
 	ids, err := s.catalog.MessageIDs(ctx, project, []string{key})
@@ -152,7 +155,7 @@ type Unused struct {
 // build of the view (RFC 0004 §2.2). They are reported, never obsoleted:
 // dynamic IDs can't be seen. Needs catalog.read.
 func (s *Service) UnusedMessages(ctx context.Context, project uuid.UUID, branch string) (Unused, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return Unused{}, err
 	}
 	view, err := parseView(branch)
@@ -196,7 +199,21 @@ func (s *Service) UnusedMessages(ctx context.Context, project uuid.UUID, branch 
 
 // readView authorizes a read of project's context in a branch view.
 func (s *Service) readView(ctx context.Context, project uuid.UUID, branch string) (domain.Branch, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
+		return "", err
+	}
+	view, err := parseView(branch)
+	if err != nil {
+		return "", err
+	}
+	return view, s.catalog.Project(ctx, project)
+}
+
+// messageView is readView for one message's own context — its usages
+// and the captures that show it — which an assigned member reads for a
+// message their units are in (RFC 0006 §3.3) and for no other.
+func (s *Service) messageView(ctx context.Context, project, message uuid.UUID, branch string) (domain.Branch, error) {
+	if err := authz.RequireMessage(ctx, authz.CatalogRead, project, message); err != nil {
 		return "", err
 	}
 	view, err := parseView(branch)

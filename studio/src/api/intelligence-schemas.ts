@@ -268,6 +268,30 @@ export const AISuggestion = z.object({
   source: AISuggestionSource.optional(),
 });
 
+/**
+ * A suggestion as a unit's workspace shows it: the text, score and
+ * explanation, none of the job, provider, cost or memory units behind it
+ * (RFC 0006 §3.3). `decidable` is false for an assigned member.
+ */
+export const UnitAISuggestion = z.object({
+  id,
+  locale: z.string(),
+  source_revision: z.number().int(),
+  message: z.string(),
+  findings: z.array(QAFinding),
+  term_findings: z.array(AITermFinding),
+  score: z.number().min(0).max(1),
+  explanation: z.array(AIConfidenceFactor),
+  action: AIAction,
+  action_note: z.string().optional(),
+  risk_tags: z.array(z.string()),
+  status: AISuggestionStatus,
+  outdated: z.boolean(),
+  decidable: z.boolean(),
+  created_at: timestamp,
+});
+export const UnitAISuggestions = z.object({ items: z.array(UnitAISuggestion) });
+
 export const AIDisclosure = z.object({
   id,
   job_id: id,
@@ -330,6 +354,8 @@ export type AISuggestionStatus = z.infer<typeof AISuggestionStatus>;
 export type AIConfidenceFactor = z.infer<typeof AIConfidenceFactor>;
 export type AISuggestionSource = z.infer<typeof AISuggestionSource>;
 export type AISuggestion = z.infer<typeof AISuggestion>;
+export type UnitAISuggestion = z.infer<typeof UnitAISuggestion>;
+export type UnitAISuggestions = z.infer<typeof UnitAISuggestions>;
 export type AIDisclosure = z.infer<typeof AIDisclosure>;
 export type AILocaleMetrics = z.infer<typeof AILocaleMetrics>;
 export type AIMetrics = z.infer<typeof AIMetrics>;
@@ -340,6 +366,7 @@ type C = components["schemas"];
 type Fits<A, B> = [A] extends [B] ? true : false;
 type Assert<T extends true> = T;
 export type IntelligenceContractAlignment = [
+  Assert<Fits<UnitAISuggestions, C["UnitAISuggestions"]>>,
   Assert<Fits<AIProvider, C["AIProvider"]>>,
   Assert<Fits<AISettings, C["AISettings"]>>,
   Assert<Fits<AIPrices, C["AIPrices"]>>,

@@ -13,7 +13,7 @@
  */
 import { LitElement, html, nothing } from "lit";
 import type { PropertyDeclarations, TemplateResult } from "lit";
-import type { Message as Model } from "@glossa/runtime";
+import type { Message as Model } from "@felixgeelhaar/glossa-runtime";
 
 import { ApiError } from "./api.js";
 import type {

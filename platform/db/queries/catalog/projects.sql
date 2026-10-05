@@ -17,8 +17,12 @@ SELECT * FROM catalog_projects WHERE id = sqlc.arg(id);
 SELECT * FROM catalog_projects WHERE id = sqlc.arg(id) FOR UPDATE;
 
 -- name: ListProjects :many
+-- only limits the page to ids: a project-scoped caller's projects
+-- (RFC 0006 §4.1), filtered here so a page's size never betrays the
+-- projects outside the scope.
 SELECT * FROM catalog_projects
 WHERE id > sqlc.arg(after)
+  AND (NOT sqlc.arg(filter_ids)::boolean OR id = ANY (sqlc.arg(ids)::uuid[]))
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
 

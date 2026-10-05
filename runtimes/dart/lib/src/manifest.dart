@@ -86,6 +86,7 @@ class Manifest {
     required this.fallback,
     required this.artifacts,
     this.signatures = const [],
+    this.rolloutJson,
   });
 
   /// The project the release belongs to.
@@ -113,6 +114,11 @@ class Manifest {
   /// Empty when the manifest is unsigned.
   final List<ManifestSignature> signatures;
 
+  /// The `rollout` member as served (SPEC §1.4), unread: `Rollout.of`
+  /// reads it, so an invalid one is ignored without failing the manifest.
+  /// Null when there is none.
+  final Object? rolloutJson;
+
   /// The codes of [locales], in manifest order.
   List<String> get localeCodes => [for (final l in locales) l.code];
 
@@ -128,22 +134,72 @@ class Manifest {
   factory Manifest.fromJson(Object? json) {
     final m = _object(json, 'manifest');
     _checkSchema(m['schema'], manifestSchema);
+    return Manifest._release(
+      m,
+      project: _string(m['project'], 'project'),
+      environment: _string(m['environment'], 'environment'),
+      sourceLocale: _string(m['sourceLocale'], 'sourceLocale'),
+      signatures: [
+        // A malformed entry is skipped rather than failing the manifest:
+        // it simply isn't a signature anyone can verify against.
+        for (final s
+            in m['signatures'] is List<Object?>
+                ? m['signatures']! as List<Object?>
+                : const <Object?>[])
+          if (s is Map<String, Object?> &&
+              s['keyId'] is String &&
+              s['alg'] is String &&
+              s['sig'] is String)
+            ManifestSignature(
+              s['keyId']! as String,
+              s['alg']! as String,
+              s['sig']! as String,
+            ),
+      ],
+      rolloutJson: m['rollout'],
+    );
+  }
+
+  /// [base] with the release-specific members — `release`, `locales`,
+  /// `fallback` and `artifacts` — read from [members] instead, and without
+  /// `rollout`: a rollout's candidate view (SPEC §1.4).
+  factory Manifest.view(Manifest base, Map<String, Object?> members) =>
+      Manifest._release(
+        members,
+        project: base.project,
+        environment: base.environment,
+        sourceLocale: base.sourceLocale,
+        signatures: base.signatures,
+      );
+
+  /// Reads the members a release owns from [m]; the rest is given.
+  factory Manifest._release(
+    Map<String, Object?> m, {
+    required String project,
+    required String environment,
+    required String sourceLocale,
+    required List<ManifestSignature> signatures,
+    Object? rolloutJson,
+  }) {
     final release = _object(m['release'], 'release');
     final version = release['version'];
     return Manifest(
-      project: _string(m['project'], 'project'),
-      environment: _string(m['environment'], 'environment'),
+      project: project,
+      environment: environment,
       release: ReleaseRef(
         _string(release['id'], 'release.id'),
         version is int ? version : _bad('release.version is not an integer'),
         release['createdAt'] is String ? release['createdAt']! as String : null,
       ),
-      sourceLocale: _string(m['sourceLocale'], 'sourceLocale'),
+      sourceLocale: sourceLocale,
       locales: [
         for (final l in _array(m['locales'], 'locales'))
           LocaleEntry(
             _string(_object(l, 'locale')['code'], 'locale.code'),
-            _object(l, 'locale')['direction'] as String?,
+            switch (_object(l, 'locale')['direction']) {
+              final String? d => d,
+              _ => _bad('locale.direction is not a string'),
+            },
           ),
       ],
       fallback: {
@@ -166,23 +222,8 @@ class Manifest {
               ),
           },
       },
-      signatures: [
-        // A malformed entry is skipped rather than failing the manifest:
-        // it simply isn't a signature anyone can verify against.
-        for (final s
-            in m['signatures'] is List<Object?>
-                ? m['signatures']! as List<Object?>
-                : const <Object?>[])
-          if (s is Map<String, Object?> &&
-              s['keyId'] is String &&
-              s['alg'] is String &&
-              s['sig'] is String)
-            ManifestSignature(
-              s['keyId']! as String,
-              s['alg']! as String,
-              s['sig']! as String,
-            ),
-      ],
+      signatures: signatures,
+      rolloutJson: rolloutJson,
     );
   }
 

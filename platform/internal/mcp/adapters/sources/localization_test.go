@@ -105,6 +105,9 @@ func (s *locStore) AppendRevision(_ context.Context, r localizationdomain.Revisi
 }
 
 func (s *locStore) Publish(_ context.Context, e outbox.Event) error {
+	if err := e.Validate(); err != nil { // what the outbox would refuse
+		return err
+	}
 	s.events = append(s.events, e)
 	return nil
 }

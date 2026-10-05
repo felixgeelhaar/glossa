@@ -140,7 +140,10 @@ type Store interface {
 	// UpdateTranslation saves t if the stored revision is expected.
 	UpdateTranslation(ctx context.Context, t domain.Translation, expected int) error
 	AppendRevision(ctx context.Context, r domain.Revision) error
-	TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, limit int) ([]TranslationRow, error)
+	// TranslationsOfMessage lists a message's translations by locale;
+	// only, when not nil, limits them to those locales (an assigned
+	// member's units of the message).
+	TranslationsOfMessage(ctx context.Context, message uuid.UUID, after string, only []string, limit int) ([]TranslationRow, error)
 	Revisions(ctx context.Context, translation domain.TranslationID, before, limit int) ([]domain.Revision, error)
 	// NewlyOutdated lists a message's translations made against a
 	// revision in [old, new).

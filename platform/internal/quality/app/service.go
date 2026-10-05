@@ -127,7 +127,7 @@ func (s *Service) span(ctx context.Context, name string, attrs ...attribute.KeyV
 // read checks `catalog.read` and that the project exists, so an unknown
 // project is a 404 rather than an empty list.
 func (s *Service) read(ctx context.Context, project uuid.UUID) error {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return err
 	}
 	return s.catalog.Project(ctx, project)
@@ -136,7 +136,7 @@ func (s *Service) read(ctx context.Context, project uuid.UUID) error {
 // write checks `catalog.write`, that the project exists, and returns
 // the acting principal.
 func (s *Service) write(ctx context.Context, project uuid.UUID) (string, error) {
-	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogWrite, project); err != nil {
 		return "", err
 	}
 	if err := s.catalog.Project(ctx, project); err != nil {

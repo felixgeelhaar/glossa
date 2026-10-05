@@ -1,5 +1,5 @@
 {
-  "$comment": "Formatted parts -> HTML, the rules of @glossa/elements/parts and the Go runtime's HTML/th. `safeTags`: the only markup names that become elements; `voidTags`: the safe tags rendered without children or a closing tag. Markup options are always dropped. Text is escaped (& < >). Unsafe markup keeps just its content. Unclosed markup closes at the end; a close closes everything opened after its matching open; a close without an open is ignored. Non-markup parts render as their text: `value`, the joined `parts` values of numbers and dates, or `{source}` for a fallback.",
+  "$comment": "Formatted parts -> HTML, the rules of @felixgeelhaar/glossa-elements/parts and the Go runtime's HTML/th. `safeTags`: the only markup names that become elements; `voidTags`: the safe tags rendered without children or a closing tag. Markup options are always dropped. Text is escaped (& < >). Unsafe markup keeps just its content. Unclosed markup closes at the end; a close closes everything opened after its matching open; a close without an open is ignored. Non-markup parts render as their text: `value`, the joined `parts` values of numbers and dates, or `{source}` for a fallback.",
   "safeTags": [
     "b",
     "strong",

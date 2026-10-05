@@ -162,7 +162,7 @@ func (s *Service) syncKeyNow(ctx context.Context, project, id uuid.UUID) {
 
 func keyEvent(typ string, k domain.DeliveryKey, by string) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateDeliveryKey, AggregateID: k.ID.String(),
+		Type: typ, AggregateType: domain.AggregateDeliveryKey, AggregateID: k.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.DeliveryKeyChanged{
 			KeyID: k.ID.String(), ProjectID: k.ProjectID.String(), Name: k.Name,
 			Environments: k.Scope.Environments, Branches: k.Scope.Branches, By: by,

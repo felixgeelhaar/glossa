@@ -4,8 +4,8 @@
   "commit": "7d0e4b19af6c2538e1b7d940c6a2f85413ce0d7b",
   "branch": "feature/pickup-copy",
   "tool": {
-    "name": "@glossa/unplugin",
-    "version": "0.0.0"
+    "name": "@felixgeelhaar/glossa-unplugin",
+    "version": "0.4.0"
   },
   "usages": [
     {

@@ -1,6 +1,6 @@
 /**
  * The in-product editor's loader (RFC 0004 §5.1, the build-time layer): a
- * small module from `@glossa/runtime/dev`, with the Studio origin, the
+ * small module from `@felixgeelhaar/glossa-runtime/dev`, with the Studio origin, the
  * overlay's SRI hash, the tenant and the project inlined, added to builds
  * for a Glossa environment that isn't `production`, and never to others.
  * A production build that asks for it fails.
@@ -9,7 +9,7 @@
  * themselves on the page, so the loader finds them whenever it runs):
  * - Vite: a `<script type="module">` for the virtual module in every HTML
  *   entry (`transformIndexHtml`); Astro pages import it through
- *   `@glossa/astro`'s page script.
+ *   `@felixgeelhaar/glossa-astro`'s page script.
  * - Rollup and Rolldown: an import appended to every entry module.
  * - webpack: a global entry, added to every entrypoint.
  * - esbuild: `inject`, which adds it to every entry point.
@@ -17,8 +17,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
-import { isProduction } from "@glossa/runtime/dev";
-import type { OverlayLoaderConfig } from "@glossa/runtime/dev";
+import { isProduction } from "@felixgeelhaar/glossa-runtime/dev";
+import type { OverlayLoaderConfig } from "@felixgeelhaar/glossa-runtime/dev";
 import type { UnpluginContextMeta, UnpluginOptions } from "unplugin";
 
 import type { GlossaPluginOptions, StudioOptions } from "./options.js";
@@ -27,7 +27,7 @@ import type { GlossaPluginOptions, StudioOptions } from "./options.js";
 export const LOADER_ID = "virtual:glossa/overlay-loader";
 const RESOLVED_ID = `\0${LOADER_ID}`;
 
-const PREFIX = "[@glossa/unplugin]";
+const PREFIX = "[@felixgeelhaar/glossa-unplugin]";
 const fail = (message: string) => new Error(`${PREFIX} ${message}`);
 
 /** `sha384-` and 48 bytes of base64: the hash Studio's overlay.json publishes. */
@@ -117,7 +117,7 @@ function read(file: string): string {
 }
 
 /**
- * The loader module: `@glossa/runtime/dev`, inlined so it needs no
+ * The loader module: `@felixgeelhaar/glossa-runtime/dev`, inlined so it needs no
  * resolution, then started.
  *
  * The loader is injected as a virtual module with no place on disk, so a
@@ -128,7 +128,7 @@ function read(file: string): string {
  * every application that uses the plugin.
  */
 export function loaderModule(config: OverlayLoaderConfig): string {
-  const runtime = dirname(createRequire(import.meta.url).resolve("@glossa/runtime/package.json"));
+  const runtime = dirname(createRequire(import.meta.url).resolve("@felixgeelhaar/glossa-runtime/package.json"));
   const dist = join(runtime, "dist");
   const parts: string[] = [];
   const dev = read(join(dist, "dev.js")).replace(RELATIVE_IMPORT, (_line, file: string) => {
@@ -138,7 +138,7 @@ export function loaderModule(config: OverlayLoaderConfig): string {
   const module = `${parts.join("\n")}\n${dev}`;
   if (ANY_IMPORT.test(module)) {
     throw fail(
-      "the overlay loader gained an import that can't be inlined; keep @glossa/runtime/dev " +
+      "the overlay loader gained an import that can't be inlined; keep @felixgeelhaar/glossa-runtime/dev " +
         "self-contained, or teach loaderModule to resolve it",
     );
   }
@@ -167,7 +167,7 @@ export function overlayPlugin(config: OverlayLoaderConfig, meta: UnpluginContext
   const code = loaderModule(config);
   const appendToEntries = meta.framework === "rollup" || meta.framework === "rolldown";
   const plugin: UnpluginOptions = {
-    name: "@glossa/unplugin:overlay",
+    name: "@felixgeelhaar/glossa-unplugin:overlay",
     resolveId(id) {
       return id === LOADER_ID || id === `/${LOADER_ID}` ? RESOLVED_ID : null;
     },

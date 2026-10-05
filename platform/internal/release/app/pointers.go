@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 
@@ -37,6 +38,12 @@ type PromoteInput struct {
 // is worse than an absent gate, because the deployment history would
 // look policed. It is forceable on the same terms: only with a reason,
 // recorded on the deployment.
+//
+// A destination that requires approval (RFC 0006 §5.1) holds the
+// promote once every check above has passed: a release request is made
+// and no pointer moves; the error is a *domain.HeldError
+// (domain.ErrApprovalRequired) and the environment is returned as it
+// is. Promoting the release it already serves makes no request.
 func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, release uuid.UUID, in PromoteInput) (domain.Environment, error) {
 	by, err := s.checkProject(ctx, project, authz.ReleasesPublish)
 	if err != nil {
@@ -59,6 +66,7 @@ func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, r
 	if err != nil {
 		return domain.Environment{}, err
 	}
+	var held *domain.ReleaseRequest
 	env, moved, err := s.pointer(ctx, project, name, func(ctx context.Context, st Store, env domain.Environment) (domain.Release, domain.Override, error) {
 		rel, err := st.Release(ctx, project, release)
 		if isNotFound(err) {
@@ -80,13 +88,30 @@ func (s *Service) Promote(ctx context.Context, project uuid.UUID, name string, r
 		// destination excludes, but an environment whose own policy
 		// ships drafts may still require approved text here.
 		ov, err := gate.Enforce(rel.Policy, rel.Content, rel.Stats, override)
-		return rel, ov, err
+		if err != nil || env.Approval == nil || env.Current == rel.ID {
+			return rel, ov, err
+		}
+		verdict := domain.VerdictOf(gate.Check(rel.Policy, rel.Content, rel.Stats))
+		req, err := s.hold(ctx, st, env, rel, domain.ActionPromote, by, verdict, override)
+		if err != nil {
+			return domain.Release{}, domain.Override{}, err
+		}
+		held = &req
+		return domain.Release{}, domain.Override{}, errHeld
 	}, domain.ActionPromote, domain.EventPromoted, by)
+	if held != nil && errors.Is(err, errHeld) {
+		return env, &domain.HeldError{Request: *held}
+	}
 	if err == nil && moved {
 		s.syncNow(ctx, project, name)
 	}
 	return env, err
 }
+
+// errHeld ends a pointer move that became a release request: the move
+// does not happen, and the request the transaction recorded commits
+// (pointer treats it as an outcome, not a failure).
+var errHeld = errors.New("release: held for approval")
 
 // Rollback points an environment back at a release it served before:
 // release, or by default the newest release it served that is older than
@@ -163,6 +188,7 @@ func (s *Service) pointer(ctx context.Context, project uuid.UUID, name string,
 	var (
 		env   domain.Environment
 		moved bool
+		held  bool
 	)
 	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		if err := s.ensureDefaults(ctx, st, project); err != nil {
@@ -173,6 +199,10 @@ func (s *Service) pointer(ctx context.Context, project uuid.UUID, name string,
 			return err
 		}
 		rel, override, err := choose(ctx, st, env)
+		if errors.Is(err, errHeld) {
+			held = true
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -185,12 +215,15 @@ func (s *Service) pointer(ctx context.Context, project uuid.UUID, name string,
 		}
 		moved = true
 		return st.Publish(ctx, outbox.Event{
-			Type: event, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(),
+			Type: event, AggregateType: domain.AggregateRelease, AggregateID: rel.ID.String(), Actor: outbox.Actor(by),
 			Payload: domain.PointerMoved{
 				ReleaseID: rel.ID.String(), ProjectID: project.String(), Version: rel.Version, Environment: name,
 				PreviousReleaseID: optionalID(previous), By: by,
 			},
 		})
 	})
+	if err == nil && held {
+		err = errHeld
+	}
 	return env, moved, err
 }

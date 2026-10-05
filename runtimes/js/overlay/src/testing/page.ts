@@ -5,7 +5,7 @@
  * falls back to the source) and a `<glossa-text>` component. Test-only; no
  * Node APIs, so the browser fixture bundles it.
  */
-import type { Runtime } from "@glossa/runtime";
+import type { Runtime } from "@felixgeelhaar/glossa-runtime";
 
 export const PAGE_HTML = `<main>
   <h1>Checkout</h1>

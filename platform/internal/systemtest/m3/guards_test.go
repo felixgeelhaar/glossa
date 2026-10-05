@@ -73,7 +73,7 @@ func (s *scenario) scanBundles() {
 			t.Fatalf("scan %s: %v", root, err)
 		}
 		if scan.Files == 0 {
-			t.Fatalf("%s holds no files: run `pnpm --filter @glossa/unplugin build:m3`", root)
+			t.Fatalf("%s holds no files: run `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`", root)
 		}
 		for m := range found {
 			scan.Found = append(scan.Found, m)

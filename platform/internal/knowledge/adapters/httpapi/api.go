@@ -208,6 +208,41 @@ func (a *API) LookupTranslationMemory(ctx context.Context, req apiv1.LookupTrans
 	return out, nil
 }
 
+// ListUnitTMMatches is the translation workspace's TM read: one unit's
+// matches, as text and score — never the unit they came from — and, for
+// an `assigned` member, never a key either (RFC 0006 §3.3, §9).
+func (a *API) ListUnitTMMatches(ctx context.Context, req apiv1.ListUnitTMMatchesRequestObject) (apiv1.ListUnitTMMatchesResponseObject, error) {
+	project, err := pathID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	loc, err := bcp47.Parse(req.Locale)
+	if err != nil {
+		return nil, mapError(app.ErrNotFound)
+	}
+	q := app.UnitTMQuery{Project: project, Key: req.Message, Locale: loc, Limit: deref(req.Params.Limit), MinScore: deref(req.Params.MinScore)}
+	if req.Params.TargetSyntax != nil {
+		q.TargetSyntax = mfcontent.Syntax(*req.Params.TargetSyntax)
+	}
+	r, err := a.svc.UnitTMMatches(ctx, q)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := apiv1.ListUnitTMMatches200JSONResponse{SourceNormalized: r.SourceNormalized, Items: make([]apiv1.UnitTMMatch, len(r.Matches))}
+	for i, m := range r.Matches {
+		out.Items[i] = apiv1.UnitTMMatch{
+			Score: m.Score, Kind: apiv1.UnitTMMatchKind(m.Kind), SourceNormalized: m.SourceNormalized, Target: m.TargetMF2,
+			TargetText: m.TargetText, TargetSyntax: apiv1.Syntax(m.TargetSyntax), TargetSyntaxFallback: m.SyntaxFallback,
+			VariablesAdapted: m.Adapted, ProjectScoped: m.ProjectScoped,
+		}
+		if m.MessageKey != "" {
+			key := m.MessageKey
+			out.Items[i].MessageKey = &key
+		}
+	}
+	return out, nil
+}
+
 func (a *API) SearchTranslationMemory(ctx context.Context, req apiv1.SearchTranslationMemoryRequestObject) (apiv1.SearchTranslationMemoryResponseObject, error) {
 	p := req.Params
 	src, err := optionalLocale(p.SourceLocale)

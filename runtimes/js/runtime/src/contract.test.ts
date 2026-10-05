@@ -115,6 +115,8 @@ describe("runtimes/testdata/loading", () => {
           locales: step.read.requested,
           refreshInterval: 0,
           onError: (e) => errors.push(e.type),
+          installationId: seq.installationId,
+          rollout: seq.rolloutSupport,
         });
         await rt.ready;
       } else {
@@ -124,7 +126,9 @@ describe("runtimes/testdata/loading", () => {
         const revalidation = edge.requests.slice(requests).find((r) => r.url.endsWith(".json"));
         expect(revalidation?.headers["If-None-Match"], where).toBe(lastEtag);
       }
-      if (step.edge.manifest.body && rt.release?.id === step.edge.manifest.body.release.id) {
+      // The manifest became active, on either side of a rollout it carries.
+      const body = step.edge.manifest.body;
+      if (body && [body.release.id, body.rollout?.candidate.release.id].includes(rt.release?.id)) {
         lastEtag = step.edge.manifest.etag;
       }
       if (rt.explain(step.read.id).requested.join() !== step.read.requested.join()) {
@@ -135,6 +139,9 @@ describe("runtimes/testdata/loading", () => {
       expect(rt.release?.id ?? null, where).toBe(step.expActiveRelease);
       expect(rt.explain(step.read.id).source, where).toBe(step.expSource);
       expect(errors.slice(seen), where).toEqual(step.expErrors);
+      if (step.expRollout !== undefined) {
+        expect(rt.explain(step.read.id).rollout, where).toEqual(step.expRollout);
+      }
     }
   });
 });

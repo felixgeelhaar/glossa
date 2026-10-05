@@ -60,15 +60,41 @@ abstract class ReleaseStore {
   Future<void> prune(Set<String> keep);
 }
 
+/// A [ReleaseStore] that also keeps this installation's id (SPEC §1.4).
+///
+/// SPEC §1.4 asks for the installation id to persist in the same store as
+/// the last-good release, so it survives exactly as long as the release
+/// does. It is a separate interface so a [ReleaseStore] written before
+/// staged rollout keeps compiling: a store that doesn't implement it gets
+/// an id that lives as long as the runtime does.
+///
+/// Every method may fail; the runtime then uses an id in memory.
+abstract interface class InstallationIdStore {
+  /// The persisted installation id, or null when there is none.
+  Future<String?> installationId();
+
+  /// Persist [id], 32 lowercase hexadecimal digits.
+  Future<void> putInstallationId(String id);
+}
+
 /// A [ReleaseStore] in memory. It survives nothing, which makes it the
 /// right store for tests, for a server that has a cache directory of its
 /// own, and for any host without durable storage.
-class MemoryReleaseStore implements ReleaseStore {
+class MemoryReleaseStore implements ReleaseStore, InstallationIdStore {
   /// Creates an empty store.
   MemoryReleaseStore();
 
   final Map<String, String> _artifacts = {};
   StoredManifest? _manifest;
+  String? _installationId;
+
+  @override
+  Future<String?> installationId() async => _installationId;
+
+  @override
+  Future<void> putInstallationId(String id) async {
+    _installationId = id;
+  }
 
   @override
   Future<String?> artifact(String sha256) async => _artifacts[sha256];

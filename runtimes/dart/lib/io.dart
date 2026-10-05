@@ -27,6 +27,10 @@ const String _artifactsDir = 'a';
 /// ETag with a manifest it didn't come from.
 const String _etagFile = 'etag.json';
 
+/// This installation's staged-rollout id (SPEC §1.4), kept beside the
+/// release so it lives exactly as long as the cache does.
+const String _installationIdFile = 'installation-id';
+
 /// The persisted last-good release (SPEC §3, step 2) in a directory.
 ///
 /// The directory *is* a valid bundle: `manifest.json` plus
@@ -46,7 +50,7 @@ const String _etagFile = 'etag.json';
 /// verified completely", so a process killed at any point leaves the
 /// previous manifest in place with all of its artifacts still present. A
 /// half-downloaded release can never be activated on the next start.
-class FileReleaseStore implements ReleaseStore {
+class FileReleaseStore implements ReleaseStore, InstallationIdStore {
   /// Creates a store in [directory]. The directory is created on first
   /// write; it doesn't have to exist yet.
   FileReleaseStore(this.directory);
@@ -70,6 +74,20 @@ class FileReleaseStore implements ReleaseStore {
   File get _etag => File('${directory.path}/$_etagFile');
   File _artifactFile(String sha256) =>
       File('${directory.path}/$_artifactsDir/$sha256.json');
+
+  File get _installationId => File('${directory.path}/$_installationIdFile');
+
+  @override
+  Future<String?> installationId() async {
+    if (!_installationId.existsSync()) return null;
+    final id = (await _installationId.readAsString()).trim();
+    // Anything else was not written by this store: start a new id.
+    return RegExp(r'^[0-9a-f]{32}$').hasMatch(id) ? id : null;
+  }
+
+  @override
+  Future<void> putInstallationId(String id) =>
+      _writeAtomic(_installationId, id);
 
   @override
   Future<String?> artifact(String sha256) async {

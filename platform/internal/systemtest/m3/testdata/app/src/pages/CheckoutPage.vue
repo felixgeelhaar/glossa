@@ -1,6 +1,6 @@
 <!-- Written by `go generate ./internal/systemtest/m3/...` — change the generator, not this file. -->
 <script setup lang="ts">
-import { GlossaText } from "@glossa/vue";
+import { GlossaText } from "@felixgeelhaar/glossa-vue";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 import { mountPayButton } from "../islands/mount";

@@ -1,7 +1,6 @@
 {
-  "name": "@glossa/unplugin",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@felixgeelhaar/glossa-unplugin",
+  "version": "0.4.0",
   "description": "Glossa's bundler plugin for Vite, Rollup, webpack and esbuild: finds where every message is used (file, line, component, route) after the framework transforms and writes .glossa/usages.json for `glossa context push`; adds the in-product editor's loader to builds for a non-production Glossa environment, never to production ones. No network calls.",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,14 +41,14 @@
     "build:m3": "node scripts/m3-fixture.mjs"
   },
   "dependencies": {
-    "@glossa/runtime": "workspace:*",
+    "@felixgeelhaar/glossa-runtime": "workspace:^",
     "@jridgewell/trace-mapping": "0.3.31",
     "acorn": "8.18.0",
     "unplugin": "3.4.0"
   },
   "devDependencies": {
-    "@glossa/react": "workspace:*",
-    "@glossa/vue": "workspace:*",
+    "@felixgeelhaar/glossa-react": "workspace:*",
+    "@felixgeelhaar/glossa-vue": "workspace:*",
     "@types/node": "22.19.19",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -75,5 +74,11 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/unplugin#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

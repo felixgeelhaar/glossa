@@ -1,6 +1,6 @@
 packages:
-  - "apps/admin"
   - "packages/*"
+  - "!packages/elements"
   - "messageformat/js"
   - "runtimes/js/*"
   - "runtimes/js/react/react-18"

@@ -38,6 +38,8 @@ export interface FakeIntelligence extends IntelligencePort {
     settings: AISettings;
     project: AIProjectSettings;
     suggestions: AISuggestion[];
+    /** Behave as for an assigned member: suggestions are not decidable. */
+    assigned: boolean;
     jobs: AIJob[];
     spend: AISpendEntry[];
   };
@@ -115,6 +117,7 @@ export function createFakeIntelligence(): FakeIntelligence {
     settings: { provider_consent: false, max_concurrent_jobs: 4, monthly_budget_micro_usd: 0, version: 0 },
     project: { namespace_tags: {}, auto_translate_locales: [], review: { auto_approve: false, auto_approve_min: 0.92, recommend_min: 0.75 }, version: 0 },
     suggestions: [],
+    assigned: false,
     jobs: [],
     spend: [],
   };
@@ -372,6 +375,30 @@ export function createFakeIntelligence(): FakeIntelligence {
         .reverse()
         .filter((s) => (!q.message || s.message_id === q.message) && (!q.locale || s.locale === q.locale) && (!q.status || s.status === q.status));
       return { items: structuredClone(items.slice(0, pageSize)), next: undefined };
+    },
+    async unitSuggestions(_t, _project, key, locale) {
+      calls.push(["unitSuggestions", key, locale]);
+      return [...state.suggestions]
+        .reverse()
+        .filter((s) => s.message_key === key && s.locale === locale)
+        .slice(0, 5)
+        .map((s) => ({
+          id: s.id,
+          locale: s.locale,
+          source_revision: s.source_revision,
+          message: s.message,
+          findings: s.findings,
+          term_findings: s.term_findings,
+          score: s.score,
+          explanation: s.explanation,
+          action: s.action,
+          ...(s.action_note ? { action_note: s.action_note } : {}),
+          risk_tags: s.risk_tags,
+          status: s.status,
+          outdated: false,
+          decidable: !state.assigned,
+          created_at: s.created_at,
+        }));
     },
     async suggestion(_t, sid) {
       const s = suggestionOf(sid);

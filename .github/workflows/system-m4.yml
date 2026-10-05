@@ -19,6 +19,14 @@
 # and on a push to `main` that touches the exit test itself, so the test
 # cannot rot unnoticed between nightly runs.
 #
+# And on a pull request that touches a seam M5 changes and M4's exit
+# depends on (RFC 0006 §11.2): the outbox envelope, Identity's domain
+# and authz, Localization's and Release's domain and app, the check
+# policy, and runtimes/SPEC.md. M4's exit test once broke because a
+# change to a shared check reached it a night later; with these filters
+# the change that would break it is the change that runs it. Every
+# other pull request still doesn't pay the hour.
+#
 # REPORT.md is kept as an artifact whatever the outcome: a criterion
 # that does not hold is the thing the report exists to say.
 name: M4 exit test
@@ -33,6 +41,19 @@ on:
     paths:
       - "platform/internal/systemtest/m4/**"
       - "studio/e2e/m4/**"
+      - ".github/workflows/system-m4.yml"
+  pull_request:
+    paths:
+      - "platform/internal/kernel/outbox/**"
+      - "platform/internal/identity/domain/**"
+      - "platform/internal/identity/authz/**"
+      - "platform/internal/localization/domain/**"
+      - "platform/internal/localization/app/**"
+      - "platform/internal/release/domain/**"
+      - "platform/internal/release/app/**"
+      - "platform/internal/kernel/checkpolicy/**"
+      - "runtimes/SPEC.md"
+      - "platform/internal/systemtest/m4/**"
       - ".github/workflows/system-m4.yml"
 
 permissions:
@@ -79,8 +100,8 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - name: build Studio
         run: |
-          pnpm --filter @glossa/messageformat build
-          pnpm --filter @glossa/overlay... build
+          pnpm --filter @felixgeelhaar/glossa-messageformat build
+          pnpm --filter @felixgeelhaar/glossa-overlay... build
           pnpm --filter @glossa/studio build
       - name: install Chromium for Playwright
         run: pnpm --filter @glossa/studio exec playwright install --with-deps chromium

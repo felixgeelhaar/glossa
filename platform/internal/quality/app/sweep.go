@@ -104,7 +104,7 @@ func (s *Swept) Add(o Swept) {
 // and a deleted run is gone. Running it twice on one day does the work
 // once.
 func (s *Service) SweepTenant(ctx context.Context) (out Swept, err error) {
-	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+	if err := authz.RequireUnscoped(ctx, authz.CatalogWrite); err != nil {
 		return Swept{}, err
 	}
 	now := s.now()

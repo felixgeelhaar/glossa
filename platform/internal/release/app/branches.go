@@ -102,7 +102,7 @@ func (s *Service) RequestBranchPublish(ctx context.Context, project uuid.UUID, b
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventPublishRequested, AggregateType: domain.AggregateEnvironment,
-			AggregateID: project.String() + "/" + env.Name,
+			AggregateID: project.String() + "/" + env.Name, Actor: outbox.Actor(by),
 			Payload: domain.PublishRequested{
 				ProjectID: project.String(), Environment: env.Name, Branch: branch, RequestID: r.ID.String(),
 				NotBefore: r.NotBefore, By: by,

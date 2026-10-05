@@ -41,6 +41,20 @@
 // — and only then activated, atomically. Until then the previous release
 // keeps serving.
 //
+// # Staged rollout
+//
+// A manifest may carry a candidate release for a share of installations
+// (SPEC §1.4). The cohort key decides the side: the process's installation
+// id (Config.InstallationID, or a random id kept in the cache directory),
+// or, on a server serving many users, a per-request key attached with
+// [WithCohortKey] — set Config.PerRequestCohorts so both sides are loaded.
+// A candidate that can't be activated falls back to the stable release of
+// the same manifest; Config.DisableRollout ignores rollouts entirely.
+// [Explanation].Rollout reports the rollout id, percent, cohort and side.
+//
+//	ctx = glossa.WithCohortKey(ctx, user.ID)
+//	client.T(ctx, "checkout.title", nil)
+//
 // # Servers
 //
 // [Client.Middleware] resolves each request's locale with a
@@ -75,7 +89,7 @@
 // it: text, markup, placeholder values and fallbacks, with the same
 // resolution and fallbacks as T. On top of the parts, [Localizer.HTML]
 // (the template function th) renders safe HTML, with the rules of
-// @glossa/elements: only allow-listed inline tags become elements, markup
+// @felixgeelhaar/glossa-elements: only allow-listed inline tags become elements, markup
 // options are always dropped (a translation can't add a link), and other
 // markup keeps only its text. [Localizer.Runs] renders text runs with
 // bold, italic and underline flags, whose [Run.Style] is fpdf's SetFont

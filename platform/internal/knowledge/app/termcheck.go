@@ -114,7 +114,7 @@ type ProjectTermReport struct {
 // knowledge.read (and, through the ports, translations.read and
 // catalog.read).
 func (s *Service) CheckProjectTerminology(ctx context.Context, project uuid.UUID, c ProjectTermCheck) (ProjectTermReport, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.KnowledgeRead, project); err != nil {
 		return ProjectTermReport{}, err
 	}
 	if len(c.Locales) == 0 || len(c.Locales) > MaxCheckedLocales {
