@@ -333,6 +333,9 @@ type Store interface {
 	) (uuid.UUID, error)
 	// Capture returns a capture without its regions (ErrNotFound).
 	Capture(ctx context.Context, id uuid.UUID) (domain.Capture, error)
+	// CaptureShows reports whether the capture has a region of any of
+	// messages.
+	CaptureShows(ctx context.Context, capture uuid.UUID, messages []uuid.UUID) (bool, error)
 	// UnknownRegionKeys returns the distinct keys of a build's regions
 	// the catalog didn't know at ingest, in order.
 	UnknownRegionKeys(ctx context.Context, build uuid.UUID) ([]string, error)

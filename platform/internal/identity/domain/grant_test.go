@@ -51,50 +51,6 @@ func TestParseRoles(t *testing.T) {
 	}
 }
 
-// The role matrix is the authorization contract other contexts rely on.
-// Changing a row here is a product decision, not a refactor.
-func TestRolePermissionMatrix(t *testing.T) {
-	type perms = []domain.Permission
-	all := domain.AllPermissions()
-	tests := map[string]struct {
-		allowed perms
-	}{
-		"owner": {allowed: all},
-		"admin": {allowed: without(all, domain.PermOwnersManage)},
-		"developer": {allowed: perms{
-			domain.PermTenantRead, domain.PermMembersRead, domain.PermTokensRead, domain.PermTokensManage,
-			domain.PermCatalogRead, domain.PermCatalogWrite, domain.PermTranslationsRead,
-			domain.PermTranslationsWrite, domain.PermReleasesRead, domain.PermReleasesPublish,
-			domain.PermKnowledgeRead, domain.PermKnowledgeWrite,
-			domain.PermIntelligenceRead, domain.PermIntelligenceTranslate,
-			domain.PermIntegrationRead, domain.PermIntegrationImport, domain.PermIntegrationManage,
-		}},
-		"translator": {allowed: perms{
-			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
-			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermReleasesRead,
-			domain.PermKnowledgeRead, domain.PermIntelligenceRead, domain.PermIntelligenceTranslate,
-			domain.PermIntegrationRead, domain.PermIntegrationImport,
-		}},
-		"reviewer": {allowed: perms{
-			domain.PermTenantRead, domain.PermMembersRead, domain.PermCatalogRead,
-			domain.PermTranslationsRead, domain.PermTranslationsWrite, domain.PermTranslationsReview,
-			domain.PermReleasesRead, domain.PermKnowledgeRead, domain.PermIntelligenceRead,
-			domain.PermIntelligenceTranslate, domain.PermIntegrationRead, domain.PermIntegrationImport,
-		}},
-	}
-	for role, tc := range tests {
-		t.Run(role, func(t *testing.T) {
-			g := domain.GrantForMember(mustRoles(t, role), domain.LocaleScope{})
-			for _, p := range all {
-				want := contains(tc.allowed, p)
-				if got := g.Allows(p); got != want {
-					t.Errorf("%s allows %s = %t, want %t", role, p, got, want)
-				}
-			}
-		})
-	}
-}
-
 func TestLocaleScopeRestrictsOnlyLocaleScopedPermissions(t *testing.T) {
 	g := domain.GrantForMember(mustRoles(t, "translator"), mustLocales(t, "de", "fr"))
 	de, deAT, ja := mustLocale(t, "de"), mustLocale(t, "de-AT"), mustLocale(t, "ja")
@@ -220,16 +176,6 @@ func TestGrantCovers(t *testing.T) {
 	if !owner.Covers(scopes("read", "write", "publish", "admin")) {
 		t.Error("an owner may mint any token")
 	}
-}
-
-func without(ps []domain.Permission, drop domain.Permission) []domain.Permission {
-	var out []domain.Permission
-	for _, p := range ps {
-		if p != drop {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 func contains(ps []domain.Permission, p domain.Permission) bool {

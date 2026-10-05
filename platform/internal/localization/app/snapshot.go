@@ -16,7 +16,7 @@ import (
 // list filters through it. It reads Localization's projection, so a
 // message is listed once its catalog event has been handled.
 func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f CoverageFilter) ([]uuid.UUID, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return nil, err
 	}
 	var ids []uuid.UUID
@@ -33,7 +33,7 @@ func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f
 // outdated (a branch's status report, RFC 0004 §4.1). It reveals counts,
 // not text, so catalog.read is enough.
 func (s *Service) CurrentTranslations(ctx context.Context, project uuid.UUID, ids []uuid.UUID) (map[string]int, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return nil, err
 	}
 	var out map[string]int
@@ -62,7 +62,7 @@ type TranslationWithSource struct {
 // translation is revised or reviewed. It needs translations.read (and,
 // through Catalog's port, catalog.read).
 func (s *Service) TranslationWithSource(ctx context.Context, project uuid.UUID, id domain.TranslationID) (TranslationWithSource, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return TranslationWithSource{}, err
 	}
 	var out TranslationWithSource
@@ -119,7 +119,26 @@ type TranslationSnapshot struct {
 // environment policy: production takes approved, preview everything).
 // Outdated translations are included and flagged — the policy decides.
 func (s *Service) ReleaseTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) (TranslationSnapshot, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	return s.translationSnapshot(ctx, project, states, true)
+}
+
+// LiveTranslations is ReleaseTranslations without the translations of
+// messages Localization's projection knows to be obsolete: the read of a
+// caller that joins with the active source and would only drop them —
+// the quality check, which reads the orphans it reports on its own,
+// bounded, through ListProjectTranslations. A project that obsoleted
+// thousands of messages keeps thousands of those rows, and a check must
+// not read them all to throw them away.
+//
+// The release keeps ReleaseTranslations: it joins with Catalog's own
+// active source, and a message restored a moment ago whose restoration
+// this projection has not handled yet must still ship.
+func (s *Service) LiveTranslations(ctx context.Context, project uuid.UUID, states []domain.ReviewState) (TranslationSnapshot, error) {
+	return s.translationSnapshot(ctx, project, states, false)
+}
+
+func (s *Service) translationSnapshot(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) (TranslationSnapshot, error) {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return TranslationSnapshot{}, err
 	}
 	p, err := s.catalog.Project(ctx, project)
@@ -146,7 +165,7 @@ func (s *Service) ReleaseTranslations(ctx context.Context, project uuid.UUID, st
 			return err
 		}
 		snap.Fallback = g.Edges
-		rows, err := st.SnapshotTranslations(ctx, project, states)
+		rows, err := st.SnapshotTranslations(ctx, project, states, includeObsolete)
 		if err != nil {
 			return err
 		}

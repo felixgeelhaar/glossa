@@ -1,7 +1,7 @@
 /**
- * `@glossa/runtime/dev`: the in-product editor's loader (RFC 0004 §5.1).
+ * `@felixgeelhaar/glossa-runtime/dev`: the in-product editor's loader (RFC 0004 §5.1).
  *
- * Applications never import this. `@glossa/unplugin` injects it into builds
+ * Applications never import this. `@felixgeelhaar/glossa-unplugin` injects it into builds
  * for a Glossa environment that isn't `production`, and it does nothing
  * until someone asks for the editor: `?glossa=edit` in the URL, or
  * Alt+Shift+E. Then it checks the page's runtimes (the ones `createRuntime`

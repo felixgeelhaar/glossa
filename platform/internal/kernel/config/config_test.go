@@ -202,6 +202,27 @@ func TestIntegrationConfig(t *testing.T) {
 	}
 }
 
+func TestWorkflowInstanceRetention(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Workflow.InstanceRetention != 180*24*time.Hour {
+		t.Errorf("default = %s", cfg.Workflow.InstanceRetention)
+	}
+	base["GLOSSA_WORKFLOW_INSTANCE_RETENTION"] = "720h"
+	if cfg, err = config.Load(env(base)); err != nil || cfg.Workflow.InstanceRetention != 720*time.Hour {
+		t.Errorf("720h = %s (%v)", cfg.Workflow.InstanceRetention, err)
+	}
+	for _, bad := range []string{"23h", "0", "soon"} {
+		base["GLOSSA_WORKFLOW_INSTANCE_RETENTION"] = bad
+		if _, err := config.Load(env(base)); err == nil || !strings.Contains(err.Error(), "GLOSSA_WORKFLOW_INSTANCE_RETENTION") {
+			t.Errorf("%q: err = %v", bad, err)
+		}
+	}
+}
+
 func TestPurgeConfig(t *testing.T) {
 	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
 	cfg, err := config.Load(env(base))
@@ -450,5 +471,43 @@ func TestMCPDefaultsOff(t *testing.T) {
 	}
 	if !cfg.MCP.Enabled || cfg.MCP.SessionTimeout != 30*time.Minute || cfg.MCP.Rate != 120 || cfg.MCP.Burst != 240 {
 		t.Errorf("mcp = %+v, want it enabled with its documented defaults", cfg.MCP)
+	}
+}
+
+// Audit exports are off by default and refuse to start without their
+// own key (RFC 0006 §6.2): there is no fallback derived from the auth
+// secret.
+func TestAuditExportKey(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://app@db/glossa", "GLOSSA_AUTH_SECRET": testSecret}
+	cfg, err := config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Audit.ExportsEnabled || !cfg.Audit.SigningKey.IsZero() {
+		t.Errorf("audit = %+v, want exports off and no key", cfg.Audit)
+	}
+
+	base["GLOSSA_AUDIT_EXPORTS_ENABLED"] = "true"
+	_, err = config.Load(env(base))
+	if err == nil || !strings.Contains(err.Error(), "GLOSSA_AUDIT_SIGNING_KEY: required when GLOSSA_AUDIT_EXPORTS_ENABLED is true") {
+		t.Fatalf("exports without a key: %v", err)
+	}
+
+	base["GLOSSA_AUDIT_SIGNING_KEY"] = "a=AAAA,b=BBBB"
+	if _, err = config.Load(env(base)); err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("two active keys: %v", err)
+	}
+
+	base["GLOSSA_AUDIT_SIGNING_KEY"] = "audit-2026=c2VlZA"
+	base["GLOSSA_AUDIT_RETIRED_KEYS"] = "audit-2025=cHVi"
+	cfg, err = config.Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Audit.ExportsEnabled || cfg.Audit.SigningKey.Reveal() != "audit-2026=c2VlZA" || cfg.Audit.RetiredKeys != "audit-2025=cHVi" {
+		t.Errorf("audit = %+v", cfg.Audit)
+	}
+	if strings.Contains(cfg.String(), "c2VlZA") || strings.Contains(cfg.Audit.SigningKey.String(), "c2VlZA") {
+		t.Error("the audit signing key leaks through String")
 	}
 }

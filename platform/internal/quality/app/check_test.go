@@ -13,6 +13,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
 )
 
 // RunCheck is the server's side of `glossa check`: it reads the project
@@ -47,6 +48,15 @@ func (c checkCatalog) Project(_ context.Context, project uuid.UUID) error {
 // never reaches: a check grades against the policy its caller passes,
 // not one it fetches. These answer the zero policy so the fake
 // satisfies the port without pretending to a behaviour under test.
+
+func (c checkCatalog) MessageIDs(
+	_ context.Context, project uuid.UUID, _ []string,
+) (map[string]uuid.UUID, error) {
+	if project != c.id {
+		return nil, app.ErrProjectNotFound
+	}
+	return nil, nil
+}
 
 func (c checkCatalog) CheckPolicy(_ context.Context, project uuid.UUID) (app.StoredPolicy, error) {
 	if project != c.id {
@@ -109,7 +119,7 @@ func TestRunCheckNeedsOnlyCatalogRead(t *testing.T) {
 	if rep.Conclusion != domain.ConclusionFailure || len(rep.Findings) == 0 {
 		t.Fatalf("report = %s with %d findings", rep.Conclusion, len(rep.Findings))
 	}
-	if len(rep.Layers) != 3 {
+	if len(rep.Layers) != len(layers.Default()) {
 		t.Fatalf("layers = %v, want every deterministic layer", rep.Layers)
 	}
 }

@@ -49,20 +49,28 @@ const port = (answer: QualitySummary | ApiError): QualitySummaryPort => ({
   },
 });
 
-async function layout(answer: QualitySummary | ApiError) {
+/** The membership the session holds in tenant `t`; none: the person is no member there. */
+const member = (roles: string[]) => ({
+  member_id: "m",
+  tenant: { id: "t", kind: "organization", slug: "acme", name: "Acme", created_at: NOW },
+  roles,
+  locales: [],
+});
+
+async function layout(answer: QualitySummary | ApiError, roles?: string[]) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (req: Request) => {
       const path = new URL(req.url).pathname;
       const body =
-        path === "/v1/me" ? ME : path === "/v1/tenants/t/projects/p" ? PROJECT : { items: [{ code: "en", direction: "ltr", is_source: true, created_at: NOW }] };
+        path === "/v1/me" ? { ...ME, memberships: roles ? [member(roles)] : [] } : path === "/v1/tenants/t/projects/p" ? PROJECT : { items: [{ code: "en", direction: "ltr", is_source: true, created_at: NOW }] };
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     }),
   );
   await refreshSession();
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ["translate", "review", "terms", "style", "locales", "quality", "releases", "files", "ai", "settings"]
+    routes: ["translate", "review", "terms", "style", "locales", "quality", "releases", "project-workflow", "files", "ai", "settings"]
       .map((p) => ({ path: `/t/:tenant/p/:project/${p}`, name: p, component: Empty }))
       .concat([{ path: "/t/:tenant", name: "projects", component: Empty }]),
   });
@@ -111,5 +119,29 @@ describe("the project navigation's open-errors badge", () => {
     expect(w.findAll("[data-testid=nav-open-errors]")).toHaveLength(1);
     // Not warnings, not waived, not coverage. §8 is explicit: one number.
     expect(w.get(".tabs").text()).not.toContain("12");
+  });
+});
+
+describe("the project navigation's permission-guarded tabs", () => {
+  const tabNames = (w: VueWrapper) => w.findAll("a.tab").map((a) => a.text().replace(/\s+\d+ open errors$/, "").trim());
+  const summary = qualitySummary({ project: {} });
+
+  it("offers Workflow to whoever may read workflows, as the API asks", async () => {
+    const w = await layout(summary, ["developer"]);
+    expect(tabNames(w)).toContain("Workflow");
+    expect(w.findAll("a.tab")).toHaveLength(11);
+  });
+
+  it("offers it to a translator too: reading workflows is part of every role", async () => {
+    const w = await layout(summary, ["translator"]);
+    expect(tabNames(w)).toContain("Workflow");
+  });
+
+  it("leaves it out for a person with no role here, rather than offering a tab that answers 403", async () => {
+    const w = await layout(summary);
+    expect(tabNames(w)).not.toContain("Workflow");
+    expect(w.findAll("a.tab")).toHaveLength(10);
+    // The tabs that need no permission are still all there, in order.
+    expect(tabNames(w)).toEqual(["Translate", "Review", "Termbase", "Style", "Locales", "Quality", "Releases", "Import & export", "AI", "Settings"]);
   });
 });

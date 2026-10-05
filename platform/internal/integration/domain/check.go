@@ -60,17 +60,23 @@ type CheckTarget struct {
 	// them, so an annotation is sent once per run and a retry sends
 	// none. A new run (a new commit, or a rerequest) starts empty.
 	Annotations []string `json:"annotations,omitempty"`
-	// Pushed and Usages are what this head SHA's CI has ingested: the
-	// branch push and the usages build. The check completes when both
-	// have arrived, or when CheckWait runs out.
-	Pushed bool `json:"pushed,omitempty"`
-	Usages bool `json:"usages,omitempty"`
+	// Pushed, Usages and Recorded are what this head SHA's CI has done:
+	// the branch push, the usages build, and the `glossa check` run it
+	// recorded. The check completes when all three have arrived, or when
+	// CheckWait runs out.
+	//
+	// Recorded is the one RFC 0005 §12.3 adds. The pull request renders
+	// the run CI recorded rather than computing a second one, so in a
+	// project known to record runs there is nothing to render until it
+	// exists. A project that has never recorded one is not waited for,
+	// and completes on the first two (RFC 0005 §14 decision 11; the rule
+	// lives with the worker).
+	Pushed   bool `json:"pushed,omitempty"`
+	Usages   bool `json:"usages,omitempty"`
+	Recorded bool `json:"recorded,omitempty"`
 	// Conclusion is what the run last reported.
 	Conclusion string `json:"conclusion,omitempty"`
 }
-
-// Ready reports whether this head SHA's CI has uploaded both halves.
-func (t CheckTarget) Ready() bool { return t.Pushed && t.Usages }
 
 // Sent reports whether fingerprint has already been appended to the
 // current check run.

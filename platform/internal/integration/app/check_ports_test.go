@@ -106,10 +106,9 @@ func (m *memChecks) Wake(_ context.Context, repositories []int64, branch string,
 	return n, nil
 }
 
-func (m *memChecks) Claim(_ context.Context, lease time.Duration) (domain.Check, bool, error) {
+func (m *memChecks) Claim(_ context.Context, now time.Time, lease time.Duration) (domain.Check, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	now := m.now()
 	for _, k := range slices.SortedFunc(maps.Keys(m.rows), func(a, b checkKey) int {
 		if a.repository != b.repository {
 			return cmp.Compare(a.repository, b.repository)
@@ -141,7 +140,7 @@ func (m *memChecks) Save(_ context.Context, in domain.Check, available time.Time
 	return nil
 }
 
-func (m *memChecks) Retry(_ context.Context, in domain.Check, delay time.Duration, failure string) error {
+func (m *memChecks) Retry(_ context.Context, in domain.Check, now time.Time, delay time.Duration, failure string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, ok := m.rows[checkKey{in.RepositoryID, in.PullRequest}]
@@ -149,7 +148,7 @@ func (m *memChecks) Retry(_ context.Context, in domain.Check, delay time.Duratio
 		return nil
 	}
 	row.ClaimToken, row.Failure = uuid.Nil, failure
-	row.AvailableAt = m.now().Add(delay)
+	row.AvailableAt = now.Add(delay)
 	return nil
 }
 
@@ -207,19 +206,58 @@ func (m *memChecks) Check(_ context.Context, repository int64, pullRequest int) 
 // memSources is what the other contexts say about the branch. Tests set
 // it the way a push, a usages upload or a translation would.
 type memSources struct {
-	mu       sync.Mutex
-	policy   checkpolicy.Policy
-	status   app.BranchStatus
-	quality  app.BranchQuality
-	usages   app.BranchUsages
-	manifest string
+	mu      sync.Mutex
+	policy  checkpolicy.Policy
+	status  app.BranchStatus
+	quality app.BranchQuality
+	usages  app.BranchUsages
+	// recorded are the check runs CI recorded, by commit: what
+	// `glossa check` found and the server stored, which is what the
+	// pull request renders (RFC 0005 §12.3).
+	recorded map[string]app.RecordedRun
+	// recordedBefore is a project that has recorded a run of some other
+	// commit, one the test does not otherwise care about. It makes the
+	// check wait for this commit's run.
+	recordedBefore bool
+	// historyAsked counts how often the check asked whether the project
+	// records runs at all, so a test can hold it to asking only when the
+	// answer matters.
+	historyAsked int
+	manifest     string
 }
 
 func newMemSources() *memSources {
 	return &memSources{
-		status:  app.BranchStatus{Name: branchName, Outdated: map[string]int{}},
-		quality: app.BranchQuality{Locales: []string{"de", "fr"}, Untranslated: map[string]int{}},
+		status:   app.BranchStatus{Name: branchName, Outdated: map[string]int{}},
+		quality:  app.BranchQuality{Locales: []string{"de", "fr"}, Untranslated: map[string]int{}},
+		recorded: map[string]app.RecordedRun{},
 	}
+}
+
+// record is CI recording a `glossa check` run for a commit.
+func (m *memSources) record(commit string, run app.RecordedRun) {
+	m.set(func(s *memSources) {
+		run.Commit = commit
+		s.recorded[commit] = run
+	})
+}
+
+// RecordedRun answers the run recorded for exactly this commit. A
+// commit nobody checked has none, which is the fallback's case.
+func (m *memSources) RecordedRun(_ context.Context, _ uuid.UUID, commit string) (app.RecordedRun, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	run, ok := m.recorded[commit]
+	return run, ok, nil
+}
+
+// RecordsRuns answers whether the project has ever recorded a run: any
+// run on the record, of any commit.
+func (m *memSources) RecordsRuns(context.Context, uuid.UUID) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.historyAsked++
+	return m.recordedBefore || len(m.recorded) > 0, nil
 }
 
 func (m *memSources) set(fn func(*memSources)) {

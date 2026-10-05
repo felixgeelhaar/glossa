@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
+import type { Rollout } from "../../api/release-ops-schemas";
 import type { Deployment, Environment, Release } from "../../api/schemas";
+import { requirementText, type PartyNames } from "../../lib/release-ops";
 import { absoluteTime, relativeTime } from "../../lib/time";
 import { strings } from "../../strings";
 import { policyText } from "./book";
@@ -13,9 +15,21 @@ const props = defineProps<{
   canPublish: boolean;
   person: (principal: string) => string;
   releaseRoute: (id: string) => object;
+  /** The environment's page: its approval requirement and rollouts (RFC 0006 §5). */
+  envRoute?: object | undefined;
+  /** Its release requests. */
+  requestsRoute?: object | undefined;
+  /** Pending release requests here; undefined when not known. */
+  pending?: number | undefined;
+  /** The running rollout, if any. */
+  rollout?: Rollout | undefined;
+  /** Its candidate's label ("v5"). */
+  rolloutLabel?: string | undefined;
+  partyNames?: PartyNames | undefined;
 }>();
 const emit = defineEmits<{ promote: []; rollback: []; history: []; policy: [] }>();
 const s = strings.releases;
+const ro = strings.releaseOps;
 const headingId = computed(() => `env-${props.env.name}`);
 </script>
 
@@ -34,6 +48,20 @@ const headingId = computed(() => `env-${props.env.name}`);
       <time :datetime="latest.created_at" :title="absoluteTime(latest.created_at)">{{ relativeTime(latest.created_at) }}</time>
     </p>
     <p class="policy"><span class="label">{{ s.ships }}:</span> {{ policyText(env.policy) }}</p>
+    <p v-if="env.kind !== 'branch'" class="policy" data-testid="env-approval">
+      <span class="label">{{ ro.approval }}:</span> {{ env.approval ? requirementText(env.approval, partyNames) : ro.noApproval }}
+    </p>
+    <p v-if="rollout" class="policy" data-testid="env-rollout">
+      <span class="pill pill-warn">{{ ro.rolloutSummary(rollout.percent, rolloutLabel ?? "…") }}</span>
+    </p>
+    <p v-if="envRoute || (requestsRoute && pending)" class="row links">
+      <RouterLink v-if="envRoute" :to="envRoute" data-testid="env-page">
+        {{ ro.envPage }}<span class="visually-hidden">{{ s.ofEnv(env.name) }}</span>
+      </RouterLink>
+      <RouterLink v-if="requestsRoute && pending" :to="requestsRoute" data-testid="env-requests">
+        {{ ro.envRequests }}<span class="visually-hidden">{{ s.ofEnv(env.name) }}</span>: {{ ro.pendingCount(pending) }}
+      </RouterLink>
+    </p>
     <div class="row actions">
       <template v-if="canPublish">
         <button type="button" class="btn btn-sm" @click="emit('promote')">
@@ -61,7 +89,8 @@ const headingId = computed(() => `env-${props.env.name}`);
   text-decoration: none;
 }
 .when,
-.policy {
+.policy,
+.links {
   font-size: var(--kl-text-sm);
 }
 .actions {

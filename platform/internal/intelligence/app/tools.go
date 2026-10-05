@@ -381,7 +381,18 @@ func (j *job) promptData(k knowledge) prompts.Data {
 	for _, m := range k.TM.Matches {
 		d.TM = append(d.TM, prompts.TMMatch{Score: m.Score, Source: m.Source, Target: m.Target})
 	}
-	for _, h := range k.Terms.Hits {
+	d.Terms = promptTerms(k.Terms.Hits)
+	d.Style = promptStyle(k.Style.Style)
+	return d
+}
+
+// promptTerms is the glossary as a prompt shows it: the target terms a
+// translation may use, then the ones it may not. The linguistic
+// reviewer renders the same shape, so one glossary reads the same way
+// wherever a model sees it.
+func promptTerms(hits []domain.TermHit) []prompts.Term {
+	var out []prompts.Term
+	for _, h := range hits {
 		t := prompts.Term{Source: h.Source.Text, Definition: h.Definition}
 		for _, status := range []domain.TermStatus{domain.TermPreferred, domain.TermAdmitted} {
 			for _, tt := range h.Targets {
@@ -395,17 +406,21 @@ func (j *job) promptData(k knowledge) prompts.Data {
 				t.Avoid = append(t.Avoid, tt.Text)
 			}
 		}
-		d.Terms = append(d.Terms, t)
+		out = append(out, t)
 	}
-	g := k.Style.Style
-	d.Style = prompts.Style{Formality: g.Formality, Pronoun: g.Pronoun, Tone: g.Tone}
+	return out
+}
+
+// promptStyle is the effective style guide as a prompt shows it.
+func promptStyle(g domain.StyleGuide) prompts.Style {
+	s := prompts.Style{Formality: g.Formality, Pronoun: g.Pronoun, Tone: g.Tone}
 	for _, key := range sortedKeys(g.Punctuation) {
-		d.Style.Punctuation = append(d.Style.Punctuation, prompts.KeyValue{Key: key, Value: g.Punctuation[key]})
+		s.Punctuation = append(s.Punctuation, prompts.KeyValue{Key: key, Value: g.Punctuation[key]})
 	}
 	for _, r := range g.Rules {
-		d.Style.Rules = append(d.Style.Rules, prompts.Rule{Rule: r.Rule, Rationale: r.Rationale, Good: r.Good, Bad: r.Bad})
+		s.Rules = append(s.Rules, prompts.Rule{Rule: r.Rule, Rationale: r.Rationale, Good: r.Good, Bad: r.Bad})
 	}
-	return d
+	return s
 }
 
 func sortedKeys(m map[string]string) []string {

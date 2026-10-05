@@ -1,6 +1,6 @@
 /**
  * The overlay loader's build-time guard (RFC 0004 §5.1): real builds of a
- * small app on `@glossa/runtime`, scanned for the loader. A build for a
+ * small app on `@felixgeelhaar/glossa-runtime`, scanned for the loader. A build for a
  * preview environment has it (in Vite through an HTML module script, with
  * no inline code); a production build, or one that names no environment,
  * contains neither the loader nor the Studio overlay URL, whatever Vite's
@@ -9,7 +9,7 @@
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@glossa/runtime/dev";
+import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@felixgeelhaar/glossa-runtime/dev";
 import * as esbuild from "esbuild";
 import { rollup } from "rollup";
 import { build as viteBuild } from "vite";
@@ -21,7 +21,7 @@ import { glossa } from "../src/plugin.js";
 import type { GlossaPluginOptions } from "../src/options.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-/** Under the package, so the app resolves @glossa/runtime from our node_modules. */
+/** Under the package, so the app resolves @felixgeelhaar/glossa-runtime from our node_modules. */
 const WORK = resolve(here, "../.fixtures/overlay");
 
 const STUDIO = "https://studio.glossa.test";
@@ -29,7 +29,7 @@ const INTEGRITY = `sha384-${"Q".repeat(64)}`;
 const studio = { origin: STUDIO, integrity: INTEGRITY, tenant: "ten_1", project: "prj_1" };
 const RUN = { application: "shop", commit: "0".repeat(40), branch: "main", usages: false } as const;
 
-const MAIN = `import { createRuntime } from "@glossa/runtime";
+const MAIN = `import { createRuntime } from "@felixgeelhaar/glossa-runtime";
 const rt = createRuntime({ environment: "preview", locales: "de", storage: null });
 document.querySelector("#title").textContent = rt.t("cart.title", {}, { default: "Warenkorb" });
 `;
@@ -186,7 +186,7 @@ const stripTs: import("rollup").Plugin = {
 const nodeResolve: import("rollup").Plugin = {
   name: "resolve-runtime",
   async resolveId(source) {
-    if (source === "@glossa/runtime") return fileURLToPath(import.meta.resolve("@glossa/runtime"));
+    if (source === "@felixgeelhaar/glossa-runtime") return fileURLToPath(import.meta.resolve("@felixgeelhaar/glossa-runtime"));
     return null;
   },
 };

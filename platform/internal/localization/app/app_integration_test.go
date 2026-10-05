@@ -147,6 +147,12 @@ func TestSourceRevisionMakesTranslationsOutdated(t *testing.T) {
 	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'localization.translation.outdated'"); n != 2 {
 		t.Errorf("outdated events = %d, want 2", n)
 	}
+	// The projection caught up on its own: Localization's subscriber,
+	// not the person who revised the source, marked them outdated.
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'localization.translation.outdated' AND actor = $1",
+		authz.SystemEventActor("localization.track_message").String()); n != 2 {
+		t.Errorf("outdated events naming the projection = %d, want 2", n)
+	}
 	ids, err := h.svc.MessagesWithCoverage(ctx, p, app.CoverageFilter{Locale: "de", Outdated: true, Limit: 10})
 	if err != nil || len(ids) != 1 || ids[0] != m.ID.UUID() {
 		t.Errorf("outdated in de: %v %v", ids, err)

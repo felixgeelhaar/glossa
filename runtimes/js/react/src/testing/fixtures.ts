@@ -1,11 +1,11 @@
 /**
  * The runtime contract's conformance fixtures (runtimes/testdata), test-only:
- * the same shapes @glossa/runtime's contract tests read.
+ * the same shapes @felixgeelhaar/glossa-runtime's contract tests read.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Manifest } from "@glossa/runtime";
+import type { Manifest } from "@felixgeelhaar/glossa-runtime";
 
 import type { EdgeManifest } from "./edge.js";
 
@@ -40,6 +40,8 @@ export interface LoadingStep {
   expSource: string;
   expErrors: string[];
   exp: string;
+  /** `explain().rollout` (SPEC §1.4); absent means unchecked. */
+  expRollout?: { id: string; percent: number; cohort: number; side: string } | null;
 }
 
 export interface LoadingSequence {
@@ -47,6 +49,10 @@ export interface LoadingSequence {
   publicKeys: Array<{ keyId: string; key: string }>;
   steps: LoadingStep[];
   restartBefore?: number[];
+  /** The installation id to run with (SPEC §1.4); absent = the runtime's own. */
+  installationId?: string;
+  /** `false` runs with rollout support off. */
+  rolloutSupport?: boolean;
 }
 
 /** Every `*.json` in a fixture directory, by file name without extension. */

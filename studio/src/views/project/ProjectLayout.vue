@@ -7,6 +7,7 @@ import type { QualitySummary } from "../../api/quality-summary-schemas";
 import type { Project, ProjectLocale } from "../../api/schemas";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import { openErrors } from "../../lib/health";
+import { allows, type Permission } from "../../session/permissions";
 import { useGrant } from "../../session/session";
 import { strings } from "../../strings";
 import { PROJECT, type HealthState, type ProjectContext } from "./context";
@@ -81,7 +82,7 @@ const ctx: ProjectContext = {
 };
 provide(PROJECT, ctx);
 
-const tabs = [
+const ALL_TABS: ReadonlyArray<{ name: string; label: string; needs?: Permission }> = [
   { name: "translate", label: strings.nav.translate },
   { name: "review", label: strings.nav.review },
   { name: "terms", label: strings.nav.termbase },
@@ -89,10 +90,21 @@ const tabs = [
   { name: "locales", label: strings.nav.locales },
   { name: "quality", label: strings.nav.quality },
   { name: "releases", label: strings.nav.releases },
+  // RFC 0006 §2: offered to whoever may read workflows, as the API asks.
+  { name: "project-workflow", label: strings.nav.workflow, needs: "workflows.read" },
   { name: "files", label: strings.nav.files },
   { name: "ai", label: strings.nav.ai },
   { name: "settings", label: strings.nav.settings },
-] as const;
+];
+const tabs = computed(() => ALL_TABS.filter((t) => !t.needs || allows(grant.value, t.needs)));
+/** Routes that live under a tab without being its own. */
+const UNDER: Record<string, readonly string[]> = {
+  releases: ["release", "release-requests", "release-request", "environment"],
+  files: ["import", "import-job"],
+  quality: ["check-policy", "waivers"],
+  "project-workflow": ["workflow-instances", "workflow-instance"],
+};
+const activeUnder = (tab: string) => UNDER[tab]?.includes(String(route.name)) ?? false;
 
 /**
  * The one number the navigation carries (RFC 0005 §8). One, not seven:
@@ -120,7 +132,7 @@ const errors = computed(() => openErrors(health.value?.project.findings));
           :key="t.name"
           :to="{ name: t.name, params: { tenant, project: projectId } }"
           class="tab"
-          :class="{ 'router-link-active': (t.name === 'releases' && route.name === 'release') || (t.name === 'files' && (route.name === 'import' || route.name === 'import-job')) }"
+          :class="{ 'router-link-active': activeUnder(t.name) }"
         >
           {{ t.label }}
           <span

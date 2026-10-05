@@ -113,6 +113,88 @@ func (a *API) ListCheckRuns(ctx context.Context, req apiv1.ListCheckRunsRequestO
 	return out, nil
 }
 
+// CreateCheckRun records a check that ran somewhere else — `glossa
+// check` in a product's CI, the pull-request check, an API caller —
+// with the findings it produced (RFC 0005 §9).
+//
+// The conversion is deliberately lossy in one direction only. What the
+// wire carries is what a reporter can know; the fingerprint, the graded
+// severity, the counts and the conclusion are all computed past this
+// point, so there is no member here for a caller to put one in. That is
+// the same shape `createCaptures` gives the visual probe pass, for the
+// same reason: a client-minted fingerprint is not the one every other
+// surface computes, and a client-declared verdict is not a verdict.
+func (a *API) CreateCheckRun(
+	ctx context.Context, req apiv1.CreateCheckRunRequestObject,
+) (apiv1.CreateCheckRunResponseObject, error) {
+	project, err := projectID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	b := req.Body
+	in := app.ReportCheckRun{
+		Project: project, Ref: b.Ref, Commit: deref(b.Commit), Trigger: domain.TriggerAPI,
+		Environment: deref(b.Environment), Layers: make([]domain.Layer, len(b.Layers)),
+	}
+	if b.Trigger != nil {
+		in.Trigger = domain.Trigger(*b.Trigger)
+	}
+	for i, l := range b.Layers {
+		in.Layers[i] = domain.Layer(l)
+	}
+	if b.StartedAt != nil {
+		in.StartedAt = *b.StartedAt
+	}
+	if b.Findings != nil {
+		in.Findings = make([]app.ReportedFinding, len(*b.Findings))
+		for i, f := range *b.Findings {
+			in.Findings[i] = reportedFinding(f)
+		}
+	}
+	run, err := a.svc.ReportCheckRun(ctx, in)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.CreateCheckRun201JSONResponse{
+		Body: toCheckRun(run),
+		Headers: apiv1.CreateCheckRun201ResponseHeaders{
+			Location: apiconv.Ptr(tenantPath(ctx, "/projects/"+project.String()+"/check-runs/"+run.ID.String())),
+		},
+	}, nil
+}
+
+func reportedFinding(f apiv1.ReportedFinding) app.ReportedFinding {
+	out := app.ReportedFinding{
+		Layer: domain.Layer(f.Layer), Code: f.Code, Severity: domain.Severity(f.Severity),
+		Locus: reportedLocus(f.Locus), Explanation: f.Message, Subject: deref(f.Subject),
+		Detail: deref(f.Detail), SourceRevision: f.SourceRevision,
+	}
+	if f.Evidence != nil {
+		out.Evidence = *f.Evidence
+	}
+	if f.Fix != nil {
+		fix := domain.Fix{Kind: domain.FixKind(f.Fix.Kind), Term: deref(f.Fix.Term), Hint: deref(f.Fix.Hint)}
+		if f.Fix.To != nil {
+			fix.To = apiconv.Ptr(*f.Fix.To)
+		}
+		out.Fix = &fix
+	}
+	return out
+}
+
+func reportedLocus(l apiv1.ReportedFindingLocus) app.ReportedLocus {
+	out := app.ReportedLocus{
+		Key: deref(l.Key), Locale: string(deref(l.Locale)), Revision: deref(l.Revision),
+		Namespace: string(deref(l.Namespace)), File: deref(l.File),
+		Line: deref(l.Line), Column: deref(l.Column),
+		Route: deref(l.Route), Component: deref(l.Component),
+	}
+	if l.Span != nil {
+		out.Span = &domain.Span{Side: domain.Side(l.Span.Side), Start: l.Span.Start, End: l.Span.End}
+	}
+	return out
+}
+
 // GetCheckRun reads one run with the counts it concluded.
 func (a *API) GetCheckRun(ctx context.Context, req apiv1.GetCheckRunRequestObject) (apiv1.GetCheckRunResponseObject, error) {
 	project, err := projectID(req.Project)

@@ -390,6 +390,16 @@ func words(s string) []string {
 
 // mentions reports whether text has a word starting with term (the
 // server tolerates short inflections).
+// termSpan is where term occurs in text, in bytes. mentions() found it
+// by word prefix, so the span is the term's own length from there.
+func termSpan(text, term string) (int, int) {
+	i := strings.Index(strings.ToLower(text), strings.ToLower(term))
+	if i < 0 {
+		return 0, min(len(term), len(text))
+	}
+	return i, i + len(term)
+}
+
 func mentions(text, term string) bool {
 	for _, w := range words(text) {
 		if strings.HasPrefix(w, strings.ToLower(term)) && len(w)-len(term) <= 2 {
@@ -458,8 +468,8 @@ func (f *fakeServer) terminologyFindings(w http.ResponseWriter, r *http.Request)
 		checked[pr.locale]++
 		src, tgt := f.messages[pr.key].content.Text, f.translations[pr.locale][pr.key].content.Text
 		if fs := f.termFindings(src, f.sourceLocale, tgt, pr.locale); len(fs) > 0 {
-			items = append(items, map[string]any{"message_id": "msg_" + pr.key, "message_key": pr.key, "namespace": "default",
-				"locale": pr.locale, "state": f.translations[pr.locale][pr.key].state, "source_text": src, "target_text": tgt, "findings": fs})
+			items = append(items, map[string]any{"message_id": "msg_" + pr.key, "message_key": pr.key, "namespace": f.messages[pr.key].ns(),
+				"locale": pr.locale, "state": f.translations[pr.locale][pr.key].state, "source_revision": f.messages[pr.key].revision, "source_text": src, "target_text": tgt, "findings": fs})
 		}
 	}
 	page := map[string]any{"items": items, "checked": checked}
@@ -496,8 +506,14 @@ func (f *fakeServer) termFindings(source, sourceLocale, target, targetLocale str
 				if t.status == "deprecated" {
 					sev = "warning"
 				}
-				findings = append(findings, map[string]any{"code": "term_forbidden", "severity": sev, "side": "target", "text": t.text,
-					"start": 0, "end": len(t.text), "suggestions": suggestions, "concept_id": c.id, "term_id": t.id,
+				// The offsets are where the term actually is, as the real
+				// termbase reports them: a span that pointed at the start
+				// of every string would make anything reading one — the
+				// overlay's underline, `glossa check --fix` — right only
+				// by accident.
+				start, end := termSpan(q.Target, t.text)
+				findings = append(findings, map[string]any{"code": "term_forbidden", "severity": sev, "side": "target", "text": q.Target[start:end],
+					"start": start, "end": end, "suggestions": suggestions, "concept_id": c.id, "term_id": t.id,
 					"message": fmt.Sprintf("%q is %s", t.text, t.status)})
 			}
 		}

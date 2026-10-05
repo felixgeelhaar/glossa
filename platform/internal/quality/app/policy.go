@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -65,7 +66,7 @@ func (s *Service) CheckPolicy(ctx context.Context, project uuid.UUID) (state Pol
 	if err := s.read(ctx, project); err != nil {
 		return PolicyState{}, err
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		return PolicyState{}, err
 	}
@@ -145,7 +146,7 @@ func (s *Service) SavePolicy(ctx context.Context, project uuid.UUID, in SavePoli
 	if err != nil {
 		return PolicySave{}, err
 	}
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		return PolicySave{}, err
 	}
@@ -183,6 +184,7 @@ func (s *Service) SavePolicy(ctx context.Context, project uuid.UUID, in SavePoli
 	if err != nil {
 		return PolicySave{}, err
 	}
+	s.metrics.PolicyVersionRead(project, next.Version)
 	s.logger.InfoContext(ctx, "check policy saved",
 		"project", project, "version", next.Version, "rules", len(next.Rules),
 		"newly_failing", impact.NewlyFailing, "open_pull_requests", impact.OpenPullRequests)
@@ -240,7 +242,42 @@ func (s *Service) previewAgainstStoredRuns(
 	// Both documents are compared as they grade — without their
 	// history — so the preview answers about this version and not about
 	// the one a pull request is pinned to.
-	return PreviewPolicy(current.Current(), candidate.Current(), runs), nil
+	preview := PreviewPolicy(current.Current(), candidate.Current(), runs)
+	if err := s.linkPullRequests(ctx, project, preview.PullRequests); err != nil {
+		return Preview{}, err
+	}
+	return preview, nil
+}
+
+// SetPullRequestLinks wires Integration's answer to where a project's
+// pull requests are. It is a setter because Integration's GitHub service
+// is built after Quality and reads Quality's check runs.
+func (s *Service) SetPullRequestLinks(l PullRequestLinks) { s.links = l }
+
+// linkPullRequests fills in where each pull request is, when something
+// knows. A caller who may not read the integration still gets the pull
+// requests by number — the link is the extra, never the verdict — but
+// any other failure fails the preview: a preview that silently lost its
+// links would look like one that had none to give.
+func (s *Service) linkPullRequests(ctx context.Context, project uuid.UUID, prs []PullRequestImpact) error {
+	if s.links == nil || len(prs) == 0 {
+		return nil
+	}
+	numbers := make([]int, len(prs))
+	for i, pr := range prs {
+		numbers[i] = pr.Number
+	}
+	urls, err := s.links.PullRequestURLs(ctx, project, numbers)
+	switch {
+	case errors.Is(err, authz.ErrForbidden):
+		return nil
+	case err != nil:
+		return err
+	}
+	for i := range prs {
+		prs[i].URL = urls[prs[i].Number]
+	}
+	return nil
 }
 
 // ListPolicyVersions pages the project's policy versions, newest first.

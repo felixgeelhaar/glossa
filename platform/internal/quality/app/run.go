@@ -10,7 +10,9 @@
 package app
 
 import (
+	"slices"
 	"sort"
+	"time"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -61,10 +63,70 @@ type Report struct {
 	// Skipped are the layers the policy switched off, named rather than
 	// silently dropped: a check may never lose a layer in silence.
 	Skipped []domain.Layer
+	// Took is how long each layer that ran took, in the order of Layers.
+	// It is measured here because this is the only place every surface's
+	// layers actually run; what a server does with it is
+	// `glossa_quality_check_duration_seconds` (RFC 0005 §11), so a slow
+	// layer is visible before it is unbearable.
+	Took []LayerDuration
+}
+
+// LayerDuration is how long one layer of a run took.
+type LayerDuration struct {
+	Layer domain.Layer
+	For   time.Duration
 }
 
 // Passed reports whether the run's conclusion lets a build through.
 func (r Report) Passed() bool { return r.Conclusion != domain.ConclusionFailure }
+
+// Waive applies the project's waivers to a finished run on ref: a
+// covered finding is reported at severity Waived with its waiver named,
+// and the run is concluded again from what is left.
+//
+// It exists so that a surface which grades locally can reach the
+// server's answer. RecordRun does this on the way in
+// (runs.go), which made a waiver change the pull request's counts and
+// not the terminal's — the two surfaces disagreeing about a finding the
+// project has accepted, which is the one property a shared Quality
+// library is for.
+//
+// The rule is domain.Waivers and nothing else. A second matcher here
+// would be a second answer to "does this waiver cover this finding",
+// and the two would drift on the first edge case (a revoked waiver, a
+// branch scope, a source revision that moved).
+func (r Report) Waive(ws []domain.Waiver, policy checkpolicy.Policy, ref string, now time.Time) Report {
+	if len(ws) == 0 || len(r.Findings) == 0 {
+		return r
+	}
+	r.Findings = domain.Waivers(ws, r.Findings, ref, now)
+	r.Counts, r.Conclusion = domain.Conclude(policy, r.Findings)
+	// Only the severities moved: whether a translation is missing or
+	// outdated is not something a waiver has an opinion about, so
+	// Missing, Outdated, Translated and Complete stay as the run found
+	// them.
+	r.Locales = slices.Clone(r.Locales)
+	byLocale := make(map[string]*LocaleReport, len(r.Locales))
+	for i := range r.Locales {
+		r.Locales[i].Errors, r.Locales[i].Warnings, r.Locales[i].Waived = 0, 0, 0
+		byLocale[r.Locales[i].Code] = &r.Locales[i]
+	}
+	for _, f := range r.Findings {
+		lr, ok := byLocale[f.Locus.Locale]
+		if !ok {
+			continue
+		}
+		switch f.Severity {
+		case domain.Waived:
+			lr.Waived++
+		case domain.Error:
+			lr.Errors++
+		default:
+			lr.Warnings++
+		}
+	}
+	return r
+}
 
 // Run checks p with the checkers and sums what they found.
 //
@@ -93,7 +155,9 @@ func RunIn(p *layers.Project, policy checkpolicy.Policy, env string, checkers ..
 			continue
 		}
 		r.Layers = append(r.Layers, c.Layer())
+		at := time.Now()
 		r.Findings = append(r.Findings, c.Check(p, policy)...)
+		r.Took = append(r.Took, LayerDuration{Layer: c.Layer(), For: time.Since(at)})
 	}
 	sortFindings(r.Findings)
 	for _, m := range p.Messages {

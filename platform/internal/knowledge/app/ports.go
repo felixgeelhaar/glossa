@@ -12,7 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
+	mf "github.com/felixgeelhaar/glossa/messageformat"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
 )
@@ -39,6 +42,27 @@ type ProjectInfo struct {
 type Projects interface {
 	// Project answers ErrProjectNotFound for an unknown project.
 	Project(ctx context.Context, id uuid.UUID) (ProjectInfo, error)
+}
+
+// SourceMessage is a Catalog message as Knowledge reads it to match a
+// unit: its identity and its current source.
+type SourceMessage struct {
+	ID           uuid.UUID
+	Key          string
+	Namespace    string
+	SourceLocale bcp47.Tag
+	Source       mf.Message
+	// SourceSyntax is the syntax the source was authored in: the default
+	// syntax of the targets offered for it.
+	SourceSyntax mfcontent.Syntax
+}
+
+// Messages is Catalog's application port for one message, as Knowledge
+// uses it to look up memory for a unit. Message answers ErrNotFound for
+// a key no message has — and, for an `assigned` member, for a message
+// none of their units is in (RFC 0006 §3.3).
+type Messages interface {
+	Message(ctx context.Context, project uuid.UUID, key string) (SourceMessage, error)
 }
 
 // CurrentTranslation is a translation's latest state as Localization
@@ -74,6 +98,10 @@ type UnitFilter struct {
 	TranslationID *uuid.UUID
 	// State is active, retired or all.
 	State string
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // MatchScope is where TM lookups look.
@@ -109,6 +137,10 @@ type ConceptFilter struct {
 	Locale    *bcp47.Tag
 	// Query searches term texts and definitions (substring).
 	Query *string
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // RevisionAction says what a history entry records.
@@ -134,6 +166,10 @@ type StyleFilter struct {
 	TenantOnly bool
 	ProjectID  *uuid.UUID
 	Locale     *bcp47.Tag
+	// Projects, when not nil, keeps project-owned rows to these
+	// projects: a project-scoped caller's (RFC 0006 §4.1). The use case
+	// sets it.
+	Projects []uuid.UUID
 }
 
 // StyleGuideVersion is one entry of a guide's history: a full snapshot.

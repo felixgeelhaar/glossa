@@ -1,6 +1,6 @@
 /**
  * The overlay loader in Chromium (RFC 0004 §5.1, the runtime and delivery
- * layers): a preview deployment built by Vite with `@glossa/unplugin`, the
+ * layers): a preview deployment built by Vite with `@felixgeelhaar/glossa-unplugin`, the
  * real overlay bundle served from a Studio origin, and the CSP the README
  * asks preview deployments for. It covers what the unit tests can't: the
  * browser's own SRI check, `crossorigin="anonymous"` against CORS, and that
@@ -13,8 +13,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import type { Page, Route } from "@playwright/test";
-import { glossa } from "@glossa/unplugin";
-import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@glossa/runtime/dev";
+import { glossa } from "@felixgeelhaar/glossa-unplugin";
+import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@felixgeelhaar/glossa-runtime/dev";
 import { build } from "vite";
 
 import { fixture } from "../src/testing/release.js";

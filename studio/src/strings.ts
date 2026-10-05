@@ -4,6 +4,11 @@
  * mechanical change later: these keys become messages.
  */
 import { ApiError } from "./api/errors";
+import { auditProblems, auditStrings } from "./strings-audit";
+import { directoryProblems, directoryStrings } from "./strings-directory";
+import { instanceProblems, instanceStrings } from "./strings-instances";
+import { releaseOpsProblems, releaseOpsStrings } from "./strings-release-ops";
+import { workflowProblems, workflowStrings } from "./strings-workflows";
 
 export const strings = {
   app: {
@@ -45,6 +50,14 @@ export const strings = {
     breadcrumb: "Breadcrumb",
     projectSections: "Project sections",
     workspaceSettings: "Workspace settings",
+    work: "Your work",
+    myWork: "My work",
+    approvals: "Approvals",
+    workflow: "Workflow",
+    workflows: "Workflows",
+    groups: "Groups",
+    vendors: "Vendors",
+    audit: "Audit log",
   },
   tenantSettings: {
     knowledgeLink: "Translation memory & termbase",
@@ -343,6 +356,34 @@ export const strings = {
     cancelled: "You chose not to allow in-product editing.",
     granted: "Done \u2014 you can close this window.",
     badRequest: "This link is incomplete. Open the editor from your preview deployment again.",
+  },
+  device: {
+    title: "Sign in a device",
+    lead: "Enter the code your terminal shows to sign the Glossa CLI in.",
+    code: "Device code",
+    codeHint: "Eight letters, shown as XXXX-XXXX. Case and the hyphen don't matter.",
+    codeInvalid: "That isn't a device code. Codes are eight consonants, like BCDF-GHJK.",
+    lookUp: "Continue",
+    lookingUp: "Looking up…",
+    found: "Approve this sign-in?",
+    device: "Device",
+    deviceHint: "The name the device gave itself.",
+    requested: "Asked",
+    expires: "Code expires",
+    when: (relative: string, absolute: string) => `${relative} (${absolute})`,
+    warningTitle: "Only approve a sign-in you started yourself",
+    warning:
+      "Approving signs this device in as you, with all your access. If someone sent you this code, " +
+      "or you didn't just run a sign-in command, deny it.",
+    approve: "Approve",
+    approving: "Approving…",
+    deny: "Deny",
+    denying: "Denying…",
+    otherCode: "Enter a different code",
+    approvedTitle: "Device signed in",
+    approved: "Device signed in — you can return to your terminal.",
+    deniedTitle: "Sign-in denied",
+    denied: "Sign-in denied. The device was not signed in; you can close this page.",
   },
   locales: {
     title: "Locales",
@@ -665,7 +706,6 @@ export const strings = {
     insert: "Insert",
     sourceDiff: "Its source, compared with this one:",
     from: (key: string) => `From ${key}`,
-    imported: "Imported",
     scopeProject: "this project",
     scopeTenant: "workspace-wide",
     variablesKept: "a variable kept its name — check it",
@@ -716,7 +756,7 @@ export const strings = {
     moreUsages: (n: number) => `Showing the first ${n.toLocaleString()} usages.`,
     noData: "No usage data yet.",
     noDataHint:
-      "Usages come from the build: run glossa extract --upload, add @glossa/unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
+      "Usages come from the build: run glossa extract --upload, add @felixgeelhaar/glossa-unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
     unused: "Unused",
     unusedLead: "No current build uses this message.",
     unusedHint: "Dynamic keys are invisible to every collector, so this is only reported — nothing is obsoleted automatically.",
@@ -872,6 +912,7 @@ export const strings = {
   ai: {
     title: "AI suggestion",
     none: "No AI suggestion for this message yet. “Fill with AI” asks for one.",
+    outdated: "The source has changed since this suggestion was made.",
     status: { pending: "Pending", accepted: "Accepted", rejected: "Rejected", auto_applied: "Auto-applied", superseded: "Superseded" } as Record<string, string>,
     band: { very_high: "Very high confidence", high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as Record<string, string>,
     score: (x: string) => `score ${x}`,
@@ -1482,6 +1523,190 @@ export const strings = {
       actions: "Actions",
     },
     readOnly: "You can read this project's findings, but accepting one needs the developer role.",
+    // ── the quality sections ───────────────────────────────────────
+    sections: "Quality sections",
+    sectionFindings: "Findings",
+    sectionPolicy: "Check policy",
+    sectionWaivers: "Waivers",
+    manageWaivers: "Manage waivers",
+    // ── the waiver screen (RFC 0005 §9) ────────────────────────────
+    waiversPageLead:
+      "Every waiver this project has ever made, standing or not. A waiver is the only way a finding stops failing a check, " +
+      "so this list is the whole of what the project has agreed to live with — and why.",
+    waiverStanding: (n: number) => (n === 1 ? "1 standing" : `${n.toLocaleString()} standing`),
+    waiverPast: (n: number) => (n === 1 ? "1 revoked or expired" : `${n.toLocaleString()} revoked or expired`),
+    waiverUnexaminedCount: (n: number) =>
+      n === 1 ? "1 accepts nothing that is still found" : `${n.toLocaleString()} accept nothing that is still found`,
+    waiverExpiringCount: (n: number) => (n === 1 ? "1 expires within 30 days" : `${n.toLocaleString()} expire within 30 days`),
+    waiverFilters: "Filter waivers",
+    waiverState: "State",
+    waiverStateAny: "Standing and past",
+    waiverStateActive: "Standing only",
+    waiverStateInactive: "Revoked or expired only",
+    waiverFingerprint: "Fingerprint",
+    waiverFingerprintPlaceholder: "f_7c1a3e9b40d2f815",
+    waiverMatched: (n: number) => (n === 1 ? "1 waiver matches." : `${n.toLocaleString()} waivers match.`),
+    waiverNoMatches: "No waiver matches these filters.",
+    waiverTruncated: (n: number) => `Showing the first ${n.toLocaleString()} waivers.`,
+    waiversReadOnly: "You can read this project's waivers, but taking one back needs the developer role.",
+  },
+  /**
+   * The check-policy editor (RFC 0005 §4). Two ideas carry the whole
+   * screen and every string below serves one of them: **order is
+   * meaning** — the rule naming more fields wins and ties go to the
+   * later rule — and **nobody saves blind**: the impact preview is
+   * answered before the save, never after it.
+   */
+  policy: {
+    title: "Check policy",
+    lead:
+      "What `glossa check` and the pull-request check decide by. The server is the source of truth: a developer can tighten " +
+      "or loosen their own loop with glossa.yaml, and the pull-request check ignores it.",
+    loading: "Reading the policy…",
+    version: (v: number) => (v === 0 ? "No policy saved yet — the built-in default grades" : `Version ${v}`),
+    versionNever: "Every locale must be complete, an untranslated key in one is an error, and errors fail the check.",
+    savedBy: (who: string, when: string) => `Saved by ${who}, ${when}`,
+    graceUntil: (when: string, pinned: number) =>
+      `Pull requests opened before this version keep grading against version ${pinned} until ${when}.`,
+    graceNone: "This version grades every check at once. No pull request is pinned to an older one.",
+    readOnly: "You can read this policy, but changing it needs the developer role.",
+    // ── the base fields ────────────────────────────────────────────
+    baseTitle: "What the check requires",
+    baseLead: "The three fields every project starts from. A policy with no rules and no environments decides exactly what these say.",
+    requireComplete: "Locales that must be complete",
+    requirement: {
+      all: "Every locale the project has",
+      listed: "Only the locales listed below",
+      none: "No locale has to be complete",
+    } as Record<string, string>,
+    requireCompleteLocales: "The locales that must be complete",
+    requireCompleteEmpty: "Pick at least one locale, or choose “No locale has to be complete”.",
+    failOn: "The lowest severity that fails a check",
+    failOnName: { error: "Errors fail", warning: "Warnings fail too", never: "Nothing fails — the check only reports" } as Record<string, string>,
+    missingTranslations: "An untranslated key in a locale that must be complete",
+    missingName: { error: "Is an error", warning: "Is a warning" } as Record<string, string>,
+    missingHint:
+      "Teams that translate after merging set this to a warning and keep every locale required: the check still lists what is untranslated without blocking the pull request.",
+    // ── rules ──────────────────────────────────────────────────────
+    rulesTitle: "Rules, in the order they are read",
+    rulesLead:
+      "A rule selects on layer, code, locale, namespace and environment — any subset — and says what those findings are worth. " +
+      "The rule naming more fields wins. When two rules name the same number of fields and can both match one finding, the later one wins, " +
+      "which is why this list is ordered and reorderable rather than a set.",
+    noRules: "No rules. Every finding stands at the severity its layer gave it.",
+    addRule: "Add a rule",
+    ruleAdded: (n: number, total: number) => `A rule was added at position ${n} of ${total}.`,
+    ruleHeading: (n: number, total: number) => `Rule ${n} of ${total}`,
+    ruleSelects: "Selects",
+    ruleSelectsEverything: "every finding",
+    ruleField: { layer: "Layer", code: "Rule code", locale: "Locale", namespace: "Namespace", environment: "Environment" } as Record<string, string>,
+    ruleFieldAny: "Any",
+    ruleFieldNone: "—",
+    ruleCodePlaceholder: "term_forbidden",
+    ruleNamespacePlaceholder: "legal",
+    ruleEnvironmentPlaceholder: "production",
+    ruleSeverity: "Worth",
+    ruleSeverityName: {
+      error: "Error — fails the check",
+      warning: "Warning — reported, does not fail",
+      off: "Off — not computed at all",
+    } as Record<string, string>,
+    ruleOffHint: "“Off” means the layer is not run for what this rule selects, so nothing is reported or counted — and the project does not pay for QA it ignores.",
+    ruleMode: "Rollout",
+    ruleModeName: {
+      enforce: "Enforce — may fail a check",
+      warn: "Warn only — reports, never fails a check",
+    } as Record<string, string>,
+    ruleModeWarnHint:
+      "Warn is the on-ramp for a stricter rule: it computes and reports at this severity but cannot change any verdict. Ship it, watch the number, then flip it to enforce.",
+    ruleAdvisoryError:
+      "The linguistic layer is decided by a model, so no rule may raise it to an error — a build never fails on an opinion. The server refuses this rule.",
+    // ── order, said in words ───────────────────────────────────────
+    specificity: (named: number) =>
+      named === 0 ? "Names no field, so it is the least specific rule there is." : named === 1 ? "Names 1 field." : `Names ${named} fields.`,
+    orderFree: "Nothing else here is equally specific and overlapping, so this rule's position does not change any verdict.",
+    orderBeatenBy: (n: number) =>
+      `Rule ${n} is equally specific, can match the same findings and comes later, so rule ${n} decides them instead of this one.`,
+    orderBeats: (list: string) => `It is equally specific to ${list} and comes later, so it decides against ${list === "rule 1" ? "it" : "them"}.`,
+    orderShadowed: (n: number) => `Rule ${n} has exactly this selector and comes later, so this rule decides nothing at all. Delete it or move it after rule ${n}.`,
+    ruleList: (ns: number[]) => ns.map((n) => `rule ${n}`).join(", "),
+    moveUp: "Move up",
+    moveDown: "Move down",
+    moveUpFor: (n: number) => ` rule ${n}`,
+    moveDownFor: (n: number) => ` rule ${n}`,
+    moved: (from: number, to: number, total: number) => `Moved from position ${from} to position ${to} of ${total}.`,
+    removeRule: "Remove",
+    removeRuleFor: (n: number) => ` rule ${n}`,
+    ruleRemoved: (n: number) => `Rule ${n} was removed.`,
+    // ── environments ───────────────────────────────────────────────
+    environmentsTitle: "Environments",
+    environmentsLead:
+      "What one environment asks for beyond the base. Release enforces the completeness requirement at publish; an environment that names none inherits the document's.",
+    noEnvironments: "No environment asks for anything beyond the base.",
+    addEnvironment: "Add an environment",
+    environmentName: "Name",
+    environmentNamePlaceholder: "production",
+    environmentNameRequired: "Name the environment.",
+    environmentDuplicate: "Two blocks cannot name the same environment.",
+    environmentInherit: "Inherit the base requirement",
+    environmentReview: "A release must be approved to publish here",
+    removeEnvironment: "Remove",
+    removeEnvironmentFor: (name: string) => ` the ${name || "unnamed"} environment`,
+    // ── the preview, before the save ───────────────────────────────
+    previewTitle: "What this change would do",
+    previewLead:
+      "Measured against the findings this project already has, before anything is stored. This is the whole point of the button: " +
+      "nobody should discover a policy change by way of forty red pull requests.",
+    preview: "Preview the impact",
+    previewing: "Measuring…",
+    previewNeeded: "Preview the impact first. The numbers below are what the save would do.",
+    previewStale: "The policy changed since this preview. Preview it again before saving.",
+    previewUnchanged: "This is the policy that already grades. There is nothing to save.",
+    previewMeasured: (findings: number, runs: number) =>
+      `Measured against ${findings === 1 ? "1 stored finding" : `${findings.toLocaleString()} stored findings`} from ${runs === 1 ? "1 run" : `${runs.toLocaleString()} runs`} — the newest run of each ref checked recently.`,
+    previewNothingToMeasure: "This project has no stored findings yet, so there is nothing to measure this against. The policy still saves.",
+    impactRaised: "Findings that would count for more",
+    impactLowered: "Findings that would count for less",
+    impactSilenced: "Findings that would stop being computed",
+    impactNewlyFailing: "Findings that would newly fail a check",
+    impactNoLongerFailing: "Findings that would stop failing a check",
+    impactOpenPullRequests: "Open pull requests that would newly fail",
+    impactNone: "Nothing changes.",
+    impactOpenPullRequestsHint:
+      "These are the people who would wake up to a red pull request they did not cause. A grace pins them to the version they opened under.",
+    impactRefs: (refs: string) => `Would newly fail: ${refs}`,
+    impactOtherRefs: (refs: string) => `Other branches that would newly fail: ${refs}`,
+    impactPullRequestsLabel: "The open pull requests that would newly fail",
+    impactPullRequest: (n: number, ref: string) => `#${n} ${ref}`,
+    impactRefsFixed: (refs: string) => `Would stop failing: ${refs}`,
+    impactRulesTitle: "Per rule",
+    impactRulesLead: "A rule that changed nothing is listed too: that is exactly what a reader wants to know before saving.",
+    impactColumns: { rule: "Rule", selector: "Selects", matched: "Decided", changed: "Changed", failing: "Newly failing" },
+    impactRuleUnchanged: "Changed nothing",
+    // ── the save ───────────────────────────────────────────────────
+    saveTitle: "Save it",
+    save: (v: number) => `Save version ${v}`,
+    saving: "Saving…",
+    saved: (v: number) => `Version ${v} is the policy now.`,
+    graceDays: "Pin open pull requests for",
+    graceDaysUnit: "days",
+    graceDaysHint:
+      "A pull request opened before this save keeps grading against the version it was opened under for this long. 14 days is the default, because it should protect the people who did not cause the change. 0 pins nothing, which is what a policy that only loosens wants.",
+    graceDaysRange: "Between 0 and 90 days.",
+    discard: "Discard my changes",
+    discarded: "Your changes are discarded. This is the policy that grades.",
+    unsaved: "You have unsaved changes.",
+    // ── history ────────────────────────────────────────────────────
+    historyTitle: "How this policy got to be what it is",
+    historyLead: "Every save, newest first. “Who tightened terminology to an error, and when?” has an answer that outlives the version that carried it.",
+    noHistory: "No version has been saved through this screen yet.",
+    historyColumns: { version: "Version", document: "What it said", by: "Saved by", when: "When", actions: "Actions" },
+    historyGrace: (when: string) => `pinned until ${when}`,
+    historyLoad: "Load into the editor",
+    historyLoadFor: (v: number) => ` version ${v}`,
+    historyLoaded: (v: number) => `Version ${v} is loaded in the editor. Nothing is saved until you preview and save it.`,
+    summary: (requirement: string, failOn: string, rules: number) =>
+      `${requirement} · ${failOn} · ${rules === 1 ? "1 rule" : `${rules.toLocaleString()} rules`}`,
   },
   /**
    * The health surfaces (RFC 0005 §8). Every "none" string below is a
@@ -1576,6 +1801,104 @@ export const strings = {
     // ── the project navigation's one number ─────────────────────────
     navErrors: (n: number) => (n === 1 ? "1 open error" : `${n.toLocaleString()} open errors`),
   },
+  work: {
+    title: "My work",
+    lead: "The translation units given to you — directly, through a role or group you hold, or through your vendor — one batch per assignment. Open one to work through its units in the editor; marking it complete tells the project's workflow it is ready.",
+    loading: "Loading your work…",
+    failed: "Your work could not be read, so nothing below is known — not even whether there is any.",
+    empty: "Nothing is assigned to you. Work given to you, a role or group you hold, or your vendor appears here.",
+    live: "To do",
+    finished: "Finished",
+    noneLive: "Nothing left to do. Finished assignments stay listed below.",
+    count: (n: number) => `${n.toLocaleString()} assignment${n === 1 ? "" : "s"}`,
+    state: {
+      open: "Open",
+      accepted: "Accepted",
+      done: "Done",
+      declined: "Declined",
+      expired: "Expired",
+    } as Record<string, string>,
+    stateTone: {
+      open: "neutral",
+      accepted: "warn",
+      done: "ok",
+      declined: "neutral",
+      expired: "err",
+    } as Record<string, string>,
+    unknownProject: (id: string) => `Project ${id.slice(0, 8)}`,
+    units: (n: number) => `${n.toLocaleString()} unit${n === 1 ? "" : "s"}`,
+    locales: (list: string) => `In ${list}`,
+    due: (when: string) => `Due ${when}`,
+    overdue: (when: string) => `Overdue since ${when}`,
+    noDue: "No due date",
+    closed: (when: string) => `Closed ${when}`,
+    reason: (r: string) => `Reason: ${r}`,
+    open: "Open in the editor",
+    accept: "Accept",
+    complete: "Mark complete",
+    decline: "Decline",
+    declineTitle: "Hand this assignment back?",
+    declineLead: "The units go back to whoever assigned them. Say why if it helps them give the work to someone else.",
+    declineReason: "Reason (optional)",
+    declineConfirm: "Decline assignment",
+    accepted: (project: string) => `Accepted: the assignment in ${project} is yours to work on.`,
+    completed: (project: string) => `Marked complete: the assignment in ${project} is with the project's workflow now.`,
+    declined: (project: string) => `Declined: the assignment in ${project} went back.`,
+    gone: "Not found: this assignment no longer exists or is no longer given to you. The list has been read again.",
+    moved: "Already moved on: this assignment was completed, declined or expired meanwhile. The list has been read again.",
+    forbidden: "Not allowed: taking this on needs translating rights in every locale it covers.",
+    retry: "Read again",
+    // The workspace, opened on one assignment's units.
+    scoped: (units: number, locales: string) => `Working on an assignment: ${units.toLocaleString()} unit${units === 1 ? "" : "s"} in ${locales}`,
+    scopeLoading: "Loading the assignment…",
+    scopeFailed: "The assignment could not be read, so its units can't be shown.",
+    showAll: "Show every message",
+    back: "Back to My work",
+    // The review queue's filter (§3.1), where a workflow is bound.
+    assignedToMe: "Assigned to me",
+    assignedHint: "Only suggestions for units in your open or accepted assignments.",
+    assignedLoading: "Loading your assignments…",
+    assignedFailed: "Your assignments could not be read, so the queue can't be narrowed to them.",
+    assignedEmpty: "Nothing to review in your assignments.",
+    resolutionFailed: "Whether a workflow applies here could not be read, so the “assigned to me” filter is not offered.",
+  },
+  approvals: {
+    title: "Approvals",
+    lead: "Translations waiting for your sign-off. Approving is a person's decision: four-eyes keeps authors from approving their own text, and no API token or agent can approve at all.",
+    loading: "Loading approvals…",
+    failed: "The approvals could not be read, so nothing below is known — not even whether any are waiting.",
+    empty: "Nothing is waiting for your approval.",
+    count: (n: number) => `${n.toLocaleString()} waiting`,
+    pending: "Pending",
+    progress: (granted: number, required: number) => `${granted.toLocaleString()} of ${required.toLocaleString()} approval${required === 1 ? "" : "s"} given`,
+    askedOfYou: "Asked of you",
+    askedOfRole: (role: string) => `Asked of every ${role}`,
+    askedOfGroup: (name: string) => `Asked of the group ${name}`,
+    groupsFailed: "Your groups could not be read, so approvals asked of a group are listed in case you are in it; the server checks.",
+    fourEyes: "Four-eyes: the author of this text can't approve it.",
+    ownText: "You wrote this text, so someone else must approve it.",
+    text: "Text under approval",
+    author: (who: string) => `Written by ${who}`,
+    noText: "This unit has no text yet: there is nothing under approval to read.",
+    textFailed: "The text under approval could not be read. Don't decide on text you can't see.",
+    textLoading: "Loading the text…",
+    unknownKey: (id: string) => `Message ${id.slice(0, 8)}`,
+    due: (when: string) => `Due ${when}`,
+    reason: "Reason (optional)",
+    grant: "Approve",
+    deny: "Deny",
+    granted: (key: string, locale: string) => `Approved ${key} (${locale}).`,
+    denied: (key: string, locale: string) => `Denied ${key} (${locale}).`,
+    closed: "Already decided: someone granted or denied this approval meanwhile. The list has been read again.",
+    superseded: "Replaced: a newer approval request for this text took its place. The list has been read again.",
+    retry: "Read again",
+  },
+  // RFC 0006 wave 5: the workflow editor and instances, vendors and groups, release requests and rollouts.
+  workflows: workflowStrings,
+  instances: instanceStrings,
+  directory: directoryStrings,
+  audit: auditStrings,
+  releaseOps: releaseOpsStrings,
   shortcuts: {
     title: "Keyboard shortcuts",
     lead: "Studio is built for the keyboard. Chords use ⌘ on macOS and Ctrl elsewhere.",
@@ -1607,6 +1930,7 @@ export const strings = {
     no_passkeys: "There's no passkey for this address. Use a sign-in link instead.",
     passkey_invalid: "The passkey couldn't be verified.",
     rate_limited: "Too many requests. Wait a moment and try again.",
+    device_authorization_not_found: "This code is unknown, expired, or already used.",
     slug_taken: "That slug is taken.",
     forbidden: "You don't have permission to do that here.",
     review_forbidden: "Approving and rejecting needs the reviewer role for this locale.",
@@ -1666,6 +1990,19 @@ export const strings = {
     waiver_expiry_in_the_past: "A waiver cannot expire in the past.",
     invalid_waiver: "That waiver isn't valid.",
     invalid_query: "Those filters aren't valid. Clear them and try again.",
+    own_text: "Not yours to approve: you wrote this text, and four-eyes means someone other than its author approves it.",
+    not_eligible: "Not yours to approve: this approval was asked of other people, or of this locale's reviewers and you aren't one.",
+    person_required: "Only a person can approve: an API token or an agent can't, whatever its scopes.",
+    approval_closed: "Already decided: someone granted or denied this approval meanwhile.",
+    approval_superseded: "Replaced: a newer approval request for this text took its place.",
+    assignment_state: "Already moved on: this assignment was completed, declined or expired meanwhile.",
+    invalid_assignment: "That isn't possible for this assignment (a reason is at most 2,000 characters).",
+    invalid_approval: "That decision isn't valid (a reason is at most 2,000 characters).",
+    ...workflowProblems,
+    ...instanceProblems,
+    ...directoryProblems,
+    ...auditProblems,
+    ...releaseOpsProblems,
   } as Record<string, string>,
 };
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
@@ -27,6 +28,17 @@ var problems = []struct {
 	{app.ErrInvalidQuery, http.StatusBadRequest, "invalid_query", ""},
 	{app.ErrTooManyFindings, http.StatusBadRequest, "too_many_findings", ""},
 	{app.ErrPreGradedFinding, http.StatusBadRequest, "invalid_finding", ""},
+	{app.ErrInvalidFinding, http.StatusBadRequest, "invalid_finding", ""},
+	// A recorded run is the first path on which a caller writes a run's
+	// own fields, so the domain's refusals are reachable from the edge
+	// and answer 400 rather than 500: a ref past the column, a commit
+	// that is not a Git object name, a layer or a trigger that is not
+	// one, and the two triggers only a server job may claim.
+	{app.ErrUnclaimableTrigger, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrInvalidRef, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrInvalidCommit, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrUnknownTrigger, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
+	{domain.ErrUnknownLayer, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
 	// A waiver without a reason is a 400 and not a silently accepted
 	// blank: the reason is the whole mechanism (RFC 0005 §2.3).
 	{domain.ErrReasonRequired, http.StatusBadRequest, "waiver_reason_required",
@@ -37,6 +49,21 @@ var problems = []struct {
 	{domain.ErrBranchRequired, http.StatusBadRequest, "waiver_branch_required", ""},
 	{domain.ErrExpiryInThePast, http.StatusBadRequest, "waiver_expiry_in_the_past", ""},
 	{app.ErrPolicyVersionNotFound, http.StatusNotFound, problem.CodeNotFound, "no such check-policy version"},
+	{app.ErrLinguisticJobNotFound, http.StatusNotFound, problem.CodeNotFound, "no such linguistic-QA job"},
+	// A deployment that wires no reviewer says so, rather than answering
+	// an empty list — which would read as a clean bill of health nobody
+	// issued (RFC 0005 §3.8).
+	{app.ErrLinguistUnavailable, http.StatusServiceUnavailable, "linguistic_unavailable", ""},
+	// A project that switched the layer off does not compute it and does
+	// not pay for it (RFC 0005 §4.1), so the request conflicts with the
+	// project's state rather than being malformed.
+	{app.ErrLinguisticLayerOff, http.StatusConflict, "linguistic_layer_off", ""},
+	{domain.ErrLinguisticJobNotCancellable, http.StatusConflict, "linguistic_job_not_cancellable", ""},
+	{domain.ErrInvalidLinguisticScope, http.StatusBadRequest, "invalid_linguistic_scope", ""},
+	{domain.ErrInvalidLinguisticState, http.StatusBadRequest, "invalid_query", ""},
+	{app.ErrIdempotencyReuse, http.StatusUnprocessableEntity, "idempotency_key_reused",
+		"this Idempotency-Key was used for a different review"},
+	{idempotency.ErrInvalidKey, http.StatusBadRequest, problem.CodeInvalidRequest, ""},
 	// A write that lost the race is refused rather than allowed to drop
 	// what the winner said: the caller reads the policy again and
 	// decides (RFC 0005 §4.3).

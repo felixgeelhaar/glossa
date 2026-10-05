@@ -12,6 +12,27 @@ import (
 	"github.com/google/uuid"
 )
 
+const captureShowsAny = `-- name: CaptureShowsAny :one
+SELECT EXISTS (
+    SELECT 1 FROM context_regions
+    WHERE capture_id = $1::uuid AND message_id = ANY($2::uuid[])
+)::boolean
+`
+
+type CaptureShowsAnyParams struct {
+	CaptureID  uuid.UUID
+	MessageIds []uuid.UUID
+}
+
+// Whether the capture has a region of any of the messages: what an
+// assigned member may see a screenshot for (RFC 0006 §3.3).
+func (q *Queries) CaptureShowsAny(ctx context.Context, arg CaptureShowsAnyParams) (bool, error) {
+	row := q.db.QueryRow(ctx, captureShowsAny, arg.CaptureID, arg.MessageIds)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countBuildCaptures = `-- name: CountBuildCaptures :one
 SELECT count(*) FROM context_captures WHERE build_id = $1
 `

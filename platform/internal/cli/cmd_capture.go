@@ -73,16 +73,19 @@ type captureJSON struct {
 }
 
 type captureSummary struct {
-	Route     string           `json:"route"`
-	URL       string           `json:"url"`
-	Locale    string           `json:"locale"`
-	Viewport  capture.Viewport `json:"viewport"`
-	Image     capture.Image    `json:"image"`
-	Renders   int              `json:"renders"`
-	Regions   int              `json:"regions"`
-	Visible   int              `json:"visible"`
-	Redacted  int              `json:"redacted"`
-	Truncated bool             `json:"truncated"`
+	Route    string           `json:"route"`
+	URL      string           `json:"url"`
+	Locale   string           `json:"locale"`
+	Viewport capture.Viewport `json:"viewport"`
+	Image    capture.Image    `json:"image"`
+	Renders  int              `json:"renders"`
+	Regions  int              `json:"regions"`
+	Visible  int              `json:"visible"`
+	// Probes is how many findings the visual probe pass measured on this
+	// capture — what the manifest carries for it (RFC 0005 §5).
+	Probes    int  `json:"probes"`
+	Redacted  int  `json:"redacted"`
+	Truncated bool `json:"truncated"`
 }
 
 type captureOutput struct {
@@ -92,12 +95,18 @@ type captureOutput struct {
 }
 
 type captureUpload struct {
-	Build              string   `json:"build"`
-	Captures           int      `json:"captures"`
-	ImagesStored       int      `json:"images_stored"`
-	ImagesDeduplicated int      `json:"images_deduplicated"`
-	UnknownKeys        []string `json:"unknown_keys"`
-	Replayed           bool     `json:"replayed"`
+	Build              string `json:"build"`
+	Captures           int    `json:"captures"`
+	ImagesStored       int    `json:"images_stored"`
+	ImagesDeduplicated int    `json:"images_deduplicated"`
+	// Findings is how many of the manifest's visual findings the server
+	// stored. It is the server's number and not a count of what was
+	// sent: 0 on a replay, and 0 where the project's policy switched the
+	// visual layer off, which is the project not paying for a layer it
+	// does not compute (RFC 0005 §4.1).
+	Findings    int      `json:"findings"`
+	UnknownKeys []string `json:"unknown_keys"`
+	Replayed    bool     `json:"replayed"`
 }
 
 func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
@@ -182,7 +191,7 @@ func runCaptureCmd(ctx context.Context, inv *invocation, args []string) error {
 		}
 	}
 	if f.check {
-		out.Check = inv.finishCheck(cfg, header.Application, out)
+		out.Check = inv.finishCheck(ctx, cfg, header, out)
 	}
 	if err := inv.emit(out, func(pr *printer) { printCapture(pr, out) }); err != nil {
 		return err
@@ -199,6 +208,11 @@ func (out *captureJSON) assemble(h extract.Header) error {
 	out.images = map[string][]byte{}
 	for _, s := range out.shots {
 		c := s.Capture
+		// The probes ride with the capture they were measured on. They
+		// are the only part of the visual layer nothing but the page
+		// could produce, and a manifest that left them behind would make
+		// `visual` a layer that exists in the terminal and nowhere else.
+		c.Findings = capture.Findings(s.Probes)
 		caps = append(caps, c)
 		out.images[c.Image.SHA256] = s.PNG
 		visible := 0
@@ -208,7 +222,8 @@ func (out *captureJSON) assemble(h extract.Header) error {
 			}
 		}
 		out.Captures = append(out.Captures, captureSummary{Route: c.Route, URL: c.URL, Locale: c.Locale, Viewport: c.Viewport, Image: c.Image,
-			Renders: len(c.Renders), Regions: len(c.Regions), Visible: visible, Redacted: s.Redacted, Truncated: s.Truncated})
+			Renders: len(c.Renders), Regions: len(c.Regions), Visible: visible, Probes: len(s.Probes),
+			Redacted: s.Redacted, Truncated: s.Truncated})
 	}
 	out.doc = capture.NewDocument(h, caps)
 	var err error
@@ -289,7 +304,8 @@ func (inv *invocation) uploadCaptures(ctx context.Context, p *project, out *capt
 		return err
 	}
 	out.Upload = &captureUpload{Build: string(up.Build.Id), Captures: up.Captures, ImagesStored: up.ImagesStored,
-		ImagesDeduplicated: up.ImagesDeduplicated, UnknownKeys: up.UnknownKeys, Replayed: up.Replayed}
+		ImagesDeduplicated: up.ImagesDeduplicated, Findings: up.Findings, UnknownKeys: up.UnknownKeys,
+		Replayed: up.Replayed}
 	return nil
 }
 
@@ -371,7 +387,7 @@ func envTrue(v string) bool {
 var refusalFixes = map[string]string{
 	"production_page":     "point capture.base_url (or --base-url) at a preview deployment with fixture data",
 	"environment_unknown": "make sure the page activates its release (a preview or development manifest) when it loads",
-	"no_runtime":          "capture pages that render with @glossa/runtime (t() or its components)",
+	"no_runtime":          "capture pages that render with @felixgeelhaar/glossa-runtime (t() or its components)",
 	"locale_mismatch":     "check capture.locale: the page must pick the locale from the query parameter, cookie or URL the plan sets",
 }
 
@@ -426,6 +442,12 @@ func printCapture(p *printer, out *captureJSON) {
 		}
 		p.line("%s %s %s to build %s (%d images stored, %d already there)", p.pass(), what, plural(u.Captures, "capture", "captures"), u.Build,
 			u.ImagesStored, u.ImagesDeduplicated)
+		// The server's number, not a count of what was sent: it is what
+		// says the visual layer reached the pull request rather than
+		// stopping in this terminal.
+		if u.Findings > 0 {
+			p.line("  %s", p.dim(plural(u.Findings, "visual finding", "visual findings")+" stored"))
+		}
 		if len(u.UnknownKeys) > 0 {
 			p.line("%s %s the catalog doesn't know (`glossa push` the catalog first)", p.caution(), plural(len(u.UnknownKeys), "region names a key", "regions name keys"))
 		}

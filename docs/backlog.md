@@ -97,6 +97,6 @@ RFC 0002 §13. Layered QA (structural, terminology, linguistic, visual, runtime)
 
 ## M5 Operations
 
-RFC 0002 §13. Workflow engine on statekit, assignments, vendors, audit export, advanced release policies (staged rollout policies, approvals). Exit: all Klarlabs products migrated; v0.3 retired.
+RFC 0002 §13. Workflow engine on statekit, assignments, vendors, audit export, advanced release policies (staged rollout policies, approvals). Exit: all Klarlabs products migrated; v0.3 retired. Design: [RFC 0006](./rfcs/0006-operations.md).
 
 ---

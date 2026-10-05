@@ -242,19 +242,23 @@ func (s *Service) checkpoint(ctx context.Context, c Claim, j *domain.Job, items 
 
 // finish ends a job under its claim and publishes its completion.
 func (s *Service) finish(ctx context.Context, c Claim, j *domain.Job, state domain.State, code, message string) error {
+	by, err := authz.EventActor(ctx) // the worker's background principal
+	if err != nil {
+		return err
+	}
 	now := s.now()
 	j.State, j.FailureCode, j.FailureMessage, j.FinishedAt, j.UpdatedAt = state, code, truncate(message, 4000), &now, now
 	if state == domain.StateSucceeded && j.TotalItems < j.ProcessedItems {
 		j.TotalItems = j.ProcessedItems
 	}
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		if _, err := st.LockClaimedJob(ctx, c.JobID, c.Token); err != nil {
 			return err
 		}
 		if err := st.SaveJob(ctx, *j); err != nil {
 			return err
 		}
-		return st.Publish(ctx, completedEvent(*j))
+		return st.Publish(ctx, completedEvent(*j, by))
 	})
 	if errors.Is(err, ErrLeaseLost) {
 		return nil

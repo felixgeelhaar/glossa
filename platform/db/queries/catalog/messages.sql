@@ -55,6 +55,9 @@ WHERE project_id = sqlc.arg(project_id)
   AND (sqlc.narg(namespace)::text IS NULL OR namespace = sqlc.narg(namespace))
   AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state))
   AND (sqlc.narg(key_like)::text IS NULL OR key LIKE sqlc.narg(key_like))
+  -- only limits the page to ids: the messages an assigned member's
+  -- units are in (RFC 0006 §3.3), filtered before the LIMIT.
+  AND (NOT sqlc.arg(filter_ids)::boolean OR id = ANY (sqlc.arg(ids)::uuid[]))
 ORDER BY key
 LIMIT sqlc.arg(max_rows);
 

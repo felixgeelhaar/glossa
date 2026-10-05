@@ -42,6 +42,33 @@ func (p *Port) Project(ctx context.Context, project uuid.UUID) error {
 	return err
 }
 
+// keyBatch bounds one key lookup. A run may name ten thousand
+// findings; the catalog is asked about their distinct keys in batches
+// this size, so one query's parameter list stays bounded whatever a run
+// carries.
+const keyBatch = 500
+
+// MessageIDs implements app.Catalog with Catalog's key lookup, in
+// batches. Messages of every state resolve: a finding about an obsolete
+// message still names it, and the fingerprint is the same one every
+// other surface computes for it.
+func (p *Port) MessageIDs(ctx context.Context, project uuid.UUID, keys []string) (map[string]uuid.UUID, error) {
+	out := make(map[string]uuid.UUID, len(keys))
+	for start := 0; start < len(keys); start += keyBatch {
+		found, err := p.svc.MessagesByKeys(ctx, catalogdomain.ProjectID(project), keys[start:min(start+keyBatch, len(keys))])
+		if errors.Is(err, catalogapp.ErrNotFound) {
+			return nil, app.ErrProjectNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		for k, m := range found {
+			out[k] = m.ID.UUID()
+		}
+	}
+	return out, nil
+}
+
 // CheckPolicy implements app.Catalog: the document the project stores,
 // with the project row's version, which a save has to still match.
 func (p *Port) CheckPolicy(ctx context.Context, project uuid.UUID) (app.StoredPolicy, error) {

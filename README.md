@@ -175,7 +175,7 @@ pnpm build
 
 ## Roadmap
 
-Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes.
+Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes. Moving a project off v0.3 and retiring it: [`docs/runbooks/retire-v0.md`](./docs/runbooks/retire-v0.md).
 
 | Milestone | Delivers | Done when |
 |---|---|---|
@@ -185,6 +185,8 @@ Glossa is being **rewritten** as the platform the [product intent](./docs/produc
 | M3 Context | Usages, in-product editing, preview environments, screenshots, GitHub checks, React | Translators see where every message appears |
 | M4 Quality | Layered QA, CI policies, visual QA, Flutter | `glossa check` gates CI in every product |
 | M5 Operations | Workflows, assignments, vendors, audit export | All products migrated, v0.3 retired |
+
+Each milestone has its design RFC: [M2 — 0003](./docs/rfcs/0003-knowledge-and-intelligence.md), [M3 — 0004](./docs/rfcs/0004-context.md), [M4 — 0005](./docs/rfcs/0005-quality.md), [M5 — 0006](./docs/rfcs/0006-operations.md).
 
 ---
 

@@ -5,7 +5,7 @@
  * the overlay reads; `src/testing/contract.ts` checks the fake API's answers
  * against the real schemas.
  */
-import type { Message as Model } from "@glossa/runtime";
+import type { Message as Model } from "@felixgeelhaar/glossa-runtime";
 
 export type Syntax = "mf1" | "mf2";
 export type ReviewState = "draft" | "needs_review" | "approved" | "rejected";
@@ -136,7 +136,7 @@ export interface InContext {
 }
 
 /**
- * Returns the current in-context bearer token. `@glossa/runtime/dev`
+ * Returns the current in-context bearer token. `@felixgeelhaar/glossa-runtime/dev`
  * backs it with Studio's authorization popup (RFC 0004 §5.2): the token
  * lives in memory, is renewed through the popup, and is asked for again
  * after `onAuthFailure`.

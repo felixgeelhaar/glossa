@@ -443,7 +443,7 @@ func (s *Service) summaryCoverage(ctx context.Context, b *builder, project uuid.
 func (s *Service) summaryFindings(
 	ctx context.Context, b *builder, project uuid.UUID, q SummaryQuery, now time.Time,
 ) (checkpolicy.Policy, error) {
-	stored, err := s.catalog.CheckPolicy(ctx, project)
+	stored, err := s.storedPolicy(ctx, project)
 	if err != nil {
 		// Without the policy nothing can be said about availability, and
 		// saying nothing is the honest answer: every layer reads as

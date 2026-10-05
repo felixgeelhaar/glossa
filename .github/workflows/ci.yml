@@ -313,14 +313,13 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
       # Workspace deps need to be built before consumers can lint.
-      # Order matters: ui ships its own .d.ts that admin consumes;
-      # elements depends on sdk; admin depends on all four.
+      # Legacy v0.3 packages that still build on main (v0.3 maintenance and the
+      # admin/elements live on release/v0.3). cli depends on sdk.
       - name: build packages (in dep order)
         run: |
           pnpm --filter @felixgeelhaar/glossa-format build
           pnpm --filter @felixgeelhaar/glossa-sdk build
           pnpm --filter @felixgeelhaar/glossa-ui build
-          pnpm --filter @felixgeelhaar/glossa-elements build
           pnpm --filter @felixgeelhaar/glossa-cli build
       - name: build rewrite packages (topological)
         run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
@@ -330,15 +329,13 @@ jobs:
         run: pnpm -r test
       # Capture-mode geometry needs a real layout engine (RFC 0004 §3.1).
       - name: install Chromium
-        run: pnpm --filter @glossa/capture exec playwright install --with-deps chromium
+        run: pnpm --filter @felixgeelhaar/glossa-capture exec playwright install --with-deps chromium
       - name: capture mode in Chromium (Playwright)
-        run: pnpm --filter @glossa/capture test:browser
+        run: pnpm --filter @felixgeelhaar/glossa-capture test:browser
       # Alt+click targeting, live override, axe, the preview CSP, and the
       # loader's guards against production releases (RFC 0004 §5).
       - name: in-product editor in Chromium (Playwright)
-        run: pnpm --filter @glossa/overlay test:browser
-      - name: admin build (vite)
-        run: pnpm --filter @felixgeelhaar/glossa-admin build
+        run: pnpm --filter @felixgeelhaar/glossa-overlay test:browser
 
   studio-e2e:
     name: Studio e2e
@@ -355,11 +352,11 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
-      - name: build @glossa/messageformat
-        run: pnpm --filter @glossa/messageformat build
+      - name: build @felixgeelhaar/glossa-messageformat
+        run: pnpm --filter @felixgeelhaar/glossa-messageformat build
       # Studio's build publishes this bundle at /overlay/v1/overlay.js.
-      - name: build @glossa/overlay
-        run: pnpm --filter @glossa/overlay... build
+      - name: build @felixgeelhaar/glossa-overlay
+        run: pnpm --filter @felixgeelhaar/glossa-overlay... build
       # Also clones and builds @klarlabs-studio/ui at the commit pinned in
       # studio/package.json (see studio/README.md, "Design system").
       - name: build Studio

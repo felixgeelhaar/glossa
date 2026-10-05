@@ -339,6 +339,28 @@ func TestAuditFailureDoesNotFailTheCall(t *testing.T) {
 	}
 }
 
+// The ledger and the tenant's audit trail (RFC 0006 §6.1) are both
+// written through WithAudit, the same row to each, and one failing does
+// not keep the other from being written.
+func TestEveryAuditIsWritten(t *testing.T) {
+	tenant := tenancy.NewID()
+	caller := callerWith(t, tenant, "read")
+	ledger := &recordingAudit{err: errors.New("the ledger is unreachable")}
+	trail := &recordingAudit{}
+	svc := newService(t, caller, ledger, &recordingMetrics{}, app.WithAudit(trail))
+
+	sess := open(t, svc, caller, domain.ToolsetRead)
+	if _, err := svc.Call(t.Context(), sess, "catalog_search", json.RawMessage(`{"locale":"de"}`)); err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	if len(ledger.entries) != 1 || len(trail.entries) != 1 {
+		t.Fatalf("ledger %d rows, trail %d; want one each", len(ledger.entries), len(trail.entries))
+	}
+	if ledger.entries[0].ID != trail.entries[0].ID || trail.tenants[0] != tenant {
+		t.Errorf("the trail did not get the ledger's row in the session's tenant: %+v", trail.entries[0])
+	}
+}
+
 // ── the capability probe ────────────────────────────────────────────
 
 func TestWhoAmI(t *testing.T) {

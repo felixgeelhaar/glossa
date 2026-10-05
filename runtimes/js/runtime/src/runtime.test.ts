@@ -544,6 +544,7 @@ describe("createRuntime: explain", () => {
         { locale: "de-AT", outcome: "missing" },
         { locale: "de", outcome: "found" },
       ],
+      rollout: null,
     });
     expect(rt.explain("nope")).toMatchObject({ resolvedFrom: null, source: "inline" });
   });
@@ -578,6 +579,7 @@ describe("createRuntime: explain", () => {
       release: null,
       source: "inline",
       steps: [],
+      rollout: null,
     });
   });
 });

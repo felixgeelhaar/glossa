@@ -13,7 +13,7 @@
  * running on disconnect), `bundled` (a release shipped with the build, rendered
  * synchronously) and `options` (any other `createRuntime` option). A provider
  * with neither `edge` nor `runtime` uses `GlossaProvider.defaultRuntime` when
- * an integration sets it (`@glossa/astro` shares the page's runtime this way).
+ * an integration sets it (`@felixgeelhaar/glossa-astro` shares the page's runtime this way).
  *
  * Events (bubbling, composed): `glossa-change` after every activation
  * (`{ locale, dir, release }`), `glossa-error` for each runtime error, and
@@ -24,14 +24,14 @@
  */
 import { ContextProvider } from "@lit/context";
 import { LitElement, css, html } from "lit";
-import { createRuntime, navigatorLanguages } from "@glossa/runtime";
+import { createRuntime, navigatorLanguages } from "@felixgeelhaar/glossa-runtime";
 import type {
   BundledRelease,
   PublicKey,
   Runtime,
   RuntimeError,
   RuntimeOptions,
-} from "@glossa/runtime";
+} from "@felixgeelhaar/glossa-runtime";
 
 import { glossaContext } from "./context.js";
 
@@ -187,7 +187,7 @@ export class GlossaProvider extends LitElement {
     if (this.strict && !o.edge && !shared && V03.some((a) => this.hasAttribute(a))) {
       console.warn(
         "[glossa] <glossa-provider> ignores the v0.3 attributes project, api-url and api-key; " +
-          "set edge and delivery-key instead (see @glossa/elements MIGRATION.md).",
+          "set edge and delivery-key instead (see @felixgeelhaar/glossa-elements MIGRATION.md).",
       );
     }
     void rt.ready.then(() => {

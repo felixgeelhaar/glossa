@@ -59,6 +59,9 @@ func (s *Service) CreateImport(ctx context.Context, in ImportRequest, idemKey st
 	if f.Kind() == domain.KindCatalog && in.ProjectID == nil {
 		return domain.Job{}, false, domain.ErrProjectRequired
 	}
+	if err := newJobScope(ctx, in.ProjectID); err != nil {
+		return domain.Job{}, false, err
+	}
 	access, err := importAccess(ctx, f, mode)
 	if err != nil {
 		return domain.Job{}, false, err
@@ -258,6 +261,10 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 		project = j.ProjectID.String()
 	}
 	fingerprint := domain.Fingerprint(sum, project, j.Format, j.Mode, j.Options)
+	by, err := authz.EventActor(ctx)
+	if err != nil {
+		return domain.Job{}, err
+	}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		cur, err := st.LockJob(ctx, id)
 		if err != nil {
@@ -284,7 +291,7 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 		}
 		j = cur
 		if cur.State == domain.StateSucceeded {
-			return st.Publish(ctx, completedEvent(cur))
+			return st.Publish(ctx, completedEvent(cur, by))
 		}
 		return nil
 	})
@@ -298,19 +305,62 @@ func (s *Service) UploadImport(ctx context.Context, id uuid.UUID, body io.Reader
 // getJob reads a job of one direction for someone with
 // integration.read.
 func (s *Service) getJob(ctx context.Context, id uuid.UUID, dir domain.Direction) (domain.Job, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	var j domain.Job
+	err := authz.RequireRow(ctx, authz.IntegrationRead, func() (uuid.UUID, error) {
+		err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			j, err = st.Job(ctx, id)
+			return err
+		})
+		if err == nil && j.Direction != dir {
+			err = ErrNotFound
+		}
+		if err == nil && jobScope(ctx, j.ProjectID) != nil {
+			err = ErrNotFound
+		}
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if j.ProjectID == nil {
+			// A tenant-wide job: jobScope has hidden it from a caller
+			// limited to some projects, and uuid.Nil is in the scope of
+			// every caller who is not.
+			return uuid.Nil, nil
+		}
+		return *j.ProjectID, nil
+	})
+	if err != nil {
 		return domain.Job{}, err
 	}
-	var j domain.Job
-	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		var err error
-		j, err = st.Job(ctx, id)
-		return err
-	})
-	if err == nil && j.Direction != dir {
-		err = ErrNotFound
+	return j, nil
+}
+
+// newJobScope is jobScope for a job being made: a tenant-wide one is
+// refused (403), not hidden, to a caller limited to some projects — it
+// would read or write every project's knowledge (RFC 0006 §4.1).
+func newJobScope(ctx context.Context, project *uuid.UUID) error {
+	if project != nil {
+		return authz.InProject(ctx, *project)
 	}
-	return j, err
+	return authz.RequireUnscoped(ctx, authz.IntegrationRead)
+}
+
+// jobScope checks a job's project against the caller's project scope
+// (RFC 0006 §4.1): a project's job is the caller's to see or make only
+// inside it, and a tenant-wide one — whose file holds every project's
+// translation memory or termbase — only for a caller limited to none.
+func jobScope(ctx context.Context, project *uuid.UUID) error {
+	if project != nil {
+		return authz.InProject(ctx, *project)
+	}
+	p, err := authz.Authenticated(ctx)
+	if err != nil {
+		return err
+	}
+	if !p.Projects.All() {
+		return authz.ErrNotVisible
+	}
+	return nil
 }
 
 // GetImport returns an import job. Needs integration.read.
@@ -326,9 +376,11 @@ func (s *Service) GetExport(ctx context.Context, id uuid.UUID) (domain.Job, erro
 // ListJobs lists imports or exports, newest first. Needs
 // integration.read.
 func (s *Service) ListJobs(ctx context.Context, f JobFilter, page pagination.Page) ([]domain.Job, *string, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	scope, err := authz.Projects(ctx, authz.IntegrationRead)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = scope.IDs()
 	before, err := parseJobCursor(page.After)
 	if err != nil {
 		return nil, nil, err
@@ -374,6 +426,10 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, dir domain.Direction
 	if err := requireActor(ctx, j); err != nil && authz.Require(ctx, authz.IntegrationManage) != nil {
 		return domain.Job{}, err
 	}
+	by, err := authz.EventActor(ctx) // the canceller, who may not be the requester
+	if err != nil {
+		return domain.Job{}, err
+	}
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		cur, err := st.LockJob(ctx, id)
 		if err != nil {
@@ -392,7 +448,7 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, dir domain.Direction
 		}
 		j = cur
 		if cur.State == domain.StateCancelled {
-			return st.Publish(ctx, completedEvent(cur))
+			return st.Publish(ctx, completedEvent(cur, by))
 		}
 		return nil
 	})
@@ -465,6 +521,9 @@ func (s *Service) CreateExport(ctx context.Context, in ExportRequest, idemKey st
 		if err := authz.Require(ctx, p); err != nil {
 			return domain.Job{}, false, err
 		}
+	}
+	if err := newJobScope(ctx, in.ProjectID); err != nil {
+		return domain.Job{}, false, err
 	}
 	if in.ProjectID != nil {
 		p, err := s.catalog.Project(ctx, *in.ProjectID)

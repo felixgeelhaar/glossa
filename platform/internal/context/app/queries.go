@@ -23,7 +23,7 @@ type BuildQuery struct {
 // ListBuilds pages through a project's builds, newest first, with the
 // unknown keys each holds. Needs catalog.read.
 func (s *Service) ListBuilds(ctx context.Context, project uuid.UUID, q BuildQuery, page pagination.Page) ([]BuildRecord, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return nil, nil, err
 	}
 	after, err := parseBuildCursor(page.After)
@@ -123,7 +123,7 @@ func parseUsageCursor(s string) (UsageCursor, error) {
 // one of its routes or rendered on one of its captures, most shared
 // first. Needs catalog.read.
 func (s *Service) CoLocated(ctx context.Context, project, message uuid.UUID, limit int) ([]uuid.UUID, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return nil, err
 	}
 	if limit <= 0 || limit > MaxUsageLimit {

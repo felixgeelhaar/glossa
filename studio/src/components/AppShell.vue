@@ -5,7 +5,7 @@ import { me as meApi } from "../api/endpoints";
 import { passkeysSupported } from "../lib/webauthn";
 import { getPref, PASSKEY_PROMO_DISMISSED, setPref } from "../lib/prefs";
 import { useMeta } from "../session/meta";
-import { signOut, useSession } from "../session/session";
+import { signOut, useGrant, useSession } from "../session/session";
 import { strings } from "../strings";
 import BrandMark from "./BrandMark.vue";
 import { showShortcutSheet } from "./ShortcutSheet.vue";
@@ -18,6 +18,9 @@ const tenant = computed(() => (typeof route.params.tenant === "string" ? route.p
 const personal = computed(() => memberships.value.filter((m) => m.tenant.kind === "individual"));
 const organizations = computed(() => memberships.value.filter((m) => m.tenant.kind === "organization"));
 const NEW_ORG = "__new__";
+const grant = useGrant(() => tenant.value);
+/** Approving is a reviewer's (RFC 0006 §3.2): the inbox is offered to whoever may decide in some locale. */
+const mayApprove = computed(() => grant.value.get("approvals.decide") !== undefined);
 
 function switchTenant(e: Event): void {
   const value = (e.target as HTMLSelectElement).value;
@@ -71,6 +74,10 @@ async function doSignOut(everywhere: boolean): Promise<void> {
         </optgroup>
         <option :value="NEW_ORG">{{ strings.nav.newOrganization }}</option>
       </select>
+      <nav v-if="tenant" class="work-nav" :aria-label="strings.nav.work">
+        <RouterLink :to="{ name: 'my-work', params: { tenant } }" class="work-link" data-testid="nav-my-work">{{ strings.nav.myWork }}</RouterLink>
+        <RouterLink v-if="mayApprove" :to="{ name: 'approvals', params: { tenant } }" class="work-link" data-testid="nav-approvals">{{ strings.nav.approvals }}</RouterLink>
+      </nav>
       <span class="spacer" />
       <button type="button" class="btn btn-ghost btn-icon" :aria-label="strings.nav.shortcuts" :title="strings.nav.shortcuts" @click="showShortcutSheet">
         <kbd aria-hidden="true">?</kbd>
@@ -134,6 +141,24 @@ async function doSignOut(everywhere: boolean): Promise<void> {
 }
 .home-link {
   text-decoration: none;
+}
+.work-nav {
+  display: flex;
+  gap: var(--kl-space-1);
+}
+.work-link {
+  padding: var(--kl-space-2) var(--kl-space-3);
+  border-radius: var(--kl-radius-md);
+  color: var(--kl-ink-secondary);
+  text-decoration: none;
+}
+.work-link:hover {
+  color: var(--kl-ink);
+}
+.work-link.router-link-active {
+  color: var(--kl-ink);
+  font-weight: var(--kl-weight-medium);
+  background: var(--kl-accent-dim);
 }
 .tenant {
   min-block-size: 2.25rem;

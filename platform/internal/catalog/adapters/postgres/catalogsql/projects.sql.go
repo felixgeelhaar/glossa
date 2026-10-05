@@ -215,17 +215,28 @@ func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsPara
 const listProjects = `-- name: ListProjects :many
 SELECT id, tenant_id, slug, name, source_locale, settings, version, created_by, created_at, updated_at FROM catalog_projects
 WHERE id > $1
+  AND (NOT $2::boolean OR id = ANY ($3::uuid[]))
 ORDER BY id
-LIMIT $2
+LIMIT $4
 `
 
 type ListProjectsParams struct {
-	After   uuid.UUID
-	MaxRows int32
+	After     uuid.UUID
+	FilterIds bool
+	Ids       []uuid.UUID
+	MaxRows   int32
 }
 
+// only limits the page to ids: a project-scoped caller's projects
+// (RFC 0006 §4.1), filtered here so a page's size never betrays the
+// projects outside the scope.
 func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]CatalogProject, error) {
-	rows, err := q.db.Query(ctx, listProjects, arg.After, arg.MaxRows)
+	rows, err := q.db.Query(ctx, listProjects,
+		arg.After,
+		arg.FilterIds,
+		arg.Ids,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

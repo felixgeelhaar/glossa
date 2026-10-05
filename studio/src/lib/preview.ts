@@ -1,6 +1,6 @@
 /**
  * Live preview over the canonical MF2 model with the reference formatter
- * (`@glossa/messageformat`, RFC 0002 §5). It is loaded on demand, so it
+ * (`@felixgeelhaar/glossa-messageformat`, RFC 0002 §5). It is loaded on demand, so it
  * stays out of the initial bundle. MF2 text is parsed here as the
  * translator types; MF1 is parsed only by the server (there is exactly one
  * MF1 converter, in Go), through POST /v1/message-previews, debounced.
@@ -10,15 +10,15 @@
 export const MF1_PREVIEW_DELAY_MS = 250;
 /** Wait before asking again after the server's rate limit (429). */
 export const MF1_PREVIEW_RETRY_MS = 1500;
-import type { FormatError, Message, MessagePart } from "@glossa/messageformat";
+import type { FormatError, Message, MessagePart } from "@felixgeelhaar/glossa-messageformat";
 
-type MessageFormatModule = typeof import("@glossa/messageformat");
+type MessageFormatModule = typeof import("@felixgeelhaar/glossa-messageformat");
 
 let loading: Promise<MessageFormatModule> | undefined;
 
 /** The reference formatter, imported once. */
 export function loadFormatter(): Promise<MessageFormatModule> {
-  loading ??= import("@glossa/messageformat");
+  loading ??= import("@felixgeelhaar/glossa-messageformat");
   return loading;
 }
 

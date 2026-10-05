@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -107,7 +108,16 @@ func (s *Service) RecordCheckRun(ctx context.Context, in RecordRun) (run domain.
 		// with what it summarizes (RFC 0005 §8). It is a recomputation of
 		// the whole day, not an increment, so a retried write and a
 		// second run of the same day both land on the same numbers.
-		return st.RollUpFindingsByDay(ctx, in.Project, run.StartedAt)
+		if err := st.RollUpFindingsByDay(ctx, in.Project, run.StartedAt); err != nil {
+			return err
+		}
+		// And the run is announced, in the same transaction: the Glossa
+		// pull-request check renders the run CI recorded (RFC 0005
+		// §12.3), and nothing else would ever tell it one had arrived.
+		return st.Publish(ctx, outbox.Event{
+			Type: domain.EventCheckRunRecorded, AggregateType: domain.AggregateCheckRun,
+			AggregateID: run.ID.String(), Actor: outbox.Actor(run.CreatedBy), Payload: domain.CheckRunRecordedOf(run),
+		})
 	})
 	if err != nil {
 		return domain.CheckRun{}, err
@@ -156,6 +166,29 @@ func (s *Service) ListCheckRuns(ctx context.Context, project uuid.UUID, f RunFil
 	}
 	items, next := pagination.Trim(rows, page, runCursor)
 	return items, next, nil
+}
+
+// HasReportedRun reports whether the project has ever recorded a
+// reported run — one of ReportableTriggers, of any ref and any commit —
+// among the runs retention still keeps.
+//
+// It is how the Glossa pull-request check learns that a repository's
+// CI runs `glossa check`, and so whether a commit without a run yet is
+// worth waiting for (RFC 0005 §14 decision 11). `capture` and `write`
+// runs are the server's own and say nothing about the repository's CI.
+// It is asked on every readiness pass, so it is one existence check and
+// never a listing.
+func (s *Service) HasReportedRun(ctx context.Context, project uuid.UUID) (bool, error) {
+	if err := s.read(ctx, project); err != nil {
+		return false, err
+	}
+	var found bool
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		var err error
+		found, err = st.HasCheckRunOf(ctx, project, ReportableTriggers)
+		return err
+	})
+	return found, err
 }
 
 // validate refuses a filter value outside the vocabulary, so a typo

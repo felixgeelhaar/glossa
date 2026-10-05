@@ -13,6 +13,7 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
 	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
 // schemaErrors validates raw against captures.v1 (which references
@@ -68,7 +69,28 @@ func sample() capture.Document {
 			{Index: index(0), Kind: "text", Box: capture.Box{X: 24, Y: 1180, Width: 142.25, Height: 20}, Visible: true},
 			{Index: index(1), Kind: "attribute", Attribute: "placeholder", Box: capture.Box{}, Visible: false},
 		},
+		Findings: capture.Findings(probes()),
 	}})
+}
+
+// probes is what the page's probe pass measured, in the shape it writes
+// it: a glossa.finding/v1 finding with no fingerprint and no capture.
+func probes() []domain.Finding {
+	return []domain.Finding{
+		{
+			Schema: domain.Schema, Layer: domain.LayerVisual, Code: "text-clipped", Severity: domain.Warning,
+			Locus:   domain.Locus{Key: "checkout.pay", Locale: "de", Region: "r_0"},
+			Message: "Clipped: 210×20 px of text in 148×20 px.",
+			// Evidence is free-form per code; the schema bounds its size
+			// and says nothing about its keys.
+			Evidence: map[string]any{"box": []any{148, 20}, "content": []any{210, 20}},
+		},
+		{
+			Schema: domain.Schema, Layer: domain.LayerVisual, Code: "region-overlap", Severity: domain.Warning,
+			Locus:   domain.Locus{Key: "cart.checkout", Region: "r_1"},
+			Message: "Overlaps checkout.pay by 62 %.", Subject: "checkout.pay",
+		},
+	}
 }
 
 func TestDocumentMatchesTheSchema(t *testing.T) {
@@ -85,6 +107,49 @@ func TestDocumentMatchesTheSchema(t *testing.T) {
 	raw, _ = json.Marshal(d)
 	if !bytes.Contains(raw, []byte(`"index":0`)) || bytes.Contains(raw, []byte("deviceScaleFactor")) {
 		t.Errorf("json = %s", raw)
+	}
+}
+
+// The probe findings the manifest carries are the schema's findings,
+// without the two members the page cannot know: the ingest mints the
+// capture, and the fingerprint is hashed over the catalog message ID a
+// browser never has (RFC 0005 §5). A manifest asserting either would be
+// a client deciding an identity the waiver list computes differently.
+func TestFindingsAreCarriedWithoutTheServersTwoMembers(t *testing.T) {
+	d := sample()
+	fs := d.Captures[0].Findings
+	if fs == nil || len(*fs) != len(probes()) {
+		t.Fatalf("findings = %v, want the probe pass's", fs)
+	}
+	raw, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schemaErrors(t, raw); err != nil {
+		t.Fatalf("schema: %v\n%s", err, raw)
+	}
+	for _, member := range []string{`"fingerprint"`, `"capture"`, `"source_revision"`, `"waiver"`} {
+		if bytes.Contains(raw, []byte(member)) {
+			t.Errorf("the manifest asserts %s:\n%s", member, raw)
+		}
+	}
+
+	// Absent and empty are different answers: a capture nobody probed
+	// against one the probes found nothing on.
+	if capture.Findings(nil) != nil {
+		t.Error("a capture taken without probes claims an empty finding list")
+	}
+	empty := sample()
+	empty.Captures[0].Findings = capture.Findings([]domain.Finding{})
+	raw, _ = json.Marshal(empty)
+	if !bytes.Contains(raw, []byte(`"findings":[]`)) {
+		t.Errorf("a probe pass that found nothing said nothing:\n%s", raw)
+	}
+	none := sample()
+	none.Captures[0].Findings = nil
+	raw, _ = json.Marshal(none)
+	if bytes.Contains(raw, []byte(`"findings"`)) {
+		t.Errorf("a capture taken without probes carries a findings member:\n%s", raw)
 	}
 }
 

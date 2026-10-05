@@ -49,7 +49,7 @@ func (s *Service) IngestUsages(ctx context.Context, in IngestUsages) (out Ingest
 		attribute.Int("glossa.document_bytes", len(in.Document)))
 	defer end(&err)
 
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return Ingested{}, err
 	}
@@ -131,6 +131,7 @@ func (s *Service) ingest(ctx context.Context, b domain.Build, up domain.Upload) 
 		out = Ingested{Build: b, UnknownKeys: unknown}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventBuildIngested, AggregateType: domain.AggregateBuild, AggregateID: b.ID.String(),
+			Actor:   outbox.Actor(b.CreatedBy),
 			Payload: domain.BuildIngestedOf(b, unknown), OccurredAt: b.CreatedAt,
 		})
 	})
@@ -183,7 +184,7 @@ type CaptureStored struct {
 // capture again is a no-op; a different one of the same route, viewport
 // and locale is ErrCaptureConflict. Needs catalog.write.
 func (s *Service) IngestCapture(ctx context.Context, in IngestCapture) (CaptureStored, error) {
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return CaptureStored{}, err
 	}
@@ -221,6 +222,7 @@ func (s *Service) IngestCapture(ctx context.Context, in IngestCapture) (CaptureS
 		out = CaptureStored{Capture: c, UnknownKeys: unknown}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventCaptureIngested, AggregateType: domain.AggregateCapture, AggregateID: c.ID.String(),
+			Actor:   outbox.Actor(c.CreatedBy),
 			Payload: domain.CaptureIngestedOf(c, b), OccurredAt: c.CreatedAt,
 		})
 	})

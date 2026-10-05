@@ -26,6 +26,24 @@ type Data struct {
 
 	// Assess.
 	Translation string
+
+	// Linguistic review (RFC 0005 §3.8). SourceText and TranslationText
+	// are the literal text of the two messages — placeholders and markup
+	// removed, patterns one per line — because that is what the model
+	// quotes from and what the resulting spans are offsets into. Codes
+	// is the layer's whole vocabulary, and MaxFindings the most notes
+	// one answer may carry.
+	SourceText      string
+	TranslationText string
+	Codes           []Code
+	MaxFindings     int
+}
+
+// Code is one finding code the linguistic reviewer may report, with
+// what it covers. The layer owns the list; the prompt only renders it.
+type Code struct {
+	Code    string
+	Meaning string
 }
 
 // Argument is a message argument.
