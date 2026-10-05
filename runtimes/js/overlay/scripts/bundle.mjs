@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The script Studio serves at /overlay/v1/overlay.js: src/standalone.ts with
-// Lit and @glossa/capture, one minified ES module, no source map, licence
+// Lit and @felixgeelhaar/glossa-capture, one minified ES module, no source map, licence
 // notices at the end. Deterministic: the same sources and lockfile give the same bytes,
 // so the SRI hash Studio publishes (overlay.json) only changes with the code.
 //

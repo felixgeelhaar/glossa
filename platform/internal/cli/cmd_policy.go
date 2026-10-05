@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -475,10 +476,22 @@ type policyImpactJSON struct {
 	// OpenPullRequests is the number of people who would wake up to a
 	// red pull request they did not cause. It is the number that decides
 	// whether this policy ships with a grace.
-	OpenPullRequests    int                    `json:"open_pull_requests"`
-	NewlyFailingRefs    []string               `json:"newly_failing_refs"`
-	NoLongerFailingRefs []string               `json:"no_longer_failing_refs"`
-	Rules               []policyRuleImpactJSON `json:"rules"`
+	OpenPullRequests int      `json:"open_pull_requests"`
+	NewlyFailingRefs []string `json:"newly_failing_refs"`
+	// PullRequests names the ones OpenPullRequests counts, so whoever
+	// saves the policy can go and tell their authors.
+	PullRequests        []policyPullRequestJSON `json:"newly_failing_pull_requests"`
+	NoLongerFailingRefs []string                `json:"no_longer_failing_refs"`
+	Rules               []policyRuleImpactJSON  `json:"rules"`
+}
+
+// policyPullRequestJSON is one open pull request the candidate would
+// newly fail: its branch, its number, and where it is when the server
+// knows.
+type policyPullRequestJSON struct {
+	Ref    string `json:"ref"`
+	Number int    `json:"number"`
+	URL    string `json:"url,omitempty"`
 }
 
 type policyDiffJSON struct {
@@ -562,7 +575,17 @@ func toPolicyImpactJSON(im remote.CheckPolicyImpact, candidate checkpolicy.Polic
 		Silenced: im.Silenced, NewlyFailing: im.NewlyFailing, NoLongerFailing: im.NoLongerFailing,
 		OpenPullRequests: im.OpenPullRequests, NewlyFailingRefs: derefList(im.NewlyFailingRefs),
 		NoLongerFailingRefs: derefList(im.NoLongerFailingRefs),
+		PullRequests:        []policyPullRequestJSON{},
 		Rules:               make([]policyRuleImpactJSON, 0, len(im.Rules)),
+	}
+	if im.NewlyFailingPullRequests != nil {
+		for _, pr := range *im.NewlyFailingPullRequests {
+			row := policyPullRequestJSON{Ref: pr.Ref, Number: pr.Number}
+			if pr.Url != nil {
+				row.URL = *pr.Url
+			}
+			out.PullRequests = append(out.PullRequests, row)
+		}
 	}
 	for _, r := range im.Rules {
 		row := policyRuleImpactJSON{
@@ -617,13 +640,7 @@ func printPolicyImpact(p *printer, im policyImpactJSON) {
 	if im.NoLongerFailing > 0 {
 		p.line("  %s", p.dim(fmt.Sprintf("%s stop failing a run", plural(im.NoLongerFailing, "finding", "findings"))))
 	}
-	if im.OpenPullRequests > 0 {
-		p.line("  %s %s would newly fail", p.fail(), plural(im.OpenPullRequests, "open pull request", "open pull requests"))
-		p.line("    %s", p.dim("ship the rules in `mode: warn` first, or save with --grace-days, "+
-			"so nobody is failed for something they did not do"))
-	} else if len(im.NewlyFailingRefs) > 0 {
-		p.line("  %s", p.dim("refs that turn red: "+strings.Join(im.NewlyFailingRefs, ", ")))
-	}
+	printNewlyFailing(p, im)
 	if len(im.Rules) == 0 {
 		return
 	}
@@ -633,6 +650,41 @@ func printPolicyImpact(p *printer, im policyImpactJSON) {
 			fmt.Sprint(r.Matched), fmt.Sprint(r.Changed), fmt.Sprint(r.NewlyFailing)})
 	}
 	p.table(rows)
+}
+
+// printNewlyFailing says who would wake up to a red pull request: each
+// pull request by number, branch and address, then the refs that turn
+// red with no pull request on them — somebody's branch all the same.
+func printNewlyFailing(p *printer, im policyImpactJSON) {
+	named := map[string]bool{}
+	if im.OpenPullRequests > 0 {
+		p.line("  %s %s would newly fail", p.fail(), plural(im.OpenPullRequests, "open pull request", "open pull requests"))
+		prs := slices.Clone(im.PullRequests)
+		slices.SortFunc(prs, func(a, b policyPullRequestJSON) int { return a.Number - b.Number })
+		for _, pr := range prs {
+			named[pr.Ref] = true
+			line := fmt.Sprintf("#%d %s", pr.Number, pr.Ref)
+			if pr.URL != "" {
+				line += "  " + pr.URL
+			}
+			p.line("    %s", line)
+		}
+		p.line("    %s", p.dim("ship the rules in `mode: warn` first, or save with --grace-days, "+
+			"so nobody is failed for something they did not do"))
+	}
+	var rest []string
+	for _, ref := range im.NewlyFailingRefs {
+		if !named[ref] {
+			rest = append(rest, ref)
+		}
+	}
+	switch {
+	case len(rest) == 0:
+	case len(named) > 0:
+		p.line("  %s", p.dim("other refs that turn red: "+strings.Join(rest, ", ")))
+	default:
+		p.line("  %s", p.dim("refs that turn red: "+strings.Join(rest, ", ")))
+	}
 }
 
 // ── import ──────────────────────────────────────────────────────────

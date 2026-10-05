@@ -207,8 +207,12 @@ WHERE id > $1
   AND (NOT $2::boolean OR project_id IS NULL)
   AND ($3::uuid IS NULL OR project_id = $3)
   AND ($4::text IS NULL OR locale = $4)
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND ($5::uuid[] IS NULL OR project_id IS NULL OR project_id = ANY ($5::uuid[]))
 ORDER BY id
-LIMIT $5
+LIMIT $6
 `
 
 type ListStyleGuidesParams struct {
@@ -216,6 +220,7 @@ type ListStyleGuidesParams struct {
 	TenantOnly bool
 	ProjectID  uuid.NullUUID
 	Locale     pgtype.Text
+	Projects   []uuid.UUID
 	MaxRows    int32
 }
 
@@ -227,6 +232,7 @@ func (q *Queries) ListStyleGuides(ctx context.Context, arg ListStyleGuidesParams
 		arg.TenantOnly,
 		arg.ProjectID,
 		arg.Locale,
+		arg.Projects,
 		arg.MaxRows,
 	)
 	if err != nil {

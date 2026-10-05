@@ -2,6 +2,8 @@ import { flushPromises, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it, type Mock } from "vitest";
 import type { AISuggestion } from "../../api/intelligence-schemas";
 import { createFakeIntelligence, suggestion as baseSuggestion, suggestionSource, type FakeIntelligence } from "../../test/fake-intelligence";
+import { ApiError } from "../../api/errors";
+import { assignment, createFakeWork, type FakeWork } from "../../test/fake-work";
 import { locale, mountProjectScreen, type ScreenOptions } from "../../test/project";
 import ReviewQueueView from "./ReviewQueueView.vue";
 
@@ -29,6 +31,7 @@ function queue(): FakeIntelligence {
 async function screen(i: FakeIntelligence, options: Partial<ScreenOptions> = {}) {
   wrapper = await mountProjectScreen(ReviewQueueView, {
     intelligence: i,
+    work: createFakeWork(),
     locales,
     roles: ["owner"],
     path: "/t/t/p/p/review",
@@ -138,5 +141,82 @@ describe("ReviewQueueView", () => {
     const w = await screen(createFakeIntelligence());
     expect(w.get("[data-testid=review-empty]").text()).toContain("Nothing to review.");
     expect(w.get("[data-testid=batch-accept]").attributes("disabled")).toBeDefined();
+  });
+
+  describe("assigned to me (RFC 0006 §3.1)", () => {
+    function boundWork(): FakeWork {
+      const work = createFakeWork({
+        assignments: [
+          assignment({ id: "live", project_id: "p", state: "accepted", units: [{ message_id: "m-pay", locale: "de" }] }),
+          assignment({ id: "old", project_id: "p", state: "done", units: [{ message_id: "m-old", locale: "de" }] }),
+        ],
+      });
+      work.state.resolution.set("de", { bound: true, definition_name: "four-eyes", version: 1 });
+      return work;
+    }
+    function mixedQueue(): FakeIntelligence {
+      const i = createFakeIntelligence();
+      i.state.suggestions.push(
+        suggestion({ id: "pay", message_id: "m-pay", message_key: "checkout.pay", score: 0.3 }),
+        suggestion({ id: "old", message_id: "m-old", message_key: "checkout.old", score: 0.4 }),
+        suggestion({ id: "other", message_id: "m-other", message_key: "menu.home", score: 0.5 }),
+      );
+      return i;
+    }
+    const keys = (w: VueWrapper) => options(w).map((o) => o.get(".key").text());
+
+    it("is not offered where no workflow is bound", async () => {
+      const w = await screen(queue());
+      expect(w.find("[data-testid=review-mine]").exists()).toBe(false);
+    });
+
+    it("asks the workflow resolution per locale of mine", async () => {
+      const work = createFakeWork();
+      await screen(queue(), { work });
+      expect(work.calls.filter((c) => c[0] === "resolveWorkflow").map((c) => c[2])).toEqual(["de", "fr"]);
+    });
+
+    it("narrows the queue to the units of my live assignments", async () => {
+      const work = boundWork();
+      const w = await screen(mixedQueue(), { work });
+      expect(keys(w)).toEqual(["checkout.pay", "checkout.old", "menu.home"]);
+      const box = w.get("[data-testid=review-mine]");
+      expect(box.attributes("aria-describedby")).toBe("rq-mine-hint");
+      await box.setValue(true);
+      await flushPromises();
+      expect(work.calls).toContainEqual(["myAssignments", "t", { project: "p" }]);
+      expect(keys(w)).toEqual(["checkout.pay"]);
+      expect(w.get("[data-testid=review-detail] h2").text()).toBe("checkout.pay");
+    });
+
+    it("says nothing of mine waits, rather than showing the whole queue", async () => {
+      const work = boundWork();
+      work.state.assignments = [];
+      const w = await screen(mixedQueue(), { work, path: "/t/t/p/p/review?mine=1" });
+      expect(options(w)).toHaveLength(0);
+      expect(w.get("[data-testid=review-mine-empty]").text()).toBe("Nothing to review in your assignments.");
+      expect(w.find("[data-testid=review-empty]").exists()).toBe(false);
+    });
+
+    it("tells a failed assignment read apart from an empty filter", async () => {
+      const work = boundWork();
+      work.fail.myAssignments = new ApiError(503, "unavailable", "Unavailable.");
+      const w = await screen(mixedQueue(), { work, path: "/t/t/p/p/review?mine=1" });
+      expect(options(w)).toHaveLength(0);
+      const failed = w.get("[data-testid=review-mine-failed]");
+      expect(failed.attributes("role")).toBe("alert");
+      expect(failed.text()).toContain("Your assignments could not be read");
+      expect(w.find("[data-testid=review-mine-empty]").exists()).toBe(false);
+    });
+
+    it("says when it could not tell whether a workflow applies", async () => {
+      const work = createFakeWork();
+      work.fail.resolveWorkflow = new ApiError(500, "internal", "Broken.");
+      const w = await screen(queue(), { work });
+      expect(w.find("[data-testid=review-mine]").exists()).toBe(false);
+      expect(w.get("[data-testid=review-workflow-unknown]").text()).toContain("could not be read");
+      // The queue itself is unaffected.
+      expect(options(w)).toHaveLength(4);
+    });
   });
 });

@@ -68,9 +68,29 @@ type Waiver struct {
 	CreatedBy      string
 	CreatedAt      time.Time
 	// ExpiresAt is when the daily sweep retires the waiver; nil never.
+	//
+	// It stays optional (RFC 0005 §15 question 4, decided by the owner).
+	// Some waivers are genuinely permanent decisions — "Login is the
+	// German term" does not expire — and forcing a date makes people
+	// pick one at random. The dashboard makes staleness visible instead:
+	// the waivers no stored finding carries any more, and the ones about
+	// to expire.
 	ExpiresAt *time.Time
+	// ExpiredAt is when the daily sweep recorded the expiry; nil while
+	// the date has not passed, or has passed and the sweep has not run
+	// yet. A waiver that expires is not deleted — it is recorded as
+	// expired, the same way revoking never deletes — so the reason
+	// somebody wrote is still there to read.
+	ExpiredAt *time.Time
 	// RevokedAt is when a person took it back; nil while it stands.
 	RevokedAt *time.Time
+}
+
+// Expires reports whether w is a waiver the sweep can retire at now: it
+// has a date, the date has passed, nobody revoked it, and no sweep has
+// recorded it yet.
+func (w Waiver) Expires(now time.Time) bool {
+	return w.ExpiresAt != nil && !now.Before(*w.ExpiresAt) && w.RevokedAt == nil && w.ExpiredAt == nil
 }
 
 // Validate checks a waiver before it is stored. A waiver without a
@@ -116,8 +136,15 @@ func (w Waiver) Covers(f Finding, ref string, now time.Time) bool {
 
 // Live reports whether the waiver still stands at now: not revoked, not
 // expired.
+//
+// The date is what decides, not the sweep: a waiver stops accepting
+// findings the moment it expires, whether or not the daily job has run
+// yet. The sweep only writes that down, so a job that is late never
+// leaves a dead waiver accepting anything. ExpiredAt is honoured all
+// the same, so a recorded expiry can never be contradicted by a clock
+// that went backwards.
 func (w Waiver) Live(now time.Time) bool {
-	if w.RevokedAt != nil {
+	if w.RevokedAt != nil || w.ExpiredAt != nil {
 		return false
 	}
 	return w.ExpiresAt == nil || now.Before(*w.ExpiresAt)

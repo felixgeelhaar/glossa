@@ -11,7 +11,7 @@ import type { Artifact, Manifest, ManifestLocale } from "./manifest.js";
 import type { Message } from "./model.js";
 import { webStorage } from "./storage.js";
 import type { RuntimeStorage } from "./storage.js";
-import { checkManifest, sha256Hex, verifySignature } from "./verify.js";
+import { checkManifest, cohort as cohortOf, hex, sha256Hex, verifySignature } from "./verify.js";
 import type { PublicKey } from "./verify.js";
 
 /** Where the rendered text came from (SPEC §6). */
@@ -51,6 +51,8 @@ export interface PersistedRelease {
   manifest: Manifest;
   /** SHA-256 → the artifact's exact bytes. */
   artifacts: Record<string, string>;
+  /** The installation id (SPEC §1.4), once a rollout has needed one. */
+  installation?: string;
 }
 
 export interface RuntimeOptions {
@@ -82,6 +84,30 @@ export interface RuntimeOptions {
   onError?: (error: RuntimeError) => void;
   /** An identical error is reported at most once per this many ms. Default 60 s. */
   errorInterval?: number;
+  /**
+   * Staged rollout support (SPEC §1.4), on by default. `false` ignores a
+   * manifest's `rollout`: always the stable release, never a candidate fetch.
+   */
+  rollout?: boolean;
+  /**
+   * This installation's cohort key under a staged rollout. Default: a random
+   * 128-bit id, created the first time a rollout is read and kept in
+   * `storage` (in memory without one).
+   */
+  installationId?: string;
+}
+
+/** A staged rollout as `explain()` reports it (SPEC §6). */
+export interface RolloutInfo {
+  id: string;
+  percent: number;
+  /** This installation's cohort, 0–9999. */
+  cohort: number;
+  /**
+   * The active side. `stable` with `cohort < percent × 100` is a candidate
+   * that failed to activate.
+   */
+  side: "stable" | "candidate";
 }
 
 export interface TranslateOptions {
@@ -126,6 +152,8 @@ export interface Explanation {
   release: { id: string; version: number } | null;
   source: Source;
   steps: ExplainStep[];
+  /** The active manifest's staged rollout; `null` without a valid one, or with `rollout: false`. */
+  rollout: RolloutInfo | null;
 }
 
 export interface Runtime {
@@ -182,7 +210,11 @@ export interface Runtime {
 }
 
 interface Active {
+  /** The active view (SPEC §1.4): the manifest, or its candidate view. */
   m: Manifest;
+  /** The manifest as served, `rollout` included. */
+  raw: Manifest;
+  r: RolloutInfo | null;
   etag?: string;
   source: Source;
   requested: string[];
@@ -190,6 +222,9 @@ interface Active {
   chain: string[];
   catalogs: Array<[string, Record<string, Message>]>;
 }
+
+/** 128 bits from a cryptographically secure source, as 32 lowercase hex digits. */
+const randomId = () => hex(crypto.getRandomValues(new Uint8Array(16)));
 
 const list = (l: string | readonly string[]) => canonicalLocales(typeof l === "string" ? [l] : l);
 
@@ -236,6 +271,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   let record: Promise<PersistedRelease | undefined> | undefined;
   let queue: Promise<unknown> = Promise.resolve();
   let inflight: Promise<void> | undefined;
+  let iid: string | undefined;
 
   const call = <A extends unknown[]>(fs: Iterable<(...a: A) => void>, ...args: A) => {
     for (const f of fs) {
@@ -269,16 +305,17 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       }
     })());
 
-  const persist = async (m: Manifest, etag?: string) => {
+  /** Persist manifest `m` as served, with the artifacts of its active view `v`. */
+  const persist = async (m: Manifest, v: Manifest, etag?: string) => {
     const old = (await persisted())?.artifacts ?? {};
     const artifacts: Record<string, string> = {};
-    for (const l of Object.keys(m.artifacts)) {
-      for (const s of shas(m, l)) {
+    for (const l of Object.keys(v.artifacts)) {
+      for (const s of shas(v, l)) {
         const text = cache.get(s)?.text ?? old[s];
         if (text !== undefined) artifacts[s] = text;
       }
     }
-    const r: PersistedRelease = { etag, manifest: m, artifacts };
+    const r: PersistedRelease = { etag, manifest: m, artifacts, installation: iid };
     record = Promise.resolve(r);
     try {
       await storage?.set(storeKey, r);
@@ -367,8 +404,15 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       : (Object.assign({}, ...parts) as Record<string, Message>);
   };
 
-  /** Make `m` active for `req`, if everything its chain needs is cached. */
-  const commit = (m: Manifest, source: Source, etag?: string, req = requested) => {
+  /** Make view `m` of manifest `raw` active for `req`, if everything its chain needs is cached. */
+  const commit = (
+    m: Manifest,
+    source: Source,
+    etag?: string,
+    req = requested,
+    raw = m,
+    r: RolloutInfo | null = null,
+  ) => {
     const [locale, chain] = plan(m, req);
     const catalogs: Active["catalogs"] = [];
     for (const l of chain) {
@@ -376,7 +420,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       if (!c) return false;
       catalogs.push([l, c]);
     }
-    state = { m, etag, source, requested: req, locale, chain, catalogs };
+    state = { m, raw, r, etag, source, requested: req, locale, chain, catalogs };
     const keep = new Set(Object.keys(m.artifacts).flatMap((l) => shas(m, l)));
     for (const s of cache.keys()) if (!keep.has(s)) cache.delete(s);
     call(subscribers);
@@ -384,16 +428,27 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   };
 
   /**
+   * This installation's cohort key (SPEC §1.4): the option, or the id kept with
+   * the last-good release, or a new one, created the first time a rollout is
+   * read and persisted with the release it activates.
+   */
+  const installation = async () =>
+    (iid ||= o.installationId || (await persisted())?.installation || randomId());
+
+  /**
    * Verify a manifest, load every artifact its active chain needs, then switch
    * to it in one step (SPEC §3: atomic activation). On any failure the
    * previous release keeps serving. The requested locales are pinned for the
    * whole activation; a `setLocales()` meanwhile queues its own activation.
+   * Under a staged rollout an installation in the candidate tries the
+   * candidate view first and, if it can't be activated, the stable view of
+   * the same manifest (SPEC §1.4).
    */
   const activate = async (m: Manifest, source: Source, etag?: string) => {
     const req = requested;
     let problem = checkManifest(m, env);
     let type: RuntimeError["type"] = "schema";
-    if (!problem && keys.length && m !== state?.m) {
+    if (!problem && keys.length && m !== state?.raw) {
       problem = await verifySignature(m, keys);
       type = "signature";
     }
@@ -401,10 +456,51 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
       emit({ type, detail: problem, releaseId: (m as Partial<Manifest> | null)?.release?.id });
       return false;
     }
-    const needed = plan(m, req)[1].flatMap((l) => shas(m, l));
-    const loaded = await Promise.all(needed.map((s) => load(s, m.release.id)));
-    if (loaded.includes(false) || !commit(m, source, etag, req)) return false;
-    if (source !== "bundled") await persist(m, etag);
+    let r: RolloutInfo | null = null;
+    const ro = o.rollout !== false && m.rollout;
+    if (ro) {
+      const { id, percent, salt, candidate: c } = ro;
+      // `percent >>> 0 === percent`: an integer, and not negative.
+      if (
+        id &&
+        /^[\w-]{22}$/.test(salt) &&
+        percent >>> 0 === percent &&
+        percent < 101 &&
+        c?.release &&
+        c.locales &&
+        c.fallback &&
+        c.artifacts
+      ) {
+        const cohort = await cohortOf(salt, await installation());
+        r = { id, percent, cohort, side: "candidate" };
+        if (cohort < percent * 100) {
+          const { release, locales, fallback, artifacts } = c;
+          const v = { ...m, release, locales, fallback, artifacts };
+          problem = checkManifest(v);
+          if (problem) emit({ type: "schema", detail: problem, releaseId: c.release.id });
+          else if (await take(m, v, source, etag, req, r)) return true;
+        }
+        r = { ...r, side: "stable" };
+      } else {
+        emit({ type: "schema", detail: "invalid rollout", releaseId: m.release.id });
+      }
+    }
+    return take(m, m, source, etag, req, r);
+  };
+
+  /** Load every artifact view `v` of manifest `m` needs for `req`, then activate it. */
+  const take = async (
+    m: Manifest,
+    v: Manifest,
+    source: Source,
+    etag: string | undefined,
+    req: string[],
+    r: RolloutInfo | null,
+  ) => {
+    const needed = plan(v, req)[1].flatMap((l) => shas(v, l));
+    const loaded = await Promise.all(needed.map((s) => load(s, v.release.id)));
+    if (loaded.includes(false) || !commit(v, source, etag, req, m, r)) return false;
+    if (source !== "bundled") await persist(m, v, etag);
     return true;
   };
 
@@ -416,6 +512,10 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
         !!o.bundled && o.bundled.manifest.release.version > (r?.manifest?.release?.version ?? 0);
       if (r?.manifest && !bundledIsNewer)
         activated = await activate(r.manifest, "persisted", r.etag);
+      // The bundle went active synchronously, as its stable view; its rollout
+      // (SPEC §1.4) needs the cohort, which is computed asynchronously.
+      else if (o.bundled?.manifest.rollout)
+        activated = await activate(o.bundled.manifest, "bundled");
     }
     if (base) {
       const headers: Record<string, string> = state?.etag ? { "If-None-Match": state.etag } : {};
@@ -511,6 +611,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
         release,
         source: "inline",
         steps: [],
+        rollout: release,
       };
     }
     const { m } = st;
@@ -528,7 +629,8 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     }
     const release = { id: m.release.id, version: m.release.version };
     const source = resolvedFrom ? st.source : "inline";
-    return { id, requested: req, locale, chain, resolvedFrom, release, source, steps };
+    const rollout = st.r;
+    return { id, requested: req, locale, chain, resolvedFrom, release, source, steps, rollout };
   };
 
   const add = <T>(set: Set<T>, f: T) => (set.add(f), () => void set.delete(f));
@@ -547,7 +649,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   };
 
   // The page's runtimes, where `glossa capture` and the overlay loader
-  // (`@glossa/runtime/dev`) find them (RFC 0004 §3.2, §5.1). Browsers only, so
+  // (`@felixgeelhaar/glossa-runtime/dev`) find them (RFC 0004 §3.2, §5.1). Browsers only, so
   // a server rendering per request keeps nothing. Production runtimes are
   // listed too: a capture session has to tell a production page from a page
   // without Glossa, and the loader checks every runtime's environment.
@@ -578,7 +680,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     setLocales(locales) {
       requested = list(locales);
       return run(async () => {
-        if (state) await activate(state.m, state.source, state.etag);
+        if (state) await activate(state.raw, state.source, state.etag);
       });
     },
     refresh,

@@ -10,7 +10,7 @@ import type {
   Message,
   Pattern,
   Transport,
-} from "@glossa/runtime";
+} from "@felixgeelhaar/glossa-runtime";
 
 export const EDGE = "https://edge.test";
 export const DELIVERY_KEY = "pk_test";

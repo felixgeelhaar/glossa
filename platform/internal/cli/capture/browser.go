@@ -21,8 +21,8 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
-// agentScript is @glossa/capture's capture agent (src/agent.ts), bundled
-// by `pnpm --filter @glossa/capture build:cli`. A test in that package
+// agentScript is @felixgeelhaar/glossa-capture's capture agent (src/agent.ts), bundled
+// by `pnpm --filter @felixgeelhaar/glossa-capture build:cli`. A test in that package
 // fails when this copy is stale.
 //
 //go:embed agent.js
@@ -109,10 +109,13 @@ type Shot struct {
 	// fingerprint, which only a caller that knows the catalog can
 	// compute.
 	//
-	// They are deliberately not part of Capture. The manifest is a
-	// published schema that takes no unknown field
-	// (runtimes/testdata/schemas/captures.v1.schema.json), and what the
-	// capture upload carries is the Captures API's to say.
+	// They are not Capture's own, because a probe finding is Quality's
+	// and a capture is Context's. The manifest carries them beside the
+	// capture they were measured on (Capture.Findings, built by
+	// Findings), in the shape
+	// runtimes/testdata/schemas/captures.v1.schema.json publishes: the
+	// same shape with the fingerprint and the capture left for the
+	// ingest to complete.
 	Probes []domain.Finding
 	// Metrics is the line boxes each key covered on this page, which the
 	// next locale's capture of the same route and viewport compares
@@ -349,7 +352,7 @@ func refuse(j Job, st pageStatus) *Refusal {
 	r := &Refusal{URL: j.URL}
 	switch {
 	case st.Runtimes == 0:
-		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@glossa/runtime), so nothing marks its messages"
+		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@felixgeelhaar/glossa-runtime), so nothing marks its messages"
 		return r
 	case len(st.Environments) != st.Runtimes || len(st.Locales) != st.Runtimes:
 		r.Code, r.Reason = "environment_unknown", "the capture agent's status is malformed"

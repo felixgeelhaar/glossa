@@ -411,14 +411,18 @@ SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.message_id = $1 AND t.locale > $2
+  -- Only these locales: an assigned member's units of the message
+  -- (RFC 0006 §3.3).
+  AND ($3::text[] IS NULL OR t.locale = ANY ($3::text[]))
 ORDER BY t.locale
-LIMIT $3
+LIMIT $4
 `
 
 type ListTranslationsOfMessageParams struct {
-	MessageID uuid.UUID
-	After     string
-	MaxRows   int32
+	MessageID   uuid.UUID
+	After       string
+	OnlyLocales []string
+	MaxRows     int32
 }
 
 type ListTranslationsOfMessageRow struct {
@@ -442,7 +446,12 @@ type ListTranslationsOfMessageRow struct {
 }
 
 func (q *Queries) ListTranslationsOfMessage(ctx context.Context, arg ListTranslationsOfMessageParams) ([]ListTranslationsOfMessageRow, error) {
-	rows, err := q.db.Query(ctx, listTranslationsOfMessage, arg.MessageID, arg.After, arg.MaxRows)
+	rows, err := q.db.Query(ctx, listTranslationsOfMessage,
+		arg.MessageID,
+		arg.After,
+		arg.OnlyLocales,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -733,8 +742,12 @@ WHERE m.project_id = $1
   -- Exactly these keys, for the messages on one screen: a key_prefix
   -- equal to a key would also match everything below it.
   AND ($12::text[] IS NULL OR m.key = ANY ($12::text[]))
+  -- Only these units, each spelled "<message id> <locale>": an
+  -- assigned member's (RFC 0006 §3.3), filtered before the LIMIT so a
+  -- page's size and cursor say nothing about the units outside them.
+  AND ($13::text[] IS NULL OR (t.message_id::text || ' ' || t.locale) = ANY ($13::text[]))
 ORDER BY m.key, m.message_id, t.locale
-LIMIT $13
+LIMIT $14
 `
 
 type PageProjectTranslationsParams struct {
@@ -750,6 +763,7 @@ type PageProjectTranslationsParams struct {
 	MessageState pgtype.Text
 	KeyLike      pgtype.Text
 	Keys         []string
+	Units        []string
 	MaxRows      int32
 }
 
@@ -794,6 +808,7 @@ func (q *Queries) PageProjectTranslations(ctx context.Context, arg PageProjectTr
 		arg.MessageState,
 		arg.KeyLike,
 		arg.Keys,
+		arg.Units,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -840,12 +855,14 @@ SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = $1 AND t.state = ANY ($2::text[])
+  AND ($3::boolean OR m.state IS DISTINCT FROM 'obsolete')
 ORDER BY t.locale, t.message_id
 `
 
 type SnapshotTranslationsParams struct {
-	ProjectID uuid.UUID
-	States    []string
+	ProjectID       uuid.UUID
+	States          []string
+	IncludeObsolete bool
 }
 
 type SnapshotTranslationsRow struct {
@@ -869,8 +886,13 @@ type SnapshotTranslationsRow struct {
 }
 
 // A project's translations in the given review states, for a release.
+// include_obsolete false leaves out the translations of messages this
+// projection knows to be obsolete — dead rows a reader that joins with
+// the active source would only drop, and which a project that obsoleted
+// thousands of messages has thousands of. A message the projection has
+// not seen yet (m is NULL) is kept either way.
 func (q *Queries) SnapshotTranslations(ctx context.Context, arg SnapshotTranslationsParams) ([]SnapshotTranslationsRow, error) {
-	rows, err := q.db.Query(ctx, snapshotTranslations, arg.ProjectID, arg.States)
+	rows, err := q.db.Query(ctx, snapshotTranslations, arg.ProjectID, arg.States, arg.IncludeObsolete)
 	if err != nil {
 		return nil, err
 	}

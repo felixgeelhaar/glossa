@@ -23,7 +23,7 @@ const MaxCheckTextBytes = 20000
 // or to a project. A repeated idemKey returns the first request's
 // concept with replayed set. Needs knowledge.write.
 func (s *Service) CreateConcept(ctx context.Context, project *uuid.UUID, in domain.ConceptInput, idemKey string) (c domain.Concept, replayed bool, err error) {
-	by, err := actor(ctx, authz.KnowledgeWrite)
+	by, err := writeScope(ctx, authz.KnowledgeWrite, project)
 	if err != nil {
 		return domain.Concept{}, false, err
 	}
@@ -71,7 +71,7 @@ func (s *Service) recordConcept(ctx context.Context, st Store, c domain.Concept,
 		ActionDeleted: domain.EventConceptDeleted,
 	}[action]
 	return st.Publish(ctx, outbox.Event{
-		Type: typ, AggregateType: domain.AggregateConcept, AggregateID: c.ID.String(),
+		Type: typ, AggregateType: domain.AggregateConcept, AggregateID: c.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ConceptEventOf(c, by),
 	})
 }
@@ -87,16 +87,24 @@ func (s *Service) GetConcept(ctx context.Context, id uuid.UUID) (domain.Concept,
 		c, err = st.Concept(ctx, id)
 		return err
 	})
-	return c, err
+	if err == nil {
+		err = rowScope(ctx, c.ProjectID)
+	}
+	if err != nil {
+		return domain.Concept{}, err
+	}
+	return c, nil
 }
 
 // ListConcepts lists concepts, optionally only those that apply to a
 // project, of a domain, with a term in a locale, or matching a search.
 // Needs knowledge.read.
 func (s *Service) ListConcepts(ctx context.Context, f ConceptFilter, page pagination.Page) ([]domain.Concept, *string, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	projects, err := listScope(ctx, authz.KnowledgeRead, f.ProjectID)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = projects
 	if f.Query != nil {
 		q := strings.TrimSpace(*f.Query)
 		if q == "" || utf8.RuneCountInString(q) > MaxQueryRunes {
@@ -133,6 +141,12 @@ func (s *Service) ReplaceConcept(ctx context.Context, id uuid.UUID, in domain.Co
 		if c, err = st.LockConcept(ctx, id); err != nil {
 			return err
 		}
+		if err := rowScope(ctx, c.ProjectID); err != nil {
+			return err
+		}
+		if _, err := writeScope(ctx, authz.KnowledgeWrite, c.ProjectID); err != nil {
+			return err
+		}
 		if err := checkIfMatch(c.Version, &ifMatch); err != nil {
 			return err
 		}
@@ -162,6 +176,12 @@ func (s *Service) DeleteConcept(ctx context.Context, id uuid.UUID, ifMatch *int)
 		if err != nil {
 			return err
 		}
+		if err := rowScope(ctx, c.ProjectID); err != nil {
+			return err
+		}
+		if _, err := writeScope(ctx, authz.KnowledgeWrite, c.ProjectID); err != nil {
+			return err
+		}
 		if ifMatch != nil && *ifMatch != c.Version {
 			return ErrPreconditionFailed
 		}
@@ -189,6 +209,9 @@ func (s *Service) ConceptRevisions(ctx context.Context, id uuid.UUID, page pagin
 		rows, err = st.ConceptRevisions(ctx, id, before, page.Limit())
 		if err == nil && len(rows) == 0 && page.After == "" {
 			return ErrNotFound
+		}
+		if err == nil && len(rows) > 0 {
+			err = rowScope(ctx, rows[0].Concept.ProjectID)
 		}
 		return err
 	})
@@ -241,8 +264,15 @@ type RecognizedTerm struct {
 // RecognizeTerms finds termbase terms in a text (see domain's
 // recognition rules): the term_lookup tool, and Studio's highlighting.
 // Needs knowledge.read.
+//
+// An assigned member asks it for a project and the target locale of one
+// of their units: the termbase translating it needs (RFC 0006 §3.3).
 func (s *Service) RecognizeTerms(ctx context.Context, q TermQuery) ([]RecognizedTerm, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	target := bcp47.Tag{}
+	if q.TargetLocale != nil {
+		target = *q.TargetLocale
+	}
+	if err := readFor(ctx, authz.KnowledgeRead, q.ProjectID, target); err != nil {
 		return nil, err
 	}
 	if q.Locale.IsZero() || len(q.Text) > MaxCheckTextBytes {
@@ -294,7 +324,7 @@ type TermCheck struct {
 // a translation — plain text; for a message, pass domain.VisibleText of
 // each side. Needs knowledge.read.
 func (s *Service) CheckTerminology(ctx context.Context, c TermCheck) ([]domain.TermFinding, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := readFor(ctx, authz.KnowledgeRead, c.ProjectID, c.TargetLocale); err != nil {
 		return nil, err
 	}
 	if c.SourceLocale.IsZero() || c.TargetLocale.IsZero() ||

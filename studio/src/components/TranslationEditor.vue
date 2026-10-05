@@ -4,7 +4,7 @@
  * the translation editor with live preview, structural QA from the
  * server, review actions and the revision history.
  */
-import type { Message as MF2 } from "@glossa/messageformat";
+import type { Message as MF2 } from "@felixgeelhaar/glossa-messageformat";
 import type { TermFinding, TermRecognition } from "../api/knowledge-schemas";
 import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { messages as messagesApi, preview as previewApi, translations } from "../api/endpoints";
@@ -472,6 +472,8 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
 
     <div v-show="tab === 'history'" id="panel-history" role="tabpanel" aria-labelledby="tab-history" class="panel">
       <HistoryList :revisions="revisions" :lang="locale.code" :dir="locale.direction" :self-id="selfId" />
+      <!-- What the host adds under the history, e.g. the unit's workflow instances (RFC 0006 §8). -->
+      <slot name="history-extra" />
     </div>
   </article>
 </template>

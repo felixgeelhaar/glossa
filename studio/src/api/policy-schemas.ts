@@ -81,6 +81,17 @@ export const PolicyRuleImpact = z.object({
   newly_failing: z.number().int().min(0),
 });
 
+/**
+ * An open pull request the candidate would newly fail: its branch, its
+ * number, and where it is when the server knows the project's
+ * repository.
+ */
+export const PolicyPullRequest = z.object({
+  ref: z.string(),
+  number: z.number().int().min(1),
+  url: z.string().optional(),
+});
+
 export const PolicyImpact = z.object({
   findings: z.number().int().min(0),
   runs: z.number().int().min(0),
@@ -92,6 +103,8 @@ export const PolicyImpact = z.object({
   /** The number that decides whether this policy ships with a grace. */
   open_pull_requests: z.number().int().min(0),
   newly_failing_refs: z.array(z.string()).optional(),
+  /** The ones `open_pull_requests` counts, named. */
+  newly_failing_pull_requests: z.array(PolicyPullRequest).optional(),
   no_longer_failing_refs: z.array(z.string()).optional(),
   rules: z.array(PolicyRuleImpact),
 });
@@ -122,6 +135,7 @@ export type PolicyEnvironment = z.infer<typeof PolicyEnvironment>;
 export type PolicyDocument = z.infer<typeof PolicyDocument>;
 export type PolicyState = z.infer<typeof PolicyState>;
 export type PolicyRuleImpact = z.infer<typeof PolicyRuleImpact>;
+export type PolicyPullRequest = z.infer<typeof PolicyPullRequest>;
 export type PolicyImpact = z.infer<typeof PolicyImpact>;
 export type PolicySaved = z.infer<typeof PolicySaved>;
 export type PolicyVersion = z.infer<typeof PolicyVersion>;
@@ -149,6 +163,7 @@ export type CheckPolicyContractAlignment = [
   Assert<Fits<C["CheckPolicyDocument"], PolicyDocument>>,
   Assert<Fits<C["CheckPolicyState"], PolicyState>>,
   Assert<Fits<C["CheckPolicyRuleImpact"], PolicyRuleImpact>>,
+  Assert<Fits<C["CheckPolicyPullRequest"], PolicyPullRequest>>,
   Assert<Fits<C["CheckPolicyImpact"], PolicyImpact>>,
   Assert<Fits<C["CheckPolicySaved"], PolicySaved>>,
   Assert<Fits<C["CheckPolicyVersion"], PolicyVersion>>,

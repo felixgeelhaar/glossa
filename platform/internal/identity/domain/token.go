@@ -131,12 +131,16 @@ func ParseActor(s string) (Actor, error) {
 // APIToken is the aggregate for a tenant-owned bearer credential used by
 // the CLI, CI and agents. Tokens belong to the tenant, not to the person
 // who created them, and are revoked rather than deleted so their use
-// stays auditable. Project scoping is a later, additive restriction.
+// stays auditable.
 type APIToken struct {
-	ID         TokenID
-	TenantID   tenancy.ID
-	Name       string
-	Scopes     Scopes
+	ID       TokenID
+	TenantID tenancy.ID
+	Name     string
+	Scopes   Scopes
+	// Projects is the projects the token may act on (RFC 0006 §4.1);
+	// empty is every project. Package authz enforces it: a project
+	// outside it does not exist to the token.
+	Projects   ProjectScope
 	Hint       string
 	Hash       string
 	CreatedBy  Actor
@@ -187,7 +191,8 @@ func (t APIToken) CheckUsable(now time.Time) error {
 	return nil
 }
 
-// Grant is what the token may do in its tenant.
+// Grant is what the token may do in its tenant. It does not yet reflect
+// t.Projects (RFC 0006 wave 2).
 func (t APIToken) Grant() Grant { return GrantForScopes(t.Scopes) }
 
 // Revoke ends the token for good.

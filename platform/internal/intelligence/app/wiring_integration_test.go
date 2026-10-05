@@ -366,8 +366,8 @@ func TestWiringTriggersAreIdempotent(t *testing.T) {
 	p := w.project(t, []string{"de"}, nil)
 	w.autoTranslate(t, p, "de")
 	w.push(t, p, map[string]string{"cart.save": "Save your changes"})
-	if _, err := wenv.Super.Exec(context.Background(), `INSERT INTO outbox_events (id, tenant_id, event_type, aggregate_type, aggregate_id, payload, occurred_at)
-		SELECT gen_random_uuid(), tenant_id, event_type, aggregate_type, aggregate_id, payload, occurred_at
+	if _, err := wenv.Super.Exec(context.Background(), `INSERT INTO outbox_events (id, tenant_id, event_type, aggregate_type, aggregate_id, actor, payload, occurred_at)
+		SELECT gen_random_uuid(), tenant_id, event_type, aggregate_type, aggregate_id, actor, payload, occurred_at
 		FROM outbox_events WHERE event_type = 'catalog.message.created'`); err != nil {
 		t.Fatal(err)
 	}

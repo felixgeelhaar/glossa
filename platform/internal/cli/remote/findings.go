@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
 	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
@@ -146,6 +148,113 @@ func locusFromWire(l apiclient.FindingLocus) domain.Locus {
 	return out
 }
 
+// ── recording a run ─────────────────────────────────────────────────
+
+// RecordCheckRun is a check that ran here, to put on the record: what
+// was checked, which layers ran, and what they found.
+//
+// It carries no fingerprint, no counts and no conclusion. The
+// fingerprint is the server's, computed over the catalog message the
+// key resolved to — a print the CLI minted over a key would not be the
+// one the waiver list and the dashboard compute for the same finding —
+// and the verdict is the project's policy's. Sending either would mean
+// a client deciding whether its own build is green.
+type RecordCheckRun struct {
+	// Ref is the branch checked and Commit the commit graded.
+	Ref, Commit string
+	// Trigger is "cli", "pull_request" or "api"; empty is "api".
+	Trigger string
+	// Environment selects the policy's block for it; empty is a branch
+	// check, which is every check in CI.
+	Environment string
+	// Layers are the layers that actually ran, so the record can tell
+	// "clean" from "not looked at".
+	Layers    []domain.Layer
+	Findings  []domain.Finding
+	StartedAt time.Time
+}
+
+// RecordCheck records a run and its findings, and returns the run the
+// server stored — with the counts and the conclusion its policy
+// reached, which may not be the ones this run printed if the project's
+// policy moved since the check fetched it.
+func (c *Client) RecordCheck(ctx context.Context, s Scope, in RecordCheckRun) (CheckRun, error) {
+	body := apiclient.CreateCheckRunJSONRequestBody{
+		Ref: in.Ref, Commit: optional(in.Commit), Environment: optional(in.Environment),
+		Layers: make([]apiclient.FindingLayer, len(in.Layers)),
+	}
+	if in.Trigger != "" {
+		body.Trigger = ptrOf(apiclient.ReportedTrigger(in.Trigger))
+	}
+	for i, l := range in.Layers {
+		body.Layers[i] = apiclient.FindingLayer(l)
+	}
+	if !in.StartedAt.IsZero() {
+		body.StartedAt = ptrOf(in.StartedAt.UTC())
+	}
+	findings := make([]apiclient.ReportedFinding, 0, len(in.Findings))
+	for _, f := range in.Findings {
+		findings = append(findings, reportedFinding(f))
+	}
+	body.Findings = &findings
+
+	url := c.path("/v1/tenants/%s/projects/%s/check-runs", s.Tenant, s.Project)
+	r, err := c.api.CreateCheckRunWithResponse(ctx, s.Tenant, s.Project, body)
+	if err := check(r, err, http.MethodPost, url); err != nil {
+		return CheckRun{}, err
+	}
+	return *r.JSON201, nil
+}
+
+// reportedFinding sends what a reporter knows. The fingerprint and the
+// catalog message ID are deliberately not among them: the server
+// resolves the key and computes the print, so one finding keeps one
+// identity across the terminal, the pull request and the dashboard.
+func reportedFinding(f domain.Finding) apiclient.ReportedFinding {
+	out := apiclient.ReportedFinding{
+		Schema: apiclient.ReportedFindingSchema(domain.Schema),
+		Layer:  apiclient.FindingLayer(f.Layer), Code: f.Code,
+		Severity: apiclient.ReportedFindingSeverity(f.Severity),
+		Message:  f.Message, Subject: optional(f.Subject), Detail: optional(f.Detail),
+		SourceRevision: f.SourceRevision,
+		Locus: apiclient.ReportedFindingLocus{
+			Key: optional(f.Locus.Key), Revision: optional(f.Locus.Revision),
+			File: optional(f.Locus.File), Route: optional(f.Locus.Route),
+			Component: optional(f.Locus.Component),
+		},
+	}
+	if f.Locus.Locale != "" {
+		out.Locus.Locale = ptrOf(apiclient.Locale(f.Locus.Locale))
+	}
+	if f.Locus.Namespace != "" {
+		out.Locus.Namespace = ptrOf(apiclient.Namespace(f.Locus.Namespace))
+	}
+	if f.Locus.Line > 0 {
+		out.Locus.Line = ptrOf(f.Locus.Line)
+	}
+	if f.Locus.Column > 0 {
+		out.Locus.Column = ptrOf(f.Locus.Column)
+	}
+	if f.Locus.Span != nil {
+		out.Locus.Span = &apiclient.FindingSpan{
+			Side: apiclient.FindingSpanSide(f.Locus.Span.Side), Start: f.Locus.Span.Start, End: f.Locus.Span.End,
+		}
+	}
+	if len(f.Evidence) > 0 {
+		out.Evidence = ptrOf(map[string]any(f.Evidence))
+	}
+	if f.Fix != nil {
+		fix := apiclient.FindingFix{
+			Kind: apiclient.FindingFixKind(f.Fix.Kind), To: f.Fix.To, Hint: optional(f.Fix.Hint),
+		}
+		if f.Fix.Term != "" {
+			fix.Term = ptrOf(f.Fix.Term)
+		}
+		out.Fix = &fix
+	}
+	return out
+}
+
 // ── waivers ─────────────────────────────────────────────────────────
 
 // CreateWaiver is a waiver to create. Reason is required and non-empty;
@@ -224,6 +333,46 @@ func (c *Client) Waivers(ctx context.Context, s Scope, f WaiverFilter, limit int
 		}
 		token = r.JSON200.NextPageToken
 	}
+}
+
+// LiveWaivers reads the waivers that stand now, as the domain type that
+// applies them (domain.Waivers).
+//
+// It is what a locally graded run needs to reach the same counts the
+// server reaches: `glossa check` computes its own findings, and a
+// finding the project has accepted must come back waived there too, or
+// the terminal and the pull request disagree about a decision somebody
+// already made and wrote a reason for (RFC 0005 §2.3).
+func (c *Client) LiveWaivers(ctx context.Context, s Scope) ([]domain.Waiver, error) {
+	live := true
+	ws, err := c.Waivers(ctx, s, WaiverFilter{Active: &live}, 0)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Waiver, 0, len(ws))
+	for _, w := range ws {
+		out = append(out, WaiverFromWire(w))
+	}
+	return out, nil
+}
+
+// WaiverFromWire reads a waiver back into the domain type the CLI, the
+// pull-request check and the server share.
+//
+// Everything the matching rule reads comes over verbatim — the
+// fingerprint, the scope and its branch, the source revision it was made
+// against, and when it was revoked or expires. An ID that does not parse
+// leaves the waiver with a nil one; it still covers what it covers, and
+// the finding it waives names uuid.Nil rather than nothing.
+func WaiverFromWire(w Waiver) domain.Waiver {
+	out := domain.Waiver{
+		Fingerprint: w.Fingerprint, Reason: w.Reason, Scope: domain.WaiverScope(w.Scope),
+		Ref: derefOr(w.Ref), SourceRevision: w.SourceRevision,
+		CreatedBy: w.CreatedBy, CreatedAt: w.CreatedAt,
+		ExpiresAt: w.ExpiresAt, RevokedAt: w.RevokedAt,
+	}
+	out.ID, _ = uuid.Parse(w.Id)
+	return out
 }
 
 // RevokeWaiver takes a waiver back; the findings it accepted are

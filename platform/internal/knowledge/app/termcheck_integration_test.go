@@ -94,6 +94,37 @@ func TestProjectTerminologyCheck(t *testing.T) {
 	}
 }
 
+// Each item names the source revision its findings were computed
+// against — the message's current one, whose text SourceText is — and
+// it moves when the source does. A waiver on a terminology finding is
+// measured against it (RFC 0005 §2.3); without it, a waived finding
+// could never come back, whatever happened to the source under it.
+func TestProjectTerminologyCheckNamesTheSourceRevision(t *testing.T) {
+	h := newHarness(t)
+	p := h.project(t, "shop", false, []string{"de"}, map[string]string{"a.open": "Open your workspace"})
+	if _, _, err := h.svc.CreateConcept(h.developer(), nil, workspace(), ""); err != nil {
+		t.Fatal(err)
+	}
+	h.translate(t, p, "a.open", "de", "Öffne deinen Workspace", nil)
+	h.drain(t)
+	q := app.ProjectTermCheck{Locales: []bcp47.Tag{tag("de")}, Page: pagination.Page{Size: 100}}
+
+	first := check(t, h, p, q)
+	if len(first.Items) != 1 || first.Items[0].SourceRevision != 1 {
+		t.Fatalf("report = %+v, want one item at source revision 1", first.Items)
+	}
+
+	// The source moves; the translation does not. The check reads the
+	// new source, so that is the revision it names.
+	h.push(t, p, map[string]string{"a.open": "Open the shared workspace"})
+	h.drain(t)
+	second := check(t, h, p, q)
+	if len(second.Items) != 1 || second.Items[0].SourceRevision != 2 ||
+		second.Items[0].SourceText != "Open the shared workspace" {
+		t.Fatalf("report = %+v, want the item at source revision 2", second.Items)
+	}
+}
+
 func check(t *testing.T, h *harness, p uuid.UUID, c app.ProjectTermCheck) app.ProjectTermReport {
 	t.Helper()
 	r, err := h.svc.CheckProjectTerminology(h.translator(), p, c)

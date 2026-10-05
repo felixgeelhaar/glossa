@@ -1,7 +1,7 @@
 // Package codegen writes typed message accessors (product intent §10,
 // RFC 0002 §8) from the catalog's argument metadata
 // (messageformat.Arguments): a TypeScript module
-// (messages.checkout.pay({ amount })), its registration for @glossa/vue,
+// (messages.checkout.pay({ amount })), its registration for @felixgeelhaar/glossa-vue,
 // and Go functions (msg.For(l).CheckoutPay(amount)). A missing or
 // mistyped argument then fails at compile time.
 //

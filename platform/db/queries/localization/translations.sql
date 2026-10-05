@@ -95,6 +95,9 @@ SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.message_id = sqlc.arg(message_id) AND t.locale > sqlc.arg(after)
+  -- Only these locales: an assigned member's units of the message
+  -- (RFC 0006 §3.3).
+  AND (sqlc.narg(only_locales)::text[] IS NULL OR t.locale = ANY (sqlc.narg(only_locales)::text[]))
 ORDER BY t.locale
 LIMIT sqlc.arg(max_rows);
 
@@ -108,10 +111,16 @@ ORDER BY locale;
 
 -- name: SnapshotTranslations :many
 -- A project's translations in the given review states, for a release.
+-- include_obsolete false leaves out the translations of messages this
+-- projection knows to be obsolete — dead rows a reader that joins with
+-- the active source would only drop, and which a project that obsoleted
+-- thousands of messages has thousands of. A message the projection has
+-- not seen yet (m is NULL) is kept either way.
 SELECT t.*, coalesce(m.source_revision, 0)::integer AS current_source_revision
 FROM localization_translations t
 LEFT JOIN localization_messages m ON m.message_id = t.message_id
 WHERE t.project_id = sqlc.arg(project_id) AND t.state = ANY (sqlc.arg(states)::text[])
+  AND (sqlc.arg(include_obsolete)::boolean OR m.state IS DISTINCT FROM 'obsolete')
 ORDER BY t.locale, t.message_id;
 
 -- name: PageProjectTranslations :many
@@ -143,6 +152,10 @@ WHERE m.project_id = sqlc.arg(project_id)
   -- Exactly these keys, for the messages on one screen: a key_prefix
   -- equal to a key would also match everything below it.
   AND (sqlc.narg(keys)::text[] IS NULL OR m.key = ANY (sqlc.narg(keys)::text[]))
+  -- Only these units, each spelled "<message id> <locale>": an
+  -- assigned member's (RFC 0006 §3.3), filtered before the LIMIT so a
+  -- page's size and cursor say nothing about the units outside them.
+  AND (sqlc.narg(units)::text[] IS NULL OR (t.message_id::text || ' ' || t.locale) = ANY (sqlc.narg(units)::text[]))
 ORDER BY m.key, m.message_id, t.locale
 LIMIT sqlc.arg(max_rows);
 

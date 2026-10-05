@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/coverage"
 	catalogapi "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/httpapi"
 	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
@@ -30,6 +31,7 @@ import (
 	identitymetrics "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/metrics"
 	identitysources "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/sources"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	integrationapi "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
 	integrationmetrics "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
@@ -70,16 +72,25 @@ import (
 	qualityintelligence "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/intelligence"
 	qualitymetrics "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/metrics"
 	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
+	qualitypullrequests "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/pullrequests"
 	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
 	qualitysnapshot "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/snapshot"
+	qualitystyle "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
 	qualitysummary "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/summary"
 	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
 	releaseapi "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/httpapi"
+	releasemetrics "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/metrics"
 	releasepg "github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/sources"
 	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
 	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	workflowcatalog "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/catalog"
+	workflowapi "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
+	workflowidentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
+	workflowpg "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
+	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
+	workflowdomain "github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
 )
 
 // contexts are the bounded contexts besides Identity, wired to each
@@ -112,6 +123,21 @@ type contexts struct {
 	// serves its reads and waiver writes.
 	quality    *qualityapp.Service
 	qualityAPI *qualityapi.API
+	// workflow is the Workflow context (RFC 0006 §2): definitions as
+	// data, their versions and bindings. workflowAPI serves them and the
+	// read side of instances.
+	workflow    *workflowapp.Service
+	workflowAPI *workflowapi.API
+	// auditAPI is Audit's HTTP edge (RFC 0006 §6): the v0.3 history
+	// import. Audit is built before the other contexts (Identity records
+	// through it), so main sets this once both exist.
+	auditAPI *auditapi.API
+	// objects is the deployment's object storage, which Audit's export
+	// jobs write to (Audit is built before the contexts that open it).
+	objects objectstore.StreamStore
+	// auditKeys serves /.well-known/glossa-audit-keys.json beside /v1,
+	// outside the contract and the Guard (RFC 0006 §6.2).
+	auditKeys http.HandlerFunc
 	// keyIndexes is Release's key index task: it rewrites the index
 	// objects of keys written before their current format (migration
 	// 0015 gave existing keys a scope).
@@ -125,6 +151,9 @@ type contexts struct {
 	// so every replica may run it; nil when
 	// GLOSSA_BRANCH_PUBLISHER_ENABLED is off.
 	branchPublisher *releaseapp.Publisher
+	// rolloutSweeper aborts staged rollouts past their max_duration
+	// (RFC 0006 §5.2); the leased scheduler of newRolloutSweep runs it.
+	rolloutSweeper *releaseapp.RolloutSweeper
 	// githubInbox drains the GitHub webhook inbox (RFC 0004 §6.2); nil
 	// when this deployment configures no GitHub App, or when
 	// GLOSSA_GITHUB_INBOX_ENABLED is off. The install flow and the
@@ -148,13 +177,23 @@ type contexts struct {
 	// no GitHub App, and the exchange then answers
 	// `github_not_configured`.
 	ciAuth identityapp.GitHubOIDC
+	// workflowRuntime is the rest of Workflow: the instance runner
+	// subscribed to the vocabulary events, the instance store the API
+	// reads, and assignments and approvals.
+	workflowRuntime workflowServices
+	// coverage is Workflow's assignments as the read port assignment-
+	// scoped visibility filters through (authz.Coverage, RFC 0006 §3.3).
+	// Were it ever nil, Identity would hand every `assigned` member a
+	// principal without one and authz would show them nothing: the
+	// restriction fails closed, never open.
+	coverage authz.Coverage
 }
 
 // newPurgeJobs builds the daily retention jobs over the two contexts that
 // have something to purge. Each logs what it did; a failure is the
 // scheduler's to count and retry at the next interval.
-func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox *integrationapp.InboxWorker,
-	checks *integrationapp.CheckWorker, logger *slog.Logger,
+func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, quality *qualityapp.Service,
+	inbox *integrationapp.InboxWorker, checks *integrationapp.CheckWorker, logger *slog.Logger,
 ) []scheduler.Job {
 	jobs := []scheduler.Job{
 		{Name: "context.purge", Run: func(ctx context.Context) error {
@@ -164,6 +203,19 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox
 					slog.String("tenant_id", p.Tenant.String()), slog.String("project_id", p.Project.String()),
 					slog.Int("builds", len(p.Builds)), slog.Int("captures", p.Captures),
 					slog.Int("images", p.ImagesDeleted))
+			}
+			return err
+		}},
+		// Quality's housekeeping (RFC 0005 §2.2, §2.3): the waivers whose
+		// date has passed, recorded rather than deleted, and the check
+		// runs past their 90 days, deleted with their findings — except
+		// a ref's newest, which every dashboard reads. The trend
+		// survives them in the findings-by-day rollup.
+		{Name: "quality.sweep", Run: func(ctx context.Context) error {
+			swept, err := quality.Sweep(ctx)
+			if swept.WaiversExpired > 0 || swept.RunsDeleted > 0 {
+				logger.InfoContext(ctx, "quality: sweep", slog.Int("tenants", swept.Tenants),
+					slog.Int("waivers_expired", swept.WaiversExpired), slog.Int("runs_deleted", swept.RunsDeleted))
 			}
 			return err
 		}},
@@ -198,6 +250,10 @@ func newPurgeJobs(usages *contextapp.Service, catalog *catalogapp.Service, inbox
 // in bursts of up to 60 (a CI run uploads a few per application).
 const contextUploadTimeout = 2 * time.Minute
 
+// assignmentBodyTimeout bounds reading and answering a createAssignment
+// whose body may run to MaxAssignmentBodyBytes.
+const assignmentBodyTimeout = time.Minute
+
 // captureUploadTimeout bounds reading a capture upload: up to
 // contextdomain.MaxCaptureUploadBytes (200 MB) of images from CI.
 const captureUploadTimeout = 10 * time.Minute
@@ -223,12 +279,18 @@ type contextDeps struct {
 	branches    config.Branches
 	context     config.Context
 	github      config.GitHub
+	workflow    config.Workflow
 	// studioURL is where the pull request's sticky comment links to the
 	// branch (GLOSSA_STUDIO_URL); edgeURL is where a branch
 	// environment's manifest is served (GLOSSA_EDGE_PUBLIC_URL, empty
 	// when the deployment does not announce its edge).
 	studioURL string
 	edgeURL   string
+	// identity resolves the actor whose event moved a workflow instance
+	// to the grant its actions run with (RFC 0006 §2.5); nil in tests
+	// that build the contexts alone, and the actions of a person's or a
+	// token's event are then refused.
+	identity *identityapp.Service
 	// lookup reads the environment for the GitHub App's own
 	// configuration (RFC 0004 §14.1: platform configuration, not tenant
 	// data, in one Kubernetes Secret).
@@ -238,7 +300,7 @@ type contextDeps struct {
 // buildContexts opens object storage and the signer, then the contexts.
 func buildContexts(
 	cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, events *outbox.Registry,
-	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc,
+	reg prometheus.Registerer, tp trace.TracerProvider, lookup config.LookupFunc, identity *identityapp.Service,
 ) (contexts, error) {
 	objects, err := configured.Open(cfg.Storage)
 	if err != nil {
@@ -252,11 +314,14 @@ func buildContexts(
 	if err != nil {
 		return contexts{}, err
 	}
-	return newContexts(pool, events, contextDeps{
+	c, err := newContexts(pool, events, contextDeps{
 		objects: objects, signer: signer, logger: logger, sealKey: sealKey, registerer: reg, ai: cfg.Intelligence,
 		integration: cfg.Integration, purge: cfg.Purge, branches: cfg.Branches, context: cfg.Context, tracer: tp,
-		github: cfg.GitHub, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		github: cfg.GitHub, workflow: cfg.Workflow, studioURL: cfg.Identity.StudioURL, edgeURL: cfg.Release.EdgePublicURL, lookup: lookup,
+		identity: identity,
 	})
+	c.objects = objects
+	return c, err
 }
 
 // newContexts builds Catalog, Localization and Release and subscribes
@@ -280,7 +345,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		return contexts{}, err
 	}
 	knowledge := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(localization, catalog),
-		knowledgesources.NewProjects(catalog), knowledgeapp.WithLogger(deps.logger))
+		knowledgesources.NewProjects(catalog), knowledgeapp.WithMessages(knowledgesources.NewMessages(catalog)), knowledgeapp.WithLogger(deps.logger))
 	if err := knowledge.Subscribe(events); err != nil {
 		return contexts{}, err
 	}
@@ -296,10 +361,21 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(catalog),
 		qualityapp.WithLogger(deps.logger), qualityapp.WithMetrics(qualitymetrics.New(deps.registerer)),
 		qualityapp.WithTracerProvider(deps.tracer),
+		// The daily sweep's cross-tenant half: which tenants hold an
+		// expired waiver or a check run past its 90 days (RFC 0005 §2.2,
+		// §2.3). It reads two timestamps and a tenant id, nothing else.
+		qualityapp.WithScanner(qualitypg.NewScanner(uow)),
 		// The server-side check reads the project through Catalog's and
 		// Localization's own services, so it sees exactly what its
 		// caller could read through the API (RFC 0005 §2.2).
-		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization)))
+		// The server-side check also reads the effective style guides,
+		// because the style layer grades their mechanical fields and has
+		// nothing to say without them (RFC 0005 §3.2). They come through
+		// Intelligence's adapter onto Knowledge, which already resolves
+		// the tenant → project → locale → namespace stack: a second
+		// resolution would be a second answer.
+		qualityapp.WithSnapshot(qualitysnapshot.New(catalog, localization,
+			qualitysnapshot.WithStyles(qualitystyle.New(intelligencesources.NewKnowledge(knowledge))))))
 	usageContext := contextapp.New(contextpg.NewTransactor(uow), contextcatalog.New(catalog),
 		contextapp.WithSweeper(contextpg.NewSweeper(uow)), contextapp.WithLogger(deps.logger),
 		contextapp.WithLimiter(ratelimit.New(contextUploadLimit())), contextapp.WithMetrics(contextmetrics.New(deps.registerer)),
@@ -320,7 +396,23 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	if err != nil {
 		return contexts{}, err
 	}
+	// Workflow learns about projects and message keys only through
+	// Catalog's service (migration 0040 has no foreign key to them).
+	workflowCatalog := workflowcatalog.New(catalog)
+	workflow := workflowapp.New(workflowpg.NewTransactor(uow), workflowidentity.Permissions{},
+		workflowapp.WithCatalog(workflowCatalog))
+	// The instance runner steps instances on the vocabulary events; its
+	// store is what the API's instance reads query.
+	wf, err := newWorkflow(uow, events, workflow, workflowSources{
+		catalog: catalog, localization: localization, quality: quality, intelligence: intelligence, identity: deps.identity,
+		release: release,
+	}, deps.logger, deps.registerer)
+	if err != nil {
+		return contexts{}, err
+	}
 	c := contexts{
+		workflow: workflow, workflowAPI: workflowapi.New(workflow, wf.instances, workflowCatalog, wf.work).WithRebase(wf.runner), workflowRuntime: wf,
+		coverage:   wf.coverage,
 		catalogAPI: catalogapi.New(catalog), localizationAPI: localizationapi.New(localization),
 		releaseAPI: releaseapi.New(release), knowledgeAPI: knowledgeapi.New(knowledge), intelligenceAPI: aiAPI,
 		previewAPI:   previewapi.New(previewapp.New(previewlimit.New(previewlimit.Default()))),
@@ -329,6 +421,7 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	scanner := releasepg.NewScanner(uow)
 	c.keyIndexes = func(ctx context.Context) (int, error) { return release.RewriteKeyIndexes(ctx, scanner) }
+	c.rolloutSweeper = releaseapp.NewRolloutSweeper(release, scanner, releasemetrics.New(deps.registerer))
 	if deps.branches.PublisherEnabled {
 		c.branchPublisher = releaseapp.NewPublisher(release, scanner, deps.branches.PublishInterval)
 	}
@@ -354,13 +447,16 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 	}
 	gh, err := newGitHub(uow, checkSources{
 		catalog: catalog, localization: localization, knowledge: knowledge,
-		usages: usageContext, release: release,
+		usages: usageContext, release: release, quality: quality,
 	}, deps)
 	if err != nil {
 		return contexts{}, err
 	}
 	c.integrationAPI = integrationapi.New(integration, gh)
 	if gh != nil {
+		// The impact preview links to the pull request a policy would
+		// newly fail (RFC 0005 §4.3); only Integration knows where it is.
+		quality.SetPullRequestLinks(qualitypullrequests.New(gh))
 		if err := gh.SubscribeChecks(events); err != nil {
 			return contexts{}, err
 		}
@@ -382,7 +478,10 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 			DepthInterval: deps.github.CheckDepthInterval,
 		})
 	}
-	c.purgeJobs = newPurgeJobs(usageContext, catalog, c.githubInbox, c.githubChecks, deps.logger)
+	c.purgeJobs = newPurgeJobs(usageContext, catalog, quality, c.githubInbox, c.githubChecks, deps.logger)
+	// Workflow's retention (RFC 0006 §2.5, wave 6): finished instances and
+	// their transition logs past GLOSSA_WORKFLOW_INSTANCE_RETENTION.
+	c.purgeJobs = append(c.purgeJobs, workflowRetentionJob(wf.runner, deps.workflow.InstanceRetention, deps.logger))
 	// The quality summary's four other sources (RFC 0005 §8). Quality is
 	// built before three of them, so this direction is wired here; it
 	// only reads, and each call is an authorized use case of the service
@@ -443,6 +542,8 @@ func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) 
 		Locales:      mcpTranslations,
 		Translator:   mcpsources.NewIntelligence(intelligence),
 		Releases:     mcpsources.NewReleases(release),
+		Workflow:     mcpsources.NewWorkflow(workflow, wf.work, workflowapp.NewInstances(wf.instances, workflowCatalog), workflowCatalog),
+		ReleaseReads: mcpsources.NewReleaseReads(release),
 	})
 	return c, nil
 }
@@ -454,6 +555,9 @@ type checkSources struct {
 	knowledge    *knowledgeapp.Service
 	usages       *contextapp.Service
 	release      *releaseapp.Service
+	// quality holds the check runs CI records, which is what the pull
+	// request renders (RFC 0005 §12.3).
+	quality *qualityapp.Service
 }
 
 // newGitHub wires the GitHub integration (RFC 0004 §6) when the
@@ -497,7 +601,7 @@ func newGitHub(uow *db.UnitOfWork, src checkSources, deps contextDeps) (*integra
 		Checks:       integrationpg.NewChecks(uow),
 		Sources: integrationsources.NewChecks(integrationsources.ChecksDeps{
 			Catalog: src.catalog, Localization: src.localization, Knowledge: src.knowledge,
-			Usages: src.usages, Release: src.release, EdgeURL: deps.edgeURL,
+			Usages: src.usages, Release: src.release, Quality: src.quality, EdgeURL: deps.edgeURL,
 		}),
 		StudioURL:      deps.studioURL,
 		Metrics:        integrationmetrics.NewWebhooks(deps.registerer),
@@ -550,6 +654,8 @@ func largeBodies(cfg config.Integration) func(*http.Request) (httpserver.BodyPol
 			// The service enforces GLOSSA_INTEGRATION_MAX_UPLOAD_BYTES
 			// while it streams, with its own problem code.
 			return httpserver.BodyPolicy{Timeout: cfg.UploadTimeout}, true
+		case workflowapi.CreateAssignmentPath(r.Method, r.URL.Path):
+			return httpserver.BodyPolicy{MaxBytes: workflowdomain.MaxAssignmentBodyBytes, Timeout: assignmentBodyTimeout}, true
 		case integrationapi.DownloadPath(r.Method, r.URL.Path):
 			return httpserver.BodyPolicy{MaxBytes: 1, Timeout: cfg.UploadTimeout}, true
 		}

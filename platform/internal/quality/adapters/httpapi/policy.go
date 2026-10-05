@@ -254,6 +254,16 @@ func toPolicyImpact(p app.Preview) apiv1.CheckPolicyImpact {
 	if len(p.NoLongerFailingRefs) > 0 {
 		out.NoLongerFailingRefs = apiconv.Ptr(p.NoLongerFailingRefs)
 	}
+	if len(p.PullRequests) > 0 {
+		prs := make([]apiv1.CheckPolicyPullRequest, len(p.PullRequests))
+		for i, pr := range p.PullRequests {
+			prs[i] = apiv1.CheckPolicyPullRequest{Ref: pr.Ref, Number: pr.Number}
+			if pr.URL != "" {
+				prs[i].Url = apiconv.Ptr(pr.URL)
+			}
+		}
+		out.NewlyFailingPullRequests = &prs
+	}
 	return out
 }
 

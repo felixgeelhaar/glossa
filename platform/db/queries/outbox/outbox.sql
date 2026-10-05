@@ -3,11 +3,11 @@
 
 -- name: InsertOutboxEvent :exec
 INSERT INTO outbox_events (
-    id, tenant_id, event_type, aggregate_type, aggregate_id,
+    id, tenant_id, event_type, aggregate_type, aggregate_id, actor,
     payload, trace_context, occurred_at
 ) VALUES (
     sqlc.arg(id), sqlc.arg(tenant_id), sqlc.arg(event_type), sqlc.arg(aggregate_type),
-    sqlc.arg(aggregate_id), sqlc.arg(payload), sqlc.arg(trace_context), sqlc.arg(occurred_at)
+    sqlc.arg(aggregate_id), sqlc.arg(actor), sqlc.arg(payload), sqlc.arg(trace_context), sqlc.arg(occurred_at)
 );
 
 -- The remaining queries run in the relay's system scope (glossa_system).
@@ -31,7 +31,7 @@ SET attempts     = e.attempts + 1,
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
-RETURNING e.id, e.tenant_id, e.event_type, e.aggregate_type, e.aggregate_id,
+RETURNING e.id, e.tenant_id, e.event_type, e.aggregate_type, e.aggregate_id, e.actor,
           e.payload, e.trace_context, e.occurred_at, e.attempts,
           e.claim_token, e.delivered_to;
 

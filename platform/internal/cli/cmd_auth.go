@@ -43,9 +43,12 @@ type loginJSON struct {
 	Schema   string `json:"schema"`
 	Server   string `json:"server"`
 	StoredIn string `json:"stored_in"`
-	// Method is "api_token" or "github_actions_oidc".
-	Method string     `json:"method"`
-	Tenant tenantJSON `json:"tenant"`
+	// Method is "api_token", "github_actions_oidc" or "device".
+	Method string `json:"method"`
+	// Device sign-in (RFC 0006 §7.2): the person it signed in and when
+	// that session ends.
+	Person *personJSON `json:"person,omitempty"`
+	Tenant tenantJSON  `json:"tenant"`
 	// The rest is the GitHub Actions exchange's (RFC 0004 §6.3): the
 	// one project the credential may act on, what it may do there, when
 	// it dies, and the repository it was minted for.
@@ -55,26 +58,39 @@ type loginJSON struct {
 	Repository  string       `json:"repository,omitempty"`
 }
 
-const loginUsage = `login [--server URL] [--token-stdin] [--project <id>] [--json]
+const loginUsage = `login [--server URL] [--device [--client-name NAME]] [--token-stdin] [--project <id>] [--json]
 
 Stores a credential for the server.
 
 In GitHub Actions, with ` + "`permissions: { id-token: write }`" + `, login needs no
 secret: it asks GitHub for an OIDC ID token and exchanges it for a
 30-minute credential scoped to the connected project. Anywhere else it
-takes an API token, from the terminal or --token-stdin.`
+takes an API token, from the terminal or --token-stdin.
+
+With --device, login signs you in as yourself instead: it shows a code,
+you approve it in Studio (the page opens at the URL it prints), and the
+CLI stores your session. Sign out with ` + "`glossa logout`" + `.`
 
 func runLogin(ctx context.Context, inv *invocation, args []string) error {
 	fs := inv.flags(loginUsage)
 	server := fs.String("server", "", "glossa-server URL (default: glossa.yaml's server)")
 	fromStdin := fs.Bool("token-stdin", false, "read an API token from stdin (for scripts)")
 	project := fs.String("project", "", "in GitHub Actions: the project's ID, when the repository feeds several")
+	device := fs.Bool("device", false, "sign in as yourself by approving a code in Studio")
+	clientName := fs.String("client-name", "", "with --device: what to call this machine in Studio (default: glossa CLI on <hostname>)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
 	}
 	srv, err := inv.serverFor(*server)
 	if err != nil {
 		return err
+	}
+	if *device {
+		if *fromStdin {
+			return &Error{Exit: ExitUsage, Code: "conflicting_flags", What: "--device and --token-stdin are two ways to sign in",
+				Fix: "use one"}
+		}
+		return inv.loginWithDevice(ctx, srv, *clientName)
 	}
 	// An explicit API token wins: a job that still keeps GLOSSA_TOKEN
 	// as a secret should go on using it, and a person piping a token in
@@ -270,8 +286,8 @@ func (inv *invocation) verifyToken(ctx context.Context, server, tok string) (ten
 
 // ── logout ──────────────────────────────────────────────────────────
 
-func runLogout(_ context.Context, inv *invocation, args []string) error {
-	fs := inv.flags("logout [--server URL]")
+func runLogout(ctx context.Context, inv *invocation, args []string) error {
+	fs := inv.flags("logout [--server URL]\n\nForgets the stored credential. A device sign-in (glossa login --device) is also\nended on the server, so the session is dead and not only forgotten.")
 	server := fs.String("server", "", "glossa-server URL (default: glossa.yaml's server)")
 	if _, err := inv.parse(fs, args); err != nil {
 		return err
@@ -284,15 +300,25 @@ func runLogout(_ context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
+	revoked, revokeErr := inv.revokeDeviceSession(ctx, store, srv)
 	err = store.Delete(srv)
 	removed := err == nil
 	if err != nil && !errors.Is(err, credentials.ErrNotFound) {
 		return &Error{Exit: ExitUsage, Code: "store_failed", What: "can't remove the token", Where: store.Name(), Why: err.Error()}
 	}
-	out := map[string]any{"schema": "glossa.cli.logout/v1", "server": srv, "removed": removed}
+	out := map[string]any{"schema": "glossa.cli.logout/v1", "server": srv, "removed": removed, "revoked": revoked}
+	if revokeErr != nil {
+		out["revoke_error"] = revokeErr.Error()
+	}
 	return inv.emit(out, func(p *printer) {
 		if removed {
-			p.line("%s Removed the token for %s", p.pass(), srv)
+			p.line("%s Removed the credential for %s", p.pass(), srv)
+			if revoked {
+				p.line("  the device session is ended on the server")
+			}
+			if revokeErr != nil {
+				p.line("  %s couldn't end the session on the server (%v); it lapses at its expiry, or end it with sign out everywhere in Studio", p.warn("!"), revokeErr)
+			}
 		} else {
 			p.line("No token was stored for %s", srv)
 		}
@@ -308,6 +334,10 @@ type whoamiJSON struct {
 	TokenSource string       `json:"token_source"`
 	Tenant      tenantJSON   `json:"tenant"`
 	Project     *projectJSON `json:"project,omitempty"`
+	// Kind is "api_token", "ci_token", "context_token" or
+	// "device_session"; Person and ExpiresAt are a device session's.
+	Kind   string      `json:"kind"`
+	Person *personJSON `json:"person,omitempty"`
 }
 
 type projectJSON struct {
@@ -335,7 +365,10 @@ func runWhoami(ctx context.Context, inv *invocation, args []string) error {
 	if err != nil {
 		return err
 	}
-	out := whoamiJSON{Schema: "glossa.cli.whoami/v1", Server: srv, Token: redact(tok), TokenSource: source, Tenant: tenant}
+	out := whoamiJSON{Schema: "glossa.cli.whoami/v1", Server: srv, Token: redact(tok), TokenSource: source, Tenant: tenant, Kind: credentialKind(tok)}
+	if isDeviceSession(tok) {
+		out.Person = inv.personOf(ctx, srv, tok)
+	}
 	if cfg, err := inv.loadConfig(); err == nil && *server == "" {
 		if p, err := inv.connectWith(ctx, cfg); err == nil {
 			out.Project = &projectJSON{ID: p.info.Id, Slug: p.info.Slug, Name: p.info.Name, SourceLocale: p.info.SourceLocale}
@@ -344,7 +377,13 @@ func runWhoami(ctx context.Context, inv *invocation, args []string) error {
 	return inv.emit(out, func(p *printer) {
 		p.line("server   %s", srv)
 		p.line("tenant   %s (%s, %s)", tenant.Name, tenant.Slug, tenant.ID)
+		if out.Person != nil {
+			p.line("person   %s", out.Person.label())
+		}
 		p.line("token    %s  %s", redact(tok), p.dim("from "+source))
+		if out.Kind == "device_session" {
+			p.line("kind     device session %s", p.dim("(you, not an API token; glossa logout ends it)"))
+		}
 		if out.Project != nil {
 			p.line("project  %s (%s, source %s)", out.Project.Name, out.Project.Slug, out.Project.SourceLocale)
 		}
@@ -354,7 +393,7 @@ func runWhoami(ctx context.Context, inv *invocation, args []string) error {
 // redact keeps a credential recognizable without revealing it: its
 // prefix, which says what kind it is, and four characters.
 func redact(tok string) string {
-	for _, prefix := range []string{"glossa_api_", "glossa_ci_", "glossa_ctx_"} {
+	for _, prefix := range []string{"glossa_api_", "glossa_ci_", "glossa_ctx_", devTokenPrefix} {
 		if strings.HasPrefix(tok, prefix) && len(tok) > len(prefix)+4 {
 			return tok[:len(prefix)+4] + "…"
 		}

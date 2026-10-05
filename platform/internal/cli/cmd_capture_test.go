@@ -101,6 +101,7 @@ type captureDoc struct {
 		} `json:"image"`
 		Regions  int `json:"regions"`
 		Visible  int `json:"visible"`
+		Probes   int `json:"probes"`
 		Redacted int `json:"redacted"`
 	} `json:"captures"`
 	Output *struct {
@@ -113,6 +114,7 @@ type captureDoc struct {
 		Captures           int    `json:"captures"`
 		ImagesStored       int    `json:"images_stored"`
 		ImagesDeduplicated int    `json:"images_deduplicated"`
+		Findings           int    `json:"findings"`
 		Replayed           bool   `json:"replayed"`
 	} `json:"upload"`
 	Coverage *capture.Coverage `json:"coverage"`

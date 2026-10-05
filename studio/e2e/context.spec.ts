@@ -26,7 +26,7 @@ const usagesDocument = {
   application: "web",
   commit: COMMIT,
   branch: "main",
-  tool: { name: "@glossa/unplugin", version: "0.1.0" },
+  tool: { name: "@felixgeelhaar/glossa-unplugin", version: "0.1.0" },
   usages: [
     { key: "checkout.pay", file: "src/checkout/PaymentFooter.vue", line: 42, column: 9, component: "PaymentFooter", route: "/checkout/payment", kind: "component" },
     { key: "checkout.pay", file: "src/ui/PrimaryButton.vue", line: 7, column: 5, component: "PrimaryButton", route: "/checkout/payment", kind: "t" },

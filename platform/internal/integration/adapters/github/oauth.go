@@ -19,6 +19,11 @@ const maxOAuthResponse = 64 << 10
 // InstallURL implements app.GitHub.
 func (c *Client) InstallURL(state string) string { return c.cfg.InstallURL(state) }
 
+// PullRequestURL implements app.GitHub.
+func (c *Client) PullRequestURL(repository string, number int) string {
+	return c.cfg.PullRequestURL(repository, number)
+}
+
 // ExchangeUserCode implements app.GitHub: it redeems the install flow's
 // one-time OAuth code for a user access token.
 //

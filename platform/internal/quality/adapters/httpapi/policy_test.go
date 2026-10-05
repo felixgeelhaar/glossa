@@ -141,10 +141,14 @@ func TestPolicyImpactRendersEveryRule(t *testing.T) {
 				{Rule: 1, Selector: checkpolicy.Selector{Layer: "visual"}, Severity: checkpolicy.Warning},
 			},
 		},
-		NewlyFailingRefs: []string{"feature/pay"},
-		OpenPullRequests: 1,
+		NewlyFailingRefs: []string{"feature/pay", "feature/local"},
+		OpenPullRequests: 2,
+		PullRequests: []app.PullRequestImpact{
+			{Ref: "feature/pay", Number: 41, URL: "https://github.com/acme/shop/pull/41"},
+			{Ref: "feature/cart", Number: 42},
+		},
 	})
-	if out.Findings != 9 || out.Runs != 3 || out.NewlyFailing != 2 || out.OpenPullRequests != 1 {
+	if out.Findings != 9 || out.Runs != 3 || out.NewlyFailing != 2 || out.OpenPullRequests != 2 {
 		t.Errorf("impact = %+v, want the counts as measured", out)
 	}
 	if len(out.Rules) != 2 || out.Rules[1].Matched != 0 {
@@ -154,8 +158,26 @@ func TestPolicyImpactRendersEveryRule(t *testing.T) {
 		*out.Rules[0].Selector.Layer != apiv1.FindingLayer(domain.LayerTerminology) {
 		t.Errorf("rule 0 selector = %+v, want the terminology layer", out.Rules[0].Selector)
 	}
-	if got := out.NewlyFailingRefs; got == nil || len(*got) != 1 {
-		t.Errorf("newly failing refs = %v, want the one ref", got)
+	if got := out.NewlyFailingRefs; got == nil || len(*got) != 2 {
+		t.Errorf("newly failing refs = %v, want both refs", got)
+	}
+	// The pull requests are named, and a link is given only where one
+	// is known — never an empty string that a client would render as a
+	// link to nowhere.
+	prs := out.NewlyFailingPullRequests
+	if prs == nil || len(*prs) != 2 {
+		t.Fatalf("pull requests = %v, want the two", prs)
+	}
+	pay, cart := (*prs)[0], (*prs)[1]
+	if pay.Ref != "feature/pay" || pay.Number != 41 || pay.Url == nil || *pay.Url != "https://github.com/acme/shop/pull/41" {
+		t.Errorf("pull request = %+v", pay)
+	}
+	if cart.Ref != "feature/cart" || cart.Number != 42 || cart.Url != nil {
+		t.Errorf("pull request = %+v, want no url", cart)
+	}
+	// None, and the field is absent, as the refs are.
+	if none := toPolicyImpact(app.Preview{}); none.NewlyFailingPullRequests != nil {
+		t.Errorf("no pull requests rendered as %v", *none.NewlyFailingPullRequests)
 	}
 }
 

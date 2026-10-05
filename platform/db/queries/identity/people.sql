@@ -29,15 +29,20 @@ UPDATE identity_people
 SET password_hash = sqlc.arg(password_hash), updated_at = sqlc.arg(at)
 WHERE id = sqlc.arg(id);
 
+-- Sessions come in two kinds (0054): a browser's, sent as the cookie,
+-- and a device's, sent as a glossa_dev_ bearer. Each is found and ended
+-- only as its own kind; signing out everywhere ends both.
+
 -- name: InsertSession :exec
-INSERT INTO identity_sessions (token_hash, person_id, created_at, expires_at)
-VALUES (sqlc.arg(token_hash), sqlc.arg(person_id), sqlc.arg(created_at), sqlc.arg(expires_at));
+INSERT INTO identity_sessions (token_hash, person_id, created_at, expires_at, kind)
+VALUES (sqlc.arg(token_hash), sqlc.arg(person_id), sqlc.arg(created_at), sqlc.arg(expires_at), sqlc.arg(kind));
 
 -- name: GetSession :one
-SELECT * FROM identity_sessions WHERE token_hash = sqlc.arg(token_hash);
+SELECT token_hash, person_id, created_at, expires_at FROM identity_sessions
+WHERE token_hash = sqlc.arg(token_hash) AND kind = sqlc.arg(kind);
 
 -- name: DeleteSession :execrows
-DELETE FROM identity_sessions WHERE token_hash = sqlc.arg(token_hash);
+DELETE FROM identity_sessions WHERE token_hash = sqlc.arg(token_hash) AND kind = sqlc.arg(kind);
 
 -- name: DeleteSessionsOfPerson :exec
 DELETE FROM identity_sessions WHERE person_id = sqlc.arg(person_id);

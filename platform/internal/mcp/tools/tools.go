@@ -36,7 +36,9 @@ func Read(s Sources) []app.Tool {
 	if s.Delivery != nil && s.Catalog != nil {
 		out = append(out, explainDelivery(s.Delivery, s.Catalog))
 	}
-	return out
+	// RFC 0006 §8's: assignments, workflow state, release requests,
+	// and the quality numbers and rollouts beside them.
+	return append(out, Operations(s)...)
 }
 
 // Write returns the write tools of RFC 0005 §7.3, in the order a client

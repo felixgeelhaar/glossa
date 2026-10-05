@@ -52,23 +52,41 @@ func releaseOf(err error) string {
 	return ""
 }
 
-// assembly loads one release's artifacts. prev, when not nil, lends its
-// already parsed artifacts.
+// assembly loads one release view's artifacts. lend holds artifacts
+// already parsed, by digest.
 type assembly struct {
 	c       *Client
 	rel     *release
 	sources []blobSource
-	prev    *release
+	lend    map[string]catalog
 }
 
-// assemble builds a release from manifest bytes loaded from origin
-// (network, persisted or bundled).
-func (c *Client) assemble(ctx context.Context, raw []byte, etag string, origin Source, prev *release) (*release, error) {
+// assemble builds what manifest bytes loaded from origin (network,
+// persisted or bundled) activate: one release, or under a staged rollout
+// the view the installation's side selects (SPEC §1.4). prev, when not
+// nil, lends its already parsed artifacts.
+func (c *Client) assemble(ctx context.Context, raw []byte, etag string, origin Source, prev *snapshot) (*snapshot, error) {
 	m, err := c.verifiedManifest(raw, origin)
 	if err != nil {
 		return nil, err
 	}
-	a := &assembly{c: c, sources: c.sourcesFor(origin), prev: prev, rel: &release{
+	lend := prev.artifacts()
+	if ro := c.rolloutOf(m); ro != nil {
+		return c.assembleRollout(ctx, m, ro, raw, etag, origin, lend)
+	}
+	rel, err := c.assembleView(ctx, m, raw, etag, origin, lend)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot{rel: rel, source: origin}, nil
+}
+
+// assembleView loads every artifact view m needs and returns it as a
+// release; raw and etag are the manifest's as served.
+func (c *Client) assembleView(ctx context.Context, m *manifest, raw []byte, etag string, origin Source,
+	lend map[string]catalog,
+) (*release, error) {
+	a := &assembly{c: c, sources: c.sourcesFor(origin), lend: lend, rel: &release{
 		manifest: m, raw: raw, etag: etag, catalogs: map[string]catalog{}, bySHA: map[string]catalog{},
 	}}
 	for _, locale := range neededLocales(m, c.cfg.Locales) {
@@ -150,10 +168,8 @@ func (a *assembly) loadLocale(ctx context.Context, locale string) error {
 }
 
 func (a *assembly) loadArtifact(ctx context.Context, ref artifactRef, locale, ns string) (catalog, error) {
-	if a.prev != nil {
-		if cat, ok := a.prev.bySHA[ref.SHA256]; ok {
-			return cat, nil
-		}
+	if cat, ok := a.lend[ref.SHA256]; ok {
+		return cat, nil
 	}
 	body, fromRemote, err := fetchVerified(ctx, ref, a.sources)
 	if err != nil {

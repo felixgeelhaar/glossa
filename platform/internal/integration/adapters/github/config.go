@@ -227,6 +227,17 @@ func (c Config) InstallURL(state string) string {
 	return u
 }
 
+// PullRequestURL is where pull request number of repository ("owner/name")
+// is on the web host, or "" when there is nothing to point at: no
+// number, or a repository label that is not owner/name.
+func (c Config) PullRequestURL(repository string, number int) string {
+	owner, name, ok := strings.Cut(repository, "/")
+	if !ok || owner == "" || name == "" || strings.Contains(name, "/") || number <= 0 {
+		return ""
+	}
+	return c.WebURL + "/" + url.PathEscape(owner) + "/" + url.PathEscape(name) + "/pull/" + strconv.Itoa(number)
+}
+
 func orDefault(v, def string) string {
 	if v == "" {
 		return def

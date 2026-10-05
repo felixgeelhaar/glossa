@@ -68,7 +68,7 @@ func (f fixture) publish(t *testing.T, ctx context.Context, n int) []uuid.UUID {
 		for i := range n {
 			id, err := outbox.Publish(ctx, tx, outbox.Event{
 				Type: "catalog.source_revised", AggregateType: "message",
-				AggregateID: fmt.Sprintf("m%d", i), Payload: map[string]int{"revision": i},
+				AggregateID: fmt.Sprintf("m%d", i), Actor: personActor, Payload: map[string]int{"revision": i},
 			})
 			if err != nil {
 				return err
@@ -125,7 +125,7 @@ func TestPublishRolledBackPublishesNothing(t *testing.T) {
 	rollback := errors.New("business rule violated")
 	err := f.uow.InTenantTx(f.ctx, func(ctx context.Context, tx *db.TenantTx) error {
 		if _, err := outbox.Publish(ctx, tx, outbox.Event{
-			Type: "catalog.source_revised", AggregateType: "message", AggregateID: "m1",
+			Type: "catalog.source_revised", AggregateType: "message", AggregateID: "m1", Actor: personActor,
 		}); err != nil {
 			return err
 		}
@@ -157,6 +157,60 @@ func TestPublishValidatesEvent(t *testing.T) {
 	}
 }
 
+// An event without an actor is refused by Publish, and the database
+// refuses it too: the column has no default, so a writer that bypassed
+// Publish could not file it under "unknown" either.
+func TestAnEventWithoutAnActorIsNeverStored(t *testing.T) {
+	f := setup(t)
+	err := f.uow.InTenantTx(f.ctx, func(ctx context.Context, tx *db.TenantTx) error {
+		_, err := outbox.Publish(ctx, tx, outbox.Event{Type: "catalog.source_revised", AggregateType: "message", AggregateID: "m1"})
+		return err
+	})
+	if !errors.Is(err, outbox.ErrInvalidEvent) {
+		t.Fatalf("Publish without an actor: err = %v, want ErrInvalidEvent", err)
+	}
+	_, err = env.Super.Exec(context.Background(), `INSERT INTO outbox_events
+		(id, tenant_id, event_type, aggregate_type, aggregate_id, payload) VALUES ($1, $2, 'a.b', 'b', '1', '{}')`,
+		uuid.New(), f.tenant.UUID())
+	if err == nil {
+		t.Error("the database stored an event with no actor")
+	}
+	_, err = env.Super.Exec(context.Background(), `INSERT INTO outbox_events
+		(id, tenant_id, event_type, aggregate_type, aggregate_id, actor, payload) VALUES ($1, $2, 'a.b', 'b', '1', 'someone', '{}')`,
+		uuid.New(), f.tenant.UUID())
+	if err == nil {
+		t.Error("the database stored an actor that is not kind:uuid")
+	}
+}
+
+// An event recorded before events named their actors (migration 0042
+// gave those rows "unknown") is still delivered, and its handler sees
+// ActorUnknown — never someone it could be attributed to.
+func TestAnEventFromBeforeActorsIsReadAsUnknown(t *testing.T) {
+	f := setup(t)
+	id := uuid.New()
+	if _, err := env.Super.Exec(context.Background(), `INSERT INTO outbox_events
+		(id, tenant_id, event_type, aggregate_type, aggregate_id, actor, payload) VALUES ($1, $2, 'catalog.source_revised', 'message', 'm1', 'unknown', '{}')`,
+		id, f.tenant.UUID()); err != nil {
+		t.Fatal(err)
+	}
+	reg := outbox.NewRegistry()
+	var saw outbox.Actor
+	_ = reg.Subscribe("catalog.source_revised", "audit.probe", outbox.HandlerFunc(func(_ context.Context, d outbox.Delivery) error {
+		saw = d.Actor
+		return nil
+	}))
+	if _, err := f.dispatcher(t, reg, nil).ProcessBatch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if saw != outbox.ActorUnknown {
+		t.Errorf("handler saw actor %q, want %q", saw, outbox.ActorUnknown)
+	}
+	if s := state(t, id); s.status != "delivered" {
+		t.Errorf("event state = %+v, want delivered", s)
+	}
+}
+
 func TestCommittedEventIsDeliveredOnceInTenantScope(t *testing.T) {
 	f := setup(t)
 	tp := sdktrace.NewTracerProvider()
@@ -169,10 +223,12 @@ func TestCommittedEventIsDeliveredOnceInTenantScope(t *testing.T) {
 	var calls int
 	var sawSlug tenancy.Slug
 	var sawTrace trace.TraceID
+	var sawActor outbox.Actor
 	var payload struct{ Revision int }
 	_ = reg.Subscribe("catalog.source_revised", "localization.mark_outdated",
 		outbox.HandlerFunc(func(ctx context.Context, d outbox.Delivery) error {
 			calls++
+			sawActor = d.Actor
 			sawTrace = trace.SpanContextFromContext(ctx).TraceID()
 			if err := d.Decode(&payload); err != nil {
 				return err
@@ -203,6 +259,9 @@ func TestCommittedEventIsDeliveredOnceInTenantScope(t *testing.T) {
 	}
 	if payload.Revision != 0 {
 		t.Errorf("payload = %+v", payload)
+	}
+	if sawActor != personActor {
+		t.Errorf("handler saw actor %q, want the publisher's %q", sawActor, personActor)
 	}
 	s := state(t, ids[0])
 	if s.status != "delivered" || s.attempts != 1 || len(s.deliveredTo) != 1 {

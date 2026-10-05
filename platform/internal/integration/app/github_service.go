@@ -145,8 +145,11 @@ func (s *GitHubService) ConnectionsForRepository(ctx context.Context, repository
 // person and a short expiry, and says where to send them (RFC 0004
 // §6.1). The state is random and unguessable; only its SHA-256 is
 // stored, so a reader of the database cannot replay one.
+//
+// An installation serves every project of the tenant, so nobody limited
+// to some projects installs or forgets one (RFC 0006 §4.1).
 func (s *GitHubService) StartInstall(ctx context.Context) (InstallIntent, error) {
-	by, err := gitHubActor(ctx, authz.IntegrationManage)
+	by, err := tenantWideActor(ctx, authz.IntegrationManage)
 	if err != nil {
 		return InstallIntent{}, err
 	}
@@ -194,7 +197,7 @@ type CompleteInstall struct {
 // over is one click. The user token is used for that one call and
 // never stored.
 func (s *GitHubService) CompleteInstall(ctx context.Context, in CompleteInstall) (domain.Installation, error) {
-	by, err := gitHubActor(ctx, authz.IntegrationManage)
+	by, err := tenantWideActor(ctx, authz.IntegrationManage)
 	if err != nil {
 		return domain.Installation{}, err
 	}
@@ -314,7 +317,7 @@ func (s *GitHubService) Installations(ctx context.Context) ([]InstallationView, 
 // from Glossa. It does not uninstall the App: only GitHub can do that,
 // on the account's settings page.
 func (s *GitHubService) ForgetInstallation(ctx context.Context, id uuid.UUID) error {
-	if _, err := gitHubActor(ctx, authz.IntegrationManage); err != nil {
+	if _, err := tenantWideActor(ctx, authz.IntegrationManage); err != nil {
 		return err
 	}
 	return s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
@@ -339,6 +342,9 @@ type ConnectRepository struct {
 func (s *GitHubService) Connect(ctx context.Context, in ConnectRepository) (domain.GitConnection, error) {
 	by, err := gitHubActor(ctx, authz.IntegrationManage)
 	if err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := authz.InProject(ctx, in.ProjectID); err != nil {
 		return domain.GitConnection{}, err
 	}
 	// The checks call GitHub and Catalog, so they happen before the
@@ -405,32 +411,80 @@ func (s *GitHubService) checkApplication(ctx context.Context, project, applicati
 	return nil
 }
 
-// Connections lists the tenant's Git connections.
+// Connections lists the tenant's Git connections of the projects the
+// caller may see (RFC 0006 §4.1). The list is not paged, so filtering
+// it after the read hides nothing a page could betray.
 func (s *GitHubService) Connections(ctx context.Context, f ConnectionFilter) ([]domain.GitConnection, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	scope, err := authz.Projects(ctx, authz.IntegrationRead)
+	if err != nil {
 		return nil, err
 	}
-	var out []domain.GitConnection
-	err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+	var all []domain.GitConnection
+	err = s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
 		var err error
-		out, err = st.GitConnections(ctx, f)
+		all, err = st.GitConnections(ctx, f)
 		return err
 	})
-	return out, err
+	if err != nil {
+		return nil, err
+	}
+	out := all[:0]
+	for _, c := range all {
+		if scope.Allows(c.ProjectID) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// PullRequestURLs returns where each of a project's numbered pull
+// requests is on the web: on the repository connected to the project,
+// at the App's web host. It is what lets the policy impact preview
+// (RFC 0005 §4.3) link to the pull request that would newly fail.
+//
+// A number it cannot place is absent from the map, never guessed: a
+// project with no connection has nowhere to point, and one connected to
+// two different repositories has two, so a bare number cannot say which.
+// Two paths of one repository are one place.
+func (s *GitHubService) PullRequestURLs(ctx context.Context, project uuid.UUID, numbers []int) (map[int]string, error) {
+	conns, err := s.Connections(ctx, ConnectionFilter{Project: &project})
+	if err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	var repository int64
+	var name string
+	for _, c := range conns {
+		if repository != 0 && c.RepositoryID != repository {
+			return out, nil
+		}
+		repository, name = c.RepositoryID, c.RepositoryName
+	}
+	if repository == 0 {
+		return out, nil
+	}
+	for _, n := range numbers {
+		if u := s.gh.PullRequestURL(name, n); u != "" {
+			out[n] = u
+		}
+	}
+	return out, nil
 }
 
 // Connection returns one Git connection.
 func (s *GitHubService) Connection(ctx context.Context, id uuid.UUID) (domain.GitConnection, error) {
-	if err := authz.Require(ctx, authz.IntegrationRead); err != nil {
+	var out domain.GitConnection
+	if err := authz.RequireRow(ctx, authz.IntegrationRead, func() (uuid.UUID, error) {
+		err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+			var err error
+			out, err = st.GitConnection(ctx, id)
+			return err
+		})
+		return out.ProjectID, err
+	}); err != nil {
 		return domain.GitConnection{}, err
 	}
-	var out domain.GitConnection
-	err := s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
-		var err error
-		out, err = st.GitConnection(ctx, id)
-		return err
-	})
-	return out, err
+	return out, nil
 }
 
 // ChangeConnection edits a connection's project, application, default
@@ -447,6 +501,13 @@ func (s *GitHubService) ChangeConnection(ctx context.Context, id uuid.UUID, in d
 		c, err = st.GitConnection(ctx, id)
 		return err
 	}); err != nil {
+		return domain.GitConnection{}, err
+	}
+	// Both ends of a move must be inside the caller's scope.
+	if err := authz.InProject(ctx, c.ProjectID); err != nil {
+		return domain.GitConnection{}, err
+	}
+	if err := authz.InProject(ctx, in.ProjectID); err != nil {
 		return domain.GitConnection{}, err
 	}
 	if err := s.checkApplication(ctx, in.ProjectID, in.ApplicationID); err != nil {
@@ -469,11 +530,27 @@ func (s *GitHubService) Disconnect(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	return s.tx.InGitHub(ctx, func(ctx context.Context, st GitHubStore) error {
+		c, err := st.GitConnection(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := authz.InProject(ctx, c.ProjectID); err != nil {
+			return err
+		}
 		return st.DeleteGitConnection(ctx, id)
 	})
 }
 
 // ── helpers ──────────────────────────────────────────────────────────
+
+// tenantWideActor is gitHubActor for an act on the whole tenant's
+// GitHub installations, refused to a caller limited to some projects.
+func tenantWideActor(ctx context.Context, perm authz.Permission) (string, error) {
+	if err := authz.RequireUnscoped(ctx, perm); err != nil {
+		return "", err
+	}
+	return actorOf(ctx)
+}
 
 func gitHubActor(ctx context.Context, perm authz.Permission) (string, error) {
 	if err := authz.Require(ctx, perm); err != nil {

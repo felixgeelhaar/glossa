@@ -145,10 +145,18 @@ func TestBackgroundRefusals(t *testing.T) {
 	if _, err := authz.Background(member, "x", authz.CatalogRead); err == nil {
 		t.Error("a request's principal must never be swapped for a background one")
 	}
-	for _, p := range []authz.Permission{authz.TenantManage, authz.MembersManage, authz.OwnersManage, authz.TokensManage} {
+	for _, p := range []authz.Permission{
+		authz.TenantManage, authz.MembersManage, authz.OwnersManage, authz.TokensManage, authz.VendorsManage,
+	} {
 		if _, err := authz.Background(scoped, "x", p); err == nil {
 			t.Errorf("background work must not administer identity (%s)", p)
 		}
+	}
+	// RFC 0006 §9.1, §9.3: a workflow acts as the actor whose event
+	// moved it, and approvals are human. No background process — the
+	// workflow runner included — ever holds approvals.decide.
+	if _, err := authz.Background(scoped, "workflow.runner", authz.CatalogRead, authz.ApprovalsDecide); err == nil {
+		t.Error("a background principal was granted approvals.decide")
 	}
 	if _, err := authz.Background(scoped, "", authz.CatalogRead); err == nil {
 		t.Error("a background principal needs a name")

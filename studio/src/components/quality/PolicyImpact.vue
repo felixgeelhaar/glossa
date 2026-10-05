@@ -17,7 +17,7 @@
  * it.
  */
 import { computed } from "vue";
-import type { PolicyImpact, PolicyRule } from "../../api/policy-schemas";
+import type { PolicyImpact, PolicyPullRequest, PolicyRule } from "../../api/policy-schemas";
 import { namedFields } from "../../lib/policy";
 import { strings } from "../../strings";
 
@@ -34,6 +34,24 @@ const numbers = computed(() => [
   { key: "lowered", label: s.impactLowered, value: props.impact.lowered, alarming: false },
   { key: "no-longer-failing", label: s.impactNoLongerFailing, value: props.impact.no_longer_failing, alarming: false },
 ]);
+
+/**
+ * The pull requests that would newly fail, by number: a count says how
+ * many people would wake up to a red pull request, and a name is what
+ * lets whoever saves the policy go and tell them.
+ */
+const pullRequests = computed<PolicyPullRequest[]>(() =>
+  [...(props.impact.newly_failing_pull_requests ?? [])].sort((a, b) => a.number - b.number),
+);
+
+/** The refs that turn red with no pull request on them — somebody's branch all the same. */
+const otherRefs = computed(() => {
+  const named = new Set(pullRequests.value.map((pr) => pr.ref));
+  return (props.impact.newly_failing_refs ?? []).filter((ref) => !named.has(ref));
+});
+
+/** Only a web address is a link; anything else is shown as text, never as an href. */
+const linkOf = (pr: PolicyPullRequest): string | undefined => (pr.url && /^https?:\/\//i.test(pr.url) ? pr.url : undefined);
 
 const selector = (r: PolicyRule | undefined): string => {
   if (!r) return s.ruleSelectsEverything;
@@ -64,7 +82,15 @@ const selector = (r: PolicyRule | undefined): string => {
     </dl>
 
     <p v-if="impact.open_pull_requests > 0" class="hint" data-testid="impact-open-prs-hint">{{ s.impactOpenPullRequestsHint }}</p>
-    <p v-if="impact.newly_failing_refs?.length" class="refs" data-testid="impact-newly-failing-refs">{{ s.impactRefs(impact.newly_failing_refs.join(", ")) }}</p>
+    <ul v-if="pullRequests.length" class="pull-requests" :aria-label="s.impactPullRequestsLabel" data-testid="impact-pull-requests">
+      <li v-for="pr in pullRequests" :key="pr.number" data-testid="impact-pull-request" :data-number="pr.number">
+        <a v-if="linkOf(pr)" :href="linkOf(pr)" rel="noreferrer noopener" target="_blank">{{ s.impactPullRequest(pr.number, pr.ref) }}</a>
+        <span v-else>{{ s.impactPullRequest(pr.number, pr.ref) }}</span>
+      </li>
+    </ul>
+    <p v-if="otherRefs.length" class="refs" data-testid="impact-newly-failing-refs">
+      {{ pullRequests.length ? s.impactOtherRefs(otherRefs.join(", ")) : s.impactRefs(otherRefs.join(", ")) }}
+    </p>
     <p v-if="impact.no_longer_failing_refs?.length" class="refs" data-testid="impact-fixed-refs">
       {{ s.impactRefsFixed(impact.no_longer_failing_refs.join(", ")) }}
     </p>
@@ -120,8 +146,13 @@ dt {
 dd {
   margin: 0;
 }
-.refs {
+.refs,
+.pull-requests {
   overflow-wrap: anywhere;
+}
+.pull-requests {
+  margin: 0;
+  padding-inline-start: var(--kl-space-4);
 }
 .scroll {
   overflow-x: auto;

@@ -28,7 +28,11 @@ type fakeContext struct {
 
 // fakeCaptureUpload is one POST …/captures as the fake read it.
 type fakeCaptureUpload struct {
-	parts  []string // part names in order
+	parts []string // part names in order
+	// raw is the manifest part verbatim, so a test can hold the CLI to
+	// the published schema and to the server's own parser rather than to
+	// the fake's partial reading of it.
+	raw    []byte
 	doc    fakeCapturesDoc
 	images map[string][]byte
 }
@@ -44,7 +48,21 @@ type fakeCapturesDoc struct {
 		Image  struct {
 			SHA256 string `json:"sha256"`
 		} `json:"image"`
+		// Findings is what the capture's probe pass measured. The fake
+		// counts them and answers with the total, as the ingest does:
+		// the number the command prints is the server's, so a manifest
+		// the server read nothing out of cannot look like a success.
+		Findings []map[string]any `json:"findings"`
 	} `json:"captures"`
+}
+
+// findings is how many visual findings the upload carried.
+func (d fakeCapturesDoc) findings() int {
+	n := 0
+	for _, c := range d.Captures {
+		n += len(c.Findings)
+	}
+	return n
 }
 
 type fakeUpload struct {
@@ -150,6 +168,7 @@ func (f *fakeServer) uploadCaptures(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	up.raw = manifest
 	if err := json.Unmarshal(manifest, &up.doc); err != nil || up.doc.Schema != "glossa.captures/v1" {
 		problemResp(w, 400, "invalid_captures", "invalid glossa.captures/v1 manifest")
 		return
@@ -169,9 +188,12 @@ func (f *fakeServer) uploadCaptures(w http.ResponseWriter, r *http.Request) {
 	f.ctx.captures = append(f.ctx.captures, up)
 	sum := sha256.Sum256(manifest)
 	digest := hex.EncodeToString(sum[:])
-	answer := map[string]any{"captures": len(up.doc.Captures), "unknown_keys": []string{}}
+	answer := map[string]any{"captures": len(up.doc.Captures), "unknown_keys": []string{},
+		"findings": up.doc.findings()}
 	if b, ok := f.ctx.captureDigest[digest]; ok {
+		// A replay stores nothing, findings included.
 		answer["build"], answer["images_stored"], answer["images_deduplicated"] = map[string]any{"id": b}, 0, 0
+		answer["findings"] = 0
 		writeJSONResp(w, 200, answer)
 		return
 	}

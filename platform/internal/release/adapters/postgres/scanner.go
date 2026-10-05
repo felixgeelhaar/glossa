@@ -11,17 +11,20 @@ import (
 )
 
 // Scanner implements app.Scanner in system scope: it reads only the
-// columns migration 0015 opens to glossa_system, and the work it finds
+// columns migrations 0015 and 0048 open to glossa_system, and the work it finds
 // runs in each tenant's scope.
 type Scanner struct {
 	uow       *db.UnitOfWork
 	publisher db.SystemScope
 	keyIndex  db.SystemScope
+	rollouts  db.SystemScope
 }
 
 // NewScanner returns a Scanner on uow.
 func NewScanner(uow *db.UnitOfWork) *Scanner {
-	return &Scanner{uow: uow, publisher: db.NewSystemScope("release.publisher"), keyIndex: db.NewSystemScope("release.key_index")}
+	return &Scanner{uow: uow, publisher: db.NewSystemScope("release.publisher"), keyIndex: db.NewSystemScope("release.key_index"),
+		rollouts: db.NewSystemScope("release.rollout_sweeper"),
+	}
 }
 
 var _ app.Scanner = (*Scanner)(nil)

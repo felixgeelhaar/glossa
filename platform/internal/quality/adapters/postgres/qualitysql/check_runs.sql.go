@@ -45,6 +45,31 @@ func (q *Queries) GetCheckRun(ctx context.Context, arg GetCheckRunParams) (Quali
 	return i, err
 }
 
+const hasCheckRunOf = `-- name: HasCheckRunOf :one
+SELECT EXISTS (
+    SELECT 1 FROM quality_check_runs
+    WHERE project_id = $1
+      AND trigger = ANY ($2::text[])
+) AS found
+`
+
+type HasCheckRunOfParams struct {
+	ProjectID   uuid.UUID
+	RunTriggers []string
+}
+
+// Whether the project has any run by one of these triggers: what the
+// pull-request check asks to learn that a repository's CI runs `glossa
+// check` (RFC 0005 §14 decision 11). EXISTS stops at the first matching
+// row, and the project_id prefix of quality_check_runs_ref bounds the
+// walk to this project's runs within retention.
+func (q *Queries) HasCheckRunOf(ctx context.Context, arg HasCheckRunOfParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasCheckRunOf, arg.ProjectID, arg.RunTriggers)
+	var found bool
+	err := row.Scan(&found)
+	return found, err
+}
+
 const insertCheckRun = `-- name: InsertCheckRun :exec
 
 INSERT INTO quality_check_runs (id, tenant_id, project_id, ref, commit_sha, trigger, policy_version, layers,

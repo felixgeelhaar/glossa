@@ -31,6 +31,8 @@ export interface FakeTarget {
   ref: string;
   /** The ref is an open pull request, which is what makes it something a policy change can break. */
   open?: boolean;
+  /** The open pull request's number, and where it is, when the server would know. */
+  pullRequest?: { number: number; url?: string };
 }
 
 export interface FakePolicyState {
@@ -91,7 +93,7 @@ const fails = (d: Decision, doc: PolicyDocument) =>
   d.enforced && d.severity !== "off" && (doc.fail_on === "warning" ? weight(d.severity) >= 1 : doc.fail_on === "error" ? d.severity === "error" : false);
 
 export function impactOf(current: PolicyDocument, candidate: PolicyDocument, targets: readonly FakeTarget[]): PolicyImpact {
-  const refs = new Map<string, { was: boolean; now: boolean; open: boolean }>();
+  const refs = new Map<string, { was: boolean; now: boolean; open: boolean; pr?: FakeTarget["pullRequest"] }>();
   const rules = (candidate.rules ?? []).map((_, i) => ({ rule: i, selector: (candidate.rules ?? [])[i], matched: 0, changed: 0, newly_failing: 0 }));
   let raised = 0;
   let lowered = 0;
@@ -120,6 +122,7 @@ export function impactOf(current: PolicyDocument, candidate: PolicyDocument, tar
     ref.was ||= failedBefore;
     ref.now ||= failsNow;
     ref.open ||= !!t.open;
+    ref.pr ??= t.pullRequest;
     refs.set(t.ref, ref);
   }
   const newlyRefs = [...refs.entries()].filter(([, r]) => !r.was && r.now).map(([ref]) => ref);
@@ -136,6 +139,12 @@ export function impactOf(current: PolicyDocument, candidate: PolicyDocument, tar
     rules,
   };
   if (newlyRefs.length) out.newly_failing_refs = newlyRefs;
+  const prs = newlyRefs.flatMap((ref) => {
+    const r = refs.get(ref);
+    if (!r?.open || !r.pr) return [];
+    return [{ ref, number: r.pr.number, ...(r.pr.url ? { url: r.pr.url } : {}) }];
+  });
+  if (prs.length) out.newly_failing_pull_requests = prs;
   if (fixedRefs.length) out.no_longer_failing_refs = fixedRefs;
   return out;
 }

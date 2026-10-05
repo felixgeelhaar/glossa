@@ -115,9 +115,14 @@ func TestCheckRunsOfflineOffTheCachedPolicy(t *testing.T) {
 		t.Errorf("policy = %+v", doc.Policy)
 	}
 	// The same cache, loosened, concludes the other way: the run really
-	// grades against the cached document.
+	// grades against the cached document. It still exits 4, because the
+	// style layer's guides are the server's and this run had none —
+	// nothing failed the policy, and a layer could not run.
 	writePolicyCache(t, w, srv.URL(), checkpolicy.Policy{Version: 8, FailOn: checkpolicy.Never})
-	w.json(&doc, "check").want(t, ExitOK)
+	w.json(&doc, "check").want(t, ExitPartial)
+	if !doc.Passed || len(doc.Unavailable) != 1 || doc.Unavailable[0].Layer != domain.LayerStyle {
+		t.Errorf("passed = %v, unavailable = %+v", doc.Passed, doc.Unavailable)
+	}
 	if doc.Policy.Version != 8 {
 		t.Errorf("policy = %+v", doc.Policy)
 	}
@@ -131,8 +136,8 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 	srv, w := pushed(t)
 	srv.checkPolicy = map[string]any{"require_complete": "none", "fail_on": "error", "missing_translations": "error"}
 	var doc checkJSON
-	w.json(&doc, "check", "--layer", "completeness,length").want(t, ExitPartial)
-	if len(doc.Unavailable) != 1 || doc.Unavailable[0].Layer != domain.LayerLength {
+	w.json(&doc, "check", "--layer", "completeness,linguistic").want(t, ExitPartial)
+	if len(doc.Unavailable) != 1 || doc.Unavailable[0].Layer != domain.LayerLinguistic {
 		t.Fatalf("unavailable = %+v", doc.Unavailable)
 	}
 	if doc.Unavailable[0].Why == "" {
@@ -141,8 +146,8 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 	if !doc.Passed {
 		t.Errorf("a layer that couldn't run is not a failed check: %+v", doc)
 	}
-	r := w.run("check", "--layer", "completeness,length")
-	if !strings.Contains(r.stdout, "length") {
+	r := w.run("check", "--layer", "completeness,linguistic")
+	if !strings.Contains(r.stdout, "linguistic") {
 		t.Errorf("the human output doesn't name the skipped layer:\n%s", r.stdout)
 	}
 }
@@ -152,7 +157,7 @@ func TestCheckExitsFourWhenALayerCouldNotRun(t *testing.T) {
 func TestCheckFailedBeatsPartial(t *testing.T) {
 	srv, w := pushed(t)
 	srv.checkPolicy = map[string]any{"require_complete": "all", "fail_on": "error", "missing_translations": "error"}
-	w.json(&checkJSON{}, "check", "--layer", "completeness,length").want(t, ExitCheckFailed)
+	w.json(&checkJSON{}, "check", "--layer", "completeness,linguistic").want(t, ExitCheckFailed)
 }
 
 // TestCheckLayerSelectsTheLayersThatRun: --layer is repeatable and
@@ -212,9 +217,11 @@ func TestCheckCachesTheServersPolicy(t *testing.T) {
 	if len(cached.Policy.RequireComplete) != 0 || cached.Policy.RequireComplete == nil {
 		t.Errorf("the cached document is not the one the server issued: %+v", cached.Policy)
 	}
-	// And it is what the next offline run grades against.
+	// And it is what the next offline run grades against — exit 4,
+	// because offline the style layer has no guides to grade against
+	// and is named rather than dropped.
 	var offline checkJSON
-	w.json(&offline, "check", "--offline").want(t, ExitOK)
+	w.json(&offline, "check", "--offline").want(t, ExitPartial)
 	if offline.Policy.Source != "cache" {
 		t.Errorf("offline policy = %+v", offline.Policy)
 	}
@@ -256,8 +263,9 @@ func TestCheckExplainPolicyNamesTheDecidingRule(t *testing.T) {
 	})
 	var doc checkJSON
 	// The more specific rule wins, and it is in warn mode, so the error
-	// it gives the finding cannot fail the run.
-	w.json(&doc, "check", "--offline", "--explain-policy").want(t, ExitOK)
+	// it gives the finding cannot fail the run. The run exits 4 all the
+	// same: offline the style layer has no guides to grade against.
+	w.json(&doc, "check", "--offline", "--explain-policy").want(t, ExitPartial)
 	if len(doc.Explain) != len(doc.Findings) || len(doc.Explain) == 0 {
 		t.Fatalf("explain = %+v for %d findings", doc.Explain, len(doc.Findings))
 	}
@@ -273,7 +281,7 @@ func TestCheckExplainPolicyNamesTheDecidingRule(t *testing.T) {
 	}
 	// Without the flag the document says nothing about the decisions.
 	var quiet checkJSON
-	w.json(&quiet, "check", "--offline").want(t, ExitOK)
+	w.json(&quiet, "check", "--offline").want(t, ExitPartial)
 	if len(quiet.Explain) != 0 {
 		t.Errorf("explain without --explain-policy = %+v", quiet.Explain)
 	}

@@ -59,6 +59,16 @@ func TestPreviewPolicy(t *testing.T) {
 	if got.OpenPullRequests != 2 {
 		t.Errorf("open pull requests = %d, want the two that are still open", got.OpenPullRequests)
 	}
+	// And it names them, not only counts them: §12.4 asks the preview
+	// to name the pull request that would newly fail. The closed one is
+	// not among them — nobody wakes up to it.
+	wantPRs := []app.PullRequestImpact{{Ref: "feature/cart", Number: 42}, {Ref: "feature/pay", Number: 41}}
+	if !slices.Equal(got.PullRequests, wantPRs) {
+		t.Errorf("pull requests = %+v, want %+v", got.PullRequests, wantPRs)
+	}
+	if len(got.PullRequests) != got.OpenPullRequests {
+		t.Errorf("%d pull requests named and %d counted: the two must agree", len(got.PullRequests), got.OpenPullRequests)
+	}
 	if len(got.Rules) != 1 || got.Rules[0].Matched != 3 {
 		t.Errorf("rule impact = %+v, want the rule to report what it matched", got.Rules)
 	}
@@ -76,9 +86,9 @@ func TestPreviewOfAWarnRollout(t *testing.T) {
 	if got.Raised != 3 {
 		t.Errorf("raised = %d, want the severities still reported", got.Raised)
 	}
-	if len(got.NewlyFailingRefs) != 0 || got.OpenPullRequests != 0 {
-		t.Errorf("newly failing = %v (%d open), want nobody woken up",
-			got.NewlyFailingRefs, got.OpenPullRequests)
+	if len(got.NewlyFailingRefs) != 0 || got.OpenPullRequests != 0 || len(got.PullRequests) != 0 {
+		t.Errorf("newly failing = %v (%d open, %v), want nobody woken up",
+			got.NewlyFailingRefs, got.OpenPullRequests, got.PullRequests)
 	}
 }
 

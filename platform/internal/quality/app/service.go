@@ -45,6 +45,11 @@ type Service struct {
 	// it, and RunCheck then answers ErrNoSnapshot rather than pretending
 	// a project is clean.
 	snapshot Snapshot
+	// scanner finds the tenants the daily sweep has work in, across
+	// tenants (system scope quality.sweep). Nil where the deployment
+	// does not wire it, and Sweep then says so rather than reporting a
+	// sweep that visited nobody.
+	scanner Scanner
 	// sources are the other contexts' ports the quality summary reads
 	// (RFC 0005 §8). Any of them may be nil, and that number is then
 	// reported as not measured rather than as zero.
@@ -57,9 +62,14 @@ type Service struct {
 	// ErrLinguistUnavailable rather than answering an empty list, which
 	// would read as a clean bill of health nobody issued.
 	linguist Linguist
-	tracer   trace.Tracer
-	logger   *slog.Logger
-	now      func() time.Time
+	// links says where the project's pull requests are, so the impact
+	// preview can link to the one it would newly fail. Nil where no
+	// GitHub integration is wired; the preview then names each pull
+	// request by its number alone.
+	links  PullRequestLinks
+	tracer trace.Tracer
+	logger *slog.Logger
+	now    func() time.Time
 }
 
 // tracerName names Quality's spans' instrumentation scope.
@@ -117,7 +127,7 @@ func (s *Service) span(ctx context.Context, name string, attrs ...attribute.KeyV
 // read checks `catalog.read` and that the project exists, so an unknown
 // project is a 404 rather than an empty list.
 func (s *Service) read(ctx context.Context, project uuid.UUID) error {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return err
 	}
 	return s.catalog.Project(ctx, project)
@@ -126,7 +136,7 @@ func (s *Service) read(ctx context.Context, project uuid.UUID) error {
 // write checks `catalog.write`, that the project exists, and returns
 // the acting principal.
 func (s *Service) write(ctx context.Context, project uuid.UUID) (string, error) {
-	if err := authz.Require(ctx, authz.CatalogWrite); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogWrite, project); err != nil {
 		return "", err
 	}
 	if err := s.catalog.Project(ctx, project); err != nil {
@@ -134,6 +144,24 @@ func (s *Service) write(ctx context.Context, project uuid.UUID) (string, error) 
 	}
 	p, _ := authz.From(ctx)
 	return p.Actor.String(), nil
+}
+
+// storedPolicy reads the project's check policy and publishes its
+// version as `glossa_quality_policy_version{project}` (RFC 0005 §11).
+//
+// Every read goes through here rather than only the save, because the
+// gauge is about which document is grading right now: a replica that
+// has restarted and not yet seen a save would otherwise publish
+// nothing, and a deployment where the number matters most — two
+// versions live at once during a grace period (§4.3) — is exactly the
+// one where a gap is worst.
+func (s *Service) storedPolicy(ctx context.Context, project uuid.UUID) (StoredPolicy, error) {
+	stored, err := s.catalog.CheckPolicy(ctx, project)
+	if err != nil {
+		return StoredPolicy{}, err
+	}
+	s.metrics.PolicyVersionRead(project, stored.Policy.Version)
+	return stored, nil
 }
 
 func invalidPageToken() error {

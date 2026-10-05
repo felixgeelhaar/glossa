@@ -69,6 +69,11 @@ internal/mcp/               the Model Context Protocol endpoint (RFC 0005 §7), 
   adapters/                 mcpgo (streamable HTTP on the official Go MCP SDK), identity (the
                             Authenticator over Identity), sources (one adapter per bounded
                             context), postgres (the audit ledger, sqlc), metrics (Prometheus)
+internal/audit/             the tenant's tamper-evident trail (RFC 0006 §6)
+  domain/                   the entry, its canonical form and hash chain, the verifier, the
+                            per-event-type projection table, content-free summaries
+  app/                      the outbox subscriber, the Recorder (sign-ins, MCP calls), the backfill
+  adapters/postgres/        audit_entries (sqlc), append-only, serialized per tenant
 internal/edge/              glossa-edge's handler and server (object storage only)
 internal/identity/
   domain/                   Person, Member, roles, locale scopes, Grant, APIToken, events
@@ -144,7 +149,8 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_OUTBOX_HANDLER_TIMEOUT` | `30s` | Budget for one subscriber, retries included. |
 | `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing, passkey-state and secret-sealing keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets and tenants' AI provider keys unreadable (they are entered again). |
 | `GLOSSA_STUDIO_URL` | `http://localhost:5173` | Studio's origin; emailed links point into it. |
-| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime. |
+| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime, the CLI's device sessions (`glossa login --device`) included. |
+| `GLOSSA_TRUSTED_PROXIES` | — | Comma-separated CIDRs (or addresses) of the reverse proxies whose `X-Forwarded-For` names the client. Limits per client address — starting a device sign-in, ten a minute — key on the rightmost untrusted hop; unset, the TCP peer is the client, so behind an ingress set it to the ingress's pod range. |
 | `GLOSSA_MAIL_DRIVER` | `none` | `none` (no email: magic links and password reset by email are off, password accounts work unverified), `smtp`, or `log` (development only: mail goes to the log, links included). |
 | `GLOSSA_MAIL_FROM` | `Glossa <no-reply@localhost>` | Sender. |
 | `GLOSSA_SMTP_ADDR` / `_USERNAME` / `_PASSWORD` | — | Submission server (`host:587`) and AUTH PLAIN credentials. STARTTLS is required. |
@@ -159,6 +165,10 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_S3_PATH_STYLE` / `_INSECURE` / `_TIMEOUT` | `false` / `false` / `10s` | Path-style requests (MinIO), plain HTTP (local only), per-operation budget. |
 | `GLOSSA_RELEASE_SIGNING_KEYS` | derived | `keyId=base64(32-byte Ed25519 seed)`, comma-separated. Every manifest is signed with each. Unset: one key derived from `GLOSSA_AUTH_SECRET` (development only; a warning is logged). |
 | `GLOSSA_RELEASE_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: still published for verification, no longer signing. |
+| `GLOSSA_AUDIT_EXPORTS_ENABLED` | `false` | Audit export jobs (RFC 0006 §6.2). `true` without `GLOSSA_AUDIT_SIGNING_KEY` refuses to start. |
+| `GLOSSA_AUDIT_SIGNING_KEY` | — | Exactly one `keyId=base64(32-byte Ed25519 seed)`: the audit export key. Its own key — the server refuses a seed that is also a release signing key, and there is no key derived from `GLOSSA_AUTH_SECRET`. See *Audit export format*. |
+| `GLOSSA_AUDIT_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: earlier audit keys, published so the exports they signed keep verifying. |
+| `GLOSSA_AUDIT_EXPORT_RETENTION` | `168h` | How long an audit export job's two files are kept; the sweep deletes them afterwards (the job stays). |
 | `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
 | `GLOSSA_AI_WORKERS_ENABLED` | `true` | Run AI translation job workers in this process. |
 | `GLOSSA_AI_WORKERS` | `2` | Jobs this process runs at once. Tenants' own caps (`max_concurrent_jobs`) apply across replicas. |
@@ -179,6 +189,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
+| `GLOSSA_WORKFLOW_INSTANCE_RETENTION` | `4320h` | How long a finished workflow instance and its transition log are kept (RFC 0006 §2.5; at least `24h`). The daily `workflow.retention` job, one of the purge jobs, deletes them afterwards, at most 5,000 per tenant a run; running instances are never deleted. |
 | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES` | `2147483648` | Capture images one tenant may keep in object storage (2 GiB, RFC 0004 §3.3). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); retention frees space again. |
 | `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
@@ -310,8 +321,16 @@ carry IDs and the facts of the change, never secrets. A released name
 never changes meaning: a breaking payload change is a new type with a
 `.v2` suffix, published alongside the old one until its subscribers
 move. Identity publishes `identity.tenant.created`,
-`identity.member.{added,activated,access_changed,removed}` and
-`identity.token.{created,revoked}`. Catalog and Localization's events
+`identity.member.{added,activated,access_changed,restriction_changed,removed}`,
+`identity.token.{created,revoked}`, `identity.vendor.{created,changed,deleted}`
+and `identity.group.{created,renamed,deleted,member_added,member_removed}`.
+A member's or token's project scope and a member's vendor and
+`assigned` visibility (RFC 0006 §3.3, §4) are stored, published and
+enforced by `authz` in every context's read and write paths: a project
+outside a principal's scope answers as if it did not exist, and an
+`assigned` member reads and writes only the units their assignments
+cover (`domain.RestrictionEnforced`).
+Catalog and Localization's events
 are listed under their sections below.
 
 ### Outbox
@@ -321,6 +340,7 @@ err := uow.InTenantTx(ctx, func(ctx context.Context, tx *db.TenantTx) error {
     // … change state with sqlc on tx …
     _, err := outbox.Publish(ctx, tx, outbox.Event{
         Type: "catalog.message.source_revised", AggregateType: "message", AggregateID: id,
+        Actor: by, // authz.EventActor(ctx): who caused it — required
         Payload: SourceRevised{Revision: rev},
     })
     return err
@@ -334,6 +354,18 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
     }))
 ```
 
+- **Every event names its actor** (RFC 0006 §6.1): `person:<id>`,
+  `token:<id>` (CI, the CLI, an MCP agent) or `system:<id>` (background
+  work, from `authz.Background` or `authz.SystemEventActor(name)`).
+  `Publish` refuses an event without one; nothing defaults it. A handler
+  reads it as `d.Actor`, and events recorded before migration 0042 read
+  `outbox.ActorUnknown`. `TestEveryEventTypeNamesItsActor` scans the
+  code for every `outbox.Event` literal and fails on one that names no
+  actor.
+- **Every event type has an audit projection** (see *Audit*): a new
+  `Event… = "<context>.…"` constant fails
+  `TestEveryEventTypeHasAProjection` until `audit/domain.Projections`
+  names it.
 - **Delivery is at least once.** A handler must be idempotent on
   `d.EventID`, for example by recording processed IDs in its own
   transaction or by upserting.
@@ -1212,20 +1244,44 @@ reopened writes a check row and nothing else — GitHub's ten seconds are
 not the place for a call back to GitHub. The check worker claims that
 row (`FOR UPDATE SKIP LOCKED`, leased), creates the **Glossa** check run
 as `queued` for the head SHA, and completes it once that commit's
-`glossa push` *and* its usages build have been ingested. Readiness is
-**derived, never remembered**: the branch's head commit says the push
-landed, a current build on that commit says the usages did, so an event
-that arrives twice, late or never changes nothing. If neither arrives
-within 30 minutes the check completes `neutral` with "no Glossa CI run
-for this commit"; a leased scheduler job (`integration.github.
-check_timeout`) makes the waiting rows due again and the worker — the
-one place that completes a check — concludes.
+`glossa push`, its usages build **and its `glossa check` run** have been
+ingested — the run only in a project known to record them, one that has
+recorded a reported run of any commit before (RFC 0005 §14 decision 11).
+A project that never has is not waited for: it reports its labelled
+reduced view as soon as the push and the usages are in, and a run that
+lands later re-renders it. Readiness is **derived, never remembered**: the branch's head
+commit says the push landed, a current build on that commit says the
+usages did, and a recorded check run of that commit says the check ran,
+so an event that arrives twice, late or never changes nothing. If none
+of it arrives within 30 minutes the check completes `neutral` with "no
+Glossa CI run for this commit"; if the push and the usages arrived but
+no run did, the check reports Glossa's own **reduced view** and says so
+(below). A leased scheduler job (`integration.github.check_timeout`)
+makes the waiting rows due again and the worker — the one place that
+completes a check — concludes.
 
-The report is the project's check policy applied to what the contexts
-say: new keys, the messages the last push could not accept, key
-conflicts, untranslated new keys per locale, the QA the server already
-holds (max\_length with the text, terminology from M2), unknown keys
-with their `file:line`, and what merging will make outdated. The policy
+**The report is the run CI recorded** (RFC 0005 §12.3). `glossa check`
+(and `glossa capture --check`, the same check with the visual layer)
+records what it found through `createCheckRun`; the check finds that run
+**by the commit**, not by the ref — a branch moves, a verdict belongs to
+the commit it graded — and renders it: conclusion, per-layer counts,
+annotations on the located findings, the waived listed apart, the policy
+version. One computation, two presentations, so the terminal and the
+pull request cannot disagree by construction. Only a run somebody
+*reported* counts (`cli`, `pull_request`, `api`): the capture upload and
+the write-time job record partial runs of the same commit, and rendering
+one would put a pull request on half a verdict. Quality is read through
+`app.CheckSources.RecordedRun`, never out of its tables.
+
+Where no run was recorded, the check falls back to what Integration can
+see for itself — new keys, the messages the last push could not accept,
+key conflicts, untranslated new keys per locale, the QA the server
+already holds (max\_length with the text, terminology from M2), unknown
+keys with their `file:line`, and what merging will make outdated — and
+**says in the summary and in the comment that that is what it is**, with
+the layers it does not cover named. A green check has to say what was
+actually checked; a silent fallback would be the old divergence, hidden.
+The policy
 is `glossa check`'s own — `kernel/checkpolicy` is the **policy document**
 (RFC 0005 §4.1) and its evaluator, and the CLI's `qa.Policy` is an alias
 of it, so the pull request and the terminal can never disagree. Beside
@@ -1256,8 +1312,9 @@ Two rules were learned the hard way and are enforced in the schema:
   comment rather than writing a second.
 
 `catalog.branch.pushed`, `context.build.ingested`,
-`localization.translation.revised` and `.reviewed` only **wake** the
-row (subscriber `integration.github_check`); `check_run.rerequested`
+`quality.check_run.recorded`, `localization.translation.revised` and
+`.reviewed` only **wake** the row (subscriber
+`integration.github_check`); `check_run.rerequested`
 clears its runs and wakes it. Metrics: `glossa_github_checks_total` and
 `glossa_github_check_latency_seconds` by conclusion (from the
 pull-request event to the completed check), `glossa_github_check_jobs_
@@ -1677,6 +1734,138 @@ toolset the domain knows is one the column's CHECK admits) and
 `internal/cli` (the stdio proxy end to end: a real MCP client over real
 pipes, through `glossa mcp`, to a real `/mcp` endpoint).
 
+## Audit
+
+RFC 0006 §6. `audit_entries` (migration 0045) is a projection: the
+`audit.record` subscriber turns every outbox event into one entry, and
+the security-relevant acts that never reach the outbox are written
+through `audit/app.Recorder` — sign-ins and failed sign-ins (Identity's
+`SignInAudit` port, recorded in every tenant the person belongs to; a
+failure is written in the background so it takes no longer for an
+existing account) and MCP tool calls (beside their `mcp_tool_calls`
+row, which the entry points at by id).
+
+- **Content-free.** An entry holds the action (the event type, or
+  `identity.person.signed_in`, `identity.person.sign_in_failed`,
+  `mcp.tool.called`), the actor, the target, the project and locale,
+  the request or trace id, and a summary in which the payload paths a
+  projection lists as identifiers or selectors are verbatim and
+  everything else is its shape (`"string(len=27)"`). Never message
+  text, an email, a name or a secret.
+- **Hash-chained per tenant.** `hash = sha256(prev_hash ‖ JCS(entry))`,
+  the first `prev_hash` 32 zero bytes, sequences 1, 2, 3… with no gaps.
+  Appends to one tenant serialize on a transaction-scoped advisory
+  lock; a trigger refuses an entry that skips a sequence or links to the
+  wrong hash. `domain.Verifier` recomputes a chain or a range.
+- **Append-only** for `glossa_app` (SELECT and INSERT), under forced
+  RLS. The chain proves an export wasn't edited; it is no protection
+  against a database superuser (§9.5).
+- **Idempotent.** An entry's `event_id` is unique per tenant, so a
+  redelivered event or a re-run backfill records nothing twice.
+- **History.** At startup every replica runs the backfill until it
+  succeeds once (like the key index task): it reads the outbox's
+  history (`outbox.History`, system scope `outbox.history` for the
+  tenant list) in the order events occurred and appends what is
+  missing; a tenant whose entry count already matches its event count
+  is skipped. An event from before migration 0042 takes its payload's
+  by-field as its actor when that is a well-formed actor, and is
+  `unknown` otherwise; the log line reports both counts.
+
+The read API and export jobs are RFC 0006 wave 5; the export format and
+`glossa audit verify` are wave 4.
+
+### Audit export format
+
+An export (`glossa.audit/v1`, `audit/domain/export.go`) is a directory
+of two files. It is verifiable offline with nothing but the files and a
+trusted public key: `glossa audit verify <dir> --public-key …`.
+
+```text
+<export>/
+  entries.jsonl   one line per entry, in sequence order
+  manifest.json   what the lines are, signed with the audit key
+```
+
+**`entries.jsonl`** is UTF-8, one entry per line, every line ending in
+`\n` (the last one too), no blank lines. A line is the RFC 8785 (JCS)
+form of the entry's canonical object — `glossa.audit.entry/1`, the
+object its hash covers — with two more members, `prev_hash` and `hash`,
+as 64 lowercase hex digits:
+
+```json
+{"action":"localization.translation.revised","actor":"person:0190…","aggregate_id":"0190…","aggregate_type":"translation","event_id":"0190…","format":"glossa.audit.entry/1","hash":"2d52…","locale":"de-CH","occurred_at":"2026-10-01T09:30:00.123456Z","prev_hash":"0000…","project_id":"0190…","request_id":null,"sequence":1,"source":"outbox","summary":{"revision":3,"state":"needs_review","text":"string(len=12)"},"tenant_id":"0190…","trace_id":"4bf9…"}
+```
+
+Every member is always present (an absent optional is `null`). To check
+a line without Glossa: remove `prev_hash` and `hash`, canonicalize what
+is left (it already is canonical), and `hash` must equal
+`sha256(bytes(prev_hash) ‖ that)`; each line's `prev_hash` is the
+previous line's `hash`, and `sequence` goes up by one. A line has
+exactly one spelling — the verifier refuses one that is not byte for
+byte the JCS of its own content. `TestExportLineIsPinned` pins a golden
+line; changing the line is a new format, never an edit to this one.
+
+**`manifest.json`** is the JCS form of:
+
+| Member | |
+|---|---|
+| `format` | `"glossa.audit/v1"` |
+| `tenant_id` | The chain's tenant. |
+| `range.first_sequence`, `range.last_sequence` | The sequences of the first and last line. An empty export has `last_sequence = first_sequence − 1`. |
+| `range.first_prev_hash` | The hash of the entry before the range — 32 zero bytes when it starts at 1. Where the export joins the rest of the chain. |
+| `range.last_hash` | The last line's hash (`first_prev_hash` when empty): the head an auditor compares with the next export's `first_prev_hash`. |
+| `occurred` | `{from, to}`, the `[from, to)` time range the export job was asked for, or `null` for a sequence range. Every entry falls inside it. |
+| `entry_count` | `last_sequence − first_sequence + 1`. |
+| `entries` | `{path: "entries.jsonl", sha256, bytes}`: the lines file, pinned. |
+| `created_at` | When the export was made, UTC with microseconds. |
+| `key_id` | The audit key that signed it. |
+| `signature` | `{algorithm: "Ed25519", value}`: base64url (no padding) Ed25519 signature over the JCS of the manifest **without** `signature` — the pattern of release manifests (runtimes/SPEC.md §1.3), with the one key. |
+
+Why a directory of two files and not one file or a tar: the lines stay
+plain JSON Lines that `jq`, `grep` and a spreadsheet import read as they
+are, and stream in constant memory; the manifest's signature already
+binds the lines through their digest and both chain ends, so an
+envelope would add a format without adding integrity. The export jobs
+(wave 5) store and serve the same two objects.
+
+**Verification** (`domain.VerifyExport`) reports the first thing that
+fails, as a stable code: `manifest_invalid` (not a manifest, or one that
+contradicts itself), `unknown_key`, `signature_invalid` (the manifest was
+changed after signing, or another key signed it), then line by line
+`line_invalid` (including a truncated last line), `line_not_canonical`,
+`tenant_mismatch`, `sequence_gap` (a removed or reordered line),
+`prev_hash_mismatch`, `hash_mismatch` (an edited line), then
+`range_mismatch` (lines missing at the end, extra lines, another last
+hash, an entry outside `occurred`) and `digest_mismatch`. The chain says
+where an edit is; the digest, which the signature covers, catches
+anything the chain could not. `TestEveryAlteredByteFails` flips every
+byte of an export in turn and none verifies.
+
+**The audit key** (`GLOSSA_AUDIT_SIGNING_KEY`, one `keyId=base64(seed)`)
+is not the release signing key: a release key is trusted by every runtime
+in the field and rotates on the delivery plane's schedule, an audit key
+is trusted by auditors and must verify exports for as long as the tenant
+exists. The server refuses a seed that is also a release key, and there
+is no development key derived from the auth secret: exports stay off
+(`GLOSSA_AUDIT_EXPORTS_ENABLED=false`) until a key is configured, and on
+without a key the server does not start. Generate one with
+`audit-2026=$(openssl rand -base64 32)` into a Secret; never commit it.
+**Rotation**: configure a new key, and move the old key's public key to
+`GLOSSA_AUDIT_RETIRED_KEYS` — never drop it while an export it signed may
+still need verifying (`TestRetiredKeysStillVerify`).
+
+**Public keys** are distributed as a `glossa.audit.keys/1` document,
+`{format, keys: [{key_id, algorithm: "Ed25519", public_key (base64url),
+active}]}`, the active key first. glossa-server serves it at
+`GET /.well-known/glossa-audit-keys.json` (public, no token — it holds
+public keys only; 404 on a deployment without an audit key). Export jobs
+(`POST /v1/tenants/{tenant}/audit-export-jobs`, owner only) write these
+two files to object storage and serve them at `…/{job}/file` and
+`…/{job}/manifest`. The verifier never takes
+a key from the export it is checking: `glossa audit verify` requires
+`--public-key`, either that document saved once and pinned, or
+`keyId=base64` from wherever the operator published it.
+
 ## Release
 
 What ships where (RFC 0002 §7, intent §34–38). Every project has the
@@ -1805,17 +1994,20 @@ project: a key only reaches its own project's objects.
 | Table | Scope | Why |
 |---|---|---|
 | `release_releases` | tenant | Immutable: `glossa_app` may SELECT and INSERT; a trigger refuses UPDATE and DELETE for every role except the cascade from erasing the tenant. |
-| `release_environments` | tenant | Policy, kind (and branch) and current release per environment. |
+| `release_environments` | tenant | Policy, approval requirement (RFC 0006 §5.1), kind (and branch) and current release per environment. |
 | `release_deployments` | tenant | Every pointer move, append-only by grant: what rollback walks. |
 | `release_delivery_keys` | tenant | Publishable keys, in the clear (they ship in bundles), with their scope; revoked ones stay listed. `glossa_system` reads IDs and `index_version` (system scope `release.key_index`). |
 | `release_publish_requests` | tenant | Pending debounced publishes of branch environments. `glossa_system` reads IDs and `not_before` (system scope `release.publisher`). |
+| `release_requests` | tenant | Release requests (RFC 0006 §5.1): a publish or promote into an environment that requires approval, held until approved. At most one pending per environment; closed once (deployed, denied, withdrawn or refused), never deleted. |
 
 Events: `release.published`, `release.promoted`, `release.rolled_back`
 (the Release aggregate shares the context's name, so they are
 `release.<verb>`, as SPEC §3 names them),
 `release.environment.{created,policy_changed,destroyed,publish_requested}`,
 `release.delivery_key.{created,scope_changed,revoked}` (never carrying
-the key). Subscribers: `release.sync_manifest` and
+the key),
+`release.release_request.{created,approved,denied,deployed,withdrawn,refused}`
+(RFC 0006 §5.1; never carrying the force or withdrawal reason). Subscribers: `release.sync_manifest` and
 `release.sync_delivery_key` (storage writes; `sync_manifest` also
 removes a destroyed environment's manifest),
 `release.branch_environments` on Catalog's branch events and

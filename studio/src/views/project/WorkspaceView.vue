@@ -4,11 +4,16 @@
  * left, the editor for the selected message in the target locale on the
  * right. Filters, the locale and the selection live in the URL, so a view
  * can be bookmarked or shared.
+ *
+ * With `?assignment=<id>` it is scoped to one assignment's units (RFC 0006
+ * §3.1, opened from My work): only those messages, only its locales.
  */
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { applications as applicationsApi, messages as messagesApi, translations as translationsApi, type MessageFilters } from "../../api/endpoints";
 import type { Application, LocaleStats, Message, Syntax, Translation } from "../../api/schemas";
+import { useWork } from "../../api/work";
+import type { Assignment } from "../../api/work-schemas";
 import AssistPanel from "../../components/assist/AssistPanel.vue";
 import FillDialog from "../../components/assist/FillDialog.vue";
 import type { MatchText } from "../../components/assist/TmMatches.vue";
@@ -21,10 +26,11 @@ import TranslationEditor from "../../components/TranslationEditor.vue";
 import { localeName } from "../../lib/bcp47";
 import { getPref, setPref } from "../../lib/prefs";
 import { matchNumber, useShortcuts } from "../../lib/shortcuts";
+import { unitLocales } from "../../lib/work";
 import { coverageOf, matches, namespacesOf, statusOf, type Coverage, type CoverageFilter, type MessageRow } from "../../lib/workspace";
-import { allowsFor } from "../../session/permissions";
+import { allows, allowsFor } from "../../session/permissions";
 import { useSession } from "../../session/session";
-import { strings } from "../../strings";
+import { problemText, strings } from "../../strings";
 import { useProject } from "./context";
 
 const route = useRoute();
@@ -41,9 +47,48 @@ function setQuery(patch: Record<string, string | undefined>): void {
   void router.replace({ query });
 }
 
+// ── assignment scope (RFC 0006 §3.1) ──────────────────────────────────
+const work = useWork();
+const assignmentId = computed(() => q("assignment"));
+type Scope = { phase: "none" } | { phase: "loading" } | { phase: "ready"; assignment: Assignment } | { phase: "failed"; error: unknown };
+const scope = shallowRef<Scope>({ phase: "none" });
+watch(
+  assignmentId,
+  async (id) => {
+    if (!id) {
+      scope.value = { phase: "none" };
+      return;
+    }
+    scope.value = { phase: "loading" };
+    try {
+      const a = await work.assignment(tenant.value, id);
+      if (id === assignmentId.value) scope.value = { phase: "ready", assignment: a };
+    } catch (error) {
+      if (id === assignmentId.value) scope.value = { phase: "failed", error };
+    }
+  },
+  { immediate: true },
+);
+const scoped = computed(() => scope.value.phase !== "none");
+const scopeAssignment = computed(() => (scope.value.phase === "ready" ? scope.value.assignment : undefined));
+const scopeError = computed(() => (scope.value.phase === "failed" ? problemText(scope.value.error) : ""));
+/** The target locales on offer: an assignment's own, when scoped to one. */
+const localeTargets = computed(() => {
+  const a = scopeAssignment.value;
+  if (!a) return targets.value;
+  const mine = new Set(unitLocales(a));
+  return targets.value.filter((l) => mine.has(l.code));
+});
+
 const localeCode = computed(() => {
   const want = q("locale") || getPref(`locale:${projectId.value}`);
-  return targets.value.find((l) => l.code === want)?.code ?? targets.value[0]?.code;
+  return localeTargets.value.find((l) => l.code === want)?.code ?? localeTargets.value[0]?.code;
+});
+/** The assignment's messages in the target locale; `undefined` when not scoped. */
+const scopeMessages = computed(() => {
+  const a = scopeAssignment.value;
+  if (!a) return undefined;
+  return new Set(a.units.filter((u) => u.locale === localeCode.value).map((u) => u.message_id));
 });
 watch(localeCode, (code) => code && setPref(`locale:${projectId.value}`, code), { immediate: true });
 const target = computed(() => locales.value.find((l) => l.code === localeCode.value));
@@ -185,13 +230,18 @@ onBeforeUnmount(() => {
 const context = useContextFilter({ tenant, projectId, filter: contextFilter });
 /** Whether anything narrows the list: an empty list then means "nothing matches", not "no messages". */
 const narrowed = computed(
-  () => !!search.value.trim() || !!namespace.value || coverage.value !== "all" || state.value !== "active" || isContextFiltered(contextFilter.value),
+  () => scoped.value || !!search.value.trim() || !!namespace.value || coverage.value !== "all" || state.value !== "active" || isContextFiltered(contextFilter.value),
 );
 /** A context filter is on, but which messages it allows isn't known yet. */
 const contextPending = computed(() => isContextFiltered(contextFilter.value) && context.allowed.value === undefined);
-const visible = computed(() =>
-  contextPending.value ? [] : loaded.value.filter((m) => matches(m, search.value) && (!context.allowed.value || context.allowed.value.has(m.id))),
-);
+const visible = computed(() => {
+  // Scoped, but the assignment is not known (yet, or at all): show none rather than every message.
+  if (contextPending.value || (scoped.value && !scopeMessages.value)) return [];
+  const units = scopeMessages.value;
+  return loaded.value.filter(
+    (m) => (!units || units.has(m.id)) && matches(m, search.value) && (!context.allowed.value || context.allowed.value.has(m.id)),
+  );
+});
 const rows = computed<MessageRow[]>(() =>
   visible.value.map((m) => ({ id: m.id, key: m.key, text: m.source.text, namespace: m.namespace, status: statusOf(m.id, localeCoverage.value) })),
 );
@@ -239,6 +289,8 @@ const terminology = useTerminology({
   draft,
 });
 const assist = useTemplateRef<InstanceType<typeof AssistPanel>>("assist");
+/** The unit's workflow instances (RFC 0006 §8) are offered to whoever may read workflows. */
+const canReadWorkflows = computed(() => allows(grant.value, "workflows.read"));
 const canFill = computed(() => !!localeCode.value && allowsFor(grant.value, "intelligence.translate", localeCode.value));
 const fillOpen = ref(false);
 /** A search narrows the fill to the keys it shows (the server takes at most 500). */
@@ -310,11 +362,26 @@ function onSearchKey(e: KeyboardEvent): void {
   </div>
   <div v-else class="workspace">
     <aside class="side" :aria-label="s.messages">
+      <div v-if="scoped" class="scope" data-testid="assignment-scope" :data-phase="scope.phase">
+        <p v-if="scope.phase === 'loading'" class="muted">{{ strings.work.scopeLoading }}</p>
+        <div v-else-if="scope.phase === 'failed'" class="alert alert-error" role="alert">
+          <p>{{ strings.work.scopeFailed }}</p>
+          <p>{{ scopeError }}</p>
+        </div>
+        <p v-else-if="scopeAssignment" class="scope-title">
+          {{ strings.work.scoped(scopeAssignment.units.length, unitLocales(scopeAssignment).join(", ")) }}
+          · <span data-testid="assignment-scope-state">{{ strings.work.state[scopeAssignment.state] }}</span>
+        </p>
+        <div class="row">
+          <RouterLink :to="{ name: 'my-work', params: { tenant } }">{{ strings.work.back }}</RouterLink>
+          <RouterLink :to="{ query: { ...route.query, assignment: undefined, key: undefined } }">{{ strings.work.showAll }}</RouterLink>
+        </div>
+      </div>
       <div class="filters" role="search">
         <div class="field">
           <label for="ws-locale">{{ s.targetLocale }}</label>
           <select id="ws-locale" :value="localeCode" @change="setQuery({ locale: ($event.target as HTMLSelectElement).value })">
-            <option v-for="l in targets" :key="l.code" :value="l.code">{{ l.code }} — {{ localeName(l.code) }}</option>
+            <option v-for="l in localeTargets" :key="l.code" :value="l.code">{{ l.code }} — {{ localeName(l.code) }}</option>
           </select>
         </div>
         <div class="field">
@@ -379,6 +446,9 @@ function onSearchKey(e: KeyboardEvent): void {
         :source-dir="source?.direction ?? 'auto'"
         @select="select"
       />
+      <p v-else-if="scope.phase === 'loading'" class="empty muted">{{ strings.app.loading }}</p>
+      <!-- A failed scope says so above; the list is not "empty", it is unknown. -->
+      <template v-else-if="scope.phase === 'failed'" />
       <p v-else-if="contextPending" class="empty muted">{{ strings.app.loading }}</p>
       <p v-else-if="done" class="empty muted">{{ loaded.length || narrowed ? s.empty : s.noMessages }}</p>
       <p v-else class="empty muted">{{ strings.app.loading }}</p>
@@ -401,7 +471,18 @@ function onSearchKey(e: KeyboardEvent): void {
           :term-findings="terminology.findings.value"
           @changed="onChanged"
           @draft="draft = $event"
-        />
+        >
+          <template v-if="canReadWorkflows" #history-extra>
+            <p>
+              <RouterLink
+                :to="{ name: 'workflow-instances', params: { tenant, project: projectId }, query: { message: selected.key, locale: target.code } }"
+                data-testid="workflow-instances-link"
+              >
+                {{ strings.instances.fromTranslation }}
+              </RouterLink>
+            </p>
+          </template>
+        </TranslationEditor>
         <p v-else class="page muted">{{ s.selectMessage }}</p>
       </section>
       <aside v-if="selected && target && source" class="assist-col" :aria-label="strings.assist.label">
@@ -454,6 +535,18 @@ function onSearchKey(e: KeyboardEvent): void {
   border-inline-end: 1px solid var(--kl-border);
   min-block-size: 0;
   background: var(--kl-surface-raised);
+}
+.scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kl-space-2);
+  padding: var(--kl-space-3) var(--kl-space-4);
+  border-block-end: 1px solid var(--kl-border);
+  background: var(--kl-accent-dim);
+  font-size: var(--kl-text-sm);
+}
+.scope-title {
+  font-weight: var(--kl-weight-medium);
 }
 .filters {
   display: flex;

@@ -17,7 +17,12 @@ import { startFakeProvider } from "./fake-provider";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const STATE_DIR = join(here, ".state");
-export const SERVER_LOG = join(STATE_DIR, "server.log");
+/**
+ * Where the server's log is, and so where the sign-in links are read
+ * from. The M4 exit test (RFC 0005 §12.8) drives this suite against a
+ * glossa-server it started itself, and points this at that server's log.
+ */
+export const SERVER_LOG = process.env.GLOSSA_E2E_SERVER_LOG ?? join(STATE_DIR, "server.log");
 /** Release object storage (GLOSSA_STORAGE_DRIVER=dir), laid out as platform/internal/release/delivery says. */
 export const OBJECTS_DIR = join(STATE_DIR, "objects");
 const PLATFORM = resolve(here, "../../platform");
@@ -31,7 +36,15 @@ export const ports = {
   github: Number(process.env.GLOSSA_E2E_GITHUB_PORT ?? 18319),
 };
 export const studioURL = `http://localhost:${ports.studio}`;
-export const apiURL = `http://127.0.0.1:${ports.api}`;
+/**
+ * The glossa-server the suite talks to. Normally the one `startStack`
+ * provisions below; with GLOSSA_E2E_API_URL set, one somebody else is
+ * running — which is how the M4 exit test opens Studio's `quality` view
+ * "against the same server" (RFC 0005 §12.8) rather than against a
+ * second one with different data in it.
+ */
+export const externalAPI = process.env.GLOSSA_E2E_API_URL?.replace(/\/$/, "");
+export const apiURL = externalAPI ?? `http://127.0.0.1:${ports.api}`;
 /** The fake AI provider's base URL, as a tenant configures it (an OpenAI-compatible endpoint on loopback). */
 export const fakeProviderURL = `http://127.0.0.1:${ports.provider}/v1`;
 
@@ -66,6 +79,12 @@ async function waitFor(url: string, server: ChildProcess, timeoutMs = 60_000): P
 }
 
 export async function startStack(): Promise<() => Promise<void>> {
+  // Somebody else's server: provision nothing, tear nothing down, and
+  // leave its data exactly as it was handed over.
+  if (externalAPI) {
+    if (!existsSync(SERVER_LOG)) throw new Error(`GLOSSA_E2E_API_URL is set but ${SERVER_LOG} is not there; set GLOSSA_E2E_SERVER_LOG`);
+    return async () => undefined;
+  }
   mkdirSync(STATE_DIR, { recursive: true });
   rmSync(OBJECTS_DIR, { recursive: true, force: true });
   mkdirSync(OBJECTS_DIR, { recursive: true });

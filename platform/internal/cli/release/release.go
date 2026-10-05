@@ -118,9 +118,118 @@ type PublishRequest struct {
 
 // Published is the outcome of a publish.
 type Published struct {
+	// Release is the release published. It is zero when Held is set:
+	// the server names only its ID then.
 	Release Release
 	// Replayed is true when the idempotency key had already published
 	// it: nothing new was published.
+	Replayed bool
+	// Held is set when the environment requires approvals: the release
+	// was recorded, a release request was made, and no pointer moved.
+	Held *Held
+}
+
+// Held is a publish or promote held for approval (RFC 0006 §5.1): the
+// server answered 202 and the environment still serves what it served.
+type Held struct {
+	// ReleaseID is the release the request would deploy.
+	ReleaseID string
+	RequestID string
+	Request   Request
+}
+
+// Request is a release request: a publish or promote into an
+// environment that requires approvals, deployed once enough distinct
+// people other than the requester grant it.
+type Request struct {
+	ID          string `json:"id"`
+	Environment string `json:"environment"`
+	ReleaseID   string `json:"release_id"`
+	// Action is publish or promote: what the deploy records.
+	Action string `json:"action"`
+	// Requester never counts toward the approval.
+	Requester string      `json:"requester"`
+	Approval  Requirement `json:"approval"`
+	// Gate is what the completeness requirement said when it was made.
+	Gate        Gate   `json:"gate"`
+	Forced      bool   `json:"forced"`
+	ForceReason string `json:"force_reason,omitempty"`
+	// State is pending, deployed, denied, withdrawn or refused.
+	State     string     `json:"state"`
+	DecidedBy string     `json:"decided_by,omitempty"`
+	DecidedAt *time.Time `json:"decided_at,omitempty"`
+	Reason    string     `json:"reason,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+// Requirement is an environment's approval: n distinct people of from,
+// none of them the requester.
+type Requirement struct {
+	N                     int   `json:"n"`
+	From                  Party `json:"from"`
+	DistinctFromRequester bool  `json:"distinct_from_requester"`
+}
+
+// Party is exactly one of a member, a role or a group.
+type Party struct {
+	Member string `json:"member,omitempty"`
+	Role   string `json:"role,omitempty"`
+	Group  string `json:"group,omitempty"`
+}
+
+// Gate is the completeness requirement's verdict.
+type Gate struct {
+	Met   bool     `json:"met"`
+	Unmet []string `json:"unmet,omitempty"`
+}
+
+// RequestFilter narrows a list of release requests (empty: any).
+type RequestFilter struct{ Environment, State string }
+
+// Rollout is a staged rollout (RFC 0006 §5.2): the environment's
+// manifest serves a candidate release to percent of installations.
+type Rollout struct {
+	ID          string `json:"id"`
+	Environment string `json:"environment"`
+	// ReleaseID is the candidate; StableReleaseID what the environment
+	// served when the rollout started.
+	ReleaseID       string `json:"release_id"`
+	StableReleaseID string `json:"stable_release_id"`
+	Percent         int    `json:"percent"`
+	// Status is active, completed or aborted; End says how an ended one
+	// ended (completed, aborted, expired, rolled_back).
+	Status             string     `json:"status"`
+	End                string     `json:"end,omitempty"`
+	MaxDurationSeconds int        `json:"max_duration_seconds"`
+	ExpiresAt          time.Time  `json:"expires_at"`
+	Forced             bool       `json:"forced"`
+	ForceReason        string     `json:"force_reason,omitempty"`
+	StartedBy          string     `json:"started_by"`
+	StartedAt          time.Time  `json:"started_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	EndedBy            string     `json:"ended_by,omitempty"`
+	EndedAt            *time.Time `json:"ended_at,omitempty"`
+}
+
+// StartRollout starts serving a candidate to a share of installations.
+type StartRollout struct {
+	Environment string
+	ReleaseID   string
+	Percent     int
+	// MaxDurationSeconds is 0 for the server's default (14 days).
+	MaxDurationSeconds int
+	Force              bool
+	ForceReason        string
+	IdempotencyKey     string
+}
+
+// RolloutVersion is a rollout with its ETag, for If-Match on the next
+// change.
+type RolloutVersion struct {
+	Rollout Rollout
+	ETag    string
+	// Replayed is true when a start's idempotency key had already
+	// started it.
 	Replayed bool
 }
 
@@ -168,7 +277,10 @@ type Service interface {
 	// PreviewPublish runs a publish's build for environment and stores
 	// nothing.
 	PreviewPublish(ctx context.Context, s Scope, environment string) (Preview, error)
-	Promote(ctx context.Context, s Scope, releaseID, environment string) (Environment, error)
+	// Promote points environment at a release. A non-nil Held means the
+	// environment requires approvals: a release request was made and
+	// nothing moved.
+	Promote(ctx context.Context, s Scope, releaseID, environment string) (Environment, *Held, error)
 	// Rollback points environment back at toRelease (empty: the newest
 	// release it served before the current one).
 	Rollback(ctx context.Context, s Scope, environment, toRelease string) (Environment, error)
@@ -179,6 +291,20 @@ type Service interface {
 	// doesn't change, so bundles that ship it keep working.
 	SetDeliveryKeyScope(ctx context.Context, s Scope, id string, scope KeyScope) (DeliveryKey, error)
 	RevokeDeliveryKey(ctx context.Context, s Scope, id string) error
+	// ReleaseRequests lists release requests newest first.
+	ReleaseRequests(ctx context.Context, s Scope, f RequestFilter) ([]Request, error)
+	ReleaseRequest(ctx context.Context, s Scope, id string) (Request, error)
+	WithdrawReleaseRequest(ctx context.Context, s Scope, id, reason string) (Request, error)
+	// Rollouts lists an environment's rollouts newest first; limit 0
+	// lists them all.
+	Rollouts(ctx context.Context, s Scope, environment string, limit int) ([]Rollout, error)
+	Rollout(ctx context.Context, s Scope, environment, id string) (RolloutVersion, error)
+	StartRollout(ctx context.Context, s Scope, r StartRollout) (RolloutVersion, error)
+	// AdvanceRollout needs ifMatch; CompleteRollout and AbortRollout
+	// send it only when it is not empty.
+	AdvanceRollout(ctx context.Context, s Scope, environment, id, ifMatch string, percent int) (RolloutVersion, error)
+	CompleteRollout(ctx context.Context, s Scope, environment, id, ifMatch string) (RolloutVersion, error)
+	AbortRollout(ctx context.Context, s Scope, environment, id, ifMatch string) (RolloutVersion, error)
 	// BundleSource serves a release's manifest as environment serves it,
 	// and its artifacts.
 	BundleSource(s Scope, releaseID, environment string) BundleSource

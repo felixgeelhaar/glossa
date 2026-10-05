@@ -57,9 +57,12 @@ const (
 	WriteUnchanged WriteStatus = "unchanged"
 )
 
-// GetTranslation returns a message's translation in a locale.
+// GetTranslation returns a message's translation in a locale. For an
+// assigned member a unit outside their assignments is not found (RFC
+// 0006 §3.3).
 func (s *Service) GetTranslation(ctx context.Context, project uuid.UUID, key, locale string) (TranslationView, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	vis, err := authz.Visible(ctx, authz.TranslationsRead, project)
+	if err != nil {
 		return TranslationView{}, err
 	}
 	tag, err := localeFromPath(locale)
@@ -70,6 +73,9 @@ func (s *Service) GetTranslation(ctx context.Context, project uuid.UUID, key, lo
 	if err != nil {
 		return TranslationView{}, err
 	}
+	if !vis.Unit(msg.ID, tag.String()) {
+		return TranslationView{}, ErrNotFound
+	}
 	var v TranslationView
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		row, err := st.Translation(ctx, msg.ID, tag)
@@ -79,18 +85,22 @@ func (s *Service) GetTranslation(ctx context.Context, project uuid.UUID, key, lo
 	return v, err
 }
 
-// ListTranslations lists a message's translations by locale.
+// ListTranslations lists a message's translations by locale; an
+// assigned member's list holds only their units of it, filtered in the
+// query (RFC 0006 §3.3).
 func (s *Service) ListTranslations(ctx context.Context, project uuid.UUID, key string, page pagination.Page) ([]TranslationView, *string, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	vis, err := authz.Visible(ctx, authz.TranslationsRead, project)
+	if err != nil {
 		return nil, nil, err
 	}
 	msg, err := s.catalog.Message(ctx, project, key)
 	if err != nil {
 		return nil, nil, err
 	}
+	only := unitLocales(vis, msg.ID)
 	var rows []TranslationView
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		stored, err := st.TranslationsOfMessage(ctx, msg.ID, page.After, page.Limit())
+		stored, err := st.TranslationsOfMessage(ctx, msg.ID, page.After, only, page.Limit())
 		for _, r := range stored {
 			rows = append(rows, view(r))
 		}
@@ -101,6 +111,21 @@ func (s *Service) ListTranslations(ctx context.Context, project uuid.UUID, key s
 	}
 	items, next := pagination.Trim(rows, page, func(v TranslationView) string { return v.Locale.String() })
 	return items, next, nil
+}
+
+// unitLocales is the locales of message an authz view includes: nil for
+// the whole project, an assigned member's units of message otherwise.
+func unitLocales(vis authz.View, message uuid.UUID) []string {
+	if vis.All() {
+		return nil
+	}
+	out := []string{}
+	for _, u := range vis.Units() {
+		if u.Message == message {
+			out = append(out, u.Locale)
+		}
+	}
+	return out
 }
 
 // writeCmd is a prepared, checked translation write.
@@ -178,14 +203,19 @@ func (s *Service) prepare(ctx context.Context, p ProjectInfo, msg SourceMessage,
 // locale. ifMatch must be the translation's ETag when it exists and
 // absent when it doesn't. Error-severity structural findings reject the
 // write (*domain.QAError); warnings are stored and returned.
+//
+// An assigned member writes only in the units their assignments cover;
+// any other is not found to them (RFC 0006 §3.3).
 func (s *Service) PutTranslation(ctx context.Context, project uuid.UUID, key, locale string, in TranslationInput, ifMatch *int) (TranslationView, WriteStatus, error) {
 	tag, err := bcp47.Parse(locale)
 	if err != nil {
 		return TranslationView{}, "", err
 	}
-	by, err := actorFor(ctx, authz.TranslationsWrite, tag)
-	if err != nil {
-		return TranslationView{}, "", err
+	var by string
+	if !assigned(ctx) {
+		if by, err = actorForIn(ctx, authz.TranslationsWrite, tag, project); err != nil {
+			return TranslationView{}, "", err
+		}
 	}
 	p, err := s.catalog.Project(ctx, project)
 	if err != nil {
@@ -194,6 +224,11 @@ func (s *Service) PutTranslation(ctx context.Context, project uuid.UUID, key, lo
 	msg, err := s.catalog.Message(ctx, project, key)
 	if err != nil {
 		return TranslationView{}, "", err
+	}
+	if assigned(ctx) {
+		if by, err = unitActor(ctx, authz.TranslationsWrite, project, msg.ID, tag); err != nil {
+			return TranslationView{}, "", err
+		}
 	}
 	cmd, err := s.prepare(ctx, p, msg, tag, in, domain.OriginHuman, by)
 	if err != nil {
@@ -231,7 +266,7 @@ func (s *Service) requireLocale(ctx context.Context, st Store, p ProjectInfo, lo
 // projection up to the source it just read, then creates or revises the
 // translation, appends the revision and publishes the event.
 func (s *Service) write(ctx context.Context, st Store, cmd writeCmd) (domain.Translation, WriteStatus, error) {
-	if err := s.applyMessageState(ctx, st, stateOf(cmd.msg), cmd.locale); err != nil {
+	if err := s.applyMessageState(ctx, st, stateOf(cmd.msg), cmd.locale, projectionActor); err != nil {
 		return domain.Translation{}, "", err
 	}
 	policy := domain.WritePolicy{ReviewRequired: cmd.project.ReviewRequired, Flow: s.flow}
@@ -292,7 +327,7 @@ func (s *Service) record(ctx context.Context, st Store, t domain.Translation, re
 	}
 	return st.Publish(ctx, outbox.Event{
 		Type: typ, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
-		Payload: domain.TranslationEventOf(t, rev.Provenance.By),
+		Actor: outbox.Actor(rev.Provenance.By), Payload: domain.TranslationEventOf(t, rev.Provenance.By),
 	})
 }
 
@@ -305,7 +340,7 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 	if err != nil {
 		return TranslationView{}, err
 	}
-	by, err := actorFor(ctx, authz.TranslationsWrite, tag)
+	by, err := actorForIn(ctx, authz.TranslationsWrite, tag, project)
 	if err != nil {
 		return TranslationView{}, err
 	}
@@ -317,7 +352,7 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 	if err != nil {
 		return TranslationView{}, err
 	}
-	canReview := allowedFor(ctx, authz.TranslationsReview, tag)
+	canReview := allowedForIn(ctx, authz.TranslationsReview, tag, project)
 	var v TranslationView
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		t, found, err := st.LockTranslation(ctx, msg.ID, tag)
@@ -345,7 +380,8 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 
 // TranslationRevisions lists a translation's log, newest first.
 func (s *Service) TranslationRevisions(ctx context.Context, project uuid.UUID, key, locale string, page pagination.Page) ([]domain.Revision, *string, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	vis, err := authz.Visible(ctx, authz.TranslationsRead, project)
+	if err != nil {
 		return nil, nil, err
 	}
 	tag, err := localeFromPath(locale)
@@ -359,6 +395,9 @@ func (s *Service) TranslationRevisions(ctx context.Context, project uuid.UUID, k
 	msg, err := s.catalog.Message(ctx, project, key)
 	if err != nil {
 		return nil, nil, err
+	}
+	if !vis.Unit(msg.ID, tag.String()) {
+		return nil, nil, ErrNotFound
 	}
 	var rows []domain.Revision
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {

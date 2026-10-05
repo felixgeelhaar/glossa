@@ -279,21 +279,26 @@ const listConcepts = `-- name: ListConcepts :many
 SELECT c.id, c.tenant_id, c.project_id, c.definition, c.domain, c.note, c.product_ref, c.version, c.created_by, c.created_at, c.updated_by, c.updated_at FROM knowledge_concepts c
 WHERE c.id > $1
   AND ($2::uuid IS NULL OR c.project_id IS NULL OR c.project_id = $2)
-  AND ($3::text IS NULL OR c.domain = $3)
-  AND ($4::text IS NULL
-       OR EXISTS (SELECT FROM knowledge_terms t WHERE t.concept_id = c.id AND t.locale = $4))
+  -- projects limits project-owned rows to a project-scoped caller's
+  -- projects (RFC 0006 §4.1); tenant-wide rows stay. Filtered here so a
+  -- page's size says nothing about the others.
+  AND ($3::uuid[] IS NULL OR c.project_id IS NULL OR c.project_id = ANY ($3::uuid[]))
+  AND ($4::text IS NULL OR c.domain = $4)
   AND ($5::text IS NULL
-       OR c.definition ILIKE $5
+       OR EXISTS (SELECT FROM knowledge_terms t WHERE t.concept_id = c.id AND t.locale = $5))
+  AND ($6::text IS NULL
+       OR c.definition ILIKE $6
        OR EXISTS (SELECT FROM knowledge_terms t
-                  WHERE t.concept_id = c.id AND t.text ILIKE $5
-                    AND ($4::text IS NULL OR t.locale = $4)))
+                  WHERE t.concept_id = c.id AND t.text ILIKE $6
+                    AND ($5::text IS NULL OR t.locale = $5)))
 ORDER BY c.id
-LIMIT $6
+LIMIT $7
 `
 
 type ListConceptsParams struct {
 	After     uuid.UUID
 	ProjectID uuid.NullUUID
+	Projects  []uuid.UUID
 	Domain    pgtype.Text
 	Locale    pgtype.Text
 	Pattern   pgtype.Text
@@ -307,6 +312,7 @@ func (q *Queries) ListConcepts(ctx context.Context, arg ListConceptsParams) ([]K
 	rows, err := q.db.Query(ctx, listConcepts,
 		arg.After,
 		arg.ProjectID,
+		arg.Projects,
 		arg.Domain,
 		arg.Locale,
 		arg.Pattern,

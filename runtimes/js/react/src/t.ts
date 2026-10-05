@@ -1,7 +1,7 @@
 /**
  * `<T id="cart.checkout">Zur Kasse</T>`: renders a message, with the children
  * as the inline default (runtimes/SPEC.md §3, step 5), then the message ID.
- * Safe MF2 markup becomes elements by the same rules as `@glossa/elements`;
+ * Safe MF2 markup becomes elements by the same rules as `@felixgeelhaar/glossa-elements`;
  * translation text is never rendered as HTML. No wrapper element: plain text
  * renders as a text node.
  *
@@ -13,8 +13,8 @@
  */
 import { Fragment, createElement } from "react";
 import type { ReactNode } from "react";
-import { markAttributes, partsToTree, resolveParts } from "@glossa/elements/parts";
-import type { TreeNode } from "@glossa/elements/parts";
+import { markAttributes, partsToTree, resolveParts } from "@felixgeelhaar/glossa-elements/parts";
+import type { TreeNode } from "@felixgeelhaar/glossa-elements/parts";
 
 import { useGlossa } from "./glossa.js";
 import type { RegisteredMessages, View } from "./glossa.js";
