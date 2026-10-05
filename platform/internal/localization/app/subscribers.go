@@ -82,7 +82,7 @@ func (s *Service) handleMessageEvent(ctx context.Context, d outbox.Delivery) err
 		return outbox.Permanent(err)
 	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		return s.applyMessageState(ctx, st, state, bcp47.Tag{})
+		return s.applyMessageState(ctx, st, state, bcp47.Tag{}, projectionActor)
 	})
 }
 
@@ -101,9 +101,20 @@ func (s *Service) ProjectMessages(ctx context.Context, ms []MessageState) error 
 	if len(ms) == 0 {
 		return nil
 	}
+	// Catalog's write checked its project; the port checks it again, so
+	// it is never the way round a project scope (RFC 0006 §4.1).
+	for _, m := range ms {
+		if err := authz.InProject(ctx, m.ProjectID); err != nil {
+			return err
+		}
+	}
+	by, err := authz.EventActor(ctx) // the writer whose source revision it is
+	if err != nil {
+		return err
+	}
 	return s.tx.InCurrent(ctx, func(ctx context.Context, st Store) error {
 		for _, m := range ms {
-			if err := s.applyMessageState(ctx, st, m, bcp47.Tag{}); err != nil {
+			if err := s.applyMessageState(ctx, st, m, bcp47.Tag{}, by); err != nil {
 				return err
 			}
 		}
@@ -136,11 +147,19 @@ func stateOf(m SourceMessage) MessageState {
 	}
 }
 
+// projectionActor is who marks translations outdated when the message
+// projection catches up with Catalog on its own — in the subscriber, or
+// ahead of a translation write. That is Localization's bookkeeping, not
+// the act of the person whose request happened to run it: a translator
+// writing `de` does not outdate `fr`.
+var projectionActor = authz.SystemEventActor("localization.track_message")
+
 // applyMessageState stores a message snapshot unless a newer one is
 // stored, and announces the translations a source revision made
 // outdated — except in `except`, whose translation the caller is about
-// to bring current.
-func (s *Service) applyMessageState(ctx context.Context, st Store, m MessageState, except bcp47.Tag) error {
+// to bring current. by is who those announcements name: the Catalog
+// writer when it runs inside their write, projectionActor otherwise.
+func (s *Service) applyMessageState(ctx context.Context, st Store, m MessageState, except bcp47.Tag, by outbox.Actor) error {
 	if m.UpdatedAt.IsZero() {
 		m.UpdatedAt = s.now()
 	}
@@ -167,6 +186,7 @@ func (s *Service) applyMessageState(ctx context.Context, st Store, m MessageStat
 		}
 		if err := st.Publish(ctx, outbox.Event{
 			Type: domain.EventTranslationOutdated, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
+			Actor: by,
 			Payload: domain.TranslationOutdated{
 				TranslationID: t.ID.String(), ProjectID: t.ProjectID.String(), MessageID: t.MessageID.String(),
 				Locale: t.Locale.String(), SourceRevision: t.SourceRevision, CurrentSourceRevision: m.SourceRevision,

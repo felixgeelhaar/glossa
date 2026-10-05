@@ -8,6 +8,7 @@
     "title": "Checkout: new payment copy",
     "merged": false,
     "draft": false,
+    "created_at": "2026-09-19T09:30:00Z",
     "html_url": "https://github.com/acme/shop/pull/7",
     "user": { "login": "octocat", "id": 583231, "type": "User" },
     "head": {

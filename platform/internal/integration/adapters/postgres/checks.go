@@ -52,6 +52,9 @@ func check(r integrationsql.IntegrationGithubCheck) domain.Check {
 		at := r.CompletedAt.Time.UTC()
 		c.CompletedAt = &at
 	}
+	if r.OpenedAt.Valid {
+		c.OpenedAt = r.OpenedAt.Time.UTC()
+	}
 	// A ledger we cannot read is a report we lost, never a check we
 	// cannot run: the worst it costs is a repeated annotation once.
 	_ = json.Unmarshal(r.Runs, &c.Targets)
@@ -78,7 +81,8 @@ func (c *Checks) Open(ctx context.Context, in domain.Check) (domain.Check, error
 		row, err := integrationsql.New(tx).OpenCheck(ctx, integrationsql.OpenCheckParams{
 			ID: in.ID, TenantID: in.TenantID, InstallationID: in.InstallationID,
 			RepositoryID: in.RepositoryID, PullRequest: int32(in.PullRequest), //nolint:gosec // a PR number fits
-			Branch: in.Branch, HeadSha: in.HeadSHA, FromFork: in.FromFork, Now: in.RequestedAt,
+			Branch: in.Branch, HeadSha: in.HeadSHA, FromFork: in.FromFork,
+			OpenedAt: timestamptz(in.OpenedAt), Now: in.RequestedAt,
 		})
 		if err != nil {
 			return err
@@ -132,13 +136,13 @@ func (c *Checks) Wake(ctx context.Context, repositories []int64, branch string, 
 }
 
 // Claim implements app.CheckQueue.
-func (c *Checks) Claim(ctx context.Context, lease time.Duration) (domain.Check, bool, error) {
+func (c *Checks) Claim(ctx context.Context, now time.Time, lease time.Duration) (domain.Check, bool, error) {
 	var (
 		out domain.Check
 		ok  bool
 	)
 	err := c.uow.InSystemTx(ctx, c.scope, func(ctx context.Context, tx *db.SystemTx) error {
-		row, err := integrationsql.New(tx).ClaimCheck(ctx, lease.Seconds())
+		row, err := integrationsql.New(tx).ClaimCheck(ctx, integrationsql.ClaimCheckParams{Now: now, LeaseSeconds: lease.Seconds()})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -167,10 +171,10 @@ func (c *Checks) Save(ctx context.Context, in domain.Check, available time.Time)
 }
 
 // Retry implements app.CheckQueue.
-func (c *Checks) Retry(ctx context.Context, in domain.Check, delay time.Duration, failure string) error {
+func (c *Checks) Retry(ctx context.Context, in domain.Check, now time.Time, delay time.Duration, failure string) error {
 	return c.uow.InSystemTx(ctx, c.scope, func(ctx context.Context, tx *db.SystemTx) error {
 		_, err := integrationsql.New(tx).RetryCheck(ctx, integrationsql.RetryCheckParams{
-			DelaySeconds: delay.Seconds(), Failure: failure, Now: in.UpdatedAt,
+			DelaySeconds: delay.Seconds(), Failure: failure, Now: now,
 			ID: in.ID, ClaimToken: in.ClaimToken,
 		})
 		return err

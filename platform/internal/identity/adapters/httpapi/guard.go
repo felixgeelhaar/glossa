@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
@@ -37,6 +39,11 @@ type caller struct {
 	// session is the raw session cookie, when the caller used one; it's
 	// needed to sign out and to derive the CSRF token.
 	session string
+	// device is the glossa_dev_ bearer, when the caller is a device the
+	// person signed in (RFC 0006 §7.2): the person's session, but never
+	// a browser's — it decides no device approvals, and signing out
+	// with it ends only it.
+	device string
 }
 
 type callerKey struct{}
@@ -53,13 +60,14 @@ func callerFrom(ctx context.Context) (caller, bool) {
 // /v1/tenants/{tenant}/… hands over to tenancy.Middleware with this
 // package's Resolver, which checks the tenant against the caller.
 func (a *API) Guard(next http.Handler) http.Handler {
-	tenantScoped := tenancy.Middleware(a, a.logger)(next)
+	tenantScoped := tenancy.Middleware(a, a.logger)(a.projectScoped(next))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req, ok := a.reqs[r.Pattern]
 		if !ok {
 			a.errs.write(w, r, fmt.Errorf("httpapi: route %q is not in the contract", r.Pattern))
 			return
 		}
+		r = r.WithContext(app.WithClientAddress(r.Context(), a.clientAddress(r)))
 		if req.Public {
 			if unsafeMethod(r.Method) && r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 				problem.WriteDetails(w, problem.New(http.StatusForbidden, "cross_site_request",
@@ -106,6 +114,19 @@ func (a *API) authenticate(r *http.Request, req apiv1.Requirement) (caller, erro
 			}
 			authn, err := a.svc.AuthenticateInContextGrant(r.Context(), cred, r.Header.Get("Origin"))
 			return caller{authn: authn}, err
+		}
+		// A device session is the person's session presented as a
+		// bearer (RFC 0006 §7.2): accepted wherever a session is and
+		// nowhere else — never on an operation that takes only API
+		// tokens. It needs no CSRF token, because nothing sends it
+		// ambiently: a page on another origin can't make a browser
+		// attach it.
+		if domain.IsDeviceSessionSecret(cred) {
+			if !req.Session {
+				return caller{}, app.ErrUnauthenticated
+			}
+			authn, err := a.svc.AuthenticateDeviceSession(r.Context(), cred)
+			return caller{authn: authn, device: cred}, err
 		}
 		if !req.Bearer {
 			return caller{}, app.ErrUnauthenticated
@@ -162,6 +183,26 @@ func boundToRoute(c caller, r *http.Request) error {
 		return domain.ErrGrantProjectMismatch
 	}
 	return nil
+}
+
+// projectScoped is the edge's backstop for project scope (RFC 0006
+// §4.1): an operation whose path names a {project} outside the
+// principal's scope answers 404 before any handler runs, exactly as a
+// project that does not exist. Every application service checks the
+// same scope itself (authz.RequireIn and its siblings) — that is the
+// enforcement, and what MCP and every other caller rely on; this makes
+// an operation that forgot to unable to leak through HTTP.
+func (a *API) projectScoped(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if raw := r.PathValue("project"); raw != "" {
+			p, _ := authz.From(r.Context())
+			if project, err := uuid.Parse(raw); err == nil && !p.InProject(project) {
+				a.errs.write(w, r, authz.ErrNotVisible)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ResolveTenant implements tenancy.Resolver. The tenant named in the

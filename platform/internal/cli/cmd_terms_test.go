@@ -171,15 +171,26 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 	// glossa check --terminology adds the layer to structural QA.
 	var chk checkJSON
 	w.json(&chk, "check", "--terminology", "--require-complete=none").want(t, ExitCheckFailed)
-	found := false
+	var forbidden domain.Finding
 	for _, f := range chk.Findings {
 		if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" &&
 			f.Locus.Locale == "de" && f.Locus.Key == "cart.checkout" {
-			found = true
+			forbidden = f
 		}
 	}
-	if !found || chk.Errors != 1 {
+	if forbidden.Code == "" || chk.Errors != 1 {
 		t.Errorf("check --terminology = %+v", chk)
+	}
+	// The termbase answers by key; the identity a waiver is written
+	// against is the catalog message ID, and the pull request's own
+	// terminology findings carry it. The terminal must print the same
+	// fingerprint (RFC 0005 §2.1).
+	if forbidden.Locus.Message != "msg_cart.checkout" {
+		t.Errorf("locus = %+v, want the catalog message ID the snapshot resolved", forbidden.Locus)
+	}
+	if want := domain.Fingerprint(domain.LayerTerminology, "term_forbidden",
+		domain.Locus{Message: "msg_cart.checkout", Locale: "de"}, forbidden.Subject); forbidden.Fingerprint != want {
+		t.Errorf("fingerprint = %s, want the print over the message ID (%s)", forbidden.Fingerprint, want)
 	}
 	srv.mu.Lock()
 	before := srv.kn.termPages
@@ -192,4 +203,140 @@ func TestTermsCheckFindsForbiddenTerms(t *testing.T) {
 		t.Error("plain check asked the termbase")
 	}
 	w.run("check", "--terminology", "--offline").want(t, ExitUsage)
+}
+
+// A terminology finding carries its message's namespace, and a policy
+// rule that selects on one can therefore select it.
+//
+// This is the whole point of filling it. `{layer: terminology,
+// namespace: legal, severity: …}` matched nothing while every
+// terminology finding's `locus.namespace` was empty, so a project could
+// write the rule, read it back from `glossa policy show`, and have it do
+// nothing at all. A selector that silently matches nothing is worse than
+// one that errors.
+func TestTerminologyFindingsCarryTheirNamespace(t *testing.T) {
+	check := func(t *testing.T, namespace string, rules ...map[string]any) checkJSON {
+		t.Helper()
+		srv, w := seeded(t)
+		termbase(t, w)
+		w.write("locales/de.json", `{"cart.checkout": "Zum Einkaufswagen"}`)
+		w.run("push", "--translations").want(t, ExitOK)
+		doc := map[string]any{"schema": "glossa.check-policy/v1", "require_complete": "none",
+			"fail_on": "error", "missing_translations": "error"}
+		if len(rules) > 0 {
+			doc["rules"] = rules
+		}
+		srv.mu.Lock()
+		srv.messages["cart.checkout"].namespace = namespace
+		srv.policyDoc = map[string]any{"version": 3, "document": doc}
+		srv.mu.Unlock()
+		var out checkJSON
+		w.json(&out, "check", "--terminology")
+		return out
+	}
+	forbidden := func(t *testing.T, doc checkJSON) domain.Finding {
+		t.Helper()
+		for _, f := range doc.Findings {
+			if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" {
+				return f
+			}
+		}
+		t.Fatalf("no terminology finding in %+v", doc.Findings)
+		return domain.Finding{}
+	}
+
+	// Without a rule: the finding is an error because that is the
+	// code's own severity, and it names the namespace it is in.
+	plain := forbidden(t, check(t, "legal"))
+	if plain.Locus.Namespace != "legal" {
+		t.Errorf("locus = %+v, want the message's namespace", plain.Locus)
+	}
+	if plain.Severity != domain.Error {
+		t.Errorf("severity = %s, want the code's own", plain.Severity)
+	}
+
+	// With the rule: the selector matches, and the severity it states
+	// is the one the finding gets. Nothing but the namespace can have
+	// decided that.
+	ruled := forbidden(t, check(t, "legal",
+		map[string]any{"layer": "terminology", "namespace": "legal", "severity": "warning"}))
+	if ruled.Severity != domain.Warning {
+		t.Errorf("severity = %s, want the rule's — the namespace selector still matches nothing", ruled.Severity)
+	}
+	if ruled.Fingerprint != plain.Fingerprint {
+		t.Errorf("the severity moved the print: %s vs %s", ruled.Fingerprint, plain.Fingerprint)
+	}
+
+	// And it is really the namespace that decides: the same rule over
+	// another namespace leaves the finding alone.
+	other := forbidden(t, check(t, "marketing",
+		map[string]any{"layer": "terminology", "namespace": "legal", "severity": "warning"}))
+	if other.Severity != domain.Error || other.Locus.Namespace != "marketing" {
+		t.Errorf("a legal rule graded a marketing finding: %+v", other)
+	}
+	// The namespace is context, not identity: the three runs are three
+	// namespaces and one print (RFC 0005 §2.1).
+	if other.Fingerprint != plain.Fingerprint {
+		t.Errorf("the namespace moved the print: %s vs %s", other.Fingerprint, plain.Fingerprint)
+	}
+}
+
+// A waived terminology finding comes back when the source under it
+// moves (RFC 0005 §2.3, §12.4).
+//
+// It never did: the terminology layer's findings carried no source
+// revision, and domain.Waiver.Stale is false for a finding that names
+// none — nothing to disagree with — so a waiver on one never expired,
+// whatever happened to the source. The server names the revision it
+// checked against, and both `glossa terms check` and `glossa check
+// --terminology` now carry it.
+func TestAWaivedTerminologyFindingComesBackWhenItsSourceMoves(t *testing.T) {
+	_, w := seeded(t)
+	termbase(t, w)
+	w.write("locales/de.json", `{"cart.checkout": "Zum Einkaufswagen"}`)
+	w.run("push", "--translations").want(t, ExitOK)
+
+	forbidden := func(t *testing.T) domain.Finding {
+		t.Helper()
+		var out checkJSON
+		w.json(&out, "check", "--terminology")
+		for _, f := range out.Findings {
+			if f.Layer == domain.LayerTerminology && f.Code == "term_forbidden" {
+				return f
+			}
+		}
+		t.Fatalf("no term_forbidden in %+v", out.Findings)
+		return domain.Finding{}
+	}
+
+	before := forbidden(t)
+	if before.SourceRevision == nil || *before.SourceRevision != 1 {
+		t.Fatalf("source_revision = %v, want the message's revision 1", before.SourceRevision)
+	}
+	var terms termsCheckJSON
+	w.json(&terms, "terms", "check").want(t, ExitCheckFailed)
+	if len(terms.Findings) == 0 || terms.Findings[0].SourceRevision != 1 {
+		t.Errorf("terms check = %+v, want each finding at source revision 1", terms.Findings)
+	}
+
+	w.run("waive", before.Fingerprint, "--reason", "the shop says Einkaufswagen",
+		"--source-revision", "1").want(t, ExitOK)
+	if got := forbidden(t); got.Severity != domain.Waived {
+		t.Fatalf("after the waiver: %s, want waived", got.Severity)
+	}
+
+	// The English under it changes, and the German does not: the waiver
+	// was made against a source that no longer ships.
+	w.write("locales/en.json", `{"cart": {"checkout": "Go to checkout", "items": "{count, plural, one {# item} other {# items}}"}, "checkout.pay": "Pay {amount, number}"}`)
+	w.run("push").want(t, ExitOK)
+	after := forbidden(t)
+	switch {
+	case after.Fingerprint != before.Fingerprint:
+		t.Fatalf("a different finding: %s, want %s — the revision is context, never identity",
+			after.Fingerprint, before.Fingerprint)
+	case after.SourceRevision == nil || *after.SourceRevision != 2:
+		t.Fatalf("source_revision = %v, want 2", after.SourceRevision)
+	case after.Severity != domain.Error:
+		t.Errorf("severity = %s, want the finding back at error: its waiver went stale", after.Severity)
+	}
 }

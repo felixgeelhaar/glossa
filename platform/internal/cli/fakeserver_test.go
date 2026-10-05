@@ -44,20 +44,27 @@ type fakeServer struct {
 	io           *fakeInterchange
 	ctx          *fakeContext
 	branches     *fakeBranches
+	qa           *fakeQuality
 	gh           *fakeGitHub
 	ci           *fakeCI
+	dev          *fakeDevice
+	members      *fakeMembers
+	wf           *fakeWorkflows
+	audit        *fakeAuditImports
+	trail        *fakeAuditTrail
+	appr         *fakeApprovals
 	requests     []string
 }
 
 // accepts reports whether an Authorization header names a credential
 // this server knows: the API token, or a CI token it minted.
 func (f *fakeServer) accepts(header string) bool {
-	if header == "Bearer "+testToken {
+	if header == "Bearer "+testToken || personOf(header) != "" {
 		return true
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.ci.minted != "" && header == "Bearer "+f.ci.minted
+	return (f.ci.minted != "" && header == "Bearer "+f.ci.minted) || f.dev.accepts(header)
 }
 
 type fakeMessage struct {
@@ -65,6 +72,19 @@ type fakeMessage struct {
 	content  mfcontent.Content
 	revision int
 	state    string
+	// namespace is the message's bundle; empty is the default one, the
+	// way the contract renders a message nobody moved.
+	namespace string
+	// description is the last one an upsert sent (omitted: kept).
+	description string
+}
+
+// ns is the namespace the server reports for the message.
+func (m *fakeMessage) ns() string {
+	if m.namespace == "" {
+		return "default"
+	}
+	return m.namespace
 }
 
 type fakeTranslation struct {
@@ -73,11 +93,13 @@ type fakeTranslation struct {
 	origin         string
 	sourceRevision int
 	revision       int
+	// originDetail is the origin_detail of the latest import write.
+	originDetail map[string]any
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
 	f := &fakeServer{t: t, reviewRequired: true, sourceLocale: "en", locales: []string{"en"},
-		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}}
+		messages: map[string]*fakeMessage{}, translations: map[string]map[string]*fakeTranslation{}, rel: newFakeReleases(), kn: newFakeKnowledge(), io: newFakeInterchange(), ctx: newFakeContext(), branches: newFakeBranches(), gh: newFakeGitHub(), ci: &fakeCI{}, dev: &fakeDevice{}, qa: newFakeQuality()}
 	mux := http.NewServeMux()
 	p := "/v1/tenants/ten_1/projects/prj_1"
 	mux.HandleFunc("GET /v1/tenants", f.tenants)
@@ -100,15 +122,22 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeInterchange(mux)
 	f.routeContext(mux, p)
 	f.routeBranches(mux, p)
+	f.routeQuality(mux, p)
 	f.routeGitHub(mux)
 	f.routeCI(mux)
+	f.routeDevice(mux)
+	f.routeMembers(mux)
+	f.routeWorkflows(mux)
+	f.routeAuditImports(mux, p)
+	f.routeAuditTrail(mux)
+	f.routeApprovals(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
 		f.mu.Unlock()
 		// The OIDC exchange is the one unauthenticated operation: the
 		// ID token in the body is the credential (RFC 0004 §6.3).
-		if r.URL.Path == "/v1/auth/github-oidc-exchanges" {
+		if r.URL.Path == "/v1/auth/github-oidc-exchanges" || r.URL.Path == "/v1/auth/device-authorizations" || r.URL.Path == "/v1/auth/device-sessions" {
 			mux.ServeHTTP(w, r)
 			return
 		}
@@ -197,7 +226,7 @@ func (f *fakeServer) messageJSON(m *fakeMessage) map[string]any {
 	var model, args any
 	_ = json.Unmarshal(m.content.ModelJSON(), &model)
 	_ = json.Unmarshal(m.content.ArgumentsJSON(), &args)
-	return map[string]any{"id": "msg_" + m.key, "key": m.key, "namespace": "default", "description": "", "state": m.state,
+	return map[string]any{"id": "msg_" + m.key, "key": m.key, "namespace": m.ns(), "description": m.description, "state": m.state,
 		"source":          map[string]any{"text": m.content.Text, "syntax": string(m.content.Syntax), "model": model, "arguments": args, "markup": []any{}},
 		"source_revision": m.revision, "created_at": "2026-09-19T00:00:00Z", "updated_at": "2026-09-19T00:00:00Z"}
 }
@@ -254,8 +283,9 @@ func (f *fakeServer) listNamespaces(w http.ResponseWriter, _ *http.Request) {
 func (f *fakeServer) upsert(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Items []struct {
-			Key, Text string
-			Syntax    *string
+			Key, Text   string
+			Syntax      *string
+			Description *string
 		}
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
@@ -279,6 +309,9 @@ func (f *fakeServer) upsert(w http.ResponseWriter, r *http.Request) {
 			m.content, m.revision, m.state, status = c, m.revision+1, "active", "revised"
 		case m.state != "active":
 			m.state, status = "active", "updated"
+		}
+		if it.Description != nil {
+			m.description = *it.Description
 		}
 		results = append(results, map[string]any{"key": it.Key, "status": status, "message": f.messageJSON(m)})
 	}
@@ -317,6 +350,7 @@ func (f *fakeServer) importTranslations(w http.ResponseWriter, r *http.Request) 
 		Items []struct {
 			Key, Locale, Text string
 			State             *string
+			OriginDetail      map[string]any `json:"origin_detail"`
 		}
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
@@ -371,6 +405,9 @@ func (f *fakeServer) importTranslations(w http.ResponseWriter, r *http.Request) 
 			status = "revised"
 		case it.State != nil && *it.State != t.state:
 			t.state, t.revision, status = *it.State, t.revision+1, "reviewed"
+		}
+		if status != "unchanged" {
+			t.originDetail = it.OriginDetail
 		}
 		results = append(results, map[string]any{"key": it.Key, "locale": tag.String(), "status": status, "translation": f.translationJSON(it.Key, tag.String(), t)})
 	}

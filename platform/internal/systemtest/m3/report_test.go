@@ -53,7 +53,7 @@ func (s *scenario) fixtureSection(b *bytes.Buffer) {
 	w("  attribute, %d with markup.\n", patterns[fixture.PatternMarkup])
 	w("- A **Vite + Vue** app over %d source files and **%d routes**, with **one React island** (`PayButton.tsx`) on\n",
 		len(files), len(f.Pages))
-	w("  `/kasse`, built by `@glossa/unplugin`. A Go receipt renderer and its `text/template` reuse %d of the same\n", f.GoUsages())
+	w("  `/kasse`, built by `@felixgeelhaar/glossa-unplugin`. A Go receipt renderer and its `text/template` reuse %d of the same\n", f.GoUsages())
 	w("  messages, which is what `glossa extract` reads.\n")
 	w("- `glossa push --translations` created %d messages and %d translations.\n\n", s.pushedMessages, s.pushedTranslations)
 
@@ -74,7 +74,7 @@ func (s *scenario) contextSection(b *bytes.Buffer) {
 	w("## 1. Where every message appears\n\n")
 	w("Three uploads for one commit (`%s`):\n\n", short(f.Commit))
 	w("| Collector | Source | Usages | Unknown keys |\n|---|---|---|---|\n")
-	w("| `@glossa/unplugin` (the Vite build) | `plugin` | %d | %d |\n", s.pluginBuild.Usages, s.pluginBuild.UnknownKeys)
+	w("| `@felixgeelhaar/glossa-unplugin` (the Vite build) | `plugin` | %d | %d |\n", s.pluginBuild.Usages, s.pluginBuild.UnknownKeys)
 	w("| `glossa extract` (Go and templates) | `extract` | %d | %d |\n", s.extractBuild.Usages, s.extractBuild.UnknownKeys)
 	w("| `glossa capture` (headless Chrome) | `capture` | %d captures | %d |\n\n",
 		s.capture.Upload.Captures, len(s.capture.Upload.UnknownKeys))

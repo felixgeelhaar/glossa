@@ -5,6 +5,12 @@
 // make outdated, and a check policy's required locales can be checked
 // against the project's — all without Catalog reading Localization's
 // tables.
+//
+// Port carries the first two, over ordinary authorized use cases.
+// ProjectLocales is PolicyLocales, a type of its own, because the
+// invariant check behind it answers to the write's own authorization
+// rather than to translations.read; its doc comment says what that
+// path may and may not be used for.
 package coverage
 
 import (
@@ -14,7 +20,6 @@ import (
 
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	locapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 )
 
@@ -27,30 +32,7 @@ func New(svc *locapp.Service) *Port { return &Port{svc: svc} }
 var (
 	_ app.TranslationCoverage = (*Port)(nil)
 	_ app.TranslationImpact   = (*Port)(nil)
-	_ app.ProjectLocales      = (*Port)(nil)
 )
-
-// LocaleCodes implements app.ProjectLocales, paging through the
-// project's locales. A project has a handful, so this walks them all.
-func (p *Port) LocaleCodes(ctx context.Context, project domain.ProjectID) ([]string, error) {
-	var out []string
-	page := pagination.Page{Size: pagination.MaxPageSize}
-	for {
-		ls, next, err := p.svc.ListLocales(ctx, project.UUID(), page)
-		if err != nil {
-			return nil, err
-		}
-		for _, l := range ls {
-			out = append(out, l.Code.String())
-		}
-		// The next_page_token is the HTTP cursor; in process the cursor
-		// is the sort key itself, which for locales is the code.
-		if next == nil || len(ls) == 0 {
-			return out, nil
-		}
-		page.After = ls[len(ls)-1].Code.String()
-	}
-}
 
 // CurrentTranslations implements app.TranslationImpact.
 func (p *Port) CurrentTranslations(ctx context.Context, project domain.ProjectID, ids []domain.MessageID) (map[string]int, error) {

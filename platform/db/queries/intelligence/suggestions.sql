@@ -39,6 +39,10 @@ WHERE (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id)
   AND (sqlc.narg(locale)::text IS NULL OR locale = sqlc.narg(locale)::text)
   AND (sqlc.narg(message_id)::uuid IS NULL OR message_id = sqlc.narg(message_id)::uuid)
   AND (sqlc.narg(job_id)::uuid IS NULL OR job_id = sqlc.narg(job_id)::uuid)
+  -- projects limits the rows to a project-scoped caller's projects
+  -- (RFC 0006 §4.1), in the query so a page's size says nothing about
+  -- the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.narg(before_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(max_rows)::int;
@@ -75,6 +79,27 @@ FROM intelligence_suggestions
 WHERE project_id = sqlc.arg(project_id) AND created_at >= sqlc.arg(since)
 GROUP BY locale, status;
 
+-- QueueAges is the review queue's depth and how long its items have
+-- been waiting, per locale (RFC 0005 §8). The queue itself already
+-- exists; its age is what a dashboard needs and no query answered.
+--
+-- An item has been waiting since it was written: there is no separate
+-- enqueued_at, and a suggestion is reviewable the moment it lands. The
+-- percentiles are percentile_cont, so they interpolate between the two
+-- closest ranks exactly as the Go side does when it has to compute one
+-- itself.
+-- name: QueueAges :many
+SELECT locale,
+       count(*)::integer AS waiting,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS p50_seconds,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS p90_seconds,
+       max(extract(epoch FROM sqlc.arg(now)::timestamptz - created_at))::float8 AS oldest_seconds
+FROM intelligence_suggestions
+WHERE project_id = sqlc.arg(project_id) AND status = 'pending'
+  AND (cardinality(sqlc.arg(locales)::text[]) = 0 OR locale = ANY (sqlc.arg(locales)::text[]))
+GROUP BY locale
+ORDER BY locale;
+
 -- ── disclosures ────────────────────────────────────────────────────
 
 -- name: InsertDisclosure :exec
@@ -92,6 +117,10 @@ WHERE (sqlc.narg(job_id)::uuid IS NULL OR job_id = sqlc.narg(job_id)::uuid)
   AND (sqlc.narg(message_id)::uuid IS NULL OR message_id = sqlc.narg(message_id)::uuid)
   AND (sqlc.narg(project_id)::uuid IS NULL OR project_id = sqlc.narg(project_id)::uuid)
   AND (sqlc.narg(provider)::text IS NULL OR provider = sqlc.narg(provider)::text)
+  -- projects limits the rows to a project-scoped caller's projects
+  -- (RFC 0006 §4.1), in the query so a page's size says nothing about
+  -- the others.
+  AND (sqlc.narg(projects)::uuid[] IS NULL OR project_id = ANY (sqlc.narg(projects)::uuid[]))
   AND (sqlc.narg(before_at)::timestamptz IS NULL OR (occurred_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
 ORDER BY occurred_at DESC, id DESC
 LIMIT sqlc.arg(max_rows)::int;

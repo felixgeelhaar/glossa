@@ -57,6 +57,10 @@ type Policy = checkpolicy.Policy
 // Checker is one layer of QA.
 type Checker = layers.Checker
 
+// StyleGuide is the mechanical half of a locale's effective style
+// guide, which is all the style layer grades (RFC 0005 §3.2).
+type StyleGuide = layers.StyleGuide
+
 // Default is the deterministic QA every check runs.
 func Default() []Checker { return layers.Default() }
 
@@ -71,13 +75,54 @@ type Report = qualityapp.Report
 
 // Run checks s with the checkers and sums what they found.
 func Run(s *snapshot.Snapshot, p Policy, checkers ...Checker) Report {
-	return qualityapp.Run(Project(s), p, checkers...)
+	return RunProject(Project(s), p, checkers...)
 }
 
-// Project is the snapshot as a layer sees it. The CLI's snapshot holds
-// no message IDs — it is read by key — so a finding from an offline
-// check is fingerprinted by key (domain.Fingerprint).
-func Project(s *snapshot.Snapshot) *layers.Project {
+// RunProject checks an already-built project, for a caller that needed
+// it before the run: `glossa capture --check` resolves its probe
+// findings' keys against the project (layers.Project.Identify) before it
+// promotes them, and the run must grade that very project.
+func RunProject(p *layers.Project, policy Policy, checkers ...Checker) Report {
+	return qualityapp.Run(p, policy, checkers...)
+}
+
+// Option is something a run knows about the project beyond its
+// snapshot.
+type Option func(*layers.Project)
+
+// WithStyles carries the effective style guides the run resolved, by
+// locale — what the style layer grades against, and what it has nothing
+// to say without.
+//
+// The server's own snapshot port fills the same map through its own
+// Styles port (quality/adapters/snapshot.WithStyles); this is the
+// terminal's side of it, so the two surfaces grade one project against
+// one set of guides. A locale missing from the map is a locale with no
+// mechanical guide, which the layer reads as "nothing to check against"
+// — not as a clean bill.
+func WithStyles(g map[string]StyleGuide) Option {
+	return func(p *layers.Project) {
+		if len(g) > 0 {
+			p.Styles = g
+		}
+	}
+}
+
+// Project is the snapshot as a layer sees it.
+//
+// The catalog message IDs come with it. A snapshot read from the server
+// carries one per message, and a layer puts it in the finding's locus,
+// which is what domain.Fingerprint hashes a finding's identity over: the
+// terminal and the server therefore compute the same fingerprint for the
+// same finding, and a waiver made against either matches the other.
+// A snapshot read from the local catalogs has no IDs, and there a
+// finding is fingerprinted by key — the honest answer offline, where no
+// catalog said what the key is called.
+//
+// What a snapshot cannot carry comes in as an Option: the effective
+// style guides are resolved per locale against the server, not read out
+// of the catalogs, so a run that has them hands them over here.
+func Project(s *snapshot.Snapshot, opts ...Option) *layers.Project {
 	p := &layers.Project{
 		Origin: s.Origin, SourceLocale: s.SourceLocale,
 		Translations: make(map[string]map[string]layers.Translation, len(s.Translations)),
@@ -87,8 +132,16 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 	}
 	for _, m := range s.Messages {
 		p.Messages = append(p.Messages, layers.Message{
-			Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
+			ID: m.ID, Key: m.Key, Namespace: m.Namespace, Revision: m.Revision, Model: m.Model,
 			Invalid: invalid(m.Invalid), File: m.File,
+			// The authored text, the limit and the description come with
+			// the message because the length and source layers read
+			// them: a span is in bytes of the authored text,
+			// `max-length-exceeded` is computed from the limit rather
+			// than waited for, and the source layer reads the
+			// description's absence. A local catalog carries none of the
+			// three, and there those layers report what they can.
+			Text: m.Text, MaxLength: m.MaxLength, Description: m.Description,
 		})
 	}
 	for locale, trs := range s.Translations {
@@ -97,10 +150,19 @@ func Project(s *snapshot.Snapshot) *layers.Project {
 			out[key] = layers.Translation{
 				Key: t.Key, Locale: t.Locale, Model: t.Model, State: t.State,
 				SourceRevision: t.SourceRevision, Outdated: t.Outdated, Warnings: t.Warnings,
-				Invalid: invalid(t.Invalid), File: t.File,
+				Invalid: invalid(t.Invalid), File: t.File, Text: t.Text,
 			}
 		}
 		p.Translations[locale] = out
+	}
+	for _, o := range s.Orphans {
+		p.Orphans = append(p.Orphans, layers.Orphan{
+			MessageID: o.MessageID, Key: o.Key, Namespace: o.Namespace, Locale: o.Locale, Revision: o.Revision,
+		})
+	}
+	p.MoreOrphans = s.MoreOrphans
+	for _, o := range opts {
+		o(p)
 	}
 	return p
 }

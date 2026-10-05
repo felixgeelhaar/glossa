@@ -25,7 +25,7 @@
  * `locus.locale`, `locus.region`, `message`, `subject`, `evidence` — is the
  * wire shape verbatim.
  */
-import type { Runtime, RuntimeError } from "@glossa/runtime";
+import type { Runtime, RuntimeError } from "@felixgeelhaar/glossa-runtime";
 
 import { flatParent, validKey, validLocale } from "./regions.js";
 import type { Capture, Host } from "./regions.js";
@@ -63,11 +63,27 @@ export interface ProbeFinding {
  */
 export type Baseline = Record<string, number>;
 
+/**
+ * What a probe run measures against. Every threshold is optional and every
+ * default below is the check policy's, because the policy is the source: the
+ * driver (`glossa capture`) passes the project's thresholds
+ * (`checkpolicy.VisualThresholds`, Go) with the capture's options, and these
+ * constants are what a probe called without a driver falls back to. The rule
+ * lives in one place; only its default is written twice.
+ *
+ * Every length is in CSS pixels, never device pixels (RFC 0005 §5.2).
+ */
 export interface ProbeOptions {
   /** The source capture's `metrics` for the same route and viewport. */
   baseline?: Baseline;
   /** Line boxes a translation may gain before `line-growth` is reported. Default 0. */
   tolerance?: number;
+  /** CSS pixels of content over box before `text-clipped` is reported. Default 1. */
+  slack?: number;
+  /** Per cent of the smaller region two must share before `region-overlap`. Default 25. */
+  overlap?: number;
+  /** The most findings one capture reports. Default 500. */
+  max?: number;
 }
 
 /** What the session knows and the regions don't. */
@@ -92,7 +108,11 @@ export interface ProbeResult {
  */
 export type ProbePass = typeof probe;
 
-/** RFC 0005 §5.2's thresholds, in CSS pixels and never device pixels. */
+/**
+ * The defaults for RFC 0005 §5.2's thresholds, in CSS pixels and never device
+ * pixels. The policy owns the numbers (see ProbeOptions); these stand only
+ * when a probe runs without a driver to hand them down.
+ */
 const SLACK = 1;
 /** Per cent of the smaller region, so the overlap share stays an integer. */
 const OVERLAP = 25;
@@ -116,6 +136,10 @@ export function probe(
 ): ProbeResult {
   const probes: ProbeFinding[] = [];
   const metrics: Baseline = {};
+  // The policy's thresholds where the driver handed them down, the defaults where it did not.
+  const slack = o.slack ?? SLACK;
+  const overlap = o.overlap ?? OVERLAP;
+  const max = o.max ?? MAX;
   const seen = new Set<string>();
   const keys: string[] = [];
   for (const r of c.renders) keys[r.index] = r.key;
@@ -138,7 +162,7 @@ export function probe(
     subject?: string,
   ) => {
     const id = `${code}|${locus.key}|${locus.locale}|${subject}`;
-    if (seen.has(id) || probes.length >= MAX) return;
+    if (seen.has(id) || probes.length >= max) return;
     seen.add(id);
     probes.push({
       schema: FINDING,
@@ -166,7 +190,7 @@ export function probe(
       }
       const box = [el.clientWidth, el.clientHeight];
       const content = [el.scrollWidth, el.scrollHeight];
-      if (content[0]! - box[0]! > SLACK || content[1]! - box[1]! > SLACK) {
+      if (content[0]! - box[0]! > slack || content[1]! - box[1]! > slack) {
         const by = "×";
         push("text-clipped", locus, `Clipped: ${content.join(by)} px of text in ${box.join(by)} px.`, {
           box,
@@ -249,7 +273,7 @@ export function probe(
       const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
       const small = Math.min(a.width * a.height, b.width * b.height);
       const share = w > 0 && h > 0 && small > 0 ? Math.round((w * h * 100) / small) : 0;
-      if (share > OVERLAP) {
+      if (share > overlap) {
         push("region-overlap", { key, region: `r_${i}` }, `Overlaps ${kb} by ${share} %.`, { share }, kb);
       }
     }

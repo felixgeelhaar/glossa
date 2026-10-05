@@ -17,10 +17,12 @@ import (
 
 	browse "go.klarlabs.de/scout"
 	"go.klarlabs.de/scout/agent"
+
+	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 )
 
-// agentScript is @glossa/capture's capture agent (src/agent.ts), bundled
-// by `pnpm --filter @glossa/capture build:cli`. A test in that package
+// agentScript is @felixgeelhaar/glossa-capture's capture agent (src/agent.ts), bundled
+// by `pnpm --filter @felixgeelhaar/glossa-capture build:cli`. A test in that package
 // fails when this copy is stale.
 //
 //go:embed agent.js
@@ -52,6 +54,46 @@ type Options struct {
 	CDP string
 	// AllowRemoteCDP lets CDP name a host that isn't loopback.
 	AllowRemoteCDP bool
+	// Probe, when set, is what the visual probe pass measures against
+	// (RFC 0005 §5.2): the check policy's thresholds, handed to the page
+	// with the capture's options. Nil leaves the probe on the defaults
+	// compiled into it, which is what a capture with no policy in reach
+	// measures against.
+	Probe *ProbeOptions
+}
+
+// ProbeOptions is what `glossa capture` hands `session.collect()`: the
+// numbers the visual probe pass measures against, which are the check
+// policy's (checkpolicy.VisualThresholds) and not the probe's.
+//
+// The field names are the page's, because this struct is the wire — it
+// marshals straight into the `collect()` call. Every length is in CSS
+// pixels, never device pixels (RFC 0005 §5.2).
+type ProbeOptions struct {
+	// Slack is how much more content than box a region may have before
+	// text-clipped is reported.
+	Slack int `json:"slack"`
+	// Overlap is the per cent of the smaller of two regions they must
+	// share before region-overlap is reported.
+	Overlap int `json:"overlap"`
+	// Tolerance is the line boxes a translation may gain over the source
+	// capture before line-growth is reported.
+	Tolerance int `json:"tolerance"`
+	// ByLocale is the tolerance of the locales that need their own. It
+	// never goes to the page: a page is captured in one locale, so the
+	// page is handed that locale's number as Tolerance.
+	ByLocale map[string]int `json:"-"`
+	// Max caps the findings one capture reports (RFC 0005 §10).
+	Max int `json:"max"`
+}
+
+// in returns the options as the page in locale is given them: the
+// locale's own line-growth tolerance where the policy names one.
+func (o ProbeOptions) in(locale string) ProbeOptions {
+	if n, ok := o.ByLocale[locale]; ok {
+		o.Tolerance = n
+	}
+	return o
 }
 
 // Shot is one capture and its PNG.
@@ -62,6 +104,23 @@ type Shot struct {
 	Truncated bool
 	// Redacted is how many data-glossa-redact elements were blacked out.
 	Redacted int
+	// Probes are what the visual probe pass found (RFC 0005 §5.2), as
+	// the page wrote them: the `glossa.finding/v1` shape without a
+	// fingerprint, which only a caller that knows the catalog can
+	// compute.
+	//
+	// They are not Capture's own, because a probe finding is Quality's
+	// and a capture is Context's. The manifest carries them beside the
+	// capture they were measured on (Capture.Findings, built by
+	// Findings), in the shape
+	// runtimes/testdata/schemas/captures.v1.schema.json publishes: the
+	// same shape with the fingerprint and the capture left for the
+	// ingest to complete.
+	Probes []domain.Finding
+	// Metrics is the line boxes each key covered on this page, which the
+	// next locale's capture of the same route and viewport compares
+	// itself against.
+	Metrics map[string]int
 }
 
 // Refusal is a page glossa capture won't capture: a production page, one
@@ -127,7 +186,7 @@ func Run(ctx context.Context, p *Plan, o Options) ([]Shot, error) {
 		if o.Progress != nil {
 			o.Progress(i, j)
 		}
-		s, err := shoot(engine, p, j, o.Timeout)
+		s, err := shoot(engine, p, j, o)
 		if err != nil {
 			return nil, err
 		}
@@ -145,16 +204,32 @@ type pageStatus struct {
 
 // pageCapture is the agent's collect().
 type pageCapture struct {
-	Renders  []Render `json:"renders"`
-	Regions  []Region `json:"regions"`
-	Width    float64  `json:"width"`
-	Height   float64  `json:"height"`
-	Redacted []Box    `json:"redacted"`
+	Renders  []Render         `json:"renders"`
+	Regions  []Region         `json:"regions"`
+	Probes   []domain.Finding `json:"probes"`
+	Metrics  map[string]int   `json:"metrics"`
+	Width    float64          `json:"width"`
+	Height   float64          `json:"height"`
+	Redacted []Box            `json:"redacted"`
+}
+
+// collectOptions is the argument `a.collect()` is called with for a
+// page in locale: the policy's thresholds, or nothing at all when the
+// caller has none and the probe's own defaults stand.
+func collectOptions(o Options, locale string) string {
+	if o.Probe == nil {
+		return ""
+	}
+	b, err := json.Marshal(o.Probe.in(locale))
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // shoot opens one page on a fresh tab, checks it may be captured, and
 // returns its regions and full-page PNG.
-func shoot(e *browse.Engine, p *Plan, j Job, timeout time.Duration) (Shot, error) {
+func shoot(e *browse.Engine, p *Plan, j Job, o Options) (Shot, error) {
 	fail := func(step string, err error) (Shot, error) {
 		return Shot{}, &PageError{URL: j.URL, Step: step, Err: err}
 	}
@@ -180,7 +255,7 @@ func shoot(e *browse.Engine, p *Plan, j Job, timeout time.Duration) (Shot, error
 		return Shot{}, r
 	}
 	if j.Playbook != nil {
-		if err := replay(page, j, timeout); err != nil {
+		if err := replay(page, j, o.Timeout); err != nil {
 			return Shot{}, err
 		}
 		if err := call(page, "a.settle()", nil); err != nil {
@@ -188,7 +263,7 @@ func shoot(e *browse.Engine, p *Plan, j Job, timeout time.Duration) (Shot, error
 		}
 	}
 	var pc pageCapture
-	if err := call(page, "a.collect()", &pc); err != nil {
+	if err := call(page, "a.collect("+collectOptions(o, j.Locale)+")", &pc); err != nil {
 		return fail("collect regions", err)
 	}
 	return screenshot(page, j, pc)
@@ -277,7 +352,7 @@ func refuse(j Job, st pageStatus) *Refusal {
 	r := &Refusal{URL: j.URL}
 	switch {
 	case st.Runtimes == 0:
-		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@glossa/runtime), so nothing marks its messages"
+		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@felixgeelhaar/glossa-runtime), so nothing marks its messages"
 		return r
 	case len(st.Environments) != st.Runtimes || len(st.Locales) != st.Runtimes:
 		r.Code, r.Reason = "environment_unknown", "the capture agent's status is malformed"
@@ -382,5 +457,6 @@ func screenshot(page *browse.Page, j Job, pc pageCapture) (Shot, error) {
 			Image:   Image{SHA256: hex.EncodeToString(sum[:]), Width: cfg.Width, Height: cfg.Height},
 			Renders: renders, Regions: regions},
 		PNG: data, Truncated: truncated, Redacted: len(pc.Redacted),
+		Probes: pc.Probes, Metrics: pc.Metrics,
 	}, nil
 }

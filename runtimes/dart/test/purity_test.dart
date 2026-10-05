@@ -78,4 +78,28 @@ void main() {
       }
     }
   });
+
+  // RFC 0005 §6.4, the AOT-and-web half of the budgets. `dart:mirrors`
+  // has no AOT implementation at all and `dart:ffi` has none on the web,
+  // so either one turns "the package compiles everywhere" into "the
+  // package compiles where you happened to try it". The compile tests in
+  // CI (`dart compile js`, `dart compile exe`) would catch it too, but
+  // only after a build; this names the file and the import.
+  test('the core uses no reflection and no FFI', () {
+    const banned = {'dart:mirrors', 'dart:ffi', 'package:reflectable'};
+    for (final entry in files.entries) {
+      for (final uri in _directiveUris(entry.value)) {
+        for (final ban in banned) {
+          expect(
+            uri == ban || uri.startsWith('$ban/'),
+            isFalse,
+            reason:
+                '${entry.key} imports $uri. The runtime must compile to '
+                'AOT and to JavaScript: no reflection, no FFI. Message '
+                'dispatch goes through the data model, never a mirror.',
+          );
+        }
+      }
+    }
+  });
 }

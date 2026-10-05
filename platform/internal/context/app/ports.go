@@ -126,6 +126,57 @@ type Catalog interface {
 	ClosedBranches(ctx context.Context, project uuid.UUID) (map[domain.Branch]time.Time, error)
 }
 
+// CaptureFindings are one capture's visual findings, with the ID the
+// ingest just minted for it and the scope the two-sighting rule counts
+// in.
+type CaptureFindings struct {
+	Capture uuid.UUID
+	// Previous is the capture the application showed last of this same
+	// (route, viewport, locale), or uuid.Nil where it showed none. The
+	// findings stored against it are what makes a finding here a second
+	// sighting (RFC 0005 §5.2) — and a scope captured for the first time
+	// promotes nothing, which is the safe direction.
+	Previous uuid.UUID
+	// Route and Viewport are the rest of the scope; Locale is the
+	// capture's locale, which is also the locale of every finding on it
+	// that names no other.
+	Route    string
+	Viewport domain.Viewport
+	Locale   string
+	Findings []domain.VisualFinding
+}
+
+// RecordFindings is a capture upload's visual findings, on their way to
+// Quality.
+type RecordFindings struct {
+	Project uuid.UUID
+	// Ref is the branch the upload was of, Commit the commit it
+	// captured, and At when the build was recorded.
+	Ref    string
+	Commit string
+	At     time.Time
+	// Captures are the upload's captures that carry findings.
+	Captures []CaptureFindings
+}
+
+// Findings is Quality's application port, as Context uses it: a capture
+// upload carries the visual probe pass's findings (RFC 0005 §5.1) and
+// Quality owns them.
+//
+// Context validates them — a page may only report what a page can see,
+// at the one severity it may emit, about a region that is really on the
+// capture — and completes what a browser cannot know: the message each
+// key resolves to, and the capture each finding is on. Quality computes
+// the fingerprint from that, grades them against the project's policy
+// and stores them as ordinary findings. Nothing about them is stored
+// with the capture.
+type Findings interface {
+	// RecordFindings stores the upload's findings and returns how many
+	// were stored — fewer than were handed in when the project's policy
+	// switched the visual layer, or some of its codes, off.
+	RecordFindings(ctx context.Context, in RecordFindings) (int, error)
+}
+
 // ImageNormalizer validates and re-encodes uploaded capture images
 // (RFC 0004 §3.3): nothing uploaded is stored as it came.
 type ImageNormalizer interface {
@@ -271,8 +322,20 @@ type Store interface {
 	// CaptureByShot returns a build's capture of a route, viewport and
 	// locale, with its regions (ErrNotFound).
 	CaptureByShot(ctx context.Context, build uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag) (domain.Capture, error)
+	// PreviousCaptureOfScope is the capture the application showed last
+	// of one (route, viewport, locale), whatever branch it came from
+	// (ErrNotFound). It is what the visual layer's two-sighting rule
+	// counts against (RFC 0005 §5.2), and the ingest asks it before its
+	// own captures are stored, so the answer is the capture immediately
+	// before this one.
+	PreviousCaptureOfScope(
+		ctx context.Context, project, application uuid.UUID, route string, v domain.Viewport, locale bcp47.Tag,
+	) (uuid.UUID, error)
 	// Capture returns a capture without its regions (ErrNotFound).
 	Capture(ctx context.Context, id uuid.UUID) (domain.Capture, error)
+	// CaptureShows reports whether the capture has a region of any of
+	// messages.
+	CaptureShows(ctx context.Context, capture uuid.UUID, messages []uuid.UUID) (bool, error)
 	// UnknownRegionKeys returns the distinct keys of a build's regions
 	// the catalog didn't know at ingest, in order.
 	UnknownRegionKeys(ctx context.Context, build uuid.UUID) ([]string, error)

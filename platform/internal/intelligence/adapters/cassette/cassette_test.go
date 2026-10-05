@@ -102,7 +102,7 @@ func TestMismatchFailsLoudly(t *testing.T) {
 		t.Error("a mismatch must not be retried")
 	}
 	msg := err.Error()
-	for _, want := range []string{"max_tokens: 10 → 20", `system[0] line 2: "line two" → "line 2"`, "TestRecordCassettes", path} {
+	for _, want := range []string{"max_tokens: 10 → 20", `system[0] line 2: "line two" → "line 2"`, "TestRecord.*Cassettes", path} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message lacks %q:\n%s", want, msg)
 		}
@@ -114,7 +114,7 @@ func TestMismatchFailsLoudly(t *testing.T) {
 }
 
 func TestLoadErrors(t *testing.T) {
-	if _, err := cassette.Load(filepath.Join(t.TempDir(), "missing.json")); err == nil || !strings.Contains(err.Error(), "TestRecordCassettes") {
+	if _, err := cassette.Load(filepath.Join(t.TempDir(), "missing.json")); err == nil || !strings.Contains(err.Error(), "TestRecord.*Cassettes") {
 		t.Errorf("err = %v", err)
 	}
 }

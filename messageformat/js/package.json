@@ -1,7 +1,6 @@
 {
-  "name": "@glossa/messageformat",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@felixgeelhaar/glossa-messageformat",
+  "version": "0.4.0",
   "description": "Glossa's MessageFormat kernel for tooling: MF2 and ICU MF1 into the canonical MF2 data model, stringify, format and validation.",
   "type": "module",
   "main": "./dist/index.js",
@@ -48,5 +47,11 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/messageformat/js#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }

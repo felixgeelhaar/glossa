@@ -15,6 +15,19 @@ import (
 // recomputations of the same thing. Runs are kept 90 days and their
 // findings live as long as the run.
 
+// RunRetention is how long a check run is kept (RFC 0005 §2.2). After
+// it, the daily sweep deletes the run and the findings that live with
+// it — with one exception the sweep enforces and this constant cannot:
+// the newest run of a ref is never deleted, whatever its age, because
+// it is what every dashboard, `listFindings` and the summary read.
+//
+// Nothing is lost to the trend by this. The findings-by-day rollup
+// (migration 0035) already holds one row per day, layer and project,
+// counted over distinct fingerprints, and retention never touches it —
+// which is exactly why retention can be this blunt rather than growing
+// a second, longer-lived copy of the findings.
+const RunRetention = 90 * 24 * time.Hour
+
 // Trigger says what asked for a run.
 type Trigger string
 
@@ -63,9 +76,10 @@ var (
 // MaxRefLength bounds a run's ref, matching the column.
 const MaxRefLength = 255
 
-// commitSHA is a full lowercase Git object name; a run that is not
-// about a commit carries none.
-var commitSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
+// commitSHA is a full lowercase Git object name — SHA-1 or SHA-256, as
+// every other upload in the platform spells one (a usages document, a
+// captures manifest). A run that is not about a commit carries none.
+var commitSHA = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
 
 // Counts are a run's findings by how they ended up. Waived is counted
 // on its own and is never part of Errors or Warnings, so the number a

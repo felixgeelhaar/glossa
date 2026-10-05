@@ -1,9 +1,9 @@
 /**
- * `@glossa/unplugin`: finds where every message is used, in any bundler.
+ * `@felixgeelhaar/glossa-unplugin`: finds where every message is used, in any bundler.
  *
  * ```ts
  * // vite.config.ts
- * import glossa from "@glossa/unplugin/vite";
+ * import glossa from "@felixgeelhaar/glossa-unplugin/vite";
  *
  * export default defineConfig({
  *   plugins: [vue(), glossa({ application: "web", routes: { "/checkout": ["src/checkout/**"] } })],

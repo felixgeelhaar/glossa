@@ -11,7 +11,7 @@ import (
 var (
 	ErrInvalidID          = errors.New("localization: invalid id")
 	ErrSourceLocale       = errors.New("localization: the source locale is written through the catalog, not translated")
-	ErrInvalidOrigin      = errors.New("localization: origin must be human, ai, translation_memory, machine_translation, import or adaptation")
+	ErrInvalidOrigin      = errors.New("localization: origin must be human, ai, agent, translation_memory, machine_translation, import or adaptation")
 	ErrInvalidOriginInfo  = errors.New("localization: origin_detail must be a JSON object of at most 16 KiB")
 	ErrInvalidReviewState = errors.New("localization: state must be draft, needs_review, approved or rejected")
 	ErrWriteCannotReject  = errors.New("localization: a write can't reject; review the translation instead")

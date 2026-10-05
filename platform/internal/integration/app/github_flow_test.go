@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
 	identitydomain "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
 	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
@@ -872,6 +873,47 @@ func TestConnectValidatesTheRepositoryAndTheApplication(t *testing.T) {
 	}
 }
 
+// A project's pull requests are named by their address on the web host
+// of the repository connected to it, so the impact preview (RFC 0005
+// §4.3) can link to the one that would newly fail instead of printing a
+// branch name somebody has to look up.
+func TestAProjectsPullRequestsAreNamedByTheirAddress(t *testing.T) {
+	f := newFixture(t)
+	ctx := manager(tenantOne, "person:one")
+	// Nothing connected: nothing to point at, and no error — a project
+	// without a repository still has a preview to show.
+	got, err := f.svc.PullRequestURLs(ctx, projectID, []int{11})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("unconnected: %v, %v", got, err)
+	}
+
+	inst := f.connect(t, ctx, "code-1")
+	for _, path := range []string{"apps/web", "apps/admin"} {
+		if _, err := f.svc.Connect(ctx, app.ConnectRepository{Installation: inst.ID, ConnectionInput: domain.ConnectionInput{
+			RepositoryID: repoGitHubID, ProjectID: projectID, ApplicationID: appID, Path: path,
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Two paths of one repository are one place to point.
+	got, err = f.svc.PullRequestURLs(ctx, projectID, []int{11, 12, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[int]string{11: f.fake.WebURL + "/acme/shop/pull/11", 12: f.fake.WebURL + "/acme/shop/pull/12"}
+	if !maps.Equal(got, want) {
+		t.Fatalf("urls = %v, want %v", got, want)
+	}
+	// Another project's pull requests are not this repository's.
+	if got, _ := f.svc.PullRequestURLs(ctx, uuid.New(), []int{11}); len(got) != 0 {
+		t.Errorf("another project: %v", got)
+	}
+	// Reading them is reading the integration.
+	if _, err := f.svc.PullRequestURLs(as(tenantOne, "person:one", authz.CatalogRead), projectID, []int{11}); !errors.Is(err, authz.ErrForbidden) {
+		t.Errorf("without integration.read: err = %v", err)
+	}
+}
+
 func TestConnectionPathsAreNormalizedAndTraversalRefused(t *testing.T) {
 	for in, want := range map[string]string{"": "", ".": "", "/apps/web/": "apps/web", " apps/web ": "apps/web"} {
 		got, err := domain.NormalizeConnectionPath(in)
@@ -1220,5 +1262,52 @@ func TestRetryDelayBacksOffAndIsCapped(t *testing.T) {
 	}
 	if got := domain.RetryDelay(50); got != 5*time.Minute {
 		t.Fatalf("a late retry = %v, want the cap", got)
+	}
+}
+
+// A Git connection is its project's (RFC 0006 §3.3, §4.1): read by its
+// id, it is not there for a caller who cannot see that project — the
+// answer for an id that does not exist — even one who lacks
+// integration.read and so would be refused it anyway (§12.2's sweep
+// found the refusal: a 403 for another project's connection said it
+// existed). Inside a project they work in, an assigned member is
+// refused.
+func TestAConnectionIsNotThereOutsideWhatTheCallerSees(t *testing.T) {
+	f := newFixture(t)
+	ctx := manager(tenantOne, "person:one")
+	inst := f.connect(t, ctx, "code-1")
+	c, err := f.svc.Connect(ctx, app.ConnectRepository{Installation: inst.ID, ConnectionInput: domain.ConnectionInput{
+		RepositoryID: repoGitHubID, ProjectID: projectID, ApplicationID: appID, Path: "apps/web",
+	}})
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	bg := context.Background()
+	elsewhere := uuid.New()
+	cov := &authztest.Coverage{}
+	inProject, member := authztest.Assigned(bg, tenancy.ID(tenantOne), cov, "de")
+	cov.Assign(member, projectID, uuid.New(), "de")
+	elsewhereCov := &authztest.Coverage{}
+	outside, other := authztest.Assigned(bg, tenancy.ID(tenantOne), elsewhereCov, "de")
+	elsewhereCov.Assign(other, elsewhere, uuid.New(), "de")
+
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"the manager", ctx, nil},
+		{"an assigned member working elsewhere", outside, authz.ErrNotVisible},
+		{"an assigned member working in its project", inProject, authz.ErrForbidden},
+		{"a member scoped to another project, without integration.read",
+			authztest.ScopedMember(bg, tenancy.ID(tenantOne), []uuid.UUID{elsewhere}, []string{"translator"}), authz.ErrNotVisible},
+		{"a member scoped to another project", authztest.ScopedMember(bg, tenancy.ID(tenantOne), []uuid.UUID{elsewhere}, []string{"admin"}), authz.ErrNotVisible},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := f.svc.Connection(tc.ctx, c.ID)
+			if tc.want == nil && err != nil || tc.want != nil && !errors.Is(err, tc.want) {
+				t.Errorf("err = %v, want %v", err, tc.want)
+			}
+		})
 	}
 }

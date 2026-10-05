@@ -33,6 +33,21 @@ describe("apiKnowledge", () => {
     expect(await req.json()).toMatchObject({ syntax: "mf1", message_key: "a.b", count_hits: false });
   });
 
+  it("reads a unit's matches from the unit's own route", async () => {
+    const fetch = mockFetch(
+      json(200, {
+        source_normalized: "Pay",
+        items: [{ score: 100, kind: "exact", source_normalized: "Pay", target: "Zahlen", target_text: "Zahlen", target_syntax: "mf1", target_syntax_fallback: false, variables_adapted: true, project_scoped: true }],
+      }),
+    );
+    const r = await apiKnowledge.unitTMMatches("t", "p", "pay.now", "de", { target_syntax: "mf1", limit: 5 });
+    expect(r.items[0]).not.toHaveProperty("message_key");
+    const url = new URL(fetch.mock.calls[0]![0].url);
+    expect(url.pathname).toBe("/v1/tenants/t/projects/p/messages/pay.now/translations/de/tm-matches");
+    expect(url.searchParams.get("target_syntax")).toBe("mf1");
+    expect(fetch.mock.calls[0]![0].method).toBe("GET");
+  });
+
   it("rejects a response that breaks the contract", async () => {
     mockFetch(json(200, { analyzed_text: "x", hits: [{ concept_id: "c" }] }));
     await expect(apiKnowledge.recognizeTerms("t", { text: "x", locale: "en" })).rejects.toMatchObject({ code: "invalid_response" });
@@ -48,6 +63,14 @@ describe("apiKnowledge", () => {
 });
 
 describe("apiIntelligence", () => {
+  it("reads a unit's suggestions from the unit's own route", async () => {
+    const unit = { id: "s1", locale: "de", source_revision: 1, message: "Zahlen", findings: [], term_findings: [], score: 0.7, explanation: [], action: "review_required", risk_tags: [], status: "pending", outdated: false, decidable: false, created_at: "2026-09-19T08:00:00Z" };
+    const fetch = mockFetch(json(200, { items: [unit] }));
+    const r = await apiIntelligence.unitSuggestions("t", "p", "pay.now", "de");
+    expect(r).toEqual([unit]);
+    expect(new URL(fetch.mock.calls[0]![0].url).pathname).toBe("/v1/tenants/t/projects/p/messages/pay.now/translations/de/ai-suggestions");
+  });
+
   it("writes settings with the ETag they were read with, \"0\" while never saved", async () => {
     const fetch = mockFetch(json(200, { ...settings, version: 1 }, { ETag: '"1"' }), json(200, { ...settings, version: 2 }, { ETag: '"2"' }));
     const first = await apiIntelligence.updateSettings("t", { provider_consent: true }, '"0"');

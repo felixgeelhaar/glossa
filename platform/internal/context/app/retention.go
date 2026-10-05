@@ -39,7 +39,7 @@ type Purged struct {
 // builds after the grace period, then the images no remaining capture
 // references. Needs catalog.write.
 func (s *Service) PurgeProject(ctx context.Context, project uuid.UUID) (Purged, error) {
-	if _, err := actor(ctx, authz.CatalogWrite); err != nil {
+	if _, err := actorIn(ctx, authz.CatalogWrite, project); err != nil {
 		return Purged{}, err
 	}
 	closed, err := s.catalog.ClosedBranches(ctx, project)

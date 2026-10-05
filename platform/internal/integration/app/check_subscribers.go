@@ -18,6 +18,11 @@ const (
 	contextBuildIngested = "context.build.ingested"
 	localizationRevised  = "localization.translation.revised"
 	localizationReviewed = "localization.translation.reviewed"
+	// qualityCheckRunRecorded is a `glossa check` run landing on the
+	// record. It is the event the pull request is actually waiting for
+	// now: the check renders the run CI recorded (RFC 0005 §12.3), and
+	// no branch push, usages upload or translation announces one.
+	qualityCheckRunRecorded = "quality.check_run.recorded"
 	// subscriberRequestCheck doubles as the worker's background
 	// principal, as Integration's other subscriber does.
 	subscriberRequestCheck = principalCheck
@@ -44,6 +49,16 @@ type translationEvent struct {
 	ProjectID string `json:"project_id"`
 }
 
+// checkRunEvent is the part of quality.check_run.recorded the check
+// needs: whose project, and which ref was graded. The findings are not
+// on it and must not be — the check reads the run when it renders, so a
+// duplicated or reordered delivery costs a render and never a wrong
+// verdict.
+type checkRunEvent struct {
+	ProjectID string `json:"project_id"`
+	Ref       string `json:"ref"`
+}
+
 // SubscribeChecks registers the events that make a pull request's check
 // due again. Waking is all they do: what the check reports is read from
 // the catalog when it runs, never carried on an event, so a duplicate,
@@ -55,10 +70,11 @@ func (s *GitHubService) SubscribeChecks(r *outbox.Registry) error {
 		return nil
 	}
 	for typ, h := range map[string]outbox.HandlerFunc{
-		catalogBranchPushed:  s.handleBranchPushed,
-		contextBuildIngested: s.handleBuildIngested,
-		localizationRevised:  s.handleTranslationChanged,
-		localizationReviewed: s.handleTranslationChanged,
+		catalogBranchPushed:     s.handleBranchPushed,
+		contextBuildIngested:    s.handleBuildIngested,
+		localizationRevised:     s.handleTranslationChanged,
+		localizationReviewed:    s.handleTranslationChanged,
+		qualityCheckRunRecorded: s.handleCheckRunRecorded,
 	} {
 		if err := r.Subscribe(typ, subscriberRequestCheck, h); err != nil {
 			return err
@@ -85,6 +101,17 @@ func (s *GitHubService) handleBuildIngested(ctx context.Context, d outbox.Delive
 		return nil
 	}
 	return s.wakeChecks(ctx, e.ProjectID, e.Branch)
+}
+
+// handleCheckRunRecorded wakes the checks of the ref a run graded. A
+// run of an environment names a ref no branch has, and wakes nothing —
+// which is the right answer, not a special case.
+func (s *GitHubService) handleCheckRunRecorded(ctx context.Context, d outbox.Delivery) error {
+	var e checkRunEvent
+	if err := d.Decode(&e); err != nil {
+		return err
+	}
+	return s.wakeChecks(ctx, e.ProjectID, e.Ref)
 }
 
 func (s *GitHubService) handleTranslationChanged(ctx context.Context, d outbox.Delivery) error {

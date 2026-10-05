@@ -67,6 +67,7 @@ func newHarness(t *testing.T) *harness {
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
 	svc := app.New(postgres.NewTransactor(uow), catalogport.New(cat))
 	cat.SetCoverage(coverage.New(svc))
+	cat.SetLocales(coverage.NewPolicyLocales(svc))
 	cat.SetProjection(projection.New(svc))
 	reg := outbox.NewRegistry()
 	if err := svc.Subscribe(reg); err != nil {
@@ -105,6 +106,10 @@ func (h *harness) as(roles []string, locales ...string) context.Context {
 }
 
 func (h *harness) developer() context.Context { return h.as([]string{"developer"}) }
+
+// ci acts as a repository's CI token: catalog.read and catalog.write,
+// and nothing else.
+func (h *harness) ci() context.Context { return authztest.CIToken(context.Background(), h.tenant) }
 
 // setup creates a project (source en) with locales and messages pushed
 // in MF1, and delivers the resulting events.

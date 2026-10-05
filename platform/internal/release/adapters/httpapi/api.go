@@ -70,6 +70,9 @@ func toEnvironment(e domain.Environment) apiv1.Environment {
 	if e.Branch != "" {
 		out.Branch = apiconv.Ptr(e.Branch)
 	}
+	if e.Approval != nil {
+		out.Approval = apiconv.Ptr(toApprovalPolicy(*e.Approval))
+	}
 	return out
 }
 
@@ -133,7 +136,13 @@ func (a *API) UpdateEnvironment(ctx context.Context, req apiv1.UpdateEnvironment
 	if err != nil {
 		return nil, err
 	}
-	e, err := a.svc.UpdateEnvironment(ctx, project, req.Environment, ifMatch, fromPolicy(req.Body.Policy))
+	// The approval requirement changes beside the policy, under the same
+	// If-Match and in the same transaction (RFC 0006 §5.1).
+	approval, err := approvalChange(*req.Body)
+	if err != nil {
+		return nil, err
+	}
+	e, err := a.svc.ConfigureEnvironment(ctx, project, req.Environment, ifMatch, fromPolicy(req.Body.Policy), approval)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -149,7 +158,22 @@ func (a *API) PromoteRelease(ctx context.Context, req apiv1.PromoteReleaseReques
 	if err != nil {
 		return nil, mapError(app.ErrReleaseNotInProject)
 	}
-	e, err := a.svc.Promote(ctx, project, req.Environment, release)
+	// A promote is gated exactly as a publish is, and overridable on
+	// exactly the same terms: only with a reason, which the deployment
+	// records. A gate the API could refuse but nobody could override
+	// gets routed around by switching the requirement off, which leaves
+	// no record at all (RFC 0005 §4.1).
+	in := app.PromoteInput{Force: req.Body.Force != nil && *req.Body.Force}
+	if req.Body.ForceReason != nil {
+		in.ForceReason = *req.Body.ForceReason
+	}
+	e, err := a.svc.Promote(ctx, project, req.Environment, release, in)
+	if held, ok := heldRequest(err); ok {
+		// Held for approval: nothing moved, and the answer says so
+		// rather than showing the environment as if it had.
+		return apiv1.PromoteRelease202JSONResponse{Body: releaseHeld(held),
+			Headers: apiv1.PromoteRelease202ResponseHeaders{Location: apiconv.Ptr(requestPath(ctx, held))}}, nil
+	}
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -194,6 +218,14 @@ func (a *API) ListDeployments(ctx context.Context, req apiv1.ListDeploymentsRequ
 		out.Items[i] = apiv1.Deployment{
 			Number: d.Number, ReleaseId: d.ReleaseID.String(), PreviousReleaseId: optionalID(d.Previous),
 			Action: apiv1.DeploymentAction(d.Action), Author: d.By, CreatedAt: d.CreatedAt,
+			Forced: d.Override.Forced,
+		}
+		// The reason is present exactly when the deployment was forced.
+		// Recording an override nobody can read back would make the
+		// history look policed while the exception stayed invisible,
+		// which is worse than no gate at all (RFC 0005 §4.1).
+		if d.Override.Forced {
+			out.Items[i].ForceReason = apiconv.Ptr(d.Override.Reason)
 		}
 	}
 	return out, nil
@@ -269,11 +301,24 @@ func (a *API) PublishRelease(ctx context.Context, req apiv1.PublishReleaseReques
 	if req.Params.IdempotencyKey != nil {
 		key = *req.Params.IdempotencyKey
 	}
-	in := app.PublishInput{Environment: req.Body.Environment}
+	in := app.PublishInput{Environment: req.Body.Environment,
+		Force: req.Body.Force != nil && *req.Body.Force}
 	if req.Body.Note != nil {
 		in.Note = *req.Body.Note
 	}
+	if req.Body.ForceReason != nil {
+		in.ForceReason = *req.Body.ForceReason
+	}
 	r, replayed, err := a.svc.Publish(ctx, project, in, key)
+	if held, ok := heldRequest(err); ok {
+		// The release is recorded and immutable; the environment still
+		// serves what it served until the request is approved (§5.1).
+		h := apiv1.PublishRelease202ResponseHeaders{Location: apiconv.Ptr(requestPath(ctx, held))}
+		if replayed {
+			h.IdempotentReplayed = apiconv.Ptr("true")
+		}
+		return apiv1.PublishRelease202JSONResponse{Body: releaseHeld(held), Headers: h}, nil
+	}
 	if err != nil {
 		return nil, mapError(err)
 	}

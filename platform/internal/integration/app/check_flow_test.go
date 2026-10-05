@@ -62,11 +62,40 @@ func (f *fixture) runCheck(t *testing.T) {
 }
 
 // ci makes the sources say this commit's push and usages were ingested.
+//
+// Two of the three things CI uploads. The third is the `glossa check`
+// run itself, which the pull request renders rather than recomputing
+// (RFC 0005 §12.3) — see recorded and withoutACheckRun.
 func (f *fixture) ci(headCommit string) {
 	f.sources.set(func(m *memSources) {
 		m.status.HeadCommit = headCommit
 		m.usages.Builds, m.usages.Commits = 1, []string{headCommit}
 	})
+}
+
+// recorded is CI's `glossa check` run landing on the record for a
+// commit. It is what the check renders.
+func (f *fixture) recorded(commit string, run app.RecordedRun) { f.sources.record(commit, run) }
+
+// recordsRuns is a project whose CI has recorded a `glossa check` run
+// before — of some earlier commit. The check then knows this
+// repository's CI runs `glossa check`, and waits for this commit's run.
+func (f *fixture) recordsRuns() { f.sources.set(func(m *memSources) { m.recordedBefore = true }) }
+
+// withoutACheckRun is CI that pushes the catalogs and uploads the
+// usages but never runs `glossa check` — a repository that has adopted
+// half of Glossa. Past the thirty-minute wait the check reports what
+// Integration can see for itself, saying in the summary that that is
+// what it is doing — whether or not the project had been waited for
+// (see recordsRuns).
+func (f *fixture) withoutACheckRun() { f.clock = f.clock.Add(domain.CheckWait + time.Minute) }
+
+// wakeCheck is what quality.check_run.recorded does to the queue: the
+// branch's checks become due again, because the run they were waiting
+// for has arrived.
+func (f *fixture) wakeCheck() error {
+	_, err := f.checks.Wake(context.Background(), []int64{repoGitHubID}, branchName, f.clock)
+	return err
 }
 
 // theCheck is the fake's single check run on the repository.
@@ -128,6 +157,7 @@ func TestCheckFailsOnAnInvalidMessageAndAnnotatesIt(t *testing.T) {
 	f.openPR(t, "pull_request.opened", "d-open")
 
 	f.ci(headSHA)
+	f.withoutACheckRun()
 	f.sources.set(func(m *memSources) {
 		m.status.NewKeys = []string{"checkout.pay", "checkout.total"}
 		m.status.Invalid = []app.InvalidMessage{
@@ -156,8 +186,14 @@ func TestCheckFailsOnAnInvalidMessageAndAnnotatesIt(t *testing.T) {
 	if !found {
 		t.Fatalf("no failure annotation at src/checkout/PaymentFooter.vue:42: %+v", run.Annotations)
 	}
-	// The summary is Markdown with a table per locale.
-	for _, want := range []string{"| Locale |", "| de |", "| fr |", "Invalid messages", "checkout.total"} {
+	// The summary is Markdown with a table per locale, a table of the
+	// counts per layer, and the findings under the layer that found
+	// them (RFC 0005 §13, wave 4).
+	for _, want := range []string{
+		"| Locale |", "| de |", "| fr |",
+		"**Findings by layer**", "| structure | 1 | 0 | 0 |", "| **Total** | **3** | **1** | **0** |",
+		"**Structure** (1 error)", "**Completeness** (2 errors, 1 warning)", "checkout.total",
+	} {
 		if !strings.Contains(run.Summary, want) {
 			t.Fatalf("summary does not mention %q:\n%s", want, run.Summary)
 		}
@@ -175,6 +211,7 @@ func TestFixingTheBranchTurnsTheCheckGreenWithoutDuplicating(t *testing.T) {
 	f.openPR(t, "pull_request.opened", "d-open")
 
 	f.ci(headSHA)
+	f.withoutACheckRun()
 	f.sources.set(func(m *memSources) {
 		m.status.NewKeys = []string{"checkout.pay"}
 		m.status.Invalid = []app.InvalidMessage{{Key: "checkout.pay", Code: "invalid_content", Detail: "unmatched '{'"}}
@@ -232,6 +269,7 @@ func TestRerequestedCheckRunsAgainWithAFreshLedger(t *testing.T) {
 	f.openPR(t, "pull_request.opened", "d-open")
 
 	f.ci(headSHA)
+	f.withoutACheckRun()
 	f.sources.set(func(m *memSources) {
 		m.status.NewKeys = []string{"checkout.pay"}
 		m.usages.Unknown = []app.UnknownKey{{Key: "stray.key", File: "src/Pay.vue", Line: 3}}
@@ -451,6 +489,7 @@ func TestSynchronizeMakesANewCheckRunAndKeepsTheComment(t *testing.T) {
 	f.connected(t)
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
+	f.withoutACheckRun()
 	f.sources.set(func(m *memSources) {
 		m.usages.Unknown = []app.UnknownKey{{Key: "stray.key", File: "src/Pay.vue", Line: 3}}
 	})
@@ -465,6 +504,7 @@ func TestSynchronizeMakesANewCheckRunAndKeepsTheComment(t *testing.T) {
 	}
 	f.drain(t)
 	f.ci(next)
+	f.withoutACheckRun()
 	f.runCheck(t)
 
 	runs := f.fake.CheckRuns(repoGitHubID)
@@ -489,6 +529,7 @@ func TestRequiredLocalesDecideTheConclusion(t *testing.T) {
 	f.connected(t)
 	f.openPR(t, "pull_request.opened", "d-open")
 	f.ci(headSHA)
+	f.withoutACheckRun()
 	f.sources.set(func(m *memSources) {
 		m.policy = checkpolicy.Policy{RequireComplete: []string{"de"}}
 		m.status.NewKeys = []string{"checkout.pay"}

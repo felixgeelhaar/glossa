@@ -20,8 +20,11 @@ const ajv = new Ajv2020({ allErrors: true, strict: false });
 ajv.addFormat("uri", (s: string) => URL.canParse(s));
 ajv.addFormat("uuid", /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);
 ajv.addSchema(schema("usages.v1.schema.json"));
+// captures.v1 refers to finding.v1: a capture's `findings` are that shape
+// minus the two members the page cannot know (RFC 0005 §5).
+ajv.addSchema(schema("finding.v1.schema.json"));
 const validate = ajv.compile(schema("captures.v1.schema.json"));
-const validateFinding = ajv.compile(schema("finding.v1.schema.json"));
+const validateFinding = ajv.getSchema("https://glossa.dev/schemas/finding/v1.json")!;
 
 /** A capture the server could have minted, for the locus a probe leaves open. */
 export const CAPTURE = "0192f5c2-0000-7000-8000-00000000c0de";
@@ -50,8 +53,15 @@ export function findingErrors(p: ProbeFinding): string[] {
     : (validateFinding.errors ?? []).map((e) => `${e.instancePath} ${e.message ?? ""}`);
 }
 
-/** The captures.v1 document around one capture's `renders` and `regions`. */
-export const document = (c: Capture) => ({
+/**
+ * The captures.v1 document around one capture's `renders`, `regions` and —
+ * where the probe pass ran — its findings, as `glossa capture` wraps them.
+ *
+ * The findings go through JSON for the reason `stored` does: an absent
+ * `subject` is absent on the wire, not present and `undefined`, and the
+ * schema is about the wire.
+ */
+export const document = (c: Capture & { probes?: ProbeFinding[] }) => ({
   schema: "glossa.captures/v1",
   application: "web",
   commit: "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e",
@@ -66,12 +76,13 @@ export const document = (c: Capture) => ({
       image: { sha256: "0".repeat(64), width: 1280, height: 800 },
       renders: c.renders,
       regions: c.regions,
+      ...(c.probes ? { findings: JSON.parse(JSON.stringify(c.probes)) as unknown[] } : {}),
     },
   ],
 });
 
 /** The schema errors for `c`, or `[]`. */
-export function schemaErrors(c: Capture): string[] {
+export function schemaErrors(c: Capture & { probes?: ProbeFinding[] }): string[] {
   return validate(document(c))
     ? []
     : (validate.errors ?? []).map((e) => `${e.instancePath} ${e.message ?? ""}`);

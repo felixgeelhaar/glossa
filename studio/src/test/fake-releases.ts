@@ -3,11 +3,16 @@
  * publish snapshots the catalog under the environment's policy and points
  * the environment at it; promote requires the policy to cover the
  * release's; rollback only reaches releases the environment served;
- * policy changes need the current ETag; revoked keys stay listed.
+ * policy changes need the current ETag; revoked keys stay listed. Into an
+ * environment with an `approval` requirement a publish records its release
+ * and a promote names one, and both are held: a pending release request is
+ * made (withdrawing the environment's earlier pending one) and no pointer
+ * moves (RFC 0006 §5.1).
  * Test-only: nothing in the app imports it.
  */
 import { ApiError, type Versioned } from "../api/errors";
 import type { PublishInput, ProjectRef, ReleasesPort } from "../api/releases";
+import type { ReleaseHeld, ReleaseRequest } from "../api/release-ops-schemas";
 import type { Deployment, DeliveryKey, DeliveryKeyScope, Environment, EnvironmentPolicy, Release, ReleaseDiff, ReleasePreview, ReleaseProblem, SigningKey } from "../api/schemas";
 import { covers, DEFAULT_ENVIRONMENTS } from "../lib/releases";
 
@@ -20,7 +25,16 @@ export interface FakeReleases extends ReleasesPort {
   /** Set to make the catalog unreleasable: previews list these, publishes fail with not_releasable. */
   problems: ReleaseProblem[];
   readonly calls: Array<[string, ...unknown[]]>;
-  readonly state: { envs: Map<string, { env: Environment; etag: number }>; releases: Release[]; deployments: Map<string, Deployment[]>; keys: DeliveryKey[] };
+  readonly state: {
+    envs: Map<string, { env: Environment; etag: number }>;
+    releases: Release[];
+    deployments: Map<string, Deployment[]>;
+    keys: DeliveryKey[];
+    /** Release requests, newest first (shared with the release-ops fake). */
+    requests: ReleaseRequest[];
+  };
+  /** Point an environment at a release as a deploy does (the release-ops fake deploys with it). */
+  point(name: string, releaseId: string, action: Deployment["action"]): Environment;
 }
 
 const policyFor = (name: string): EnvironmentPolicy =>
@@ -45,7 +59,8 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
   const snapshots = new Map<string, FakeCatalog>();
   const deployments = new Map<string, Deployment[]>();
   const keys: DeliveryKey[] = [];
-  const replays = new Map<string, Release>();
+  const replays = new Map<string, Release | ReleaseHeld>();
+  const requests: ReleaseRequest[] = [];
   const calls: Array<[string, ...unknown[]]> = [];
 
   const envOf = (name: string) => {
@@ -61,12 +76,42 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
   const move = (name: string, release: Release, action: Deployment["action"]) => {
     const e = envOf(name);
     const history = deployments.get(name) ?? [];
-    const d: Deployment = { number: history.length + 1, release_id: release.id, action, author, created_at: now() };
+    // The fake never overrides the completeness requirement, so every
+    // deployment it makes is an ordinary one.
+    const d: Deployment = {
+      number: history.length + 1,
+      release_id: release.id,
+      action,
+      author,
+      created_at: now(),
+      forced: false,
+    };
     if (e.env.current_release_id) d.previous_release_id = e.env.current_release_id;
     deployments.set(name, [d, ...history]);
     e.env = { ...e.env, current_release_id: release.id, updated_at: d.created_at };
     e.etag++;
     return structuredClone(e.env);
+  };
+
+  /** Hold a move into an environment that requires approval. */
+  const hold = (name: string, release: Release, action: "publish" | "promote"): ReleaseHeld | undefined => {
+    const e = envOf(name);
+    if (!e.env.approval) return undefined;
+    for (const r of requests) if (r.environment === name && r.state === "pending") Object.assign(r, { state: "withdrawn", reason: "A newer publish or promote replaced it." });
+    const req: ReleaseRequest = {
+      id: nextId("rr"),
+      environment: name,
+      release_id: release.id,
+      action,
+      requester: author,
+      approval: structuredClone(e.env.approval),
+      gate: { met: true },
+      forced: false,
+      state: "pending",
+      created_at: now(),
+    };
+    requests.unshift(req);
+    return { id: release.id, release_request_id: req.id, release_request: structuredClone(req) };
   };
 
   const localesOf = (snapshot: FakeCatalog) => [source, ...Object.keys(snapshot).filter((l) => l !== source).sort()];
@@ -96,7 +141,8 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
     catalog: structuredClone(options.catalog ?? { [source]: { "app.title": "Demo" } }),
     problems: [],
     calls,
-    state: { envs, releases, deployments, keys },
+    state: { envs, releases, deployments, keys, requests },
+    point: (name, id, action) => move(name, releaseOf(id), action),
 
     async environments(p) {
       calls.push(["environments", p]);
@@ -176,7 +222,9 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
       if (input.note) r.note = input.note;
       releases.unshift(r);
       snapshots.set(r.id, snapshot);
-      replays.set(key, r);
+      const held = hold(e.env.name, r, "publish");
+      replays.set(key, held ?? r);
+      if (held) return structuredClone(held);
       move(e.env.name, r, "publish");
       return structuredClone(r);
     },
@@ -186,7 +234,7 @@ export function createFakeReleases(options: { sourceLocale?: string; catalog?: F
       const r = releaseOf(id);
       if (!covers(e.env.policy, r.policy)) throw new ApiError(409, "release_ineligible", "Not eligible.");
       if (e.env.current_release_id === id) return structuredClone(e.env);
-      return move(name, r, "promote");
+      return hold(name, r, "promote") ?? move(name, r, "promote");
     },
     async rollback(p, name, id) {
       calls.push(["rollback", p, name, id]);

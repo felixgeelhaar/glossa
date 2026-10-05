@@ -38,6 +38,8 @@ void main() {
         {'locale': 'de-AT', 'outcome': 'missing'},
         {'locale': 'de', 'outcome': 'found'},
       ],
+      // No staged rollout in this release (SPEC §1.4, §6).
+      'rollout': null,
     });
 
     // Only `de` carries cart.hint, so `en` never answers; and a message
@@ -55,6 +57,7 @@ void main() {
         {'locale': 'de', 'outcome': 'missing'},
         {'locale': 'en', 'outcome': 'missing'},
       ],
+      'rollout': null,
     });
   });
 

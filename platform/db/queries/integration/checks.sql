@@ -14,15 +14,23 @@
 -- runs, because a check run belongs to one commit.
 -- name: OpenCheck :one
 INSERT INTO integration_github_checks (id, tenant_id, installation_id, repository_id, pull_request, branch,
-                                       head_sha, from_fork, state, requested_at, available_at, updated_at)
+                                       head_sha, from_fork, opened_at, state, requested_at, available_at,
+                                       updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(tenant_id), sqlc.arg(installation_id), sqlc.arg(repository_id),
-        sqlc.arg(pull_request), sqlc.arg(branch), sqlc.arg(head_sha), sqlc.arg(from_fork), 'queued',
-        sqlc.arg(now), sqlc.arg(now), sqlc.arg(now))
+        sqlc.arg(pull_request), sqlc.arg(branch), sqlc.arg(head_sha), sqlc.arg(from_fork),
+        sqlc.narg(opened_at), 'queued', sqlc.arg(now), sqlc.arg(now), sqlc.arg(now))
 ON CONFLICT (repository_id, pull_request) DO UPDATE
 SET branch       = EXCLUDED.branch,
     installation_id = EXCLUDED.installation_id,
     tenant_id    = EXCLUDED.tenant_id,
     head_sha     = EXCLUDED.head_sha,
+    -- When the pull request was opened does not move. `requested_at`
+    -- follows every new head SHA on purpose — it is the wait for CI —
+    -- and a policy's grace must not run out a little further with each
+    -- push (RFC 0005 §4.3). COALESCE rather than a plain keep, so a row
+    -- written before migration 0033 learns its opened-at from the next
+    -- event instead of staying blind forever.
+    opened_at    = COALESCE(integration_github_checks.opened_at, EXCLUDED.opened_at),
     -- The event says where the head lives now; a pull request retargeted
     -- at a branch in this repository stops being a fork's, and the check
     -- goes back to waiting for its CI.
@@ -70,19 +78,21 @@ WHERE repository_id = ANY (sqlc.arg(repository_ids)::bigint[])
 
 -- ClaimCheck leases the oldest due check. The row is the pull request,
 -- so claiming it is what keeps one job per pull request: two jobs can
--- never race the one sticky comment.
+-- never race the one sticky comment. "Due" and the lease are measured
+-- on the app's clock (now), the clock every available_at here is
+-- written with — never Postgres's now(), which may differ from it.
 -- name: ClaimCheck :one
 WITH due AS (
     SELECT c.id
     FROM integration_github_checks c
-    WHERE c.state = 'queued' AND c.available_at <= now()
+    WHERE c.state = 'queued' AND c.available_at <= sqlc.arg(now)::timestamptz
     ORDER BY c.available_at, c.id
     LIMIT 1
     FOR UPDATE OF c SKIP LOCKED
 )
 UPDATE integration_github_checks e
 SET attempts     = e.attempts + 1,
-    available_at = now() + make_interval(secs => sqlc.arg(lease_seconds)::float8),
+    available_at = sqlc.arg(now)::timestamptz + make_interval(secs => sqlc.arg(lease_seconds)::float8),
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
@@ -109,7 +119,7 @@ WHERE id = sqlc.arg(id) AND claim_token = sqlc.arg(claim_token)::uuid;
 -- everything it learned.
 -- name: RetryCheck :execrows
 UPDATE integration_github_checks
-SET available_at = now() + make_interval(secs => sqlc.arg(delay_seconds)::float8),
+SET available_at = sqlc.arg(now)::timestamptz + make_interval(secs => sqlc.arg(delay_seconds)::float8),
     failure      = sqlc.arg(failure),
     claim_token  = NULL,
     updated_at   = sqlc.arg(now)
@@ -133,6 +143,39 @@ SELECT count(*)::bigint FROM integration_github_checks WHERE state = 'queued' AN
 -- connections go (the App lost the repository).
 -- name: DropRepositoryChecks :execrows
 DELETE FROM integration_github_checks WHERE repository_id = sqlc.arg(repository_id);
+
+-- CheckHealth is the pull-request check's pass rate and the time it
+-- takes to reach a conclusion, for one project (RFC 0005 §8). Both
+-- exist as Prometheus series already; this makes them a query, because
+-- a dashboard cannot ask Prometheus about one project of one tenant.
+--
+-- Tenant scope, not the system scope the queue runs in: this is a
+-- person reading their own project, and RLS is what says so. The checks
+-- of a project are the checks of the repositories its Git connections
+-- name — one repository can feed several projects, so the join is
+-- through the connection and not through the check.
+--
+-- `neutral` counts as neither a pass nor a fail and is reported on its
+-- own: it is what a check concludes when it had nothing to grade, and
+-- folding it either way would move the rate for a reason nobody chose.
+-- name: CheckHealth :one
+WITH repositories AS (
+    SELECT DISTINCT repository_id FROM integration_git_connections WHERE project_id = sqlc.arg(project_id)
+), concluded AS (
+    SELECT c.conclusion, extract(epoch FROM c.completed_at - c.requested_at) AS latency_seconds
+    FROM integration_github_checks c
+    JOIN repositories r ON r.repository_id = c.repository_id
+    WHERE c.state = 'completed' AND c.completed_at IS NOT NULL AND c.completed_at >= sqlc.arg(since)
+)
+SELECT count(*)::integer AS concluded,
+       count(*) FILTER (WHERE conclusion = 'success')::integer AS succeeded,
+       count(*) FILTER (WHERE conclusion = 'failure')::integer AS failed,
+       count(*) FILTER (WHERE conclusion = 'neutral')::integer AS neutral,
+       -- -1 where nothing concluded: a percentile over no sample is not
+       -- zero, and the caller reads the sentinel as "not measured".
+       coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p50_seconds,
+       coalesce(percentile_cont(0.9) WITHIN GROUP (ORDER BY latency_seconds), -1)::float8 AS p90_seconds
+FROM concluded;
 
 -- GetCheck reads one pull request's check (tests and support).
 -- name: GetCheck :one

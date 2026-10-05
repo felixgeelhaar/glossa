@@ -7,7 +7,8 @@
 /// safe-tag contract for its markup ([partsToTree]), `explain()` and the
 /// error channel (§6), and the loader: the §3 load order, SHA-256 artifact
 /// integrity and Ed25519 manifest signatures over the RFC 8785 (JCS) form
-/// (§1.3).
+/// (§1.3), and staged rollout (§1.4): the installation's cohort, the
+/// candidate view, and the stable view when the candidate can't load.
 ///
 /// Nothing here imports Flutter or `dart:io`. A host supplies a
 /// [Transport] and a [ReleaseStore]; `package:glossa/io.dart` has both for
@@ -106,7 +107,9 @@ export 'src/parts.dart'
         TextPart,
         ValuePart,
         partsToString;
-export 'src/store.dart' show MemoryReleaseStore, ReleaseStore, StoredManifest;
+export 'src/rollout.dart' show RolloutInfo, RolloutSide, cohortOf;
+export 'src/store.dart'
+    show InstallationIdStore, MemoryReleaseStore, ReleaseStore, StoredManifest;
 export 'src/subtags.g.dart' show subtagRegistryDate;
 export 'src/transport.dart' show EdgeResponse, Transport;
 export 'src/verify.dart'

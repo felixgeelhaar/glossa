@@ -56,7 +56,7 @@ defineExpose({
 
 <template>
   <div class="assist stack">
-    <SuggestionPanel v-if="canAI" ref="ai" :tenant="tenant" :project-id="projectId" :message="message" :target="target" :grant="grant" @accepted="emit('accepted', $event)" />
+    <SuggestionPanel v-if="canAI" ref="ai" :tenant="tenant" :project-id="projectId" :message="message" :target="target" :grant="grant" :can-insert="canInsert" @accepted="emit('accepted', $event)" @insert="emit('insert', $event)" />
     <template v-if="canKnow">
       <TmMatches ref="tm" :tenant="tenant" :project-id="projectId" :message="message" :source="source" :target="target" :target-syntax="targetSyntax" :can-insert="canInsert" @insert="emit('insert', $event)" />
       <TermsPane :recognition="recognition" :error="recognitionError" :findings="findings" :check-state="checkState" :has-draft="hasDraft" :source="source" :target="target" />

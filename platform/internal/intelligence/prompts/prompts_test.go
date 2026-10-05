@@ -154,7 +154,7 @@ func TestLoadUnknown(t *testing.T) {
 }
 
 func TestEveryEmbeddedTemplateLoads(t *testing.T) {
-	for _, task := range []string{prompts.Translate, prompts.Repair, prompts.Assess} {
+	for _, task := range []string{prompts.Translate, prompts.Repair, prompts.Assess, prompts.Linguistic} {
 		entries, err := fs.Glob(prompts.Files(), task+"/*.tmpl")
 		if err != nil || len(entries) == 0 {
 			t.Fatalf("%s: no templates (%v)", task, err)
@@ -169,9 +169,70 @@ func TestEveryEmbeddedTemplateLoads(t *testing.T) {
 }
 
 func TestSchemasAreJSON(t *testing.T) {
-	for _, s := range []map[string]any{prompts.DraftSchema(), prompts.AssessSchema()} {
+	for _, s := range []map[string]any{prompts.DraftSchema(), prompts.AssessSchema(), prompts.LinguisticSchema([]string{"tone-mismatch"})} {
 		if _, err := json.Marshal(s); err != nil {
 			t.Error(err)
 		}
+	}
+}
+
+// The linguistic prompt (RFC 0005 §3.8) shows the model the literal
+// text of both sides — which is what its quotes, and therefore the
+// findings' spans, are measured in — and the whole vocabulary it may
+// answer with.
+func TestLinguisticRender(t *testing.T) {
+	d := fullData()
+	d.SourceText, d.TranslationText = "You have new files.", "Masz nowe pliki."
+	d.MaxFindings = 8
+	d.Codes = []prompts.Code{
+		{Code: "meaning-divergence", Meaning: "the translation states something the source does not"},
+		{Code: "tone-mismatch", Meaning: "the register contradicts the style guide"},
+	}
+	tmpl := prompts.MustLoad(prompts.Linguistic, "v1")
+	if tmpl.ID() != "linguistic/v1" {
+		t.Fatalf("ID = %q, want the version on every finding's evidence", tmpl.ID())
+	}
+	out, err := tmpl.Render(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Review this en → pl translation.",
+		"<source_text>\nYou have new files.\n</source_text>",
+		"<target_text>\nMasz nowe pliki.\n</target_text>",
+		"- {$count} (number); selects by plural",
+		"- description: Badge on the upload button",
+		`- "file" — an uploaded document; use: plik; avoid: dokument`,
+		`- form of address: informal ("ty")`,
+		"- Use sentence case (house style); write: Nowy plik; not: Nowy Plik",
+	} {
+		if !strings.Contains(out.User, want) {
+			t.Errorf("linguistic prompt lacks %q:\n%s", want, out.User)
+		}
+	}
+	for _, want := range []string{
+		"`meaning-divergence`: the translation states something the source does not",
+		"`tone-mismatch`: the register contradicts the style guide",
+		"At most 8 findings",
+		`"findings": [{"code"`,
+	} {
+		if !strings.Contains(out.System, want) {
+			t.Errorf("linguistic system prompt lacks %q:\n%s", want, out.System)
+		}
+	}
+	if strings.Contains(out.User, "[[") || strings.Contains(out.System, "[[") {
+		t.Error("unrendered template action")
+	}
+	// The MF2 syntax is never shown: the model quotes from the literal
+	// text, and a quote taken from syntax would resolve to no span.
+	if strings.Contains(out.User, ".match $count") {
+		t.Errorf("the linguistic prompt shows MF2 syntax:\n%s", out.User)
+	}
+	bare, err := tmpl.Render(prompts.Data{SourceLocale: "de", TargetLocale: "fr", SourceText: "Hallo", TranslationText: "Bonjour", MaxFindings: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(bare.User, "<glossary>") || strings.Contains(bare.User, "<style_guide>") || strings.Contains(bare.User, "<placeholders>") {
+		t.Errorf("empty sections rendered:\n%s", bare.User)
 	}
 }

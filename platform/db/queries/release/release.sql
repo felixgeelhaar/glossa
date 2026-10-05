@@ -43,8 +43,8 @@ SELECT * FROM release_environments WHERE project_id = sqlc.arg(project_id) ORDER
 
 -- name: UpdateEnvironment :execrows
 UPDATE release_environments
-SET policy = sqlc.arg(policy), current_release_id = sqlc.narg(current_release_id), version = sqlc.arg(version),
-    updated_at = sqlc.arg(updated_at)
+SET policy = sqlc.arg(policy), approval = sqlc.narg(approval), current_release_id = sqlc.narg(current_release_id),
+    version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
 WHERE project_id = sqlc.arg(project_id) AND name = sqlc.arg(name) AND version = sqlc.arg(expected_version);
 
 -- name: DeleteProjectEnvironments :many
@@ -78,9 +78,10 @@ SELECT coalesce(max(version), 0)::integer FROM release_releases WHERE project_id
 
 -- name: InsertDeployment :exec
 INSERT INTO release_deployments (tenant_id, project_id, environment, number, release_id, previous_release_id,
-                                 action, created_by, created_at)
+                                 action, created_by, created_at, forced, force_reason)
 VALUES (app_current_tenant(), sqlc.arg(project_id), sqlc.arg(environment), sqlc.arg(number), sqlc.arg(release_id),
-        sqlc.narg(previous_release_id), sqlc.arg(action), sqlc.arg(created_by), sqlc.arg(created_at));
+        sqlc.narg(previous_release_id), sqlc.arg(action), sqlc.arg(created_by), sqlc.arg(created_at),
+        sqlc.arg(forced), sqlc.arg(force_reason));
 
 -- name: LastDeploymentNumber :one
 SELECT coalesce(max(number), 0)::integer FROM release_deployments

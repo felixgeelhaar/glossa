@@ -1,6 +1,6 @@
 /** Options of the `glossa()` integration, and what reaches the site's code. */
-import type { BundledRelease, PublicKey } from "@glossa/runtime";
-import type { GlossaPluginOptions, StudioOptions } from "@glossa/unplugin";
+import type { BundledRelease, PublicKey } from "@felixgeelhaar/glossa-runtime";
+import type { GlossaPluginOptions, StudioOptions } from "@felixgeelhaar/glossa-unplugin";
 
 import type { Routing } from "./routing.js";
 
@@ -39,7 +39,7 @@ export interface GlossaAstroOptions {
   elements?: boolean;
   /**
    * Where messages are used: `astro build` writes `.glossa/usages.json`
-   * beside `outDir` through `@glossa/unplugin` (RFC 0004 §2.1), for
+   * beside `outDir` through `@felixgeelhaar/glossa-unplugin` (RFC 0004 §2.1), for
    * `glossa context push`. On by default; these options go to the plugin
    * (`keys` defaults to the release's message keys). `false` turns it off.
    */
@@ -50,7 +50,7 @@ export interface GlossaAstroOptions {
    * `true` with `environment: "production"` fails the build.
    */
   overlay?: boolean;
-  /** What the overlay loader loads and edits; see `@glossa/unplugin`. */
+  /** What the overlay loader loads and edits; see `@felixgeelhaar/glossa-unplugin`. */
   studio?: StudioOptions;
 }
 

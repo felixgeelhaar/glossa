@@ -9,6 +9,10 @@ import { apiURL, ports, studioURL } from "./e2e/harness";
  */
 export default defineConfig({
   testDir: "e2e",
+  // e2e/m4 is the M4 exit test's own spec (RFC 0005 §12.8). It needs a
+  // project that test seeded, so it runs only when that test drives the
+  // suite and is otherwise not collected at all.
+  testIgnore: process.env.GLOSSA_M4_PROJECT ? [] : ["m4/**"],
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

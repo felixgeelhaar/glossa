@@ -51,3 +51,15 @@ func Token(ctx context.Context, tenant tenancy.ID, scopes ...string) context.Con
 	}
 	return authz.WithPrincipal(tenancy.ContextWithTenant(ctx, tenant), p)
 }
+
+// CIToken returns ctx acting in tenant as a repository's CI token: the
+// CI ceiling and nothing else (catalog.read and catalog.write), exactly
+// what Identity mints from a GitHub Actions ID token. It is how a test
+// asks "could CI do this?" without inventing a grant CI never has.
+func CIToken(ctx context.Context, tenant tenancy.ID) context.Context {
+	p := authz.Principal{
+		Actor: domain.TokenActor(domain.NewTokenID()), Tenant: tenant, TokenTenant: tenant,
+		Grant: domain.GrantOf(domain.CIPermissions()...),
+	}
+	return authz.WithPrincipal(tenancy.ContextWithTenant(ctx, tenant), p)
+}

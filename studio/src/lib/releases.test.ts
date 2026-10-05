@@ -26,7 +26,14 @@ const rel = (id: string, version: number): Release => ({
   author: "person:me",
   created_at: "t",
 });
-const dep = (n: number, release: string): Deployment => ({ number: n, release_id: release, action: "promote", author: "person:me", created_at: "t" });
+const dep = (n: number, release: string): Deployment => ({
+  number: n,
+  release_id: release,
+  action: "promote",
+  author: "person:me",
+  created_at: "t",
+  forced: false,
+});
 
 describe("covers (mirrors Release's Policy.Covers)", () => {
   it.each([

@@ -27,7 +27,7 @@ type NewStyleGuide struct {
 // one (ErrStyleGuideExists). A repeated idemKey returns the first
 // request's guide with replayed set. Needs knowledge.write.
 func (s *Service) CreateStyleGuide(ctx context.Context, in NewStyleGuide, idemKey string) (g domain.StyleGuide, replayed bool, err error) {
-	by, err := actor(ctx, authz.KnowledgeWrite)
+	by, err := writeScope(ctx, authz.KnowledgeWrite, in.ProjectID)
 	if err != nil {
 		return domain.StyleGuide{}, false, err
 	}
@@ -84,7 +84,7 @@ func (s *Service) recordStyleGuide(ctx context.Context, st Store, g domain.Style
 		ActionDeleted: domain.EventStyleGuideDeleted,
 	}[action]
 	return st.Publish(ctx, outbox.Event{
-		Type: typ, AggregateType: domain.AggregateStyleGuide, AggregateID: g.ID.String(),
+		Type: typ, AggregateType: domain.AggregateStyleGuide, AggregateID: g.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.StyleGuideEventOf(g, by),
 	})
 }
@@ -100,15 +100,23 @@ func (s *Service) GetStyleGuide(ctx context.Context, id uuid.UUID) (domain.Style
 		g, err = st.StyleGuide(ctx, id)
 		return err
 	})
-	return g, err
+	if err == nil {
+		err = rowScope(ctx, g.Scope.ProjectID)
+	}
+	if err != nil {
+		return domain.StyleGuide{}, err
+	}
+	return g, nil
 }
 
 // ListStyleGuides lists guides, optionally only tenant-level ones, one
 // project's, or one locale's. Needs knowledge.read.
 func (s *Service) ListStyleGuides(ctx context.Context, f StyleFilter, page pagination.Page) ([]domain.StyleGuide, *string, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	projects, err := listScope(ctx, authz.KnowledgeRead, f.ProjectID)
+	if err != nil {
 		return nil, nil, err
 	}
+	f.Projects = projects
 	after, err := afterUUID(page.After)
 	if err != nil {
 		return nil, nil, err
@@ -136,6 +144,12 @@ func (s *Service) ReplaceStyleGuide(ctx context.Context, id uuid.UUID, in domain
 	var g domain.StyleGuide
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		if g, err = st.LockStyleGuide(ctx, id); err != nil {
+			return err
+		}
+		if err := rowScope(ctx, g.Scope.ProjectID); err != nil {
+			return err
+		}
+		if _, err := writeScope(ctx, authz.KnowledgeWrite, g.Scope.ProjectID); err != nil {
 			return err
 		}
 		if err := checkIfMatch(g.Version, &ifMatch); err != nil {
@@ -167,6 +181,12 @@ func (s *Service) DeleteStyleGuide(ctx context.Context, id uuid.UUID, ifMatch *i
 		if err != nil {
 			return err
 		}
+		if err := rowScope(ctx, g.Scope.ProjectID); err != nil {
+			return err
+		}
+		if _, err := writeScope(ctx, authz.KnowledgeWrite, g.Scope.ProjectID); err != nil {
+			return err
+		}
 		if ifMatch != nil && *ifMatch != g.Version {
 			return ErrPreconditionFailed
 		}
@@ -195,6 +215,9 @@ func (s *Service) StyleGuideVersions(ctx context.Context, id uuid.UUID, page pag
 		if err == nil && len(rows) == 0 && page.After == "" {
 			return ErrNotFound
 		}
+		if err == nil && len(rows) > 0 {
+			err = rowScope(ctx, rows[0].Guide.Scope.ProjectID)
+		}
 		return err
 	})
 	if err != nil {
@@ -217,8 +240,11 @@ type StyleQuery struct {
 // namespace (domain.EffectiveStyleOf) and names the versions it used:
 // the style_rules tool, and what a suggestion's provenance records.
 // Needs knowledge.read.
+//
+// An assigned member asks it for a project and a locale one of their
+// units is in: translating the unit needs it (RFC 0006 §3.3).
 func (s *Service) EffectiveStyle(ctx context.Context, q StyleQuery) (domain.EffectiveStyle, error) {
-	if err := authz.Require(ctx, authz.KnowledgeRead); err != nil {
+	if err := readFor(ctx, authz.KnowledgeRead, q.ProjectID, q.Locale); err != nil {
 		return domain.EffectiveStyle{}, err
 	}
 	var guides []domain.StyleGuide

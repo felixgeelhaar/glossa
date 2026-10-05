@@ -568,6 +568,110 @@ type Translator interface {
 	Translate(ctx context.Context, project uuid.UUID, in TranslateRequest) (TranslateJob, error)
 }
 
+// ── Releases ────────────────────────────────────────────────────────
+//
+// The release port is narrower than the Release context behind it, the
+// same way the write ports are. There is no environment creation, no
+// policy edit, no delivery-key management and nothing that removes a
+// release: M4 exposes the three operations RFC 0005 §7.3 names and
+// destroys nothing (§7.2).
+//
+// There is also no `force`. The Release context gates a publish on the
+// environment's completeness requirement and refuses with
+// `policy_not_met`; overriding that gate takes an audited reason and is
+// a person's decision, like a review. An agent that meets the gate
+// publishes and an agent that does not is told why, which is the whole
+// value of the gate.
+
+// Release is one immutable release, as MCP reports it.
+//
+// Omitted: the manifest, its signatures and its artifact digests
+// (explain_delivery answers what a release actually serves), the
+// release's parent and its full statistics. A release tool answers
+// "which release does this environment serve now, and is it the one I
+// meant".
+type Release struct {
+	ID      string `json:"id"`
+	Version int    `json:"version"`
+	// Environment is where the release was *built*, whose policy it
+	// records; a promoted release keeps its own.
+	Environment string `json:"environment"`
+	// Digest is the manifest digest: two releases with equal digests
+	// serve exactly the same text.
+	Digest string `json:"digest"`
+	// Policy is the review states the release ships.
+	Policy []string `json:"policy,omitempty"`
+	// Branch is the branch whose overlay the release was built with; ""
+	// for the main catalog's.
+	Branch    string   `json:"branch,omitempty"`
+	Locales   []string `json:"locales,omitempty"`
+	Messages  int      `json:"messages"`
+	Note      string   `json:"note,omitempty"`
+	Author    string   `json:"author,omitempty"`
+	CreatedAt string   `json:"created_at"`
+}
+
+// PublishRequest is what to publish where.
+type PublishRequest struct {
+	Environment string
+	Note        string
+	// IdempotencyKey lets a client that retried a timed-out call get the
+	// first request's release back instead of publishing a second one.
+	// An agent retries more readily than a person does.
+	IdempotencyKey string
+}
+
+// Held is a publish or a promote into an environment that requires
+// release approvals (RFC 0006 §5.1): it became a release request and no
+// pointer moved. The release is deployed only once enough people other
+// than the requester approve it — people, never an agent: there is no
+// approve tool.
+type Held struct {
+	RequestID   string `json:"release_request_id"`
+	Environment string `json:"environment"`
+	// Approvals is how many distinct people must approve.
+	Approvals int `json:"approvals_required"`
+}
+
+// Published is a publish's result.
+type Published struct {
+	Release Release `json:"release"`
+	// Replayed says this call returned an earlier request's release,
+	// because it carried the same idempotency key.
+	Replayed bool `json:"replayed"`
+	// Held is set when the release was recorded but not deployed: it
+	// waits for approval, and the environment still serves what it did.
+	Held *Held `json:"held,omitempty"`
+}
+
+// Deployed is an environment after a pointer moved — or, when Held is
+// set, after a promote that moved nothing and waits for approval.
+type Deployed struct {
+	Environment string  `json:"environment"`
+	Release     Release `json:"release"`
+	// Moved is false when the environment already served that release,
+	// which is not an error, and whenever the promote was held.
+	Moved bool `json:"moved"`
+	// Held is set when the promote became a release request.
+	Held *Held `json:"held,omitempty"`
+}
+
+// Releases is Release's application service, as MCP publishes through
+// it. Each method is the same use case the REST endpoint calls, so the
+// environment's policy, the publish gate, the promotability rules and
+// the audit trail are the context's and are never restated here.
+type Releases interface {
+	// Publish builds a release under the environment's policy and points
+	// the environment at it.
+	Publish(ctx context.Context, project uuid.UUID, in PublishRequest) (Published, error)
+	// Promote points an environment at an existing release of the
+	// project. Nothing is rebuilt.
+	Promote(ctx context.Context, project uuid.UUID, environment string, release uuid.UUID) (Deployed, error)
+	// Rollback points an environment back at a release it served before;
+	// uuid.Nil takes the newest one older than the release it serves now.
+	Rollback(ctx context.Context, project uuid.UUID, environment string, release uuid.UUID) (Deployed, error)
+}
+
 // Sources are the application ports the tools call. A nil port leaves
 // its tools unregistered, so a deployment that does not run a context
 // does not advertise tools that cannot work.
@@ -583,4 +687,8 @@ type Sources struct {
 	Proposals    TranslationWriter
 	Locales      LocaleWriter
 	Translator   Translator
+	Releases     Releases
+	// Workflow and ReleaseReads are the M5 read ports (RFC 0006 §8).
+	Workflow     Workflow
+	ReleaseReads ReleaseReads
 }

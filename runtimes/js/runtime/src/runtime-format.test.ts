@@ -4,8 +4,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { paramValues, testdataDir } from "@glossa/messageformat/testing";
-import type { SuiteParam } from "@glossa/messageformat/testing";
+import { paramValues, testdataDir } from "@felixgeelhaar/glossa-messageformat/testing";
+import type { SuiteParam } from "@felixgeelhaar/glossa-messageformat/testing";
 import { describe, expect, it } from "vitest";
 import { format, formatToParts } from "./index.js";
 import type { Message } from "./index.js";

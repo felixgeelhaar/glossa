@@ -14,7 +14,8 @@ export const Role = z.enum(["owner", "admin", "developer", "translator", "review
 export const Syntax = z.enum(["mf1", "mf2"]);
 export const Direction = z.enum(["ltr", "rtl"]);
 export const ReviewState = z.enum(["draft", "needs_review", "approved", "rejected"]);
-export const Origin = z.enum(["human", "ai", "translation_memory", "machine_translation", "import", "adaptation"]);
+/** `ai`: the platform translating for a person. `agent`: an autonomous agent writing through MCP (RFC 0005 §7.3). */
+export const Origin = z.enum(["human", "ai", "agent", "translation_memory", "machine_translation", "import", "adaptation"]);
 /** `proposed`: new on an open branch (RFC 0004 §4.1); shown like `active`, with a pill. */
 export const MessageState = z.enum(["active", "proposed", "obsolete"]);
 export const Platform = z.enum(["web", "api", "ios", "android", "other"]);
@@ -258,6 +259,9 @@ export const Member = z.object({
   status: z.enum(["invited", "active"]),
   roles: z.array(Role),
   locales: z.array(z.string()),
+  projects: z.array(id),
+  vendor_id: id.optional(),
+  visibility: z.enum(["all", "assigned"]),
   created_at: timestamp,
   updated_at: timestamp,
 });
@@ -277,11 +281,27 @@ export const EnvironmentPolicy = z.object({
  */
 export const EnvironmentKind = z.enum(["standard", "branch"]);
 
+/** Exactly one of `member`, `role` or `group` — who may approve a release (RFC 0006 §5.1). Never a vendor. */
+export const EnvironmentApprovalParty = z.object({
+  member: z.string().min(1).optional(),
+  role: Role.optional(),
+  group: z.string().min(1).optional(),
+});
+
+/** `n` distinct people of `from`, never the requester (always true: no self-approval). */
+export const EnvironmentApproval = z.object({
+  n: z.number().int().min(1).max(10),
+  from: EnvironmentApprovalParty,
+  distinct_from_requester: z.boolean(),
+});
+
 export const Environment = z.object({
   name: z.string().min(1),
   kind: EnvironmentKind,
   branch: z.string().min(1).optional(),
   policy: EnvironmentPolicy,
+  /** Present when a publish or promote here needs approval (RFC 0006 §5.1). */
+  approval: EnvironmentApproval.optional(),
   current_release_id: id.optional(),
   created_at: timestamp,
   updated_at: timestamp,
@@ -295,6 +315,11 @@ export const Deployment = z.object({
   action: DeploymentAction,
   author: z.string(),
   created_at: timestamp,
+  // The environment's completeness requirement was not met and somebody
+  // went ahead anyway. The exception is the record: such a deployment
+  // always carries its reason.
+  forced: z.boolean(),
+  force_reason: z.string().optional(),
 });
 
 export const ReleaseLocale = z.object({ code: z.string(), direction: Direction });
@@ -426,6 +451,8 @@ export type SigningKeys = z.infer<typeof SigningKeys>;
 export type ShippableState = z.infer<typeof ShippableState>;
 export type EnvironmentPolicy = z.infer<typeof EnvironmentPolicy>;
 export type Environment = z.infer<typeof Environment>;
+export type EnvironmentApproval = z.infer<typeof EnvironmentApproval>;
+export type EnvironmentApprovalParty = z.infer<typeof EnvironmentApprovalParty>;
 export type Deployment = z.infer<typeof Deployment>;
 export type Release = z.infer<typeof Release>;
 export type ReleaseCounts = z.infer<typeof ReleaseCounts>;

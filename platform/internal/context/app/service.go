@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -26,6 +27,9 @@ type Service struct {
 	metrics   Metrics
 	objects   Objects
 	images    ImageNormalizer
+	// findings is Quality, for the visual findings a capture upload
+	// carries. Nil where the deployment doesn't wire it.
+	findings Findings
 	// deleteBatch bounds the object-store deletes one purge issues at a
 	// time.
 	deleteBatch int
@@ -108,6 +112,18 @@ func WithImages(objects Objects, normalizer ImageNormalizer) Option {
 // WithMetrics records ingests and coverage (NoMetrics by default).
 func WithMetrics(m Metrics) Option { return func(s *Service) { s.metrics = m } }
 
+// WithFindings hands a capture upload's visual findings to Quality
+// (RFC 0005 §5.1). Without it an upload's findings are validated and
+// dropped: a deployment that does not run Quality still takes captures,
+// and says so by answering `findings: 0`.
+func WithFindings(f Findings) Option {
+	return func(s *Service) {
+		if f != nil {
+			s.findings = f
+		}
+	}
+}
+
 // Option configures a Service.
 type Option func(*Service)
 
@@ -140,6 +156,17 @@ func New(tx Transactor, catalog Catalog, opts ...Option) *Service {
 // actor returns the acting principal after checking perm.
 func actor(ctx context.Context, perm authz.Permission) (string, error) {
 	if err := authz.Require(ctx, perm); err != nil {
+		return "", err
+	}
+	p, _ := authz.From(ctx)
+	return p.Actor.String(), nil
+}
+
+// actorIn returns the acting principal after checking perm in project:
+// a project outside the caller's scope is authz.ErrNotVisible, the
+// answer for one that does not exist (RFC 0006 §4.1).
+func actorIn(ctx context.Context, perm authz.Permission, project uuid.UUID) (string, error) {
+	if err := authz.RequireIn(ctx, perm, project); err != nil {
 		return "", err
 	}
 	p, _ := authz.From(ctx)

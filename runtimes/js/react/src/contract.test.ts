@@ -11,8 +11,8 @@ import { act, createElement as h } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root as ReactRoot } from "react-dom/client";
-import { memoryStorage } from "@glossa/runtime";
-import type { RuntimeError } from "@glossa/runtime";
+import { memoryStorage } from "@felixgeelhaar/glossa-runtime";
+import type { RuntimeError } from "@felixgeelhaar/glossa-runtime";
 
 import { GlossaProvider, T, createGlossa, useGlossa } from "./index.js";
 import type { Glossa, UseGlossa } from "./index.js";
@@ -159,6 +159,8 @@ describe("runtimes/testdata/loading through React", () => {
           locales: step.read.requested,
           refreshInterval: 0,
           onError: (e) => errors.push(e.type),
+          installationId: seq.installationId,
+          rollout: seq.rolloutSupport,
         });
         current = { ...mount(glossa), glossa };
         current.show(read);
@@ -176,6 +178,9 @@ describe("runtimes/testdata/loading through React", () => {
       expect(hook.release?.id ?? null, where).toBe(step.expActiveRelease);
       expect(hook.explain(read.id).source, where).toBe(step.expSource);
       expect(errors.slice(seen), where).toEqual(step.expErrors);
+      if (step.expRollout !== undefined) {
+        expect(hook.explain(read.id).rollout, where).toEqual(step.expRollout);
+      }
     }
     current?.unmount();
     current?.glossa.runtime.dispose();

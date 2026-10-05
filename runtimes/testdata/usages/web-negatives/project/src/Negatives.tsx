@@ -1,4 +1,4 @@
-import { T } from "@glossa/react";
+import { T } from "@felixgeelhaar/glossa-react";
 
 declare function Other(props: { id: string }): JSX.Element;
 

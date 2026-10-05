@@ -17,9 +17,15 @@ INSERT INTO quality_waivers (id, tenant_id, project_id, fingerprint, reason, sco
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(project_id), sqlc.arg(fingerprint), sqlc.arg(reason),
         sqlc.arg(scope), sqlc.arg(ref), sqlc.arg(source_revision), sqlc.arg(created_by), sqlc.arg(created_at),
         sqlc.narg(expires_at))
+--
+-- Restating clears expired_at: an expiry the sweep recorded is a
+-- statement about the date the waiver used to carry, and this write
+-- gives it a new one (or none). Leaving it set would make a waiver that
+-- somebody has just renewed read as retired.
 ON CONFLICT (project_id, fingerprint, scope, ref) WHERE revoked_at IS NULL
 DO UPDATE SET reason = EXCLUDED.reason, source_revision = EXCLUDED.source_revision,
-              expires_at = EXCLUDED.expires_at, created_by = EXCLUDED.created_by
+              expires_at = EXCLUDED.expires_at, created_by = EXCLUDED.created_by,
+              expired_at = NULL
 RETURNING *, (xmax = 0) AS inserted;
 
 -- name: GetWaiver :one
@@ -55,7 +61,8 @@ WHERE w.project_id = sqlc.arg(project_id)
   AND (sqlc.arg(code)::text = '' OR f.code = sqlc.arg(code)::text)
   AND (sqlc.arg(message_key)::text = '' OR f.message_key = sqlc.arg(message_key)::text)
   AND (sqlc.narg(active)::boolean IS NULL
-       OR (w.revoked_at IS NULL AND (w.expires_at IS NULL OR w.expires_at > sqlc.arg(now)::timestamptz))
+       OR (w.revoked_at IS NULL AND w.expired_at IS NULL
+           AND (w.expires_at IS NULL OR w.expires_at > sqlc.arg(now)::timestamptz))
           = sqlc.narg(active)::boolean)
   AND (sqlc.narg(after_created_at)::timestamptz IS NULL
        OR (w.created_at, w.id) < (sqlc.narg(after_created_at)::timestamptz, sqlc.narg(after_id)::uuid))
@@ -64,6 +71,11 @@ LIMIT sqlc.arg(max_rows);
 
 -- name: ListLiveWaivers :many
 -- Every waiver that stands now, for grading a run as it is recorded.
+--
+-- The date is what decides, not the sweep: a waiver stops accepting
+-- findings the moment it expires, whether or not the daily job has run
+-- yet, so a late job can never leave a dead waiver accepting anything.
+-- expired_at is honoured alongside it and never instead of it.
 SELECT * FROM quality_waivers
-WHERE project_id = sqlc.arg(project_id) AND revoked_at IS NULL
+WHERE project_id = sqlc.arg(project_id) AND revoked_at IS NULL AND expired_at IS NULL
   AND (expires_at IS NULL OR expires_at > sqlc.arg(now)::timestamptz);

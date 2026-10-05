@@ -64,10 +64,18 @@ func Fingerprint(layer Layer, code string, l Locus, subject string) string {
 // messageIdentity is the message a finding is about: its catalog ID
 // where the caller knows it, its key otherwise.
 //
-// The server always has the ID, so a rename never re-opens its
-// waivers. An offline `glossa check` has only keys — the CLI's snapshot
-// carries no message IDs — and there a rename is a new finding, which
-// is the honest answer locally: nobody holds a waiver offline.
+// Every caller that can know the ID puts it here, which is what makes
+// one finding one identity: the server always has it, and a `glossa
+// check` or `glossa capture --check` against the server carries it in
+// the snapshot it read (cli/qa.Project, layers.Project.Identify). A
+// rename therefore never re-opens their waivers.
+//
+// Only a caller with no catalog to ask falls back to the key: `glossa
+// check --offline` over the local catalog files, and a key the catalog
+// has never seen. There a rename is a new finding, which is the honest
+// answer — nothing said what that key is called — and such a print is
+// not the server's for the same finding. Nobody holds a waiver offline,
+// so nothing is lost by it.
 func messageIdentity(l Locus) string {
 	if l.Message != "" {
 		return l.Message

@@ -155,4 +155,8 @@ type GitHub interface {
 	// InstallURL is where a person authorizes the App, carrying state
 	// through the round trip. It is configuration, not a call.
 	InstallURL(state string) string
+	// PullRequestURL is where pull request number of repository
+	// ("owner/name") is on the web, or "" when there is nothing to point
+	// at. It is configuration, not a call.
+	PullRequestURL(repository string, number int) string
 }

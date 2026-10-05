@@ -33,6 +33,9 @@ type manifest struct {
 	Fallback     map[string][]string               `json:"fallback"`
 	Artifacts    map[string]map[string]artifactRef `json:"artifacts"`
 	Signatures   []signature                       `json:"signatures"`
+	// Rollout is the optional staged rollout (SPEC §1.4), parsed only when
+	// rollout support is on.
+	Rollout json.RawMessage `json:"rollout,omitempty"`
 }
 
 // ReleaseRef identifies a release.

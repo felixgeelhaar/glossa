@@ -24,4 +24,8 @@ var (
 	ErrInvalidImage = errors.New("context: invalid capture image")
 	// ErrImageTooLarge means an image exceeds 10 MB or 40 megapixels.
 	ErrImageTooLarge = errors.New("context: a capture image is at most 10 MB and 40 megapixels")
+
+	// ErrTooManyFindings means a capture, or the whole upload, carries
+	// more visual findings than may be stored (RFC 0005 §10).
+	ErrTooManyFindings = errors.New("context: a capture holds at most 500 visual findings and an upload at most 10000")
 )

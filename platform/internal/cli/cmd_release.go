@@ -40,6 +40,11 @@ type releasePublishJSON struct {
 	Replayed       bool            `json:"replayed"`
 	IdempotencyKey string          `json:"idempotency_key"`
 	Release        release.Release `json:"release"`
+	// Held is true when the environment requires approvals: the release
+	// was recorded, ReleaseRequest waits for them, nothing was deployed
+	// (exit 5).
+	Held           bool             `json:"held"`
+	ReleaseRequest *release.Request `json:"release_request,omitempty"`
 }
 
 // releasePreviewJSON is `release publish --dry-run`: what the publish
@@ -92,6 +97,12 @@ type releaseMoveJSON struct {
 	Environment environmentJSON `json:"environment"`
 	// Previous is what the environment served before (null: nothing).
 	Previous *releaseRef `json:"previous"`
+	// Held (promote only) is true when the environment requires
+	// approvals: Environment is unchanged, Release is what
+	// ReleaseRequest would deploy (exit 5).
+	Held           bool             `json:"held"`
+	Release        *releaseRef      `json:"release,omitempty"`
+	ReleaseRequest *release.Request `json:"release_request,omitempty"`
 }
 
 type releaseEnvironmentsJSON struct {
@@ -150,8 +161,14 @@ Actions:
   keys scope    <id|name> [--environments a,b] [--preview]
                                                    change what a key reads (the key itself stays)
   keys revoke   <id|name>                          revoke one
+  requests      [list|show|withdraw]               release requests: publishes and promotes held for
+                                                   approval (glossa release requests --help)
+  rollout       start|status|list|advance|complete|abort
+                                                   staged rollouts (glossa release rollout --help)
 
-A <release> is its ID or v<N> (its version).`
+A <release> is its ID or v<N> (its version). A publish or promote into an environment
+that requires approvals is held as a release request and deploys nothing: it exits 5
+and names the request, which people approve with ` + "`glossa approve <request>`" + `.`
 
 var idempotencyKeyPattern = regexp.MustCompile(`^[\x21-\x7E]{1,255}$`)
 
@@ -171,7 +188,7 @@ func parseReleaseArgs(inv *invocation, args []string) (releaseArgs, error) {
 		return r, err
 	}
 	if len(pos) == 0 {
-		return r, usageError(inv.name, "missing action: publish, list, show, diff, promote, rollback, environments or keys")
+		return r, usageError(inv.name, "missing action: publish, list, show, diff, promote, rollback, environments, keys, requests or rollout")
 	}
 	if r.idempotencyKey != "" && !idempotencyKeyPattern.MatchString(r.idempotencyKey) {
 		return r, usageError(inv.name, "--idempotency-key must be 1-255 printable ASCII characters without spaces")
@@ -223,7 +240,7 @@ func parseReleaseArgs(inv *invocation, args []string) (releaseArgs, error) {
 	case "keys":
 		return parseKeysArgs(inv, r, pos)
 	}
-	return r, usageError(inv.name, "unknown action %q (publish, list, show, diff, promote, rollback, environments, keys)", r.action)
+	return r, usageError(inv.name, "unknown action %q (publish, list, show, diff, promote, rollback, environments, keys, requests, rollout)", r.action)
 }
 
 func parseKeysArgs(inv *invocation, r releaseArgs, pos []string) (releaseArgs, error) {
@@ -361,6 +378,11 @@ var releaseFixes = map[string]struct {
 	"invalid_key_name":        {ExitUsage, "name the key after what uses it, e.g. web or go-emails"},
 	"idempotency_key_reused":  {ExitUsage, "use a new --idempotency-key, or leave it out"},
 	"invalid_idempotency_key": {ExitUsage, "--idempotency-key must be 1-255 printable ASCII characters"},
+	"rollout_active": {ExitNetwork, "a staged rollout is active in the environment, and a publish or promote would replace the stable side under it: " +
+		"`glossa release rollout status --environment <name>`, then `complete` or `abort` it first (a rollback is never refused: it aborts the rollout)"},
+	"policy_not_met": {ExitNetwork, "translate and approve what the environment's completeness requirement is short of " +
+		"(`glossa status`), or publish to an environment that doesn't require it"},
+	"branch_release_not_promotable": {ExitNetwork, "a branch release holds text that exists only on its branch: merge the branch, then publish from the main catalog"},
 }
 
 // releaseError explains a failed Release API request.
@@ -384,6 +406,16 @@ func (inv *invocation) releaseError(err error, what string) error {
 // ── commands ────────────────────────────────────────────────────────
 
 func runRelease(ctx context.Context, inv *invocation, args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "rollout":
+			inv.name = "release rollout"
+			return runReleaseRollout(ctx, inv, args[1:])
+		case "requests":
+			inv.name = "release requests"
+			return runReleaseRequests(ctx, inv, args[1:])
+		}
+	}
 	r, err := parseReleaseArgs(inv, args)
 	if err != nil {
 		return err
@@ -419,6 +451,9 @@ func (inv *invocation) releasePublish(ctx context.Context, rc *releaseClient, r 
 	pub, err := rc.svc.Publish(ctx, rc.scope, release.PublishRequest{Environment: r.environment, Note: r.note, IdempotencyKey: key})
 	if err != nil {
 		return inv.releaseError(err, "can't publish to "+r.environment)
+	}
+	if pub.Held != nil {
+		return inv.releaseHeldPublish(ctx, rc, key, pub)
 	}
 	rel := pub.Release
 	out := releasePublishJSON{Schema: "glossa.cli.release.publish/v1", Replayed: pub.Replayed, IdempotencyKey: key, Release: rel}
@@ -685,14 +720,20 @@ func (inv *invocation) releaseMove(ctx context.Context, rc *releaseClient, r rel
 	if err != nil {
 		return inv.releaseError(err, "can't read environment "+r.environment)
 	}
-	var after release.Environment
+	var (
+		after release.Environment
+		held  *release.Held
+	)
 	if r.action == "promote" {
-		after, err = rc.svc.Promote(ctx, rc.scope, target, r.environment)
+		after, held, err = rc.svc.Promote(ctx, rc.scope, target, r.environment)
 	} else {
 		after, err = rc.svc.Rollback(ctx, rc.scope, r.environment, target)
 	}
 	if err != nil {
 		return inv.releaseError(err, fmt.Sprintf("can't %s %s", r.action, r.environment))
+	}
+	if held != nil {
+		return inv.releaseHeldPromote(ctx, rc, before, held)
 	}
 	env, err := rc.environmentJSON(ctx, inv, after)
 	if err != nil {

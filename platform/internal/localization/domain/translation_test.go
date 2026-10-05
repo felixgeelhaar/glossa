@@ -185,6 +185,33 @@ func TestProvenanceDetail(t *testing.T) {
 	}
 }
 
+// TestAgentIsAnOriginOfItsOwn: an autonomous agent writing through a
+// long-lived token (RFC 0005 §7.3) is not a person asking for a machine
+// translation, so it gets an origin of its own rather than `ai` plus a
+// JSON detail nobody can filter on. Provenance is state that matters,
+// and state that matters is legible.
+func TestAgentIsAnOriginOfItsOwn(t *testing.T) {
+	o, err := domain.ParseOrigin("agent", domain.OriginHuman)
+	if err != nil {
+		t.Fatalf(`ParseOrigin("agent"): %v`, err)
+	}
+	if o != domain.OriginAgent {
+		t.Fatalf(`ParseOrigin("agent") = %q, want %q`, o, domain.OriginAgent)
+	}
+	if string(domain.OriginAgent) != "agent" || string(domain.OriginAI) != "ai" {
+		t.Fatalf("agent = %q, ai = %q: the two must stay distinct on the wire",
+			domain.OriginAgent, domain.OriginAI)
+	}
+	p, err := domain.NewProvenance(domain.OriginAgent,
+		json.RawMessage(`{"via":"mcp","tool":"translation_propose"}`), "token:1")
+	if err != nil {
+		t.Fatalf("provenance: %v", err)
+	}
+	if p.Origin != domain.OriginAgent {
+		t.Errorf("provenance origin = %q, want agent", p.Origin)
+	}
+}
+
 // The structural QA gate: error findings reject, warnings are kept.
 func TestStructuralQAGate(t *testing.T) {
 	source := parse(t, en, mfcontent.MF1, "{count, plural, one {# item for {name}} other {# items for {name}}}")

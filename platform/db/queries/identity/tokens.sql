@@ -1,10 +1,11 @@
 -- Tenant scope (db.TenantTx) unless the name starts with System.
 
 -- name: InsertToken :execrows
-INSERT INTO identity_api_tokens (id, tenant_id, name, token_hash, hint, scopes, created_by,
+INSERT INTO identity_api_tokens (id, tenant_id, name, token_hash, hint, scopes, projects, created_by,
                                  created_at, expires_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.arg(name), sqlc.arg(token_hash), sqlc.arg(hint),
-        sqlc.arg(scopes), sqlc.arg(created_by), sqlc.arg(created_at), sqlc.narg(expires_at))
+        sqlc.arg(scopes), sqlc.arg(projects)::uuid[], sqlc.arg(created_by), sqlc.arg(created_at),
+        sqlc.narg(expires_at))
 ON CONFLICT (id) DO NOTHING;
 
 -- name: GetToken :one
@@ -22,7 +23,7 @@ SET revoked_at = sqlc.arg(revoked_at), revoked_by = sqlc.arg(revoked_by)
 WHERE id = sqlc.arg(id) AND revoked_at IS NULL;
 
 -- name: SystemGetTokenByHash :one
-SELECT id, tenant_id, scopes, expires_at, revoked_at, last_used_at
+SELECT id, tenant_id, scopes, projects, expires_at, revoked_at, last_used_at
 FROM identity_api_tokens
 WHERE token_hash = sqlc.arg(token_hash);
 

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
+	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
+	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
 	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
@@ -119,6 +122,12 @@ type app struct {
 	keyIndexes func(context.Context) (int, error)
 	// purger runs the daily retention jobs; nil when disabled.
 	purger *scheduler.Scheduler
+	// workflowTimers raises workflow timers every minute (RFC 0006
+	// §2.3); nil where the leased periodic jobs don't run.
+	workflowTimers *scheduler.Scheduler
+	// rolloutSweep aborts staged rollouts past their max_duration
+	// (RFC 0006 §5.2); nil where the leased periodic jobs don't run.
+	rolloutSweep *scheduler.Scheduler
 	// branchPublisher publishes due branch environments; nil when the
 	// publisher is off.
 	branchPublisher *releaseapp.Publisher
@@ -128,7 +137,15 @@ type app struct {
 	// githubChecks renders pull requests' Glossa checks; nil when the
 	// deployment has no GitHub App or the check worker is off.
 	githubChecks *integrationapp.CheckWorker
-	shutdownTP   observability.ShutdownFunc
+	// audit is the Audit context; its backfill runs once at startup.
+	audit *auditapp.Service
+	// auditExports runs audit export jobs and their retention; nil
+	// unless GLOSSA_AUDIT_EXPORTS_ENABLED.
+	auditExports *auditapp.ExportWorker
+	// identity is waited on at shutdown for the failed sign-ins it is
+	// still recording in the background.
+	identity   *identityapp.Service
+	shutdownTP observability.ShutdownFunc
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc) error {
@@ -140,7 +157,16 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	return a.run(ctx)
 }
 
-func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc) (*app, error) {
+// buildOption adjusts the bounded contexts build wires before Identity
+// is handed what it needs from them — a port another context provides,
+// such as the authz.Coverage Workflow's assignments implement.
+type buildOption func(*contexts)
+
+func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup config.LookupFunc, opts ...buildOption) (*app, error) {
+	auditKeys, err := newAuditKeys(cfg)
+	if err != nil {
+		return nil, err
+	}
 	tp, shutdownTP, err := observability.NewTracerProvider(ctx, cfg.OTel, version())
 	if err != nil {
 		return nil, err
@@ -160,15 +186,33 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	identity, identitySvc, err := newIdentity(cfg.Identity, logger, pool)
+	audit, err := newAudit(pool, events, auditKeys, logger, registry)
 	if err != nil {
 		pool.Close()
 		return nil, err
 	}
-	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp, lookup)
+	identity, identitySvc, err := newIdentity(cfg.Identity, logger, pool, audit)
 	if err != nil {
 		pool.Close()
 		return nil, err
+	}
+	bounded, err := buildContexts(cfg, logger, pool, events, registry, tp, lookup, identitySvc)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	// Audit's HTTP edge (RFC 0006 §6.2, §7.2): the trail's entries, its
+	// export jobs (on the contexts' object storage) and the v0.3 history
+	// import. Audit is built before the other contexts, so it meets the
+	// object store here.
+	var auditExports *auditapp.ExportWorker
+	bounded.auditAPI, auditExports = newAuditAPI(cfg.Audit, pool, audit, bounded.objects, logger)
+	if bounded.auditKeys, err = auditKeysHandler(auditKeys); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	for _, o := range opts {
+		o(&bounded)
 	}
 	// Identity is built first, and the GitHub Actions OIDC exchange is
 	// the one thing it needs from a later context: Integration's Git
@@ -176,12 +220,26 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	// (RFC 0004 §6.3). Without a GitHub App this stays zero and the
 	// exchange answers `github_not_configured`.
 	identitySvc.SetGitHubOIDC(bounded.ciAuth)
+	// The other thing Identity needs from a later context: which units a
+	// member whose visibility is `assigned` may see (RFC 0006 §3.3),
+	// from Workflow's assignments. Nil means they see nothing.
+	identitySvc.SetCoverage(bounded.coverage)
 	purger, err := newPurger(cfg.Purge, logger, registry, pool, bounded.purgeJobs)
 	if err != nil {
 		pool.Close()
 		return nil, err
 	}
-	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, registry, tp, logger)
+	workflowTimers, err := newWorkflowTimers(cfg.Purge, logger, registry, pool, bounded.workflowRuntime.runner)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	rolloutSweep, err := newRolloutSweep(cfg.Purge, logger, registry, pool, bounded.rolloutSweeper)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+	mcpHandler, err := newMCP(cfg.MCP, identitySvc, pool, bounded.mcpTools, audit, registry, tp, logger)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -196,9 +254,10 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	})
 	return &app{
 		cfg: cfg, logger: logger, pool: pool, server: server, dispatcher: dispatcher, aiWorker: bounded.aiWorker,
-		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger,
+		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
+		rolloutSweep:    rolloutSweep,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
-		githubChecks: bounded.githubChecks, shutdownTP: shutdownTP,
+		githubChecks: bounded.githubChecks, audit: audit, auditExports: auditExports, identity: identitySvc, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -254,11 +313,13 @@ func (a *app) run(ctx context.Context) error {
 	dispatched := a.startDispatcher(dispatchCtx, errc)
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
+	exported := a.startAuditExports(dispatchCtx)
 	purged := a.startPurger(dispatchCtx)
 	published := a.startBranchPublisher(dispatchCtx)
 	delivered := a.startGitHubInbox(dispatchCtx)
 	checked := a.startGitHubChecks(dispatchCtx)
 	a.startKeyIndexTask(dispatchCtx)
+	a.startAuditBackfill(dispatchCtx)
 
 	var runErr error
 	select {
@@ -267,21 +328,31 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published, delivered, checked))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, exported, purged, published, delivered, checked))
 }
 
 // startPurger runs the daily retention jobs until ctx ends; a run in
 // progress finishes first, bounded by its timeout, and gives its lease
 // back so the next replica isn't blocked.
+//
+// The workflow timer sweep and the rollout sweep run beside it on
+// their own schedules, and are waited for with it.
 func (a *app) startPurger(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	if a.purger == nil {
-		close(done)
-		return done
+	var wg sync.WaitGroup
+	for _, s := range []*scheduler.Scheduler{a.purger, a.workflowTimers, a.rolloutSweep} {
+		if s == nil {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = s.Run(ctx)
+		}()
 	}
 	go func() {
-		defer close(done)
-		_ = a.purger.Run(ctx)
+		wg.Wait()
+		close(done)
 	}()
 	return done
 }
@@ -417,13 +488,22 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 }
 
 func (a *app) shutdown(stopDispatch context.CancelFunc,
-	dispatched, worked, moved, purged, published, delivered, checked <-chan struct{},
+	dispatched, worked, moved, exported, purged, published, delivered, checked <-chan struct{},
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 	var errs []error
 	if err := a.server.Shutdown(ctx); err != nil {
 		errs = append(errs, err)
+	}
+	if a.identity != nil {
+		audited := make(chan struct{})
+		go func() { a.identity.WaitAudits(); close(audited) }()
+		select {
+		case <-audited:
+		case <-ctx.Done():
+			errs = append(errs, errors.New("failed sign-ins were still being audited at the shutdown timeout; those entries are lost"))
+		}
 	}
 	stopDispatch()
 	select {
@@ -440,6 +520,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc,
 	case <-moved:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("import/export workers did not stop before the shutdown timeout; their jobs resume from their last checkpoint when the lease ends"))
+	}
+	select {
+	case <-exported:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("the audit export worker did not stop before the shutdown timeout; its job is claimed again when the lease ends"))
 	}
 	select {
 	case <-purged:

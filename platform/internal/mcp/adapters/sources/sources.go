@@ -13,6 +13,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
@@ -23,6 +24,11 @@ import (
 // else is passed through: a storage failure is not a missing message,
 // and saying so would send an agent looking for a typo.
 func notFound(err error, kinds ...error) error {
+	// A project outside the token's scope is, to the agent, a project
+	// that does not exist (RFC 0006 §4.1).
+	if errors.Is(err, authz.ErrNotVisible) {
+		return tools.ErrNotFound
+	}
 	for _, kind := range kinds {
 		if errors.Is(err, kind) {
 			return tools.ErrNotFound

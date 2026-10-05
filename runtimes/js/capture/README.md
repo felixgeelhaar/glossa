@@ -1,4 +1,4 @@
-# @glossa/capture
+# @felixgeelhaar/glossa-capture
 
 Capture mode ([RFC 0004 §3.1](../../../docs/rfcs/0004-context.md)): finding
 which pixels of a page belong to which message, for screenshots in Studio's
@@ -7,9 +7,9 @@ which pixels of a page belong to which message, for screenshots in Studio's
 This package is **loaded only in a capture or editor session**. `glossa
 capture` injects it into the page it screenshots, and the overlay loader loads
 it in a preview session. Applications never import it, and nothing in
-`@glossa/runtime`, `@glossa/elements`, `@glossa/vue` or `@glossa/react`
+`@felixgeelhaar/glossa-runtime`, `@felixgeelhaar/glossa-elements`, `@felixgeelhaar/glossa-vue` or `@felixgeelhaar/glossa-react`
 imports it. That's why it is a package of its own rather than a
-`@glossa/runtime/capture` entry: a production bundle can't reach it through
+`@felixgeelhaar/glossa-runtime/capture` entry: a production bundle can't reach it through
 any import an application makes, its test tooling (Playwright, ajv, esbuild)
 stays out of the runtime, and a test (`src/bundle.test.ts`) bundles an app on
 the runtime and every component package and checks that no capture code is in
@@ -17,8 +17,8 @@ it. The runtime only has the extension point, `onRender`, which costs under
 100 bytes.
 
 ```ts
-import { startCapture } from "@glossa/capture";
-import { probe } from "@glossa/capture/probes"; // optional: the visual probe pass
+import { startCapture } from "@felixgeelhaar/glossa-capture";
+import { probe } from "@felixgeelhaar/glossa-capture/probes"; // optional: the visual probe pass
 
 const session = startCapture(runtime, { probe }); // or [runtimeA, runtimeB] for islands
 // …the page re-renders with markers and host attributes…
@@ -112,12 +112,29 @@ is what the next locale's `collect(root, { baseline })` compares against.
 so. A probe that throws costs its own finding and nothing else: it can never
 break a capture.
 
+**The thresholds are the check policy's, not this package's.** RFC 0005 §5.2
+asks for every one of them to be policy-visible, so they live in one place —
+`checkpolicy.VisualThresholds` in the platform — and `glossa capture` hands
+them to `collect()` with the capture's options: `slack` (CSS pixels of content
+over box before `text-clipped`), `overlap` (per cent of the smaller region
+before `region-overlap`), `tolerance` and `max` (the findings one capture may
+report, RFC 0005 §10). The constants in `src/probes.ts` are what a probe called
+without a driver falls back to, and nothing else; a project that changes a
+threshold changes it there and both the browser and the server follow. Every
+length is in **CSS pixels, never device pixels**, because headless Chrome's
+text metrics move with the fonts a runner happens to have.
+
+That is also why a finding this pass reports is never an error on its own. The
+platform promotes one only when the same fingerprint comes back in the next
+capture of the same (route, viewport, locale) — which is why every probe
+finding here is written at `severity: "warning"`.
+
 **The pass is given to a session, never imported by it.** `collect()` is always
 reachable on the session object, so a static `import` of `./probes.js` in
 `session.ts` would put the probes in every bundle that starts a session —
-including `@glossa/overlay`, the in-product editor served to end users, which
+including `@felixgeelhaar/glossa-overlay`, the in-product editor served to end users, which
 measures nothing. So `probe` lives behind its own entry point,
-`@glossa/capture/probes`, and is handed to `startCapture(runtimes, { probe })`.
+`@felixgeelhaar/glossa-capture/probes`, and is handed to `startCapture(runtimes, { probe })`.
 `glossa capture`'s agent passes it and pays the ~1.2 kB; a session without it
 collects regions and reports `probes: []`. `src/bundle.test.ts` asserts both
 directions, and `pnpm size` budgets a session with the pass (4 kB, RFC 0005
@@ -144,13 +161,13 @@ Vue and Go-template usage.
 
 | | |
 |---|---|
-| `startCapture(runtimes, { probe? }) → CaptureSession` | Installs the hook on one runtime or several (they share one log). `probe` comes from `@glossa/capture/probes`; without it a session reports no findings. |
+| `startCapture(runtimes, { probe? }) → CaptureSession` | Installs the hook on one runtime or several (they share one log). `probe` comes from `@felixgeelhaar/glossa-capture/probes`; without it a session reports no findings. |
 | `session.renders` | The render log: `{ id, locale, digest }`, a marker's index is a position in it. |
 | `session.errors` | What the session's runtimes put on their error channels, in order. |
-| `session.collect(root?, { baseline?, tolerance? }) → { renders, regions, probes, metrics }` | The capture script and the probe pass, over the document or a subtree. |
+| `session.collect(root?, { baseline?, tolerance?, slack?, overlap?, max? }) → { renders, regions, probes, metrics }` | The capture script and the probe pass, over the document or a subtree. The thresholds come from the check policy; each defaults to RFC 0005 §5.2's number. |
 | `session.stop()` | Removes the hooks and strips the markers left in the document. Idempotent. |
 | `collectRegions(log, root?, onHost?)` | The capture script on its own, for a log kept elsewhere. |
-| `probe(capture, hosts, ctx, options?)` (`@glossa/capture/probes`) | The probe pass on its own, over regions already collected. |
+| `probe(capture, hosts, ctx, options?)` (`@felixgeelhaar/glossa-capture/probes`) | The probe pass on its own, over regions already collected. |
 | `stripMarkers(root?)`, `strip(s)` | Remove markers from a DOM tree or a string. |
 | `mark(index, text)`, `ranges(s)`, `digest(values)` | The marker format and the values digest. |
 

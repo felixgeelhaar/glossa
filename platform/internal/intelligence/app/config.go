@@ -62,7 +62,7 @@ func (s *Service) openKey(tenant uuid.UUID, p StoredProvider) (string, error) {
 
 // CreateProvider configures a provider. Needs intelligence.manage.
 func (s *Service) CreateProvider(ctx context.Context, in ProviderInput, idemKey string) (domain.ProviderConfig, bool, error) {
-	by, err := actor(ctx, authz.IntelligenceManage)
+	by, err := tenantActor(ctx, authz.IntelligenceManage)
 	if err != nil {
 		return domain.ProviderConfig{}, false, err
 	}
@@ -149,7 +149,7 @@ func (s *Service) ListProviders(ctx context.Context, page pagination.Page) ([]do
 // provider a stored routing policy names is refused. Needs
 // intelligence.manage.
 func (s *Service) UpdateProvider(ctx context.Context, id uuid.UUID, ifMatch *int, patch ProviderPatch) (domain.ProviderConfig, error) {
-	by, err := actor(ctx, authz.IntelligenceManage)
+	by, err := tenantActor(ctx, authz.IntelligenceManage)
 	if err != nil {
 		return domain.ProviderConfig{}, err
 	}
@@ -204,7 +204,7 @@ func (s *Service) UpdateProvider(ctx context.Context, id uuid.UUID, ifMatch *int
 // DeleteProvider removes a provider no stored routing policy names.
 // Needs intelligence.manage.
 func (s *Service) DeleteProvider(ctx context.Context, id uuid.UUID) error {
-	if _, err := actor(ctx, authz.IntelligenceManage); err != nil {
+	if _, err := tenantActor(ctx, authz.IntelligenceManage); err != nil {
 		return err
 	}
 	return s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
@@ -278,7 +278,7 @@ type SettingsInput struct {
 // budget, prices). A consent change records who and when. Needs
 // intelligence.manage.
 func (s *Service) PutSettings(ctx context.Context, in SettingsInput, ifMatch *int) (domain.TenantSettings, error) {
-	by, err := actor(ctx, authz.IntelligenceManage)
+	by, err := tenantActor(ctx, authz.IntelligenceManage)
 	if err != nil {
 		return domain.TenantSettings{}, err
 	}
@@ -442,7 +442,7 @@ type ProjectSettingsInput struct {
 // GetProjectSettings returns a project's AI settings (defaults when
 // none were saved). Needs intelligence.read.
 func (s *Service) GetProjectSettings(ctx context.Context, project uuid.UUID) (domain.ProjectSettings, error) {
-	if err := authz.Require(ctx, authz.IntelligenceRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.IntelligenceRead, project); err != nil {
 		return domain.ProjectSettings{}, err
 	}
 	if _, err := s.Catalog.Project(ctx, project); err != nil {
@@ -468,7 +468,7 @@ func (s *Service) projectSettings(ctx context.Context, project uuid.UUID) (domai
 // every listed environment ships approved text (Release's eligibility
 // policies). Unsaved defaults have version 0. Needs intelligence.manage.
 func (s *Service) PutProjectSettings(ctx context.Context, project uuid.UUID, in ProjectSettingsInput, ifMatch *int) (domain.ProjectSettings, error) {
-	by, err := actor(ctx, authz.IntelligenceManage)
+	by, err := actorIn(ctx, authz.IntelligenceManage, project)
 	if err != nil {
 		return domain.ProjectSettings{}, err
 	}
@@ -563,6 +563,11 @@ func (s *Service) GetRoutingPolicy(ctx context.Context, project *uuid.UUID) (Rou
 		return RoutingView{}, err
 	}
 	if project != nil {
+		if err := authz.RequireIn(ctx, authz.IntelligenceRead, *project); err != nil {
+			return RoutingView{}, err
+		}
+	}
+	if project != nil {
 		if _, err := s.Catalog.Project(ctx, *project); err != nil {
 			return RoutingView{}, err
 		}
@@ -595,7 +600,13 @@ func routing(ctx context.Context, st Store, project *uuid.UUID) (RoutingView, er
 // policy. Every route must name a configured provider whose allow-list
 // admits the model. Needs intelligence.manage.
 func (s *Service) PutRoutingPolicy(ctx context.Context, project *uuid.UUID, policy domain.RoutingPolicy, ifMatch *int) (RoutingView, error) {
-	by, err := actor(ctx, authz.IntelligenceManage)
+	var by string
+	var err error
+	if project == nil {
+		by, err = tenantActor(ctx, authz.IntelligenceManage)
+	} else {
+		by, err = actorIn(ctx, authz.IntelligenceManage, *project)
+	}
 	if err != nil {
 		return RoutingView{}, err
 	}
@@ -645,7 +656,7 @@ func (s *Service) PutRoutingPolicy(ctx context.Context, project *uuid.UUID, poli
 // DeleteRoutingPolicy removes a project's policy: the tenant's (or the
 // default) applies again. Needs intelligence.manage.
 func (s *Service) DeleteRoutingPolicy(ctx context.Context, project uuid.UUID) error {
-	if _, err := actor(ctx, authz.IntelligenceManage); err != nil {
+	if _, err := actorIn(ctx, authz.IntelligenceManage, project); err != nil {
 		return err
 	}
 	return s.Tx.InTenant(ctx, func(ctx context.Context, st Store) error {
