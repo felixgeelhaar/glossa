@@ -27,9 +27,10 @@ name: Release platform images
 # Cut a release: bump deploy/charts/glossa-platform/Chart.yaml's
 # appVersion, then `git tag v0.4.0 && git push origin v0.4.0`.
 
+# Kiln publishes releases now (.kiln.yaml, owner decision 2026-10-05): a
+# tag no longer triggers this workflow, so the two never both publish one
+# version. It stays as a manual fallback for when no Kiln box is available.
 on:
-  push:
-    tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
       version:
