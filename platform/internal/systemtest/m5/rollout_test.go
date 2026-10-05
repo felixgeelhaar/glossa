@@ -106,7 +106,7 @@ func (s *scenario) runRuntime(rt string, in driverInput) (map[string]*string, er
 	case "js":
 		runtimeDir := filepath.Join(repoRoot(), "runtimes", "js", "runtime")
 		if _, err := os.Stat(filepath.Join(runtimeDir, "dist", "index.js")); err != nil {
-			return nil, fmt.Errorf("@glossa/runtime is not built (runtimes/js/runtime/dist): `make system-m5` builds it")
+			return nil, fmt.Errorf("@felixgeelhaar/glossa-runtime is not built (runtimes/js/runtime/dist): `make system-m5` builds it")
 		}
 		cmd = exec.Command("node", filepath.Join(here, "testdata", "rollout", "rollout.mjs"), inPath, outPath, runtimeDir)
 	case "go":
@@ -294,16 +294,17 @@ func (s *scenario) stagedRollout() {
 		return nil
 	})
 
-	var rollout string
+	var rollout, rolloutETag string
 	if !s.step(id, "start a rollout of the candidate at 10 % in project A's `production`", func() error {
 		var out struct {
 			ID string `json:"id"`
 		}
-		if _, err := s.owner.try(http.MethodPost, s.rolloutsPath(s.projectA, "production"),
-			map[string]any{"release_id": candidate.ID, "percent": 10}, http.StatusCreated, &out); err != nil {
+		h, err := s.owner.try(http.MethodPost, s.rolloutsPath(s.projectA, "production"),
+			map[string]any{"release_id": candidate.ID, "percent": 10}, http.StatusCreated, &out)
+		if err != nil {
 			return missing("starting a rollout (POST "+s.rolloutsPath(s.projectA, "production")+")", err)
 		}
-		rollout = out.ID
+		rollout, rolloutETag = out.ID, h.Get("ETag")
 		return nil
 	}) {
 		s.unreached(id, "the edge's manifest carries it", "three runtimes at 10 %, against the generator", "rollout support off",
@@ -350,8 +351,11 @@ func (s *scenario) stagedRollout() {
 		return nil
 	})
 	s.step(id, "advance to 50 %: every 10 % installation stays in the candidate", func() error {
+		// A PATCH carries the ETag it is based on (the API's
+		// optimistic-concurrency convention): the rollout's, from its
+		// start.
 		if _, err := s.owner.try(http.MethodPatch, s.rolloutPath(s.projectA, "production", rollout),
-			map[string]any{"percent": 50}, http.StatusOK, nil); err != nil {
+			map[string]any{"percent": 50}, http.StatusOK, nil, "If-Match", rolloutETag); err != nil {
 			return missing("advancing the rollout", err)
 		}
 		if ok, state := softly(15*time.Second, func() (bool, string) {

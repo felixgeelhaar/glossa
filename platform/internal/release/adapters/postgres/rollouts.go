@@ -67,8 +67,10 @@ func (s *store) ActiveRollout(ctx context.Context, project uuid.UUID, environmen
 	return rollout(row), nil
 }
 
-func (s *store) Rollouts(ctx context.Context, project uuid.UUID, environment string, limit int) ([]domain.Rollout, error) {
-	rows, err := s.q.ListRollouts(ctx, releasesql.ListRolloutsParams{ProjectID: project, Environment: environment, MaxRows: int32Of(limit)})
+func (s *store) Rollouts(ctx context.Context, project uuid.UUID, environment string, after uuid.UUID, limit int) ([]domain.Rollout, error) {
+	rows, err := s.q.ListRollouts(ctx, releasesql.ListRolloutsParams{
+		ProjectID: project, Environment: environment, After: nullID(after), MaxRows: int32Of(limit),
+	})
 	if err != nil {
 		return nil, storeError(err)
 	}

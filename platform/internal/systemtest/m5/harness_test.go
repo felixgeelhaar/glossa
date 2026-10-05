@@ -5,6 +5,7 @@ package m5_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -43,6 +44,20 @@ const bucket = "glossa-m5"
 const signingKeyID = "m5-2026"
 
 var signingSeed = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32))
+
+// auditKeyID and auditSeed sign the audit exports of §12.5: a key of
+// its own, not the release key (RFC 0006 §6.2). The harness verifies
+// with the public half it derives here, never with a key the platform
+// hands it, so a platform signing with something else fails §12.5.
+const auditKeyID = "m5-audit-2026"
+
+var auditSeed = bytes.Repeat([]byte{6}, 32)
+
+// auditPublicKey is the --public-key `glossa audit verify` trusts.
+func auditPublicKey() string {
+	pub := ed25519.NewKeyFromSeed(auditSeed).Public().(ed25519.PublicKey)
+	return auditKeyID + "=" + base64.StdEncoding.EncodeToString(pub)
+}
 
 // studioURL is where the links this server mails point. Nothing in §12
 // opens Studio; the links are followed by the test, not a browser.
@@ -169,9 +184,13 @@ func deploy(t *testing.T) *deployment {
 		"GLOSSA_MAIL_FROM":            mailFrom,
 		"GLOSSA_STUDIO_URL":           studioURL,
 		"GLOSSA_RELEASE_SIGNING_KEYS": signingKeyID + "=" + signingSeed,
-		"GLOSSA_OUTBOX_POLL_INTERVAL": "50ms",
-		"GLOSSA_OUTBOX_BATCH_SIZE":    "200",
-		"GLOSSA_AI_POLL_INTERVAL":     "100ms",
+		// §12.5 exports the run's audit range: exports on, with their
+		// own key.
+		"GLOSSA_AUDIT_EXPORTS_ENABLED": "true",
+		"GLOSSA_AUDIT_SIGNING_KEY":     auditKeyID + "=" + base64.StdEncoding.EncodeToString(auditSeed),
+		"GLOSSA_OUTBOX_POLL_INTERVAL":  "50ms",
+		"GLOSSA_OUTBOX_BATCH_SIZE":     "200",
+		"GLOSSA_AI_POLL_INTERVAL":      "100ms",
 		// §12.2 sweeps the MCP read tools as the vendor member.
 		"GLOSSA_MCP_ENABLED": "true",
 		// The fixture's AI provider is the fake on loopback
@@ -653,6 +672,30 @@ func softly(timeout time.Duration, cond func() (bool, string)) (bool, string) {
 			return false, state
 		}
 		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// staysFor is how a negative claim ("the pointer did not move", "the
+// translation is not approved yet") is checked: the condition is
+// polled for the whole window and the first violation ends it, so a
+// transient move is caught rather than slept through. A check that
+// cannot be made is an error, never a pass. The window has to cover
+// the outbox and the edge's refresh interval; it is not shortened to
+// save time, and it is never the only evidence for a positive claim.
+func staysFor(window time.Duration, violated func() (string, error)) error {
+	deadline := time.Now().Add(window)
+	for {
+		what, err := violated()
+		if err != nil {
+			return err
+		}
+		if what != "" {
+			return fmt.Errorf("%s", what)
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 

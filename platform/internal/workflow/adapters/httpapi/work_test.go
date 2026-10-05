@@ -275,3 +275,23 @@ func TestApprovalsOverTheAPI(t *testing.T) {
 	ask(f.owner, "shared.welcome", 2, reviewers).want(t, http.StatusCreated, "")
 	decide(first, pending.Id, "granted").want(t, http.StatusConflict, "approval_superseded")
 }
+
+func (f *fixture) assignmentReport(t *testing.T, ctx context.Context, p apiv1.GetAssignmentReportParams) response {
+	t.Helper()
+	resp, err := f.api.GetAssignmentReport(ctx, apiv1.GetAssignmentReportRequestObject{Tenant: f.tenant.String(), Params: p})
+	return render(t, resp, err)
+}
+
+// The report is the service's answer, so what it refuses and how it
+// fails are the service's: the HTTP layer adds the filters and the
+// problem codes (RFC 0006 §3.4).
+func TestAssignmentReportOverTheAPI(t *testing.T) {
+	f := newFixture(t, false)
+	f.assignmentReport(t, f.anonymous, apiv1.GetAssignmentReportParams{}).want(t, http.StatusUnauthorized, "unauthenticated")
+	f.assignmentReport(t, f.owner, apiv1.GetAssignmentReportParams{Vendor: apiconv.Ptr("not-a-uuid")}).want(t, http.StatusBadRequest, "invalid_query")
+	// This fixture is built without the contexts a report reads.
+	f.assignmentReport(t, f.owner, apiv1.GetAssignmentReportParams{Vendor: apiconv.Ptr(f.vendor.String())}).
+		want(t, http.StatusServiceUnavailable, "workflow_instances_unavailable")
+	assigned, _ := authztest.Assigned(context.Background(), f.tenant, &authztest.Coverage{}, "de")
+	f.assignmentReport(t, assigned, apiv1.GetAssignmentReportParams{}).want(t, http.StatusForbidden, "forbidden")
+}

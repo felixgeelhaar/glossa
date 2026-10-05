@@ -31,13 +31,16 @@ type CheckQueue interface {
 	// Wake makes the branch's checks in these repositories due again,
 	// because something the report mentions has changed.
 	Wake(ctx context.Context, repositories []int64, branch string, now time.Time) (int, error)
-	// Claim leases the oldest due check; ok is false when none is.
-	Claim(ctx context.Context, lease time.Duration) (c domain.Check, ok bool, err error)
+	// Claim leases the oldest check due at now; ok is false when none is.
+	// now is the service's clock, the one every available_at was written
+	// with, never the database's: a check made due by the app's clock and
+	// claimed by Postgres's could wait out the difference between them.
+	Claim(ctx context.Context, now time.Time, lease time.Duration) (c domain.Check, ok bool, err error)
 	// Save writes a claimed check back and releases the lease.
 	Save(ctx context.Context, c domain.Check, available time.Time) error
 	// Retry hands a claimed check back after delay, keeping what it
 	// learned.
-	Retry(ctx context.Context, c domain.Check, delay time.Duration, failure string) error
+	Retry(ctx context.Context, c domain.Check, now time.Time, delay time.Duration, failure string) error
 	// Expire makes every queued check whose head SHA was requested at or
 	// before deadline due again; the worker completes them `neutral`.
 	Expire(ctx context.Context, deadline, now time.Time) (int, error)

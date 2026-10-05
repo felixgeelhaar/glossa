@@ -78,19 +78,21 @@ WHERE repository_id = ANY (sqlc.arg(repository_ids)::bigint[])
 
 -- ClaimCheck leases the oldest due check. The row is the pull request,
 -- so claiming it is what keeps one job per pull request: two jobs can
--- never race the one sticky comment.
+-- never race the one sticky comment. "Due" and the lease are measured
+-- on the app's clock (now), the clock every available_at here is
+-- written with — never Postgres's now(), which may differ from it.
 -- name: ClaimCheck :one
 WITH due AS (
     SELECT c.id
     FROM integration_github_checks c
-    WHERE c.state = 'queued' AND c.available_at <= now()
+    WHERE c.state = 'queued' AND c.available_at <= sqlc.arg(now)::timestamptz
     ORDER BY c.available_at, c.id
     LIMIT 1
     FOR UPDATE OF c SKIP LOCKED
 )
 UPDATE integration_github_checks e
 SET attempts     = e.attempts + 1,
-    available_at = now() + make_interval(secs => sqlc.arg(lease_seconds)::float8),
+    available_at = sqlc.arg(now)::timestamptz + make_interval(secs => sqlc.arg(lease_seconds)::float8),
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
@@ -117,7 +119,7 @@ WHERE id = sqlc.arg(id) AND claim_token = sqlc.arg(claim_token)::uuid;
 -- everything it learned.
 -- name: RetryCheck :execrows
 UPDATE integration_github_checks
-SET available_at = now() + make_interval(secs => sqlc.arg(delay_seconds)::float8),
+SET available_at = sqlc.arg(now)::timestamptz + make_interval(secs => sqlc.arg(delay_seconds)::float8),
     failure      = sqlc.arg(failure),
     claim_token  = NULL,
     updated_at   = sqlc.arg(now)

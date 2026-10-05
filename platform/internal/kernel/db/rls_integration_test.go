@@ -45,7 +45,9 @@ var systemTables = map[string]string{
 	"identity_passkeys":            "a person's passkeys, checked at sign-in",
 	"identity_webauthn_ceremonies": "passkey challenges in flight, before the tenant is known",
 	"identity_login_attempts":      "brute-force counters per email, checked at sign-in",
-	"system_leases":                "which replica leads a periodic job, and when it last ran; a deployment's own bookkeeping, never a tenant's",
+	"identity_device_authorizations": "a device signing a person in (RFC 0006 §7.2) asks and polls before any tenant is known, " +
+		"and the session it receives spans all the person's tenants",
+	"system_leases": "which replica leads a periodic job, and when it last ran; a deployment's own bookkeeping, never a tenant's",
 }
 
 // systemPolicies are the only policies allowed to target a role other
@@ -66,6 +68,9 @@ var systemPolicies = map[string][]string{
 	// retention sweep deletes expired files, across tenants (system
 	// scope integration.jobs).
 	"integration_jobs": {"integration_jobs_system_select", "integration_jobs_system_update"},
+	// The audit export workers claim jobs and the retention sweep finds
+	// expired exports across tenants (migration 0053).
+	"audit_export_jobs": {"audit_export_jobs_system_select", "audit_export_jobs_system_update"},
 	// The GitHub webhook inbox (system scope integration.github,
 	// RFC 0004 §6.2). A delivery is stored before any tenant is known —
 	// GitHub signs it, the tenant follows from the installation — so the
@@ -124,6 +129,11 @@ var systemPolicies = map[string][]string{
 	// §2.3): the tenant, the status and the timer columns only,
 	// read-only. Raising each timer runs in the tenant's own scope.
 	"workflow_instances": {"workflow_instances_system_select"},
+	// The same sweep counts the live assignments for
+	// glossa_assignments_open{overdue} (RFC 0006 §10.1, migration 0055):
+	// the state and the due date only, read-only. No assignee, no
+	// project, no unit.
+	"workflow_assignments": {"workflow_assignments_system_select"},
 	// Resolving a bearer token's tenant by hash; bumping last_used_at.
 	"identity_api_tokens": {"identity_api_tokens_system_select", "identity_api_tokens_system_touch"},
 	// A CORS preflight carries no credentials, so "is this a registered
@@ -154,13 +164,14 @@ var systemPolicies = map[string][]string{
 	// may act on and nothing about anyone else's.
 	"integration_git_connections": {"integration_git_connections_system_select"},
 	// Identity's global tables are system scope only (see systemTables).
-	"identity_people":              {"identity_people_system"},
-	"identity_sessions":            {"identity_sessions_system"},
-	"identity_email_links":         {"identity_email_links_system"},
-	"identity_totp":                {"identity_totp_system"},
-	"identity_passkeys":            {"identity_passkeys_system"},
-	"identity_webauthn_ceremonies": {"identity_webauthn_ceremonies_system"},
-	"identity_login_attempts":      {"identity_login_attempts_system"},
+	"identity_people":                {"identity_people_system"},
+	"identity_sessions":              {"identity_sessions_system"},
+	"identity_email_links":           {"identity_email_links_system"},
+	"identity_totp":                  {"identity_totp_system"},
+	"identity_passkeys":              {"identity_passkeys_system"},
+	"identity_webauthn_ceremonies":   {"identity_webauthn_ceremonies_system"},
+	"identity_login_attempts":        {"identity_login_attempts_system"},
+	"identity_device_authorizations": {"identity_device_authorizations_system"},
 }
 
 type tableSecurity struct {

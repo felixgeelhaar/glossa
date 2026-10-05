@@ -6,7 +6,10 @@
  * shows per locale what changes compared with what the target serves.
  */
 import { computed, ref, watch } from "vue";
-import type { ProjectRef, ReleasesPort } from "../../api/releases";
+import { RouterLink } from "vue-router";
+import { isHeld, type ProjectRef, type ReleasesPort } from "../../api/releases";
+import type { ReleaseHeld } from "../../api/release-ops-schemas";
+import { partyText } from "../../lib/release-ops";
 import type { Release, ReleaseDiff } from "../../api/schemas";
 import { covers, uncovered } from "../../lib/releases";
 import { strings } from "../../strings";
@@ -25,6 +28,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; done: [message: string] }>();
 const s = strings.releases;
+const ro = strings.releaseOps;
+/** Into an environment that requires approval: a release request, nothing deployed (RFC 0006 §5.1). */
+const held = ref<ReleaseHeld>();
 
 const releaseId = ref("");
 const envName = ref("");
@@ -39,6 +45,7 @@ watch(
     releaseId.value = props.releaseId ?? "";
     envName.value = props.environment ?? "";
     error.value = null;
+    held.value = undefined;
   },
   { immediate: true },
 );
@@ -89,8 +96,9 @@ async function promote(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    await props.port.promote(props.project, t.name, r.id);
-    emit("done", s.promoted(s.version(r.version), t.name));
+    const moved = await props.port.promote(props.project, t.name, r.id);
+    if (isHeld(moved)) held.value = moved;
+    else emit("done", s.promoted(s.version(r.version), t.name));
   } catch (e) {
     error.value = e;
   } finally {
@@ -101,6 +109,16 @@ async function promote(): Promise<void> {
 
 <template>
   <ModalDialog :open="open" :title="s.promoteTitle" wide @close="emit('close')">
+    <div v-if="held" class="alert alert-warn stack-sm" role="status" data-testid="promote-held">
+      <p class="alert-title">{{ ro.heldTitle }}</p>
+      <p>{{ ro.held(held.release_request.environment, held.release_request.approval.n, partyText(held.release_request.approval.from)) }}</p>
+      <p>
+        <RouterLink :to="{ name: 'release-request', params: { tenant: project.tenant, project: project.project, request: held.release_request_id } }" data-testid="held-link">
+          {{ ro.openRequest }}
+        </RouterLink>
+      </p>
+    </div>
+    <template v-else>
     <form id="promote-form" class="row fields" @submit.prevent="promote">
       <div class="field">
         <label for="prm-release">{{ s.release }}</label>
@@ -147,12 +165,16 @@ async function promote(): Promise<void> {
         <p class="muted">{{ s.pointerOnly }}</p>
       </template>
     </section>
+    </template>
     <ErrorAlert :error="error" />
     <template #actions>
-      <button type="button" class="btn" :disabled="busy" @click="emit('close')">{{ strings.app.cancel }}</button>
-      <button type="submit" form="promote-form" class="btn btn-primary" :disabled="busy || verdict.kind !== 'ok'">
-        {{ release && target ? s.promoteConfirm(s.version(release.version), target.name) : s.promote }}
-      </button>
+      <button v-if="held" type="button" class="btn btn-primary" @click="emit('done', ro.heldStatus(held.release_request.environment))">{{ s.done }}</button>
+      <template v-else>
+        <button type="button" class="btn" :disabled="busy" @click="emit('close')">{{ strings.app.cancel }}</button>
+        <button type="submit" form="promote-form" class="btn btn-primary" :disabled="busy || verdict.kind !== 'ok'">
+          {{ release && target ? s.promoteConfirm(s.version(release.version), target.name) : s.promote }}
+        </button>
+      </template>
     </template>
   </ModalDialog>
 </template>

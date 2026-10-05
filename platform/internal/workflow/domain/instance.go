@@ -2,7 +2,9 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +48,61 @@ type Instance struct {
 
 // Started reports whether the instance has entered its chart.
 func (i Instance) Started() bool { return i.State != NotStarted }
+
+// Rebase errors (RFC 0006 §2.3): moving a running instance to a newer
+// version of its definition is explicit, and refused for any instance
+// whose state the new version lacks.
+var (
+	// ErrInstanceFinished is a rebase of an instance that has finished:
+	// nothing is left to run on another version.
+	ErrInstanceFinished = errors.New("workflow: the instance has finished")
+	// ErrRebaseNotNewer is a rebase onto the version the instance runs
+	// on, or an older one. A rebase only moves forward; the way back is
+	// saving the older document again as the next version.
+	ErrRebaseNotNewer = errors.New("workflow: a rebase moves an instance to a newer version")
+	// ErrRebaseStateMissing is a rebase onto a version whose chart has
+	// no state of the instance's state's name that an instance can wait
+	// in (an atomic one).
+	ErrRebaseStateMissing = errors.New("workflow: the target version has no such state")
+	// ErrRebaseStateFinal is a rebase onto a version in which the
+	// instance's state is final: the instance would be active in a state
+	// that never moves, and would never finish.
+	ErrRebaseStateFinal = errors.New("workflow: the state is final in the target version")
+)
+
+// Rebase moves the instance onto version of target — a newer version of
+// the same definition — keeping its state by name. It returns the
+// instance as rebased and the snapshot to store: nil for an instance
+// that has not started, which the next event starts on target.
+//
+// A rebase changes what happens next, never what already happened: the
+// state's entry actions are not run again, so the assignments and
+// approvals they asked for stand and nothing is asked twice; and a
+// pending timer keeps its due date, because the state that set it is
+// the state the instance stays in.
+func (i Instance) Rebase(target *Definition, version int, now time.Time) (Instance, json.RawMessage, error) {
+	if i.Status != StatusActive {
+		return Instance{}, nil, ErrInstanceFinished
+	}
+	if version <= i.Version {
+		return Instance{}, nil, fmt.Errorf("%w: it runs on version %d, and %d is not newer", ErrRebaseNotNewer, i.Version, version)
+	}
+	var snapshot json.RawMessage
+	if i.Started() {
+		s := target.machine.GetState(statekit.StateID(i.State))
+		switch {
+		case s != nil && s.IsFinal():
+			return Instance{}, nil, fmt.Errorf("%w: %q is final in version %d", ErrRebaseStateFinal, i.State, version)
+		case s == nil || !s.IsAtomic():
+			return Instance{}, nil, fmt.Errorf("%w: version %d has no state %q to wait in (its states: %s)",
+				ErrRebaseStateMissing, version, i.State, strings.Join(target.States(), ", "))
+		}
+		snapshot = target.Snapshot(i.State)
+	}
+	out := i
+	out.Version, out.UpdatedAt = version, now
+	return out, snapshot, nil
+}
 
 // Timer is when timer.due and timer.overdue fall due for an instance,
 // and the state that set them (RFC 0006 §2.3: a stored due_at, never a

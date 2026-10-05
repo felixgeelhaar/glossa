@@ -15,7 +15,7 @@ import (
 var pinnedPermissions = []string{
 	"approvals.decide",
 	"assignments.manage", "assignments.read",
-	"audit.export", "audit.read",
+	"audit.export", "audit.import", "audit.read",
 	"catalog.read", "catalog.write",
 	"integration.import", "integration.manage", "integration.read",
 	"intelligence.manage", "intelligence.read", "intelligence.translate",
@@ -37,7 +37,7 @@ var pinnedPermissions = []string{
 // Changing a row is a product decision, not a refactor.
 var pinnedRoleMatrix = map[string][]string{
 	"owner": {
-		"approvals.decide", "assignments.manage", "assignments.read", "audit.export", "audit.read",
+		"approvals.decide", "assignments.manage", "assignments.read", "audit.export", "audit.import", "audit.read",
 		"catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read",
 		"intelligence.manage", "intelligence.read", "intelligence.translate", "knowledge.read", "knowledge.write",
 		"members.manage", "members.read", "owners.manage", "releases.publish", "releases.read",
@@ -45,8 +45,8 @@ var pinnedRoleMatrix = map[string][]string{
 		"translations.read", "translations.review", "translations.write",
 		"vendors.manage", "workflows.manage", "workflows.read",
 	},
-	// admin: everything but owners and the audit export, which only an
-	// owner holds by default (§4.2).
+	// admin: everything but owners, the audit export and the audit
+	// import, which only an owner holds by default (§4.2, §7.2).
 	"admin": {
 		"approvals.decide", "assignments.manage", "assignments.read", "audit.read",
 		"catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read",

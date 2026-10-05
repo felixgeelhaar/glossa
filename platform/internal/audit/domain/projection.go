@@ -55,6 +55,7 @@ var (
 		Selectors: []string{"vendor_id", "locales", "created_by", "changed_by", "deleted_by"},
 	}
 	identityGroup  = Projection{Selectors: []string{"group_id", "member_id", "by"}, By: "by"}
+	identityDevice = Projection{Selectors: []string{"authorization_id", "person_id", "status", "by"}, By: "by"}
 	integrationJob = Projection{
 		// The payload's by is the job's requester; the event's actor is
 		// whoever ended it (often the worker), so by is not taken.
@@ -162,6 +163,15 @@ var (
 		By: "by",
 	}
 	workflowTimer = Projection{Project: "project_id", Selectors: []string{"instance_id", "project_id", "state"}}
+	// A rebase (RFC 0006 §2.3): which instance moved between which
+	// versions of which definition, and the state it kept — a name in
+	// the definition, like a timer's.
+	workflowRebase = Projection{
+		Project: "project_id", Locale: "locale",
+		Selectors: []string{
+			"instance_id", "project_id", "definition_id", "subject_kind", "locale", "from_version", "to_version", "state",
+		},
+	}
 )
 
 var Projections = map[string]Projection{
@@ -173,6 +183,7 @@ var Projections = map[string]Projection{
 	"workflow.approval.requested": workflowApproval, "workflow.approval.granted": workflowApproval,
 	"workflow.approval.denied":    workflowApproval,
 	"workflow.instance.timer_due": workflowTimer, "workflow.instance.timer_overdue": workflowTimer,
+	"workflow.instance.rebased": workflowRebase,
 
 	"catalog.project.created": catalogProject, "catalog.project.updated": catalogProject,
 	"catalog.project.deleted": catalogProject,
@@ -223,8 +234,20 @@ var Projections = map[string]Projection{
 	"identity.group.created":  identityGroup, "identity.group.renamed": identityGroup,
 	"identity.group.deleted": identityGroup, "identity.group.member_added": identityGroup,
 	"identity.group.member_removed": identityGroup,
+	// Device sign-in (RFC 0006 §7.2): the authorization, the person and
+	// the outcome. The name the device gave itself is whatever it sent,
+	// so it is recorded as its length.
+	"identity.device_authorization.approved": identityDevice, "identity.device_authorization.denied": identityDevice,
+	"identity.device_authorization.redeemed": identityDevice,
 
 	"integration.import.completed": integrationJob, "integration.export.completed": integrationJob,
+
+	// Audit exports are recorded in the trail they export (RFC 0006
+	// §6.1). Their payloads are identifiers, the range and the outcome.
+	// The request's by is its actor; the completion's actor is the
+	// exporter, and its by the requester, so by is not taken there.
+	EventExportRequested: withBy(auditExport, "by"),
+	EventExportCompleted: auditExport,
 
 	"knowledge.concept.created": knowledgeConcept, "knowledge.concept.updated": knowledgeConcept,
 	"knowledge.concept.deleted":     knowledgeConcept,
@@ -270,6 +293,11 @@ var (
 	}
 	catalogApplication = Projection{
 		Project: "project_id", Selectors: []string{"application_id", "project_id", "slug", "platform", "by"}, By: "by",
+	}
+	auditExport = Projection{
+		Selectors: []string{
+			"job_id", "state", "from", "to", "first_sequence", "last_sequence", "entry_count", "key_id", "failure_code", "by",
+		},
 	}
 )
 

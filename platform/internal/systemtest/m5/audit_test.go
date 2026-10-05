@@ -5,6 +5,8 @@ package m5_test
 import (
 	"bufio"
 	"bytes"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,7 +37,7 @@ type auditEntry struct {
 	Action        string    `json:"action"`
 	AggregateType string    `json:"aggregate_type"`
 	AggregateID   string    `json:"aggregate_id"`
-	Project       string    `json:"project"`
+	Project       string    `json:"project_id"`
 	PrevHash      string    `json:"prev_hash"`
 	Hash          string    `json:"hash"`
 }
@@ -62,6 +64,36 @@ func (s *scenario) auditExport() {
 		return nil
 	})
 
+	// The deployment publishes the audit key's public half for offline
+	// verification (RFC 0006 §6.2, amended in wave 4). The verify steps
+	// below trust the key the harness configured, not this document.
+	s.step(id, "the audit public keys are published at "+auditKeysPath, func() error {
+		st, body, err := s.owner.get(auditKeysPath)
+		if err != nil || st != http.StatusOK {
+			return missing("reading the audit public keys (GET "+auditKeysPath+")", fmt.Errorf("status %d: %v", st, err))
+		}
+		var doc struct {
+			Format string `json:"format"`
+			Keys   []struct {
+				KeyID     string `json:"key_id"`
+				Algorithm string `json:"algorithm"`
+				PublicKey string `json:"public_key"`
+				Active    bool   `json:"active"`
+			} `json:"keys"`
+		}
+		if err := json.Unmarshal(body, &doc); err != nil || doc.Format != "glossa.audit.keys/1" {
+			return fmt.Errorf("%s is not a glossa.audit.keys/1 document: %v: %s", auditKeysPath, err, body)
+		}
+		want := ed25519.NewKeyFromSeed(auditSeed).Public().(ed25519.PublicKey)
+		for _, k := range doc.Keys {
+			raw, _ := base64.RawURLEncoding.DecodeString(k.PublicKey)
+			if k.KeyID == auditKeyID && k.Active && k.Algorithm == "Ed25519" && want.Equal(ed25519.PublicKey(raw)) {
+				return nil
+			}
+		}
+		return fmt.Errorf("%s does not publish the configured audit key %s as active: %s", auditKeysPath, auditKeyID, body)
+	})
+
 	dir := filepath.Join(s.t.TempDir(), "audit-export")
 	exported := s.step(id, "export the run's range as an audit export job", func() error {
 		return s.exportAudit(dir, started)
@@ -74,7 +106,7 @@ func (s *scenario) auditExport() {
 		verifyDir = s.t.TempDir()
 	}
 	s.step(id, "`glossa audit verify` passes on the export, offline", func() error {
-		res := glossa(s.t.TempDir(), map[string]string{}, append(cliAuditVerify, verifyDir)...)
+		res := glossa(s.t.TempDir(), map[string]string{}, append(cliAuditVerify, verifyDir, "--public-key", auditPublicKey())...)
 		if res.code != 0 {
 			if !exported {
 				return fmt.Errorf("there is no export to verify, and `glossa audit verify` exits %d: %s", res.code, res.String())
@@ -114,8 +146,14 @@ func (s *scenario) auditExport() {
 		if err := alterOneByte(tampered); err != nil {
 			return err
 		}
-		if res := glossa(s.t.TempDir(), map[string]string{}, append(cliAuditVerify, tampered)...); res.code == 0 {
+		res := glossa(s.t.TempDir(), map[string]string{}, append(cliAuditVerify, tampered, "--public-key", auditPublicKey())...)
+		if res.code == 0 {
 			return fmt.Errorf("a tampered export verifies")
+		}
+		// 1 is "does not verify"; anything else (a usage error) would
+		// pass this step without the chain having been checked.
+		if res.code != 1 {
+			return fmt.Errorf("`glossa audit verify` on a tampered export exits %d, not 1: %s", res.code, res.String())
 		}
 		return nil
 	})
@@ -138,19 +176,25 @@ func (s *scenario) exportAudit(dir string, from time.Time) error {
 	// The range starts at the fixture: every call of §12.1–§12.4 is in
 	// it. 31 days is §9.6's limit; this is minutes.
 	var job struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+		ID    string `json:"id"`
+		State string `json:"state"`
+		// FailureCode and FailureMessage say why a job failed.
+		FailureCode    string `json:"failure_code"`
+		FailureMessage string `json:"failure_message"`
 	}
 	if _, err := s.owner.try(http.MethodPost, s.auditExportJobsPath(), map[string]any{
 		"from": from.Add(-time.Hour).UTC().Format(time.RFC3339), "to": time.Now().Add(time.Minute).UTC().Format(time.RFC3339),
-	}, http.StatusAccepted, &job); err != nil {
+	}, http.StatusCreated, &job); err != nil {
 		return missing("starting an audit export job (POST "+s.auditExportJobsPath()+")", err)
 	}
 	ok, state := softly(60*time.Second, func() (bool, string) {
 		if _, err := s.owner.try(http.MethodGet, s.auditExportJob(job.ID), nil, http.StatusOK, &job); err != nil {
 			return false, err.Error()
 		}
-		return job.Status == "succeeded", job.Status
+		if job.State == "failed" {
+			return false, fmt.Sprintf("failed: %s: %s", job.FailureCode, job.FailureMessage)
+		}
+		return job.State == "succeeded", job.State
 	})
 	if !ok {
 		return fmt.Errorf("the export job never succeeded: %s", state)

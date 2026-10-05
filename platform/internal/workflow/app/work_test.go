@@ -59,6 +59,16 @@ func (f *fakeWork) InsertAssignment(_ context.Context, a domain.Assignment) erro
 	return nil
 }
 
+func (f *fakeWork) LiveAssignmentsOf(_ context.Context, assignee domain.Assignee) (int, error) {
+	n := 0
+	for _, a := range f.assignments {
+		if a.Assignee == assignee && a.State.Live() {
+			n++
+		}
+	}
+	return n, nil
+}
+
 func (f *fakeWork) GetAssignment(_ context.Context, id uuid.UUID) (domain.Assignment, error) {
 	a, ok := f.assignments[id]
 	if !ok {

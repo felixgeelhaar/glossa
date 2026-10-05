@@ -24,10 +24,13 @@ var notProjectAddressed = map[string]string{
 	"audit.Service.Backfill":       background,
 	"audit.Service.HandleEvent":    background,
 	"audit.Service.Subscribe":      wiring,
+	"audit.Service.Metrics":        "returns the recorder wired at startup; it reads no data",
 	"audit.Service.RecordSignIn":   "records a sign-in, before any tenant's project is in play, as the system; it reads nothing back",
 	"audit.Service.RecordToolCall": "records an MCP call after the tool's own application service checked the project; it reads nothing back",
 	"audit.Service.Verify": "the tenant's hash chain, which belongs to no project; reached by no route until RFC 0006 " +
 		"wave 5's audit API, which must gate it with audit.read and RequireUnscoped",
+	"audit.Service.ExportKeys": noData + ": the deployment's audit key set, whose public half is published to anyone " +
+		"(/.well-known/glossa-audit-keys.json) and whose private half only the export jobs sign with",
 
 	"identity.Service.WaitAudits": "waits for in-flight sign-in audit writes at shutdown; reads no tenant data",
 
@@ -95,6 +98,13 @@ var notProjectAddressed = map[string]string{
 	"identity.Service.ResetPassword":              signIn,
 	"identity.Service.RestrictMember":             tenantWide,
 	"identity.Service.RevokeToken":                tenantWide,
+	"identity.Service.StartDeviceAuthorization":   signIn,
+	"identity.Service.RedeemDeviceAuthorization":  signIn,
+	"identity.Service.AuthenticateDeviceSession":  signIn,
+	"identity.Service.SignOutDevice":              signIn,
+	"identity.Service.DeviceSignInEnabled":        noData,
+	"identity.Service.DeviceAuthorizationFor":     "the person looks up the code they are about to decide; a code belongs to no tenant or project, and it is cut to the one person's browser session",
+	"identity.Service.DecideDeviceAuthorization":  "a person approves or denies a code as themselves; the session it creates is theirs and is cut to their own memberships when used, so no project is in play here",
 	"identity.Service.SessionLifetime":            noData,
 	"identity.Service.SetCoverage":                wiring,
 	"identity.Service.SetGitHubOIDC":              wiring,

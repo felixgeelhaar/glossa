@@ -133,6 +133,35 @@ func TestKnowledgeRestrictions(t *testing.T) {
 			_, err := h.svc.RecognizeTerms(vendor, app.TermQuery{ProjectID: &a, Text: "pay", Locale: en, TargetLocale: &fr})
 			return err
 		}, "not found"},
+		{"assigned: TM matches of a covered unit", func() error {
+			r, err := h.svc.UnitTMMatches(vendor, app.UnitTMQuery{Project: a, Key: "pay", Locale: de})
+			for _, m := range r.Matches {
+				if m.Unit.ID != uuid.Nil || m.MessageKey != "" {
+					return errors.New("a vendor's match names its unit")
+				}
+			}
+			return err
+		}, "ok"},
+		{"assigned: TM matches of the message in another locale", func() error {
+			_, err := h.svc.UnitTMMatches(vendor, app.UnitTMQuery{Project: a, Key: "pay", Locale: fr})
+			return err
+		}, "not found"},
+		{"assigned: TM matches of an uncovered message", func() error {
+			_, err := h.svc.UnitTMMatches(vendor, app.UnitTMQuery{Project: a, Key: "cancel", Locale: de})
+			return err
+		}, "not found"},
+		{"assigned: TM matches in another project", func() error {
+			_, err := h.svc.UnitTMMatches(vendor, app.UnitTMQuery{Project: b, Key: "other", Locale: de})
+			return err
+		}, "not found"},
+		{"scoped: TM matches of a unit in another project", func() error {
+			_, err := h.svc.UnitTMMatches(scoped, app.UnitTMQuery{Project: b, Key: "other", Locale: de})
+			return err
+		}, "not found"},
+		{"scoped: TM matches of a unit in its project", func() error {
+			_, err := h.svc.UnitTMMatches(scoped, app.UnitTMQuery{Project: a, Key: "pay", Locale: de})
+			return err
+		}, "ok"},
 		{"assigned: TM lookup", func() error {
 			_, err := h.svc.LookupTM(vendor, app.TMQuery{ProjectID: &a, SourceLocale: en, TargetLocale: de, Source: source})
 			return err

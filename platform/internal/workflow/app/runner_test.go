@@ -475,6 +475,9 @@ type memStore struct {
 	snapshots   map[uuid.UUID][]byte
 	transitions map[uuid.UUID][]app.Transition
 	versions    map[uuid.UUID]domain.Version
+	// later are a definition's versions after the one in versions, by
+	// number (rebase tests).
+	later map[uuid.UUID]map[int]domain.Version
 	// definitions are the tenant-wide definitions by name.
 	definitions map[string]domain.DefinitionRecord
 	published   []outbox.Event
@@ -484,7 +487,7 @@ type memStore struct {
 func newMemStore() *memStore {
 	return &memStore{instances: map[uuid.UUID]domain.Instance{}, snapshots: map[uuid.UUID][]byte{},
 		transitions: map[uuid.UUID][]app.Transition{}, versions: map[uuid.UUID]domain.Version{},
-		definitions: map[string]domain.DefinitionRecord{}}
+		definitions: map[string]domain.DefinitionRecord{}, later: map[uuid.UUID]map[int]domain.Version{}}
 }
 
 func (m *memStore) InTenant(ctx context.Context, fn func(context.Context, app.InstanceStore) error) error {
@@ -582,11 +585,46 @@ func (t *memTx) AppendTransition(_ context.Context, instance uuid.UUID, tr app.T
 }
 
 func (t *memTx) Version(_ context.Context, definition uuid.UUID, n int) (domain.Version, error) {
+	if v, ok := t.m.later[definition][n]; ok {
+		return v, nil
+	}
 	v, ok := t.m.versions[definition]
 	if !ok || v.Number != n {
 		return domain.Version{}, app.ErrNotFound
 	}
 	return v, nil
+}
+
+func (t *memTx) LatestVersion(_ context.Context, definition uuid.UUID) (int, error) {
+	v, ok := t.m.versions[definition]
+	if !ok {
+		return 0, app.ErrNotFound
+	}
+	latest := v.Number
+	for n := range t.m.later[definition] {
+		latest = max(latest, n)
+	}
+	return latest, nil
+}
+
+func (t *memTx) RebaseInstance(_ context.Context, i domain.Instance, snapshot []byte) error {
+	if cur, ok := t.instances[i.ID]; !ok || cur.Status != domain.StatusActive {
+		return app.ErrNotFound
+	}
+	t.instances[i.ID], t.snapshots[i.ID] = i, snapshot
+	return nil
+}
+
+func (t *memTx) DeleteFinished(_ context.Context, cutoff time.Time, limit int) (int, error) {
+	n := 0
+	for id, i := range t.instances {
+		if n < limit && i.Status == domain.StatusFinished && i.FinishedAt != nil && i.FinishedAt.Before(cutoff) {
+			delete(t.instances, id)
+			delete(t.transitions, id)
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (t *memTx) LockDueTimers(_ context.Context, now time.Time, _ int) ([]domain.Instance, error) {

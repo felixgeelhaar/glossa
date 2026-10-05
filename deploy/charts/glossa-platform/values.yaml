@@ -101,6 +101,12 @@ server:
     jitter: 0.2
     # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
     batchSize: 100
+  # Workflow (RFC 0006 §2.5): a finished instance keeps its transition log
+  # this long; the daily workflow.retention job (one of the purge jobs
+  # above) then deletes it. Running instances are never deleted.
+  workflow:
+    # -- GLOSSA_WORKFLOW_INSTANCE_RETENTION: at least 24h.
+    instanceRetention: 4320h
   context:
     # -- GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES: capture images one tenant may keep in
     # object storage (2 GiB). A capture upload whose new pixels would pass it is
@@ -488,6 +494,22 @@ release:
     secretName: ""
     secretKey: GLOSSA_RELEASE_SIGNING_KEYS
   # -- GLOSSA_RELEASE_RETIRED_KEYS: keyId=base64(public key),… (public, not secret).
+  retiredKeys: ""
+
+## Audit exports (RFC 0006 §6.2) are signed with their own key — never the
+## release key. Off until a key is configured; enabling them without one
+## fails to render (and the server would refuse to start).
+audit:
+  exports:
+    # -- GLOSSA_AUDIT_EXPORTS_ENABLED.
+    enabled: false
+  signingKey:
+    # -- Secret holding GLOSSA_AUDIT_SIGNING_KEY (exactly one keyId=base64 seed).
+    # Required when audit.exports.enabled.
+    secretName: ""
+    secretKey: GLOSSA_AUDIT_SIGNING_KEY
+  # -- GLOSSA_AUDIT_RETIRED_KEYS: keyId=base64(public key),… older exports
+  # still verify with (public, not secret).
   retiredKeys: ""
 
 ## Optional. With no SMTP server configured the chart sets none of the

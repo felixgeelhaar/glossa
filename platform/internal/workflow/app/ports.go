@@ -25,7 +25,9 @@ var (
 	// already taken in its scope, or a binding whose selector another
 	// binding already has.
 	ErrConflict = errors.New("workflow: conflict")
-	// ErrLimit is a tenant at its limit of live definitions (§9.6).
+	// ErrLimit is a count limit of RFC 0006 §9.6 reached: a tenant at
+	// its limit of live definitions, or an assignee at its limit of open
+	// assignments.
 	ErrLimit = errors.New("workflow: limit reached")
 	// ErrOutOfScope is a project-scoped definition bound to another
 	// project.

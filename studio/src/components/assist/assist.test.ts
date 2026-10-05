@@ -17,7 +17,7 @@ import { TERM_CHECK_DELAY_MS, useTerminology } from "./useTerminology";
 const NOW = "2026-09-19T08:00:00Z";
 const message: Message = {
   id: "m1",
-  key: "workspace.create",
+  key: "greeting",
   namespace: "default",
   description: "",
   state: "active",
@@ -141,13 +141,42 @@ describe("SuggestionPanel", () => {
   });
 });
 
+describe("SuggestionPanel for an assigned member", () => {
+  it("shows the text and why, hides provenance and cost, and inserts into the draft", async () => {
+    const i = createFakeIntelligence();
+    i.state.assigned = true;
+    i.state.suggestions.push(suggestion());
+    const w = withPorts(SuggestionPanel, { tenant: "t", projectId: "p", message, target: de, grant: grantFor({ roles: ["translator"], locales: ["de"] }), canInsert: true }, { i });
+    await flushPromises();
+    expect(i.calls.map((c) => c[0])).toEqual(["unitSuggestions"]);
+    expect(w.get("[data-testid=suggestion-text]").text()).toBe("Hallo, {$name}!");
+    expect(w.get("[data-testid=confidence-score]").text()).toBe("score 0.62");
+    expect(w.find("[data-testid=provenance]").exists()).toBe(false);
+    expect(w.text()).not.toContain("anthropic");
+    expect(w.text()).not.toContain("$0.0021");
+    expect(w.findAll("button").map((b) => b.text())).toEqual(["Insert"]);
+    await w.get("[data-testid=suggestion-insert]").trigger("click");
+    expect(w.emitted("insert")).toEqual([[{ text: "Hallo, {$name}!", syntax: "mf2" }]]);
+  });
+
+  it("is empty for a unit with no suggestion", async () => {
+    const i = createFakeIntelligence();
+    i.state.assigned = true;
+    const w = withPorts(SuggestionPanel, { tenant: "t", projectId: "p", message, target: de, grant: grantFor({ roles: ["translator"], locales: ["de"] }) }, { i });
+    await flushPromises();
+    expect(w.text()).toContain("No AI suggestion for this message yet.");
+  });
+});
+
 describe("TmMatches", () => {
   it("shows the score, how the remembered source differs, and inserts the target", async () => {
     const k = createFakeKnowledge();
     k.remember("Create a workspace", "Einen Arbeitsbereich erstellen", { message_key: "workspace.old" }, "Einen Arbeitsbereich erstellen");
+    k.sources.set("greeting", "Create a new workspace");
     const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
     await flushPromises();
-    expect(k.calls[0]).toEqual(["lookupTM", expect.objectContaining({ source: "Create a new workspace", syntax: "mf1", target_syntax: "mf1", count_hits: false, project_id: "p" })]);
+    // The unit's own read: the key and locale, not the tenant's search.
+    expect(k.calls[0]).toEqual(["unitTMMatches", "greeting", "de", expect.objectContaining({ target_syntax: "mf1" })]);
     const m = w.get("[data-testid=tm-match]");
     expect(Number(m.get("[data-testid=tm-score]").text())).toBeGreaterThan(50);
     expect(m.text()).toContain("Fuzzy match");
@@ -167,6 +196,7 @@ describe("TmMatches", () => {
     // Markup: MF2 only, so the MF1 lookup falls back to MF2.
     k.remember("Create a new workspace", "Einen {#b}neuen{/b} Arbeitsbereich erstellen");
     k.remember("Create a workspace", "{$n} Arbeitsbereich erstellen", {}, "{n} Arbeitsbereich erstellen");
+    k.sources.set("greeting", "Create a new workspace");
     const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
     await flushPromises();
     const [exact, fuzzy] = w.findAll("[data-testid=tm-match]");
@@ -180,9 +210,33 @@ describe("TmMatches", () => {
     const props: Record<string, unknown> = { targetSyntax: "mf2" };
     await w.setProps(props);
     await flushPromises();
-    expect(k.calls.filter((c) => c[0] === "lookupTM").at(-1)![1]).toMatchObject({ target_syntax: "mf2" });
+    expect(k.calls.filter((c) => c[0] === "unitTMMatches").at(-1)![3]).toMatchObject({ target_syntax: "mf2" });
     expect(w.findAll("[data-testid=tm-match]")[1]!.get(".target").text()).toBe("{$n} Arbeitsbereich erstellen");
     expect(w.find("[data-testid=tm-fallback]").exists()).toBe(false);
+  });
+});
+
+describe("TmMatches for an assigned member", () => {
+  it("shows text and score without naming where a match came from", async () => {
+    const k = createFakeKnowledge();
+    k.remember("Create a workspace", "Einen Arbeitsbereich erstellen", { message_key: "workspace.secret", project_id: "p" }, "Einen Arbeitsbereich erstellen");
+    k.sources.set("greeting", "Create a new workspace");
+    k.hideKeys = true;
+    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
+    await flushPromises();
+    const m = w.get("[data-testid=tm-match]");
+    expect(m.get(".target").text()).toBe("Einen Arbeitsbereich erstellen");
+    expect(m.text()).not.toContain("workspace.secret");
+    expect(m.text()).not.toContain("From");
+    expect(m.text()).toContain("this project");
+  });
+
+  it("says why when the unit is not theirs", async () => {
+    const k = createFakeKnowledge();
+    const w = withPorts(TmMatches, { tenant: "t", projectId: "p", message, source: en, target: de, targetSyntax: "mf1", canInsert: true }, { k });
+    await flushPromises();
+    expect(w.find("[role=alert]").exists()).toBe(true);
+    expect(w.find("[data-testid=tm-match]").exists()).toBe(false);
   });
 });
 

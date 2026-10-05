@@ -27,10 +27,15 @@ SELECT * FROM release_rollouts
 WHERE project_id = sqlc.arg(project_id) AND environment = sqlc.arg(environment) AND status = 'active';
 
 -- name: ListRollouts :many
--- An environment's rollouts, newest first.
-SELECT * FROM release_rollouts
-WHERE project_id = sqlc.arg(project_id) AND environment = sqlc.arg(environment)
-ORDER BY started_at DESC, id DESC
+-- An environment's rollouts, newest first, after the rollout `after`
+-- (a page token) when given. An idempotency-keyed rollout's id is not
+-- time-ordered, so the cursor is the row's (started_at, id).
+SELECT * FROM release_rollouts r
+WHERE r.project_id = sqlc.arg(project_id) AND r.environment = sqlc.arg(environment)
+  AND (sqlc.narg(after)::uuid IS NULL OR (r.started_at, r.id) < (
+        SELECT a.started_at, a.id FROM release_rollouts a
+        WHERE a.project_id = sqlc.arg(project_id) AND a.id = sqlc.narg(after)::uuid))
+ORDER BY r.started_at DESC, r.id DESC
 LIMIT sqlc.arg(max_rows)::int;
 
 -- name: UpdateRollout :execrows

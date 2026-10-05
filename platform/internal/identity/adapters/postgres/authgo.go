@@ -57,11 +57,32 @@ func personID(u authgo.UserID) (domain.PersonID, error) {
 }
 
 // SessionRepo implements authgo.SessionRepository and
-// authgo.AtomicSessionRotator. Keys are auth-go's SHA-256 token hashes.
-type SessionRepo struct{ uow *db.UnitOfWork }
+// authgo.AtomicSessionRotator for one kind of session (migration 0054):
+// a browser's, sent as the cookie, or a device's, sent as a glossa_dev_
+// bearer. It finds and ends only sessions of its own kind, so neither
+// credential is ever accepted as the other; DeleteByUser (sign out
+// everywhere) ends both kinds. Keys are auth-go's SHA-256 token hashes.
+type SessionRepo struct {
+	uow  *db.UnitOfWork
+	kind string
+}
 
-// NewSessionRepo returns a session repository.
-func NewSessionRepo(uow *db.UnitOfWork) *SessionRepo { return &SessionRepo{uow: uow} }
+// Session kinds (migration 0054).
+const (
+	SessionBrowser = "browser"
+	SessionDevice  = "device"
+)
+
+// NewSessionRepo returns the browser sessions' repository.
+func NewSessionRepo(uow *db.UnitOfWork) *SessionRepo {
+	return &SessionRepo{uow: uow, kind: SessionBrowser}
+}
+
+// NewDeviceSessionRepo returns the device sessions' repository (RFC 0006
+// §7.2).
+func NewDeviceSessionRepo(uow *db.UnitOfWork) *SessionRepo {
+	return &SessionRepo{uow: uow, kind: SessionDevice}
+}
 
 var (
 	_ authgo.SessionRepository    = (*SessionRepo)(nil)
@@ -71,11 +92,11 @@ var (
 // Save stores a new session.
 func (r *SessionRepo) Save(ctx context.Context, s authgo.Session) error {
 	return system(ctx, r.uow, func(ctx context.Context, q *identitysql.Queries) error {
-		return insertSession(ctx, q, s)
+		return r.insert(ctx, q, s)
 	})
 }
 
-func insertSession(ctx context.Context, q *identitysql.Queries, s authgo.Session) error {
+func (r *SessionRepo) insert(ctx context.Context, q *identitysql.Queries, s authgo.Session) error {
 	snap := s.Snapshot()
 	uid, err := authgo.NewUserID(snap.UserID)
 	if err != nil {
@@ -87,14 +108,15 @@ func insertSession(ctx context.Context, q *identitysql.Queries, s authgo.Session
 	}
 	return q.InsertSession(ctx, identitysql.InsertSessionParams{
 		TokenHash: snap.Token, PersonID: person.UUID(), CreatedAt: snap.CreatedAt, ExpiresAt: snap.ExpiresAt,
+		Kind: r.kind,
 	})
 }
 
-// FindByToken loads a session by its hash.
+// FindByToken loads a session of this kind by its hash.
 func (r *SessionRepo) FindByToken(ctx context.Context, key authgo.Token) (authgo.Session, error) {
 	var out authgo.Session
 	err := system(ctx, r.uow, func(ctx context.Context, q *identitysql.Queries) error {
-		row, err := q.GetSession(ctx, key.String())
+		row, err := q.GetSession(ctx, identitysql.GetSessionParams{TokenHash: key.String(), Kind: r.kind})
 		if err != nil {
 			return authError(err)
 		}
@@ -107,15 +129,16 @@ func (r *SessionRepo) FindByToken(ctx context.Context, key authgo.Token) (authgo
 	return out, err
 }
 
-// Delete removes one session by its hash.
+// Delete removes one session of this kind by its hash.
 func (r *SessionRepo) Delete(ctx context.Context, key authgo.Token) error {
 	return system(ctx, r.uow, func(ctx context.Context, q *identitysql.Queries) error {
-		_, err := q.DeleteSession(ctx, key.String())
+		_, err := q.DeleteSession(ctx, identitysql.DeleteSessionParams{TokenHash: key.String(), Kind: r.kind})
 		return err
 	})
 }
 
-// DeleteByUser removes every session of a person (sign out everywhere).
+// DeleteByUser removes every session of a person, of both kinds (sign
+// out everywhere, and a password reset, end the person's devices too).
 func (r *SessionRepo) DeleteByUser(ctx context.Context, u authgo.UserID) error {
 	person, err := personID(u)
 	if err != nil {
@@ -129,14 +152,14 @@ func (r *SessionRepo) DeleteByUser(ctx context.Context, u authgo.UserID) error {
 // RotateAtomically swaps a session for a new one in one transaction.
 func (r *SessionRepo) RotateAtomically(ctx context.Context, oldKey authgo.Token, s authgo.Session) error {
 	return system(ctx, r.uow, func(ctx context.Context, q *identitysql.Queries) error {
-		n, err := q.DeleteSession(ctx, oldKey.String())
+		n, err := q.DeleteSession(ctx, identitysql.DeleteSessionParams{TokenHash: oldKey.String(), Kind: r.kind})
 		if err != nil {
 			return err
 		}
 		if n == 0 {
 			return authgo.ErrNotFound
 		}
-		return insertSession(ctx, q, s)
+		return r.insert(ctx, q, s)
 	})
 }
 

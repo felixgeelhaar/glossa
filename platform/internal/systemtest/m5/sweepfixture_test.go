@@ -68,11 +68,27 @@ func (s *scenario) sweepResources(sides [2]sweepSide) {
 			{"a check run", func() error { return s.sweepCheckRun(side, ids) }},
 			{"a linguistic job", func() error { return s.sweepLinguisticJob(side, unit, ids) }},
 			{"a release artifact", func() error { return s.sweepArtifact(side, ids) }},
+			{"a rollout and a release request", func() error { return s.sweepReleaseFlow(side, ids) }},
 		} {
 			if err := r.fn(); err != nil {
 				s.note("12.2", "The fixture could not make %s in project %s for the sweep: %v", r.what, strings.ToUpper(side.prefix), err)
 			}
 		}
+	}
+	// Tenant- and person-level resources: one id serves both sides.
+	for _, r := range []struct {
+		what string
+		fn   func() (string, string, error)
+	}{
+		{"an audit export job", s.sweepAuditExportJob},
+		{"a device authorization", s.sweepDeviceAuthorization},
+	} {
+		name, id, err := r.fn()
+		if err != nil {
+			s.note("12.2", "The fixture could not make %s for the sweep: %v", r.what, err)
+			continue
+		}
+		s.sweepInside[name], s.sweepOutside[name] = id, id
 	}
 	// The AI fills last and together: their jobs run while the rest is
 	// made, and both are waited for at once.
@@ -277,6 +293,72 @@ func (s *scenario) sweepArtifact(side sweepSide, ids map[string]string) error {
 	return nil
 }
 
+// sweepReleaseFlow leaves, in the project's `production` (the
+// environment the sweep addresses), one ended rollout and one withdrawn
+// release request, and the environment as it found it otherwise: a
+// release served, no rollout active, no approval required — so §12.3 and
+// §12.4 start from what they would have without it. A production
+// release is published, the staging release is rolled out and the
+// rollout aborted, then an approval requirement holds a publish as a
+// request, which is withdrawn before the requirement is switched off.
+func (s *scenario) sweepReleaseFlow(side sweepSide, ids map[string]string) error {
+	if side.release == "" {
+		return fmt.Errorf("there is no staging release to roll out")
+	}
+	if _, err := s.publish(s.owner, side.project, "production", map[string]any{"note": "for the sweep"}, http.StatusCreated); err != nil {
+		return fmt.Errorf("the production release: %w", err)
+	}
+	rollouts := s.rolloutsPath(side.project, "production")
+	var ro struct {
+		ID string `json:"id"`
+	}
+	if _, err := s.owner.try(http.MethodPost, rollouts, map[string]any{"release_id": side.release, "percent": 5},
+		http.StatusCreated, &ro, "Idempotency-Key", "m5-sweep-rollout-"+side.prefix); err != nil {
+		return fmt.Errorf("starting a rollout: %w", err)
+	}
+	if _, err := s.owner.try(http.MethodPost, rollouts+"/"+ro.ID+"/abort", nil, http.StatusOK, nil); err != nil {
+		return fmt.Errorf("aborting the rollout: %w", err)
+	}
+	ids["rollout"] = ro.ID
+
+	env := s.projectPathOf(side.project, "/environments/production")
+	var e struct {
+		Policy map[string]any `json:"policy"`
+	}
+	h, err := s.owner.try(http.MethodGet, env, nil, http.StatusOK, &e)
+	if err != nil {
+		return err
+	}
+	h, err = s.owner.try(http.MethodPatch, env, map[string]any{"policy": e.Policy, "approval": map[string]any{
+		"n": 1, "from": map[string]any{"role": "reviewer"}, "distinct_from_requester": true,
+	}}, http.StatusOK, nil, "If-Match", h.Get("ETag"))
+	if err != nil {
+		return fmt.Errorf("requiring approval: %w", err)
+	}
+	var held struct {
+		RequestID string `json:"release_request_id"`
+	}
+	_, heldErr := s.owner.try(http.MethodPost, s.projectPathOf(side.project, "/releases"),
+		map[string]any{"environment": "production", "note": "held for the sweep"}, http.StatusAccepted, &held)
+	if heldErr == nil {
+		if _, err := s.owner.try(http.MethodPost, s.releaseRequestsPath(side.project)+"/"+held.RequestID+"/withdrawal",
+			map[string]any{"reason": "the sweep only reads it"}, http.StatusOK, nil); err != nil {
+			heldErr = fmt.Errorf("withdrawing the request: %w", err)
+		}
+		ids["release_request"] = held.RequestID
+	}
+	// The requirement goes whatever happened above, so later criteria
+	// find production as they expect it.
+	if _, err := s.owner.try(http.MethodPatch, env, map[string]any{"policy": e.Policy, "clear_approval": true},
+		http.StatusOK, nil, "If-Match", h.Get("ETag")); err != nil {
+		return fmt.Errorf("switching the approval off again: %w", err)
+	}
+	if heldErr != nil {
+		return fmt.Errorf("a held publish: %w", heldErr)
+	}
+	return nil
+}
+
 // sweepAI fills the unit in both projects with the fake provider and
 // waits for each fill's job and suggestion.
 func (s *scenario) sweepAI(sides [2]sweepSide) error {
@@ -346,4 +428,38 @@ func (p *fakeProvider) refusedRequests() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]string(nil), p.refused...)
+}
+
+// sweepAuditExportJob starts an export of the last hour as the owner, so
+// the sweep can address a job and its two files.
+func (s *scenario) sweepAuditExportJob() (string, string, error) {
+	var job struct {
+		ID string `json:"id"`
+	}
+	_, err := s.owner.try(http.MethodPost, s.auditExportJobsPath(), map[string]any{
+		"from": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339), "to": time.Now().UTC().Format(time.RFC3339),
+	}, http.StatusCreated, &job)
+	return "audit_export_job", job.ID, err
+}
+
+// sweepDeviceAuthorization starts a device sign-in the way the CLI does,
+// unauthenticated and outside the harness's call log (no one acts, so
+// the trail has nothing to record), for its user code.
+func (s *scenario) sweepDeviceAuthorization() (string, string, error) {
+	body := strings.NewReader(`{"client_name":"m5 sweep"}`)
+	resp, err := http.Post(s.owner.base+"/v1/auth/device-authorizations", "application/json", body)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	var d struct {
+		UserCode string `json:"user_code"`
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("POST /v1/auth/device-authorizations answered %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		return "", "", err
+	}
+	return "user_code", d.UserCode, nil
 }

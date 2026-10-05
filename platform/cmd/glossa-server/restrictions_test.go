@@ -88,8 +88,14 @@ var (
 // sweep (TestRestrictionsOverHTTP) holds the GET operations to the
 // decisions recorded here.
 var restrictions = map[string]restriction{
-	"DELETE /v1/auth/session":                                                         public,
-	"DELETE /v1/auth/sessions":                                                        public,
+	"DELETE /v1/auth/session":  public,
+	"DELETE /v1/auth/sessions": public,
+	// Device sign-in acts on the person, never on a tenant's data: the
+	// device's session then carries the person's own scope and visibility.
+	"GET /v1/auth/device-authorizations/{user_code}":                                  public,
+	"POST /v1/auth/device-approvals":                                                  public,
+	"POST /v1/auth/device-authorizations":                                             public,
+	"POST /v1/auth/device-sessions":                                                   public,
 	"DELETE /v1/me/passkeys/{passkey}":                                                public,
 	"DELETE /v1/tenants/{tenant}/ai-providers/{ai_provider}":                          {projectUnscoped, assignedDenied},
 	"DELETE /v1/tenants/{tenant}/github/connections/{connection}":                     rowsDenied,
@@ -127,86 +133,93 @@ var restrictions = map[string]restriction{
 	"GET /v1/tenants/{tenant}/ai-suggestions":                 rowsDenied,
 	"GET /v1/tenants/{tenant}/ai-suggestions/{ai_suggestion}": rowsDenied,
 	// The style guide that applies to a unit's locale in a project.
-	"GET /v1/tenants/{tenant}/effective-style-guide":                                                 rowsCovered,
-	"GET /v1/tenants/{tenant}/export-jobs":                                                           rowsDenied,
-	"GET /v1/tenants/{tenant}/export-jobs/{export_job}":                                              rowsDenied,
-	"GET /v1/tenants/{tenant}/export-jobs/{export_job}/file":                                         rowsDenied,
-	"GET /v1/tenants/{tenant}/github/connections":                                                    rowsDenied,
-	"GET /v1/tenants/{tenant}/github/connections/{connection}":                                       rowsDenied,
-	"GET /v1/tenants/{tenant}/github/installations":                                                  tenantDenied,
-	"GET /v1/tenants/{tenant}/import-jobs":                                                           rowsDenied,
-	"GET /v1/tenants/{tenant}/import-jobs/{import_job}":                                              rowsDenied,
-	"GET /v1/tenants/{tenant}/import-jobs/{import_job}/results":                                      rowsDenied,
-	"GET /v1/tenants/{tenant}/members":                                                               tenantDenied,
-	"GET /v1/tenants/{tenant}/members/{member}":                                                      tenantDenied,
-	"GET /v1/tenants/{tenant}/projects":                                                              rowsCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}":                                                    pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/ai-metrics":                                         pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue":                                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy":                                  pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/ai-settings":                                        pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/applications":                                       pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/applications/{application}":                         pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/branches":                                           pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}":                                  pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals":                        pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings":                        pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image":                           pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-policy":                                       pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/export":                                pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions":                              pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version}":                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-runs":                                         pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run}":                             pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/context-builds":                                     pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/delivery-keys":                                      pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/environments":                                       pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}":                         pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments":             pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/fallback-graph":                                     pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/findings":                                           pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs":                                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}":                   pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/locales":                                            pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/locales/{locale}":                                   pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages":                                           pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}":                                 pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures":                        pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions":                pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations":                    pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}":           pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions": pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages":                          pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/namespaces":                                         pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/preview-origins":                                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/quality-summary":                                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys":                               pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/releases":                                           pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}":                                 pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest}":              pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff":                            pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest":                        pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/terminology-findings":                               pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/translation-stats":                                  pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/translations":                                       pathCovered,
-	"GET /v1/tenants/{tenant}/projects/{project}/unused-messages":                                    pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/usages":                                             pathDenied,
-	"GET /v1/tenants/{tenant}/projects/{project}/waivers":                                            pathDenied,
-	"GET /v1/tenants/{tenant}/style-guides":                                                          rowsDenied,
-	"GET /v1/tenants/{tenant}/style-guides/{style_guide}":                                            rowsDenied,
-	"GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions":                                   rowsDenied,
-	"GET /v1/tenants/{tenant}/term-concepts":                                                         rowsDenied,
-	"GET /v1/tenants/{tenant}/term-concepts/{concept}":                                               rowsDenied,
-	"GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions":                                     rowsDenied,
-	"GET /v1/tenants/{tenant}/termbase-export-jobs":                                                  rowsDenied,
-	"GET /v1/tenants/{tenant}/termbase-import-jobs":                                                  rowsDenied,
-	"GET /v1/tenants/{tenant}/tm-concordance":                                                        rowsDenied,
-	"GET /v1/tenants/{tenant}/tm-export-jobs":                                                        rowsDenied,
-	"GET /v1/tenants/{tenant}/tm-import-jobs":                                                        rowsDenied,
-	"GET /v1/tenants/{tenant}/tm-units":                                                              rowsDenied,
-	"GET /v1/tenants/{tenant}/tm-units/{unit}":                                                       rowsDenied,
-	"GET /v1/tenants/{tenant}/tokens":                                                                tenantDenied,
-	"GET /v1/tenants/{tenant}/tokens/{token}":                                                        tenantDenied,
+	"GET /v1/tenants/{tenant}/effective-style-guide":                                       rowsCovered,
+	"GET /v1/tenants/{tenant}/export-jobs":                                                 rowsDenied,
+	"GET /v1/tenants/{tenant}/export-jobs/{export_job}":                                    rowsDenied,
+	"GET /v1/tenants/{tenant}/export-jobs/{export_job}/file":                               rowsDenied,
+	"GET /v1/tenants/{tenant}/github/connections":                                          rowsDenied,
+	"GET /v1/tenants/{tenant}/github/connections/{connection}":                             rowsDenied,
+	"GET /v1/tenants/{tenant}/github/installations":                                        tenantDenied,
+	"GET /v1/tenants/{tenant}/import-jobs":                                                 rowsDenied,
+	"GET /v1/tenants/{tenant}/import-jobs/{import_job}":                                    rowsDenied,
+	"GET /v1/tenants/{tenant}/import-jobs/{import_job}/results":                            rowsDenied,
+	"GET /v1/tenants/{tenant}/members":                                                     tenantDenied,
+	"GET /v1/tenants/{tenant}/members/{member}":                                            tenantDenied,
+	"GET /v1/tenants/{tenant}/projects":                                                    rowsCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}":                                          pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/ai-metrics":                               pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/ai-review-queue":                          pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/ai-routing-policy":                        pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/ai-settings":                              pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/applications":                             pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/applications/{application}":               pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/branches":                                 pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}":                        pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/branches/{branch}/proposals":              pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/findings":              pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/captures/{capture}/image":                 pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-policy":                             pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/export":                      pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions":                    pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-policy/versions/{version}":          pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-runs":                               pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/check-runs/{check_run}":                   pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/context-builds":                           pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/delivery-keys":                            pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments":                             pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}":               pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/deployments":   pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/fallback-graph":                           pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/findings":                                 pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs":                          pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/linguistic-jobs/{linguistic_job}":         pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/locales":                                  pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/locales/{locale}":                         pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages":                                 pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}":                       pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/captures":              pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/source-revisions":      pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations":          pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}": pathCovered,
+	// The unit workspace's reads (RFC 0006 §3.3): the TM matches and AI
+	// suggestions of one unit, through authz.RequireUnit, so an assigned
+	// member reaches only the units of their assignments (404 otherwise)
+	// — the answer to tenant TM search and project-wide suggestion lists
+	// being refused to them. Matches carry no unit id and, for them, no key.
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions": pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches":     pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions":      pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/usages":                               pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/namespaces":                                              pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/preview-origins":                                         pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/quality-summary":                                         pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/release-signing-keys":                                    pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/releases":                                                pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}":                                      pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/artifacts/{digest}":                   pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/diff":                                 pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/releases/{release}/manifest":                             pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/terminology-findings":                                    pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/translation-stats":                                       pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/translations":                                            pathCovered,
+	"GET /v1/tenants/{tenant}/projects/{project}/unused-messages":                                         pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/usages":                                                  pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/waivers":                                                 pathDenied,
+	"GET /v1/tenants/{tenant}/style-guides":                                                               rowsDenied,
+	"GET /v1/tenants/{tenant}/style-guides/{style_guide}":                                                 rowsDenied,
+	"GET /v1/tenants/{tenant}/style-guides/{style_guide}/versions":                                        rowsDenied,
+	"GET /v1/tenants/{tenant}/term-concepts":                                                              rowsDenied,
+	"GET /v1/tenants/{tenant}/term-concepts/{concept}":                                                    rowsDenied,
+	"GET /v1/tenants/{tenant}/term-concepts/{concept}/revisions":                                          rowsDenied,
+	"GET /v1/tenants/{tenant}/termbase-export-jobs":                                                       rowsDenied,
+	"GET /v1/tenants/{tenant}/termbase-import-jobs":                                                       rowsDenied,
+	"GET /v1/tenants/{tenant}/tm-concordance":                                                             rowsDenied,
+	"GET /v1/tenants/{tenant}/tm-export-jobs":                                                             rowsDenied,
+	"GET /v1/tenants/{tenant}/tm-import-jobs":                                                             rowsDenied,
+	"GET /v1/tenants/{tenant}/tm-units":                                                                   rowsDenied,
+	"GET /v1/tenants/{tenant}/tm-units/{unit}":                                                            rowsDenied,
+	"GET /v1/tenants/{tenant}/tokens":                                                                     tenantDenied,
+	"GET /v1/tenants/{tenant}/tokens/{token}":                                                             tenantDenied,
 
 	"PATCH /v1/tenants/{tenant}/ai-providers/{ai_provider}":                    unscoped,
 	"PATCH /v1/tenants/{tenant}/github/connections/{connection}":               rowsDenied,
@@ -284,6 +297,10 @@ var restrictions = map[string]restriction{
 	// else (assignedOwn). Approvals are workflows.read and
 	// approvals.decide, which an assigned member never holds: a vendor
 	// delivers work, it does not sign it off.
+	// The vendor quality report (§3.4) is assignments.read in the
+	// project scope, cut to it in the query, and refused to an assigned
+	// member: the numbers are about vendors, and a vendor delivers work.
+	"GET /v1/tenants/{tenant}/assignment-reports":                                                    rowsDenied,
 	"GET /v1/tenants/{tenant}/assignments":                                                           rowsOwn,
 	"POST /v1/tenants/{tenant}/assignments":                                                          rowsDenied,
 	"GET /v1/tenants/{tenant}/assignments/{assignment}":                                              rowsOwn,
@@ -301,6 +318,55 @@ var restrictions = map[string]restriction{
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances":                                 pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}":             pathDenied,
 	"GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/transitions": pathDenied,
+	// A rebase (wave 6) moves one instance of the project in the path:
+	// workflows.manage through authz.RequireIn there, which an assigned
+	// member never holds.
+	"POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase": pathDenied,
+	// Release requests and rollouts (RFC 0006 §5): Release's, under
+	// {project}. Reading takes releases.read in the project
+	// (checkProject → RequireIn); withdrawing and every rollout change
+	// releases.publish there. Deciding is Workflow's
+	// (DecideReleaseRequest): approvals.decide in the request's
+	// environment (RequireInEnvironment, which checks the project), and
+	// human-only. An assigned member holds none of them: a release
+	// ships every unit, not just theirs, and a vendor does not sign it
+	// off.
+	"GET /v1/tenants/{tenant}/projects/{project}/release-requests":                                          pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}":                        pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals":             pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal":            pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts":                       pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts":                      pathDenied,
+	"GET /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}":             pathDenied,
+	"PATCH /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}":           pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion": pathDenied,
+	"POST /v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort":      pathDenied,
+	// The v0.3 history import (RFC 0006 §7.2) writes the tenant's audit
+	// trail, recording every row under the project in the path. It needs
+	// audit.import, which only an owner holds, no token scope grants and
+	// no background principal may be given, by a principal limited to
+	// no project (authz.RequireUnscoped): the trail is the
+	// organisation's. A scoped principal outside the project is not
+	// found at the edge first. An assigned member is refused it like
+	// every permission but tenant.read.
+	"POST /v1/tenants/{tenant}/projects/{project}/audit-imports": pathDenied,
+	// The trail's entries (RFC 0006 §6.2) are audit.read, owner and
+	// admin. A project-scoped principal lists only its projects' entries
+	// (authz.Projects in the query) and none of the tenant-level ones —
+	// sign-ins, members, tokens, vendors, groups, audit exports belong
+	// to the organisation, not to a project — and reads one outside its
+	// projects as not found. An assigned member is refused.
+	"GET /v1/tenants/{tenant}/audit-entries":            rowsDenied,
+	"GET /v1/tenants/{tenant}/audit-entries/{sequence}": rowsDenied,
+	// An audit export is one unbroken segment of the tenant's chain,
+	// never one project's (a project's entries are not a chain and
+	// could not be verified): audit.export, owner only, no token scope,
+	// by a principal limited to no project (authz.RequireUnscoped).
+	"GET /v1/tenants/{tenant}/audit-export-jobs":                             unscoped,
+	"POST /v1/tenants/{tenant}/audit-export-jobs":                            unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}":          unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file":     unscoped,
+	"GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest": unscoped,
 
 	"POST /v1/tenants/{tenant}/projects":                                                            unscoped,
 	"POST /v1/tenants/{tenant}/projects/{project}/ai-fill-previews":                                 pathDenied,

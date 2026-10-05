@@ -246,6 +246,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/device-authorizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing a device in as a person
+         * @description How `glossa login` signs a person in on a machine with no
+         *     browser session (RFC 0006 §7.2, the OAuth 2.0 device
+         *     authorization grant, RFC 8628). The CLI asks for a
+         *     `device_code`, shows the `user_code` and `verification_uri`,
+         *     and polls `POST /v1/auth/device-sessions` every `interval`
+         *     seconds while the person approves the code in Studio, signed
+         *     in as themselves.
+         *
+         *     The `device_code` is the CLI's secret and is never shown; the
+         *     `user_code` is eight characters from an alphabet without
+         *     look-alikes, shown as `XXXX-XXXX`, and is only good for
+         *     approving or denying. Both expire after `expires_in` seconds
+         *     (15 minutes). Unauthenticated, rate limited per client address.
+         */
+        post: operations["startDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-authorizations/{user_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the device shows, with or without its hyphen, in any case. */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * What a device code would sign in
+         * @description What Studio shows before the person approves: the name the
+         *     device gave itself and when it asked, so a code read out by
+         *     someone else is recognisable as not one's own. Only a browser
+         *     session may look a code up. A code that is unknown, expired or
+         *     already decided answers `404` `device_authorization_not_found`,
+         *     whichever it is.
+         */
+        get: operations["getDeviceAuthorization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or deny a device code
+         * @description The signed-in person approves the code, which signs the device
+         *     in as them, or denies it, which ends it. Only a browser session
+         *     decides — never an API token, and never a device session, so a
+         *     signed-in CLI cannot sign further devices in. The device's
+         *     session belongs to the person and to nobody else: it acts with
+         *     exactly the person's memberships, roles, project scope and
+         *     visibility, in every tenant, and ends when the person signs out
+         *     everywhere. Problem codes: `device_authorization_not_found`
+         *     (404: unknown, expired or already decided).
+         */
+        post: operations["decideDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for the device's session
+         * @description The device polls with its `device_code`. Until the person
+         *     decides, the answer is `400` `authorization_pending`; polling
+         *     faster than `interval` answers `400` `slow_down`, and the device
+         *     adds five seconds to its interval (RFC 8628 §3.5). A denied code
+         *     answers `400` `access_denied`, an expired or unknown one `400`
+         *     `expired_token`. Once approved, the first poll returns the
+         *     session's bearer and spends the code: a second poll with it is
+         *     `expired_token`.
+         */
+        post: operations["redeemDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/github-oidc-exchanges": {
         parameters: {
             query?: never;
@@ -1429,6 +1544,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Translation-memory matches for one unit
+         * @description The memory's matches for one translation unit — the message the
+         *     key names, in the locale — scored as `lookupTranslationMemory`
+         *     scores them, from the tenant-wide units and the project's own,
+         *     best first. It is the translation workspace's read, and the only
+         *     one a member with visibility `assigned` has (RFC 0006 §3.3): the
+         *     unit must be in an assignment of theirs, and anything else —
+         *     another unit, another project — is `404`. A match is text and a
+         *     score, never the matched unit: for an `assigned` member no id or
+         *     key of the remembered unit is returned (`message_key` is omitted),
+         *     so the memory does not tell a vendor what else is in the
+         *     project. It records no hit. Needs `knowledge.read`. Problem
+         *     codes: `invalid_query`, `invalid_syntax` (400).
+         */
+        get: operations["listUnitTMMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * AI suggestions for one unit
+         * @description The newest suggestions (at most 5) for one translation unit — the
+         *     message the key names, in the locale — as its workspace shows
+         *     them: the text, its score with the explanation, the routed
+         *     action, risks and findings. It is the read a member with
+         *     visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+         *     assignment of theirs, and anything else is `404`. The job,
+         *     provider, model, calls, cost and the translation-memory units it
+         *     drew on are not part of it; they stay with
+         *     `getAISuggestion`. `decidable` is false for an `assigned`
+         *     member, who writes the translation instead of accepting a
+         *     suggestion. Needs `intelligence.read`.
+         */
+        get: operations["listUnitAISuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions": {
         parameters: {
             query?: never;
@@ -1655,10 +1849,29 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change an environment's eligibility policy
+         * Change an environment's eligibility policy or approval requirement
          * @description The policy decides what the next publish ships and which
          *     releases may be promoted here; the release served keeps serving.
-         *     Needs `releases.publish`. Problem codes: `invalid_policy` (400).
+         *
+         *     `approval` requires every publish and promote into the
+         *     environment to be approved by `n` distinct people of `from`, none
+         *     of them the requester (RFC 0006 §5.1): such a move answers `202`
+         *     with a release request and moves no pointer. `clear_approval`
+         *     switches the requirement off; leaving both out keeps it as it
+         *     is. Changing who must approve is governance, not publishing, so
+         *     it also needs `workflows.manage` (owner and admin by default). A
+         *     request already pending keeps showing the requirement it was made
+         *     under; its deploy must also meet the environment's requirement of
+         *     the moment. Policy and approval change together, under one
+         *     `If-Match`.
+         *
+         *     Needs `releases.publish`. Problem codes: `invalid_policy`,
+         *     `invalid_request` (400: `approval` together with
+         *     `clear_approval`), `invalid_approval` (422: `n` outside 1–10, not
+         *     exactly one of `member`, `role` or `group`, or
+         *     `distinct_from_requester` not true — self-approval is not
+         *     offered), `approval_on_branch` (422: a branch environment's
+         *     policy is fixed).
          */
         patch: operations["updateEnvironment"];
         trace?: never;
@@ -1699,10 +1912,20 @@ export interface paths {
          *     `policy_not_met` and can be overridden with `force` and a
          *     `force_reason`, which the deployment records.
          *
+         *     An environment with an `approval` requirement holds the promote
+         *     as a release request: the answer is `202` with the request, no
+         *     pointer moves, and the release is deployed once the requirement
+         *     is met (see `release-requests`). A forced promote waits too:
+         *     `force` overrides the completeness requirement, never the
+         *     approval. A promote into an environment with an active staged
+         *     rollout is refused (`rollout_active`): it would replace the
+         *     stable side under installations the rollout compares with it;
+         *     complete or abort the rollout first.
+         *
          *     Needs `releases.publish`. Problem codes: `force_reason_required`,
          *     `invalid_force_reason` (400), `release_not_found` (404),
          *     `release_ineligible`, `branch_release_not_promotable`,
-         *     `policy_not_met` (409), `storage_unavailable` (503).
+         *     `policy_not_met`, `rollout_active` (409), `storage_unavailable` (503).
          */
         post: operations["promoteRelease"];
         delete?: never;
@@ -1809,6 +2032,302 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The environment's staged rollouts
+         * @description Newest first: the active one, if any, and the history of ended
+         *     ones. Needs `releases.read`.
+         */
+        get: operations["listRollouts"];
+        put?: never;
+        /**
+         * Start serving a candidate release to a share of installations
+         * @description The environment's manifest gains a signed `rollout` member
+         *     (runtimes/SPEC.md §1.4) naming the candidate, `percent` and a
+         *     salt fixed for the rollout's life; a runtime activates the
+         *     candidate when its installation's cohort falls below `percent`,
+         *     and every other installation — and every runtime that predates
+         *     rollouts — keeps the release the environment points at. The
+         *     pointer does not move until the rollout is completed.
+         *
+         *     The candidate is held to what a promote into the environment is
+         *     held to: a main-catalog release of the project the environment's
+         *     policy covers, through the completeness requirement or forced
+         *     with a `force_reason` that the completing deployment records.
+         *     The environment must already serve a release with the same
+         *     source locale, and may have one active rollout at a time. A
+         *     rollout ends by itself only at `max_duration_seconds` (default 14 days),
+         *     when it is aborted. An environment that requires release
+         *     approvals refuses rollouts (`rollout_needs_approval`) until a
+         *     release request can carry one; publish or promote there instead.
+         *
+         *     Needs `releases.publish`. Problem codes: `invalid_percent`,
+         *     `invalid_max_duration`, `force_reason_required`,
+         *     `invalid_force_reason`, `invalid_idempotency_key` (400),
+         *     `release_not_found` (404), `rollout_active`,
+         *     `rollout_no_stable`, `rollout_candidate_served`,
+         *     `rollout_branch_environment`, `rollout_source_locale`,
+         *     `rollout_needs_approval`, `release_ineligible`,
+         *     `branch_release_not_promotable`, `policy_not_met` (409),
+         *     `idempotency_key_reused` (422), `storage_unavailable` (503).
+         */
+        post: operations["startRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A rollout
+         * @description Needs `releases.read`.
+         */
+        get: operations["getRollout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the share of installations in the candidate
+         * @description Any percent may follow any other, down as well as up (RFC 0006
+         *     §15 Q5); the salt stays, so the installations in the candidate
+         *     at a lower percent are among those at a higher one. Advancing
+         *     needs no approval. Needs `releases.publish`. Problem codes:
+         *     `invalid_percent` (400), `rollout_ended` (409).
+         */
+        patch: operations["advanceRollout"];
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the candidate the environment's release
+         * @description The pointer moves to the candidate as a promote moves it — the
+         *     deployment records the force the rollout started with, if any —
+         *     and the manifest drops `rollout`. The completeness requirement
+         *     is not asked again: it was asked when the rollout started, about
+         *     the same immutable release. Completing an ended rollout is
+         *     `rollout_ended`. Needs `releases.publish`. Problem codes:
+         *     `rollout_ended` (409), `storage_unavailable` (503).
+         */
+        post: operations["completeRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/environments/{environment}/rollouts/{rollout}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the rollout and keep the environment's release
+         * @description The manifest drops `rollout` and every installation returns to
+         *     the release the environment points at on its next refresh.
+         *     Aborting needs no approval and is never delayed (RFC 0006 §5.2).
+         *     A rollback of the environment aborts its rollout too. Needs
+         *     `releases.publish`. Problem codes: `rollout_ended` (409).
+         */
+        post: operations["abortRollout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A project's release requests
+         * @description Newest first, optionally in one `environment` and one `state`.
+         *     Needs `releases.read`.
+         */
+        get: operations["listReleaseRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A release request
+         * @description What it would deploy, where, who asked, the requirement its
+         *     approvers were asked for, what the completeness requirement said
+         *     when it was made, and whether the requester forced it and why.
+         *     Needs `releases.read`.
+         */
+        get: operations["getReleaseRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant or deny a release request
+         * @description A person's decision on the request's current approval — the one
+         *     the project's release-approval workflow asked for — recorded as
+         *     `POST …/approvals/{approval}/decisions` records it. Once enough
+         *     distinct people other than the requester have granted it, the
+         *     workflow deploys the release as the last of them: Release checks
+         *     the requirement itself, runs the completeness requirement again
+         *     and moves the pointer, and the edge serves it within seconds. A
+         *     denial closes the request; nothing moves.
+         *
+         *     Human-only: an API token or an MCP agent is refused
+         *     (`person_required`, 403) — no scope grants `approvals.decide`.
+         *     The caller needs `approvals.decide` in the request's environment,
+         *     must be of the requirement's party (`not_eligible`, 403), and
+         *     must not be the requester (`own_text`, 403: four-eyes). Problem
+         *     codes: `approval_not_requested` (409: the workflow has not asked
+         *     for the approval yet; retry shortly), `release_request_closed`
+         *     (409: deployed, denied, withdrawn or refused), `approval_closed`,
+         *     `approval_superseded` (409), `invalid_approval` (422: a reason
+         *     over 2,000 characters).
+         */
+        post: operations["decideReleaseRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/release-requests/{release_request}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a pending release request back
+         * @description Its requester, or anyone who may publish to the project. No
+         *     pointer moves. A newer publish or promote into the same
+         *     environment withdraws the pending request by itself. Needs
+         *     `releases.publish`. Problem codes: `invalid_withdraw_reason`
+         *     (400), `release_request_closed` (409).
+         */
+        post: operations["withdrawReleaseRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenants/{tenant}/projects/{project}/releases": {
         parameters: {
             query?: never;
@@ -1847,10 +2366,22 @@ export interface paths {
          *     no reason is `force_reason_required` and a reason with no
          *     override is `invalid_force_reason`.
          *
+         *     An environment with an `approval` requirement holds the publish
+         *     as a release request: the release is built and recorded, but the
+         *     answer is `202` with the release's `id` and the request, and the
+         *     environment keeps serving what it served. The release is deployed
+         *     once the requirement is met (see `release-requests`). A forced
+         *     publish waits too: `force` overrides the completeness
+         *     requirement, never the approval, and the approvers see that it
+         *     was forced and why. A retry with the same `Idempotency-Key`
+         *     answers the same request. A publish into an environment with an
+         *     active staged rollout is refused (`rollout_active`); complete or
+         *     abort the rollout first.
+         *
          *     Needs `releases.publish`. Problem codes: `invalid_environment`,
          *     `invalid_note`, `force_reason_required`, `invalid_force_reason`
-         *     (400), `policy_not_met` (409), `not_releasable` (422),
-         *     `storage_unavailable` (503).
+         *     (400), `policy_not_met`, `rollout_active` (409), `not_releasable`
+         *     (422), `storage_unavailable` (503).
          */
         post: operations["publishRelease"];
         delete?: never;
@@ -4173,7 +4704,7 @@ export interface paths {
          * Upload a build's usages (glossa context push)
          * @description The body is one `glossa.usages/v1` document: where one
          *     application's messages are used at one commit, as
-         *     `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+         *     `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
          *     write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
          *     It is validated by the schema's rules — members it doesn't define
          *     are ignored within v1, anything else it refuses is
@@ -5810,13 +6341,64 @@ export interface paths {
         };
         /**
          * A workflow instance
-         * @description Its definition version, subject, state and status. Needs
-         *     `workflows.read`. Problem codes: `workflow_instances_unavailable`
-         *     (503).
+         * @description Its definition version, subject, state and status. The `ETag` is
+         *     the definition version the instance runs on: what a rebase's
+         *     `If-Match` names. Needs `workflows.read`. Problem codes:
+         *     `workflow_instances_unavailable` (503).
          */
         get: operations["getWorkflowInstance"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a running instance to a newer version of its definition
+         * @description A running instance stays on the version it started with until a
+         *     workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+         *     instance's state by name: the target version — `version`, or the
+         *     definition's latest when the body names none — must be newer, and
+         *     must have that state as one an instance can wait in. A rebase
+         *     changes what happens next, never what already happened: it runs
+         *     no entry action again (the assignments and approvals the state
+         *     asked for stand), and a pending due date keeps its time. An
+         *     instance that has not started yet starts on the new version at
+         *     its next event.
+         *
+         *     The rebase is recorded in the instance's transition log as event
+         *     `rebase` (its one action says which versions), and published as
+         *     `workflow.instance.rebased` naming who did it. `If-Match` is the
+         *     instance's `ETag`: the version it runs on.
+         *
+         *     Needs `workflows.manage` in the project. Problem codes:
+         *     `workflow_instance_finished` (409: nothing left to run),
+         *     `invalid_workflow_rebase` (422: the version is not newer, or the
+         *     definition has no such version), `workflow_rebase_state_missing`
+         *     (422: the target has no such state), `workflow_rebase_state_final`
+         *     (422: the state is final in the target), `precondition_failed`
+         *     (412), `precondition_required` (428),
+         *     `workflow_instances_unavailable` (503).
+         */
+        post: operations["rebaseWorkflowInstance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5896,10 +6478,45 @@ export interface paths {
          *     `invalid_assignment` (422: no units, too many, a key the
          *     project does not have, a due date in the past),
          *     `unknown_party` (422: no such member, group or vendor),
-         *     `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-         *     `not_found` (404: the project).
+         *     `workflow_limit_reached` (409: the assignee already holds 1,000
+         *     open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+         *     (422), `invalid_idempotency_key` (400), `not_found` (404: the
+         *     project).
          */
         post: operations["createAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/assignment-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Vendors' quality report
+         * @description The quality numbers of completed assignments, by assignee and
+         *     locale (RFC 0006 §3.4), computed on read from the assignments,
+         *     the catalog, the translations' revision logs and the findings,
+         *     as the caller: it says nothing they could not read unit by unit.
+         *     At most 2000 assignments and 5000 units are read; `truncated`
+         *     says a bound stopped it. Filters: `project`, `vendor` (a vendor
+         *     `id`) and `since` (assignments completed at or after it).
+         *     Needs `assignments.read` in the project scope; a member whose
+         *     visibility is `assigned` is refused. Problem codes:
+         *     `invalid_query` (400), `workflow_instances_unavailable` (503, a
+         *     server built without the contexts a report reads).
+         */
+        get: operations["getAssignmentReport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6115,6 +6732,275 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenants/{tenant}/projects/{project}/audit-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record v0.3's history as imported audit entries
+         * @description `glossa import --from v0 --v0-db` sends v0.3's `audit_log`, read
+         *     from a restored backup, in batches (RFC 0006 §7.2). Each row
+         *     becomes an imported audit entry `v0.translation.changed` in the
+         *     tenant's audit trail, in its own chain segment marked as
+         *     imported, with actor `v0:<user id>` — never a member of this
+         *     platform — and a reference to the imported translation. History
+         *     is carried as history: nothing is replayed as a revision, and no
+         *     provenance is fabricated.
+         *
+         *     **No text.** A row carries a translation's before and after only
+         *     as SHA-256 digests of their UTF-8 bytes: an audit entry never
+         *     holds message or translation text (§6.1). The body has no member
+         *     that could carry one, and a member it does not name is ignored.
+         *
+         *     Writing the tenant's audit trail is the owner's: it needs
+         *     `audit.import`, which only `owner` holds, no API token scope
+         *     grants and no background principal may be given, by a
+         *     principal limited to no project — the trail is the
+         *     organisation's, not one project's (RFC 0006 §7.2). Every row is
+         *     recorded under the project in the path. Answers
+         *     `audit_import_unavailable` (503) on a server that does not run
+         *     the importer. Problem codes: `invalid_request` (400),
+         *     `invalid_entry` (422: a row is not shaped like v0.3 history;
+         *     nothing was recorded), `audit_import_unavailable` (503).
+         */
+        post: operations["importV0History"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The tenant's audit entries
+         * @description The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+         *     for chain order). An entry is content-free: identifiers and
+         *     selectors verbatim, everything else as its shape; never message
+         *     or translation text, an email or a secret.
+         *
+         *     Filters, all optional and combined: `from`/`to` (when it
+         *     happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+         *     place in the chain, inclusive), `actor` (`person:<id>`,
+         *     `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+         *     `action` (an event type such as
+         *     `localization.translation.revised`, or a direct action such as
+         *     `identity.person.signed_in`), `project`, `source` (`outbox`,
+         *     `direct`, `import`), `aggregate_type` and `aggregate_id`.
+         *
+         *     Needs `audit.read` (owner and admin; no API token scope grants
+         *     it). A principal limited to some projects sees only the entries
+         *     of those projects — not the tenant-level entries (sign-ins,
+         *     members, tokens, vendors, groups), which belong to the
+         *     organisation, not to a project. A member whose visibility is
+         *     `assigned` is refused. Problem codes: `invalid_query`,
+         *     `invalid_page_size`, `invalid_page_token` (400).
+         */
+        get: operations["listAuditEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-entries/{sequence}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description The entry's place in the tenant's chain. */
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One audit entry
+         * @description Needs `audit.read`. An entry outside a project-scoped caller's
+         *     projects — and a tenant-level entry, for such a caller — is not
+         *     found, exactly like one that does not exist.
+         */
+        get: operations["getAuditEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Audit export jobs
+         * @description Newest first. Needs `audit.export`, by a principal limited to no
+         *     project. Problem codes: `invalid_page_size`,
+         *     `invalid_page_token` (400).
+         */
+        get: operations["listAuditExportJobs"];
+        put?: never;
+        /**
+         * Export a range of the audit trail
+         * @description Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+         *     platform/README.md's *Audit export format*): two objects,
+         *     `entries.jsonl` and a `manifest.json` signed with the
+         *     deployment's audit key, downloadable when the job has
+         *     `succeeded` and verifiable offline with `glossa audit verify
+         *     <dir> --public-key …` (the key is published at
+         *     `/.well-known/glossa-audit-keys.json`).
+         *
+         *     The range is either a time range, `from` and `to` — the entries
+         *     that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+         *     the future is cut to now, so an export never claims a range that
+         *     has not happened yet — or a sequence range, `first_sequence`
+         *     and optionally `last_sequence` (the chain's head when omitted,
+         *     fixed when the job is made), at most 1,000,000 entries. An
+         *     export is always one unbroken segment of the tenant's chain, so
+         *     it is the tenant's whole trail for the range and never one
+         *     project's: a project's entries are not a chain on their own and
+         *     could not be verified. A time range whose entries are not one
+         *     unbroken segment — imported v0.3 history appended in the middle
+         *     of it, whose `occurred_at` lies years back — fails with
+         *     `range_not_contiguous`; export it by sequence instead.
+         *
+         *     Needs `audit.export`, which only `owner` holds by default and no
+         *     API token scope grants, by a principal limited to no project.
+         *     Making the job, and its end, are themselves recorded in the
+         *     trail (`audit.export.requested`, `audit.export.completed`).
+         *     Problem codes: `invalid_range` (400), `range_too_long`,
+         *     `sequence_out_of_range` (422: past the chain's head),
+         *     `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+         *     this deployment has no audit key, or exports are off).
+         */
+        post: operations["createAuditExportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * An audit export job
+         * @description A job ends `succeeded` — with the chain segment it holds
+         *     (`first_sequence`, `last_sequence`, `entry_count`,
+         *     `first_prev_hash`, `last_hash`), the key that signed it, and
+         *     both files' digests and where to download them — or `failed`
+         *     (`failure_code`: `range_not_contiguous`, `internal`). Needs
+         *     `audit.export`, by a principal limited to no project.
+         */
+        get: operations["getAuditExportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download an audit export's entries.jsonl
+         * @description The export's lines, byte for byte, streamed from object storage,
+         *     with `Content-Disposition: attachment; filename="entries.jsonl"`
+         *     and their SHA-256 — the manifest's `entries.sha256` — as the
+         *     `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+         *     kept for the deployment's retention period
+         *     (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+         *     stays. Needs `audit.export`, by a principal limited to no
+         *     project. Problem codes: `export_not_ready` (409), `file_expired`
+         *     (410), `storage_unavailable` (503).
+         */
+        get: operations["downloadAuditExportEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download an audit export's signed manifest.json
+         * @description The signed manifest, byte for byte as the job wrote it (RFC 8785
+         *     canonical JSON), with `Content-Disposition: attachment;
+         *     filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+         *     and refused like the entries (`export_not_ready` 409,
+         *     `file_expired` 410, `storage_unavailable` 503). Needs
+         *     `audit.export`, by a principal limited to no project.
+         */
+        get: operations["downloadAuditExportManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6201,6 +7087,59 @@ export interface components {
         };
         EmailRequest: {
             email: components["schemas"]["Email"];
+        };
+        DeviceAuthorizationRequest: {
+            /** @description What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`. */
+            client_name: string;
+        };
+        DeviceAuthorization: {
+            /** @description The device's secret for polling. Never shown to a person. */
+            device_code: string;
+            /** @description Shown to the person, as `XXXX-XXXX`. */
+            user_code: string;
+            /**
+             * Format: uri
+             * @description Studio's page where the person enters the code.
+             */
+            verification_uri: string;
+            /**
+             * Format: uri
+             * @description The same page with the code filled in.
+             */
+            verification_uri_complete: string;
+            /** @description Seconds until both codes expire. */
+            expires_in: number;
+            /** @description Seconds to wait between polls. */
+            interval: number;
+        };
+        DeviceAuthorizationView: {
+            user_code: string;
+            client_name: string;
+            /** Format: date-time */
+            requested_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        DeviceApproval: {
+            user_code: string;
+            /** @enum {string} */
+            decision: "approved" | "denied";
+        };
+        DeviceSessionRequest: {
+            device_code: string;
+        };
+        DeviceSession: {
+            /** @description `glossa_dev_…`: the person's session as a bearer. */
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /**
+             * Format: date-time
+             * @description When the session ends unless the person signs out sooner.
+             */
+            expires_at: string;
+            /** Format: uuid */
+            person_id: string;
         };
         TokenRedemption: {
             /** @description The token from the emailed link. */
@@ -7050,6 +7989,8 @@ export interface components {
             /** @description The branch a `branch` environment previews; absent for a standard one. */
             branch?: components["schemas"]["BranchName"];
             policy: components["schemas"]["EnvironmentPolicy"];
+            /** @description Present when a publish or promote here needs approval (RFC 0006 §5.1). */
+            approval?: components["schemas"]["EnvironmentApproval"];
             current_release_id?: components["schemas"]["Id"];
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -7083,6 +8024,10 @@ export interface components {
         };
         UpdateEnvironment: {
             policy: components["schemas"]["EnvironmentPolicy"];
+            /** @description Sets the approval requirement; omitted keeps it as it is. */
+            approval?: components["schemas"]["EnvironmentApproval"];
+            /** @description Switches the approval requirement off. Not together with `approval`. */
+            clear_approval?: boolean;
         };
         Promotion: {
             release_id: components["schemas"]["Id"];
@@ -7122,6 +8067,285 @@ export interface components {
             forced: boolean;
             /** @description Why it went ahead; present exactly when `forced`. */
             force_reason?: string;
+        };
+        /**
+         * @description Exactly one of `member` (a member `id`), `role` or `group` (a
+         *     group `id` or name, lower-case) — who may approve. A vendor
+         *     delivers work and does not sign it off, so it is not a party
+         *     here.
+         */
+        EnvironmentApprovalParty: {
+            member?: string;
+            role?: components["schemas"]["Role"];
+            group?: string;
+        };
+        /**
+         * @description `n` distinct people of `from`, none of them the requester, must
+         *     grant a publish or promote into the environment before its
+         *     pointer moves. `distinct_from_requester` is always true:
+         *     self-approval is not offered (RFC 0006 §15 q6).
+         */
+        EnvironmentApproval: {
+            n: number;
+            from: components["schemas"]["EnvironmentApprovalParty"];
+            distinct_from_requester: boolean;
+        };
+        /**
+         * @description `pending` waits for approvals; the others are final. `refused`:
+         *     approved, but the completeness requirement, run again at deploy
+         *     time, refused it — `reason` says why.
+         * @enum {string}
+         */
+        ReleaseRequestState: "pending" | "deployed" | "denied" | "withdrawn" | "refused";
+        /** @description What the environment's completeness requirement said when the request was made. */
+        GateVerdict: {
+            met: boolean;
+            /** @description What the requirement asked for and the release lacks; absent when met. */
+            unmet?: string[];
+        };
+        ReleaseRequest: {
+            id: components["schemas"]["Id"];
+            environment: components["schemas"]["EnvironmentName"];
+            release_id: components["schemas"]["Id"];
+            /**
+             * @description What the deploy records.
+             * @enum {string}
+             */
+            action: "publish" | "promote";
+            /** @description Who asked (`person:…`, `token:…`). They never count toward the approval. */
+            requester: string;
+            approval: components["schemas"]["EnvironmentApproval"];
+            gate: components["schemas"]["GateVerdict"];
+            /**
+             * @description The requester overrode the completeness requirement. Force
+             *     overrides the gate, never the approval: the approvers see it.
+             */
+            forced: boolean;
+            /** @description Why; present exactly when `forced`. */
+            force_reason?: string;
+            state: components["schemas"]["ReleaseRequestState"];
+            /** @description Who closed it: the last approver, the denier, or who withdrew it. */
+            decided_by?: string;
+            decided_at?: components["schemas"]["Timestamp"];
+            /** @description Why it was refused or withdrawn. */
+            reason?: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        ReleaseRequestList: {
+            items: components["schemas"]["ReleaseRequest"][];
+            next_page_token?: string;
+        };
+        /** @description A publish or promote held for approval. No pointer moved. */
+        ReleaseHeld: {
+            /** @description The release the request would deploy: the one just recorded by a publish, or the one a promote named. */
+            id: components["schemas"]["Id"];
+            release_request_id: components["schemas"]["Id"];
+            release_request: components["schemas"]["ReleaseRequest"];
+        };
+        ReleaseRequestWithdrawal: {
+            reason?: string;
+        };
+        Rollout: {
+            id: components["schemas"]["Id"];
+            environment: components["schemas"]["EnvironmentName"];
+            /** @description The candidate. */
+            release_id: components["schemas"]["Id"];
+            /** @description What the environment served when the rollout started. */
+            stable_release_id: components["schemas"]["Id"];
+            percent: number;
+            /** @enum {string} */
+            status: "active" | "completed" | "aborted";
+            /**
+             * @description How an ended rollout ended.
+             * @enum {string}
+             */
+            end?: "completed" | "aborted" | "expired" | "rolled_back";
+            max_duration_seconds: number;
+            expires_at: components["schemas"]["Timestamp"];
+            /** @description The candidate was started past the completeness requirement. */
+            forced: boolean;
+            /** @description Why; present exactly when `forced`. */
+            force_reason?: string;
+            started_by: string;
+            started_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            ended_by?: string;
+            ended_at?: components["schemas"]["Timestamp"];
+        };
+        RolloutList: {
+            items: components["schemas"]["Rollout"][];
+            next_page_token?: string;
+        };
+        StartRollout: {
+            release_id: components["schemas"]["Id"];
+            /** @description The share of installations in the candidate, 0–100 (`invalid_percent`). */
+            percent: number;
+            /**
+             * @description When the rollout is aborted unless a person ended it first:
+             *     one hour to 90 days (`invalid_max_duration`); 14 days when
+             *     omitted.
+             */
+            max_duration_seconds?: number;
+            /**
+             * @description Start although the environment's completeness requirement
+             *     refuses the candidate (`policy_not_met`). It needs a
+             *     `force_reason`, which the completing deployment records.
+             */
+            force?: boolean;
+            /** @description Required with `force` (`force_reason_required`) and refused without it (`invalid_force_reason`). */
+            force_reason?: string;
+        };
+        AdvanceRollout: {
+            /** @description 0–100 (`invalid_percent`). */
+            percent: number;
+        };
+        /**
+         * @description One row of v0.3's `audit_log`. No text: the translation's before
+         *     and after are SHA-256 digests of their UTF-8 bytes.
+         */
+        V0HistoryEntry: {
+            /** @description v0.3's `audit_log` id: the idempotency key. */
+            v0_id: string;
+            /** @description As the plan names it (`v0.translation.changed`). */
+            action: string;
+            /** @description `v0:<uuid>`, `v0:ai:<label>`, `v0:system:<label>` or `v0:unknown`; never a member of this platform. */
+            actor: string;
+            occurred_at: components["schemas"]["Timestamp"];
+            /** @description The translation's message, when the row still resolves to one. */
+            key?: components["schemas"]["MessageKey"];
+            locale?: components["schemas"]["Locale"];
+            /** @description Why the row resolves to no translation. */
+            unresolved?: string;
+            before_sha256?: string;
+            after_sha256?: string;
+        };
+        V0HistoryImport: {
+            /** @description The dump the rows were read from, as the restore marker names it. */
+            restore: string;
+            restore_sha256: string;
+            entries: components["schemas"]["V0HistoryEntry"][];
+        };
+        /**
+         * @description Where an entry came from: a domain event (`outbox`), an act that
+         *     never reaches the outbox such as a sign-in or an MCP tool call
+         *     (`direct`), or v0.3's imported history (`import`).
+         * @enum {string}
+         */
+        AuditSource: "outbox" | "direct" | "import";
+        /**
+         * @description One entry of the tenant's hash chain, as its `glossa.audit/v1`
+         *     export line holds it (RFC 0006 §6.1). Content-free: `summary`
+         *     keeps identifiers and selectors verbatim and records everything
+         *     else as its shape (`"string(len=27)"`).
+         */
+        AuditEntry: {
+            /**
+             * Format: int64
+             * @description Its place in the tenant's chain.
+             */
+            sequence: number;
+            /** @description The act recorded: the outbox event's id, or a direct write's own. */
+            event_id: string;
+            source: components["schemas"]["AuditSource"];
+            /** @description The event type (`release.published`) or direct action (`identity.person.signed_in`). */
+            action: string;
+            /** @description `person:<id>`, `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor (`v0:<id>`). */
+            actor: string;
+            occurred_at: components["schemas"]["Timestamp"];
+            aggregate_type: string;
+            aggregate_id: string;
+            project_id?: components["schemas"]["Id"];
+            locale?: string;
+            /** @description The act without its content. */
+            summary: {
+                [key: string]: unknown;
+            };
+            request_id?: string;
+            trace_id?: string;
+            /** @description The previous entry's hash (64 zero digits for the first). */
+            prev_hash: string;
+            /** @description sha256(prev_hash ‖ JCS(entry)). */
+            hash: string;
+        };
+        AuditEntryList: {
+            items: components["schemas"]["AuditEntry"][];
+            next_page_token?: string;
+        };
+        /**
+         * @description Exactly one range: a time range (`from` and `to`), or a
+         *     sequence range (`first_sequence`, and `last_sequence` or the
+         *     chain's head).
+         */
+        AuditExportJobCreate: {
+            from?: components["schemas"]["Timestamp"];
+            to?: components["schemas"]["Timestamp"];
+            /** Format: int64 */
+            first_sequence?: number;
+            /** Format: int64 */
+            last_sequence?: number;
+        };
+        /** @enum {string} */
+        AuditExportJobState: "queued" | "running" | "succeeded" | "failed";
+        AuditExportFile: {
+            /** @description `entries.jsonl` or `manifest.json`. */
+            path: string;
+            sha256: string;
+            /** Format: int64 */
+            bytes: number;
+            /** @description Where to download it; present while it is kept. */
+            download_url?: string;
+        };
+        AuditExportJob: {
+            id: components["schemas"]["Id"];
+            state: components["schemas"]["AuditExportJobState"];
+            /** @description A time range's start, as asked. */
+            from?: components["schemas"]["Timestamp"];
+            /** @description A time range's end, as asked, or cut to when the job was made. */
+            to?: components["schemas"]["Timestamp"];
+            /**
+             * Format: int64
+             * @description The first entry; for a time range, once the job has run.
+             */
+            first_sequence?: number;
+            /**
+             * Format: int64
+             * @description The last entry; for a time range, once the job has run. `first_sequence − 1` for an empty export.
+             */
+            last_sequence?: number;
+            /** Format: int64 */
+            entry_count?: number;
+            /** @description Where the export joins the chain before it. */
+            first_prev_hash?: string;
+            /** @description The head the next export's `first_prev_hash` continues from. */
+            last_hash?: string;
+            /** @description The audit key that signed the manifest. */
+            key_id?: string;
+            entries?: components["schemas"]["AuditExportFile"];
+            manifest?: components["schemas"]["AuditExportFile"];
+            failure_code?: string;
+            failure_message?: string;
+            attempts: number;
+            created_by: string;
+            created_at: components["schemas"]["Timestamp"];
+            started_at?: components["schemas"]["Timestamp"];
+            finished_at?: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description When retention deletes the files. */
+            expires_at: components["schemas"]["Timestamp"];
+            files_deleted_at?: components["schemas"]["Timestamp"];
+        };
+        AuditExportJobList: {
+            items: components["schemas"]["AuditExportJob"][];
+            next_page_token?: string;
+        };
+        /** @description A `glossa.audit/v1` manifest (platform/README.md, *Audit export format*), as signed. */
+        AuditExportManifest: {
+            [key: string]: unknown;
+        };
+        V0HistoryReport: {
+            recorded: number;
+            /** @description Rows an earlier import recorded already (same `v0_id`). */
+            existing: number;
         };
         DeploymentList: {
             items: components["schemas"]["Deployment"][];
@@ -7494,6 +8718,56 @@ export interface components {
         TMLookupResult: {
             source_normalized: string;
             matches: components["schemas"]["TMMatch"][];
+        };
+        /** @description A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`. */
+        UnitTMMatch: {
+            score: number;
+            /** @enum {string} */
+            kind: "context" | "exact" | "fuzzy";
+            /** @description The remembered source, normalized: what a fuzzy match is compared with. */
+            source_normalized: string;
+            /** @description The remembered target in MF2, its variables renamed to the unit's by position. */
+            target: string;
+            /** @description The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it. */
+            target_text: string;
+            target_syntax: components["schemas"]["Syntax"];
+            target_syntax_fallback: boolean;
+            /** @description False when a target variable had no counterpart and kept its name. */
+            variables_adapted: boolean;
+            /** @description True for a unit the project owns, false for a tenant-wide one. */
+            project_scoped: boolean;
+            /** @description The key of the message the match was learned from. Never returned to a member with visibility `assigned`. */
+            message_key?: components["schemas"]["MessageKey"];
+        };
+        UnitTMMatches: {
+            /** @description The unit's own source, normalized. */
+            source_normalized: string;
+            items: components["schemas"]["UnitTMMatch"][];
+        };
+        /** @description An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it. */
+        UnitAISuggestion: {
+            id: components["schemas"]["Id"];
+            locale: components["schemas"]["Locale"];
+            source_revision: number;
+            /** @description The translation in canonical MF2 syntax. */
+            message: string;
+            findings: components["schemas"]["QAFinding"][];
+            term_findings: components["schemas"]["AITermFinding"][];
+            /** Format: double */
+            score: number;
+            explanation: components["schemas"]["AIConfidenceFactor"][];
+            action: components["schemas"]["AIAction"];
+            action_note?: string;
+            risk_tags: string[];
+            status: components["schemas"]["AISuggestionStatus"];
+            /** @description The message's source has been revised since the suggestion was made. */
+            outdated: boolean;
+            /** @description Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`. */
+            decidable: boolean;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        UnitAISuggestions: {
+            items: components["schemas"]["UnitAISuggestion"][];
         };
         TMConcordanceMatch: {
             /** @description Trigram word similarity of the phrase to the side searched. */
@@ -8710,7 +9984,7 @@ export interface components {
          */
         UsageKind: "t" | "component" | "element" | "accessor" | "template";
         UsagesTool: {
-            /** @description A package name: `@glossa/unplugin`, `glossa`. */
+            /** @description A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`. */
             name: string;
             /** @description A semantic version. */
             version: string;
@@ -10027,6 +11301,55 @@ export interface components {
             id?: components["schemas"]["Id"];
             role?: components["schemas"]["Role"];
         };
+        AssignmentReport: {
+            since?: components["schemas"]["Timestamp"];
+            generated_at: components["schemas"]["Timestamp"];
+            /** @description A bound stopped the report; its numbers cover only what was read before it. */
+            truncated: boolean;
+            rows: components["schemas"]["AssignmentReportRow"][];
+        };
+        /** @description One assignee's completed work in one locale (RFC 0006 §3.4). */
+        AssignmentReportRow: {
+            /** @description As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`. */
+            assignee: string;
+            locale: components["schemas"]["Locale"];
+            assignments: number;
+            on_time: number;
+            late: number;
+            no_due: number;
+            units: number;
+            /** @description Units whose facts could not be read. */
+            unavailable: number;
+            source_words: number;
+            /** @description Source words delivered from translation memory, by match band (`exact`). */
+            tm_words: {
+                [key: string]: number;
+            };
+            approved: number;
+            rejected: number;
+            needs_review: number;
+            draft: number;
+            unreviewed: number;
+            changed_after_delivery: number;
+            /** Format: double */
+            mean_edit_distance: number;
+            /** Format: double */
+            mean_edit_ratio: number;
+            /** @description Open findings by layer. */
+            findings: {
+                [key: string]: number;
+            };
+            /** Format: double */
+            findings_per_unit: number;
+            reworked: number;
+            /** Format: double */
+            rework_rate: number;
+            /**
+             * Format: double
+             * @description On time over the assignments that had a due date.
+             */
+            on_time_rate: number;
+        };
         /**
          * @description `open` and `accepted` are live; the others are final.
          * @enum {string}
@@ -10151,6 +11474,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        RebaseWorkflowInstance: {
+            /** @description The version to move to; the definition's latest when absent. */
+            version?: number;
         };
         WorkflowInstanceList: {
             items: components["schemas"]["WorkflowInstance"][];
@@ -10367,6 +11694,10 @@ export interface components {
         EnvironmentPath: components["schemas"]["EnvironmentName"];
         /** @description A release `id`. */
         ReleasePath: components["schemas"]["Id"];
+        /** @description A release request `id`. */
+        ReleaseRequestPath: components["schemas"]["Id"];
+        /** @description A rollout `id`. */
+        RolloutPath: components["schemas"]["Id"];
         /** @description A passkey `id` (its credential ID, base64url). */
         PasskeyPath: string;
         /** @description A delivery key `id` (not the key itself). */
@@ -10389,6 +11720,8 @@ export interface components {
         AISuggestionPath: components["schemas"]["Id"];
         /** @description An import job `id`. */
         ImportJobPath: components["schemas"]["Id"];
+        /** @description An audit export job `id`. */
+        AuditExportJobPath: components["schemas"]["Id"];
         /** @description An export job `id`. */
         ExportJobPath: components["schemas"]["Id"];
         /** @description A capture `id`. */
@@ -10695,6 +12028,109 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    startDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description The codes to show and poll with. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorization"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the device shows, with or without its hyphen, in any case. */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorizationView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    decideDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceApproval"];
+            };
+        };
+        responses: {
+            /** @description Decided. The device's next poll learns the outcome. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    redeemDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. Send `access_token` as `Authorization: Bearer`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     exchangeGitHubOIDCToken: {
@@ -12755,6 +14191,76 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    listUnitTMMatches: {
+        parameters: {
+            query?: {
+                limit?: number;
+                min_score?: number;
+                /** @description The syntax of each `target_text`; by default the one the message's source is written in. */
+                target_syntax?: components["schemas"]["Syntax"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTMMatches"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listUnitAISuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A message `key` (`checkout.pay`). Keys are URL-safe as they are. */
+                message: components["parameters"]["MessagePath"];
+                /** @description A locale code; canonicalized before use. */
+                locale: components["parameters"]["LocalePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unit's suggestions, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitAISuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listTranslationRevisions: {
         parameters: {
             query?: {
@@ -13091,6 +14597,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
             428: components["responses"]["PreconditionRequired"];
         };
     };
@@ -13122,6 +14629,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Environment"];
+                };
+            };
+            /**
+             * @description Held for approval: a release request was made and no pointer
+             *     moved. `Location` is the request.
+             */
+            202: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseHeld"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -13234,6 +14754,378 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listRollouts: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of rollouts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRollout"];
+            };
+        };
+        responses: {
+            /** @description The rollout, active. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRollout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    advanceRollout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceRollout"];
+            };
+        };
+        responses: {
+            /** @description The rollout. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    completeRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout, completed. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    abortRollout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description When sent, the `ETag` the change is based on. */
+                "If-Match"?: components["parameters"]["IfMatchOptional"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description An environment `name`. */
+                environment: components["parameters"]["EnvironmentPath"];
+                /** @description A rollout `id`. */
+                rollout: components["parameters"]["RolloutPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rollout, aborted. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rollout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listReleaseRequests: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                environment?: components["schemas"]["EnvironmentName"];
+                state?: components["schemas"]["ReleaseRequestState"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of release requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequestList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    decideReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description The approval with the decision recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    withdrawReleaseRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A release request `id`. */
+                release_request: components["parameters"]["ReleaseRequestPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequestWithdrawal"];
+            };
+        };
+        responses: {
+            /** @description The release request, withdrawn. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listReleases: {
         parameters: {
             query?: {
@@ -13296,6 +15188,20 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Release"];
+                };
+            };
+            /**
+             * @description Held for approval: the release was recorded and a release
+             *     request made; no pointer moved. `Location` is the request.
+             */
+            202: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseHeld"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -16475,7 +18381,7 @@ export interface operations {
     createContextBuild: {
         parameters: {
             query: {
-                /** @description The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
+                /** @description The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
                 source: components["schemas"]["ContextSource"];
             };
             header?: never;
@@ -18203,6 +20109,7 @@ export interface operations {
             /** @description The instance. */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -18212,6 +20119,58 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rebaseWorkflowInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The `ETag` the change is based on. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+                /** @description A workflow instance `id`. */
+                workflow_instance: components["parameters"]["WorkflowInstancePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebaseWorkflowInstance"];
+            };
+        };
+        responses: {
+            /** @description The instance on its new version. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInstance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            /** @description The rebase is refused (`invalid_workflow_rebase`, `workflow_rebase_state_missing`, `workflow_rebase_state_final`); the instance is unchanged. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -18323,7 +20282,43 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getAssignmentReport: {
+        parameters: {
+            query?: {
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                /** @description A vendor `id`. */
+                vendor?: components["schemas"]["Id"];
+                /** @description Only assignments completed at or after this time. */
+                since?: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows, sorted by assignee and locale. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getAssignment: {
@@ -18581,6 +20576,275 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    importV0History: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description A project `id`. */
+                project: components["parameters"]["ProjectPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["V0HistoryImport"];
+            };
+        };
+        responses: {
+            /** @description What the import recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["V0HistoryReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listAuditEntries: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+                /** @description Entries that happened at or after this instant. */
+                from?: components["schemas"]["Timestamp"];
+                /** @description Entries that happened before this instant. */
+                to?: components["schemas"]["Timestamp"];
+                first_sequence?: number;
+                last_sequence?: number;
+                actor?: string;
+                action?: string;
+                /** @description A project `id`. */
+                project?: components["schemas"]["Id"];
+                source?: components["schemas"]["AuditSource"];
+                aggregate_type?: string;
+                aggregate_id?: string;
+                order?: "desc" | "asc";
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntryList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAuditEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description The entry's place in the tenant's chain. */
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAuditExportJobs: {
+        parameters: {
+            query?: {
+                page_size?: components["parameters"]["PageSize"];
+                /** @description The `next_page_token` of the previous page. */
+                page_token?: components["parameters"]["PageToken"];
+            };
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of audit export jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJobList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAuditExportJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditExportJobCreate"];
+            };
+        };
+        responses: {
+            /** @description The job, queued. */
+            201: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Idempotent-Replayed": components["headers"]["IdempotentReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getAuditExportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadAuditExportEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description entries.jsonl. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="entries.jsonl"` */
+                    "Content-Disposition"?: string;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/jsonl": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    downloadAuditExportManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A tenant `id`. */
+                tenant: components["parameters"]["TenantPath"];
+                /** @description An audit export job `id`. */
+                audit_export_job: components["parameters"]["AuditExportJobPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description manifest.json (`glossa.audit/v1`). */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="manifest.json"` */
+                    "Content-Disposition"?: string;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportManifest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

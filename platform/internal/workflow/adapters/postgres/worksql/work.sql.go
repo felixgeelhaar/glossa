@@ -77,6 +77,18 @@ func (q *Queries) AssignmentUnits(ctx context.Context, assignmentIds []uuid.UUID
 	return items, nil
 }
 
+const countLiveAssignmentsOf = `-- name: CountLiveAssignmentsOf :one
+SELECT count(*)::integer FROM workflow_assignments
+WHERE assignee = $1 AND state IN ('open', 'accepted')
+`
+
+func (q *Queries) CountLiveAssignmentsOf(ctx context.Context, assignee string) (int32, error) {
+	row := q.db.QueryRow(ctx, countLiveAssignmentsOf, assignee)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const coveredUnits = `-- name: CoveredUnits :many
 SELECT DISTINCT u.message_id, u.locale
 FROM workflow_assignments a
@@ -580,6 +592,19 @@ func (q *Queries) LockApproval(ctx context.Context, id uuid.UUID) (WorkflowAppro
 		&i.ClosedAt,
 	)
 	return i, err
+}
+
+const lockAssignee = `-- name: LockAssignee :exec
+SELECT pg_advisory_xact_lock(hashtextextended(
+    'workflow.assignee:' || app_current_tenant()::text || ':' || $1::text, 0))
+`
+
+// Serializes the assignments made to one assignee in this tenant, so
+// the limit of open assignments (RFC 0006 §9.6) holds under concurrent
+// assigning: the count below is read under this lock.
+func (q *Queries) LockAssignee(ctx context.Context, assignee string) error {
+	_, err := q.db.Exec(ctx, lockAssignee, assignee)
+	return err
 }
 
 const lockAssignment = `-- name: LockAssignment :one

@@ -5,14 +5,14 @@
 # security headers.
 #
 # Build from the repository root (Studio is a pnpm workspace member and
-# imports @glossa/messageformat from messageformat/js):
+# imports @felixgeelhaar/glossa-messageformat from messageformat/js):
 #
 #   docker build -f studio/Dockerfile -t glossa-studio .
 #
 # The build fetches @klarlabs-studio/ui from its public repository at the
 # commit pinned in studio/package.json#klarlabsUi (studio/README.md,
 # "Design system"), so it needs network access and git. It also builds
-# @glossa/overlay (with @glossa/runtime and @glossa/capture), whose bundle
+# @felixgeelhaar/glossa-overlay (with @felixgeelhaar/glossa-runtime and @felixgeelhaar/glossa-capture), whose bundle
 # Studio serves at /overlay/v1/overlay.js (RFC 0004 §5.1).
 #
 # Runtime configuration (no rebuild): GLOSSA_STUDIO_* variables are
@@ -51,7 +51,7 @@ COPY runtimes/js/runtime/ runtimes/js/runtime/
 COPY runtimes/js/capture/ runtimes/js/capture/
 COPY runtimes/js/overlay/ runtimes/js/overlay/
 COPY studio/ studio/
-RUN pnpm --filter @glossa/messageformat build && pnpm --filter "@glossa/overlay..." build
+RUN pnpm --filter @felixgeelhaar/glossa-messageformat build && pnpm --filter "@felixgeelhaar/glossa-overlay..." build
 # `build` links the design system first (scripts/klarlabs-ui.mjs), then runs
 # vite build. The Vite manifest is tooling, not something to serve.
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \

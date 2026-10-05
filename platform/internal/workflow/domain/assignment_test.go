@@ -188,3 +188,12 @@ func TestAssigneeSpelling(t *testing.T) {
 		}
 	}
 }
+
+// The largest batch §9.6 allows fits createAssignment's body limit at the
+// longest key and locale the contract accepts.
+func TestTheLargestAssignmentFitsItsBodyLimit(t *testing.T) {
+	const unit = len(`{"message":"","locale":""},`) + 200 + 35
+	if body := domain.MaxAssignmentUnits*unit + 1024; body > domain.MaxAssignmentBodyBytes {
+		t.Fatalf("%d units need %d bytes, over the %d-byte limit", domain.MaxAssignmentUnits, body, domain.MaxAssignmentBodyBytes)
+	}
+}

@@ -3,10 +3,15 @@
  * The AI suggestion for this message and locale: the newest one, with
  * accept (as is), edit and accept (sends the edited MF2 `text`, so the
  * structured diff feeds the metrics) and reject.
+ *
+ * It reads the unit's own suggestions, the read an assigned member (a
+ * vendor) has. Whoever may decide then gets the full suggestion, with its
+ * provenance and cost; an assigned member sees the text and why, and can
+ * insert it into their draft — their work is writing the translation.
  */
 import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { isApiError } from "../../api/errors";
-import type { AISuggestion } from "../../api/intelligence-schemas";
+import type { AISuggestion, UnitAISuggestion } from "../../api/intelligence-schemas";
 import { useIntelligence } from "../../api/intelligence";
 import type { Message, ProjectLocale } from "../../api/schemas";
 import { ariaKeys, keyLabel } from "../../lib/shortcuts";
@@ -14,13 +19,16 @@ import { allowsFor, type Grant } from "../../session/permissions";
 import { problemText, strings } from "../../strings";
 import ErrorAlert from "../ErrorAlert.vue";
 import SuggestionCard from "./SuggestionCard.vue";
+import type { MatchText } from "./TmMatches.vue";
 
-const props = defineProps<{ tenant: string; projectId: string; message: Message; target: ProjectLocale; grant: Grant }>();
-const emit = defineEmits<{ accepted: [suggestion: AISuggestion] }>();
+const props = defineProps<{ tenant: string; projectId: string; message: Message; target: ProjectLocale; grant: Grant; canInsert?: boolean }>();
+const emit = defineEmits<{ accepted: [suggestion: AISuggestion]; insert: [match: MatchText] }>();
 const s = strings.ai;
 const port = useIntelligence();
 
 const suggestion = shallowRef<AISuggestion>();
+/** The unit's suggestion when the caller may not decide it. */
+const readOnly = shallowRef<UnitAISuggestion>();
 const loading = ref(false);
 const error = ref<unknown>(null);
 const notice = ref("");
@@ -42,8 +50,12 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const page = await port.suggestions(props.tenant, { project: props.projectId, message: props.message.id, locale: props.target.code }, 1);
-    if (n === seq) suggestion.value = page.items[0];
+    const [unit] = await port.unitSuggestions(props.tenant, props.projectId, props.message.key, props.target.code);
+    // Whoever may decide gets the whole suggestion: provenance, cost.
+    const full = unit?.decidable ? (await port.suggestion(props.tenant, unit.id)).value : undefined;
+    if (n !== seq) return;
+    suggestion.value = full;
+    readOnly.value = unit && !unit.decidable ? unit : undefined;
   } catch (e) {
     if (n === seq) error.value = e;
   } finally {
@@ -54,6 +66,7 @@ watch(
   () => [props.message.id, props.target.code],
   () => {
     suggestion.value = undefined;
+    readOnly.value = undefined;
     editing.value = false;
     rejecting.value = false;
     notice.value = "";
@@ -122,11 +135,21 @@ defineExpose({
   <section class="pane stack-sm" aria-labelledby="ai-h" data-testid="ai-panel">
     <div class="row">
       <h3 id="ai-h">{{ s.title }}</h3>
-      <span v-if="suggestion" class="pill" :class="pending ? 'pill-accent' : 'pill-neutral'" data-testid="suggestion-status">{{ s.status[suggestion.status] }}</span>
+      <span v-if="readOnly" class="pill" :class="readOnly.status === 'pending' ? 'pill-accent' : 'pill-neutral'" data-testid="suggestion-status">{{ s.status[readOnly.status] }}</span>
+      <span v-else-if="suggestion" class="pill" :class="pending ? 'pill-accent' : 'pill-neutral'" data-testid="suggestion-status">{{ s.status[suggestion.status] }}</span>
     </div>
     <ErrorAlert :error="error" />
-    <p v-if="loading && !suggestion" class="muted" role="status">{{ strings.app.loading }}</p>
-    <p v-else-if="!suggestion && !error" class="muted">{{ s.none }}</p>
+    <p v-if="loading && !suggestion && !readOnly" class="muted" role="status">{{ strings.app.loading }}</p>
+    <p v-else-if="!suggestion && !readOnly && !error" class="muted">{{ s.none }}</p>
+    <template v-if="readOnly">
+      <SuggestionCard :suggestion="readOnly" :lang="target.code" :dir="target.direction" />
+      <p v-if="readOnly.outdated" class="hint" data-testid="suggestion-outdated">{{ s.outdated }}</p>
+      <div class="row">
+        <button type="button" class="btn btn-sm" :disabled="!canInsert" data-testid="suggestion-insert" @click="emit('insert', { text: readOnly.message, syntax: 'mf2' })">
+          {{ strings.tm.insert }}
+        </button>
+      </div>
+    </template>
     <template v-if="suggestion">
       <SuggestionCard :suggestion="suggestion" :lang="target.code" :dir="target.direction" />
       <p v-if="suggestion.decision?.edit" class="hint">{{ s.editedBy(suggestion.decision.edit.distance) }}</p>

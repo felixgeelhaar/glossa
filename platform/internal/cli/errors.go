@@ -25,6 +25,11 @@ const (
 	// ExitPartial: the request went through but some items failed (push,
 	// import); the report lists them.
 	ExitPartial ExitCode = 4
+	// ExitHeld: a publish or promote went through but the environment
+	// requires approvals, so it was held as a release request and
+	// nothing was deployed (RFC 0006 §5.1). The output names the
+	// request and the next step (`glossa approve`).
+	ExitHeld ExitCode = 5
 )
 
 // Error is a CLI failure that says what happened, where, why, and how to

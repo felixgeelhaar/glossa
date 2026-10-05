@@ -1,7 +1,6 @@
 {
-  "name": "@glossa/runtime",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@felixgeelhaar/glossa-runtime",
+  "version": "0.4.0",
   "description": "Glossa's JS runtime: release loader, locale resolver, explain and a minimal MessageFormat 2 interpreter over precompiled messages, on Intl and WebCrypto only.",
   "type": "module",
   "main": "./dist/index.js",
@@ -53,18 +52,18 @@
       "limit": "6.8 KB"
     },
     {
-      "name": "@glossa/runtime/idb",
+      "name": "@felixgeelhaar/glossa-runtime/idb",
       "path": "dist/idb.js",
       "limit": "0.5 KB"
     },
     {
-      "name": "@glossa/runtime/dev, the overlay loader and its popup sign-in (never in production builds)",
+      "name": "@felixgeelhaar/glossa-runtime/dev, the overlay loader and its popup sign-in (never in production builds)",
       "path": "dist/dev.js",
       "limit": "1.9 KB"
     }
   ],
   "devDependencies": {
-    "@glossa/messageformat": "workspace:*",
+    "@felixgeelhaar/glossa-messageformat": "workspace:*",
     "@size-limit/preset-small-lib": "^11.0.0",
     "@types/node": "^22.0.0",
     "fake-indexeddb": "6.2.5",
@@ -82,5 +81,11 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/runtime#readme",
+  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
 }
