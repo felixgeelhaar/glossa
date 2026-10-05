@@ -9054,7 +9054,7 @@ type UsagesDocumentUsage struct {
 
 // UsagesTool defines model for UsagesTool.
 type UsagesTool struct {
-	// Name A package name: `@glossa/unplugin`, `glossa`.
+	// Name A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`.
 	Name string `json:"name"`
 
 	// Version A semantic version.
@@ -10269,7 +10269,7 @@ type ListContextBuildsParams struct {
 
 // CreateContextBuildParams defines parameters for CreateContextBuild.
 type CreateContextBuildParams struct {
-	// Source The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
+	// Source The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
 	Source ContextSource `form:"source" json:"source"`
 }
 
@@ -14550,7 +14550,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -14581,7 +14581,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -22331,7 +22331,7 @@ func (c *Client) ListContextBuilds(ctx context.Context, tenant TenantPath, proje
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -22372,7 +22372,7 @@ func (c *Client) CreateContextBuildWithBody(ctx context.Context, tenant TenantPa
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -47479,7 +47479,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -47510,7 +47510,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -74260,7 +74260,7 @@ func (c *ClientWithResponses) ListContextBuildsWithResponse(ctx context.Context,
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -74297,7 +74297,7 @@ func (c *ClientWithResponses) CreateContextBuildWithBodyWithResponse(ctx context
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is

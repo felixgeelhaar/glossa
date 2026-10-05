@@ -4,12 +4,12 @@
  * ```js
  * // astro.config.mjs
  * import vue from "@astrojs/vue";
- * import glossa from "@glossa/astro";
+ * import glossa from "@felixgeelhaar/glossa-astro";
  *
  * export default defineConfig({
  *   i18n: { locales: ["de", "en"], defaultLocale: "de" },
  *   integrations: [
- *     vue({ appEntrypoint: "@glossa/astro/vue" }),
+ *     vue({ appEntrypoint: "@felixgeelhaar/glossa-astro/vue" }),
  *     glossa({ edge: "https://edge.example.com", deliveryKey: "pk_…", elements: true }),
  *   ],
  * });
@@ -25,10 +25,10 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AstroConfig, AstroIntegration } from "astro";
-import type { BundledRelease } from "@glossa/runtime";
-import { LOADER_ID, overlayConfig } from "@glossa/unplugin";
-import type { GlossaPluginOptions } from "@glossa/unplugin";
-import glossaUsages from "@glossa/unplugin/vite";
+import type { BundledRelease } from "@felixgeelhaar/glossa-runtime";
+import { LOADER_ID, overlayConfig } from "@felixgeelhaar/glossa-unplugin";
+import type { GlossaPluginOptions } from "@felixgeelhaar/glossa-unplugin";
+import glossaUsages from "@felixgeelhaar/glossa-unplugin/vite";
 
 import type { GlossaAstroOptions, PublicConfig } from "./config.js";
 import { loadRelease } from "./release.js";
@@ -70,7 +70,7 @@ function releaseKeys(release: BundledRelease | undefined): string[] | undefined 
 }
 
 /**
- * `@glossa/unplugin` for this site: file paths relative to Astro's root,
+ * `@felixgeelhaar/glossa-unplugin` for this site: file paths relative to Astro's root,
  * `.glossa/usages.json` beside `outDir` (never inside what gets deployed).
  */
 export function usagesPlugin(
@@ -94,7 +94,7 @@ export function usagesPlugin(
 /** Serves `virtual:glossa/config` (public) and `virtual:glossa/release` (server-only). */
 function virtualModules(values: Record<string, unknown>) {
   return {
-    name: "@glossa/astro:virtual",
+    name: "@felixgeelhaar/glossa-astro:virtual",
     resolveId: (id: string) => (id in values ? `\0${id}` : undefined),
     load: (id: string) =>
       id.startsWith("\0") && id.slice(1) in values
@@ -105,7 +105,7 @@ function virtualModules(values: Record<string, unknown>) {
 
 export default function glossa(options: GlossaAstroOptions = {}): AstroIntegration {
   return {
-    name: "@glossa/astro",
+    name: "@felixgeelhaar/glossa-astro",
     hooks: {
       "astro:config:setup": async ({
         config,
@@ -155,8 +155,8 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
               ...usagesPlugin(options.usages, config, release, editor),
             ],
             // The package imports virtual modules, so Vite has to process it, not pre-bundle or externalize it.
-            optimizeDeps: { exclude: ["@glossa/astro"] },
-            ssr: { noExternal: ["@glossa/astro"] },
+            optimizeDeps: { exclude: ["@felixgeelhaar/glossa-astro"] },
+            ssr: { noExternal: ["@felixgeelhaar/glossa-astro"] },
           },
         });
         addMiddleware({ entrypoint: new URL("./middleware.js", import.meta.url), order: "pre" });

@@ -10,7 +10,7 @@
 ///
 /// This is pure Dart, because the rules are the contract, not the
 /// renderer: `package:glossa_flutter` maps the tree onto `InlineSpan`s,
-/// [partsToHtml] serializes it the way `@glossa/elements` and the Go
+/// [partsToHtml] serializes it the way `@felixgeelhaar/glossa-elements` and the Go
 /// runtime do, and both are the same tree.
 library;
 
@@ -183,7 +183,7 @@ String escapeHtml(String text) =>
     text.replaceAllMapped(RegExp('[&<>]'), (m) => _htmlEscapes[m[0]]!);
 
 /// Serialize [parts] as safe HTML: escaped text and bare safe elements,
-/// exactly as `@glossa/elements` and the Go runtime's `HTML` do.
+/// exactly as `@felixgeelhaar/glossa-elements` and the Go runtime's `HTML` do.
 ///
 /// Flutter renders [partsToTree] instead; this is here for the hosts that
 /// do speak HTML — a Dart web app, an email or a PDF pipeline — and

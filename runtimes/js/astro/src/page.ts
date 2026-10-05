@@ -4,9 +4,9 @@
  * and inline the page locale's slice of the release for islands and elements
  * to hydrate from, so the client renders exactly what the server did.
  */
-import { fallbackChain } from "@glossa/runtime";
-import type { Artifact, BundledRelease, Runtime } from "@glossa/runtime";
-import { prerender } from "@glossa/elements/ssr";
+import { fallbackChain } from "@felixgeelhaar/glossa-runtime";
+import type { Artifact, BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
+import { prerender } from "@felixgeelhaar/glossa-elements/ssr";
 
 /** The `id` of the inline `<script type="application/json">`. */
 export const INLINE_ID = "glossa-release";

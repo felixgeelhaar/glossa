@@ -5,8 +5,8 @@
  * touches the network.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { createRuntime } from "@glossa/runtime";
-import type { BundledRelease, Runtime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import type { BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
 
 import { probe } from "./probes.js";
 import type { ProbeFinding } from "./probes.js";

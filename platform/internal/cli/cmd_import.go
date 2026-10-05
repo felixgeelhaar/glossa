@@ -89,7 +89,7 @@ digests of the text before and after, never the text — once per row however of
 owner may (audit.import); no API token scope reaches it.
 
 --verify imports nothing: it renders every key in every v0.3 locale twice, with v0.3's own formatter
-(@felixgeelhaar/glossa-format) over v0.3's text and with @glossa/runtime over the release glossa-edge
+(@felixgeelhaar/glossa-format) over v0.3's text and with @felixgeelhaar/glossa-runtime over the release glossa-edge
 serves in --environment, with arguments generated from each message, and compares. It needs Node.js
 22+ and both packages built (found from the working directory, or --format-module/--runtime-module).
 Exit 0 when every rendering matches or differs only by v0.3's known apostrophe defect (reported and
