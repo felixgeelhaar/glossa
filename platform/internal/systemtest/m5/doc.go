@@ -38,7 +38,7 @@
 //  6. v0.3 imports and renders the same: v0.3 built from apps/api,
 //     migrated, seeded, dumped and restored with the platform's restore
 //     script; imported with `--v0-db`; every key in every locale
-//     rendered by v0.3's own formatter and by @glossa/runtime, two
+//     rendered by v0.3's own formatter and by @felixgeelhaar/glossa-runtime, two
 //     implementations that share no code.
 //
 // The M5 surfaces it drives (paths, CLI commands, runtime options) do
@@ -48,7 +48,7 @@
 //
 // Nothing here reaches the network or a real AI provider. It is behind
 // the `system` build tag and needs Docker, Node with the built
-// @glossa/runtime and @felixgeelhaar/glossa-format, the Dart SDK,
+// @felixgeelhaar/glossa-runtime and @felixgeelhaar/glossa-format, the Dart SDK,
 // Python 3 with the generator's modules, and — for §12.7 — everything
 // the M2–M4 exit tests need:
 //

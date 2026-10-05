@@ -12,10 +12,16 @@ import (
 	audit "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
 )
 
-// The audit trail (RFC 0006 §6). `verify` works offline on an export;
-// `list` and `export` read the server's audit API (wave 6).
+// The audit trail (RFC 0006 §6). `verify` and `csv` work offline on an
+// export; `list` and `export` read the server's audit API
+// (cmd_audit_api.go).
 
-const auditUsage = `audit verify <export> --public-key <key> [--public-key …] [--json]
+const auditUsage = `audit list|export|csv|verify …
+
+  audit list [--from T --to T --actor A --action X --project P --source S --limit N] [--json|--csv]
+  audit export (--from T --to T | --first-sequence N [--last-sequence M]) --out <dir> [--public-key K] [--no-wait] [--force]
+  audit csv <export dir|entries.jsonl> [--out file]
+  audit verify <export> --public-key <key> [--public-key …] [--json]
 
 verify checks a glossa.audit/v1 export offline, with no server: the manifest's Ed25519
 signature, every line's hash and its link to the line before, the sequence with no gaps,
@@ -51,31 +57,35 @@ type auditFailureJSON struct {
 	Reason   string `json:"reason"`
 }
 
-func runAudit(_ context.Context, inv *invocation, args []string) error {
-	var keys listFlag
+func runAudit(ctx context.Context, inv *invocation, args []string) error {
+	var a auditArgs
 	fs := inv.flags(auditUsage)
-	fs.Var(&keys, "public-key", "a glossa.audit.keys/1 file, or keyId=base64 (repeatable)")
+	a.register(fs)
 	pos, err := inv.parse(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(pos) == 0 {
-		return usageError(inv.name, "audit needs a subcommand: verify")
+		return usageError(inv.name, "audit needs a subcommand: list, export, csv or verify")
+	}
+	if err := a.checkFlags(fs, pos[0]); err != nil {
+		return usageError(inv.name, "%v", err)
 	}
 	switch pos[0] {
+	case "list":
+		return inv.auditList(ctx, a, pos[1:])
+	case "export":
+		return inv.auditExport(ctx, a, pos[1:])
+	case "csv":
+		return inv.auditCSV(a, pos[1:])
 	case "verify":
-	case "list", "export":
-		return &Error{Exit: ExitUsage, Code: "unavailable_command",
-			What: fmt.Sprintf("`glossa audit %s` is not available yet", pos[0]),
-			Why:  "it reads the server's audit API, which RFC 0006 builds in wave 5; the CLI command follows in wave 6",
-			Fix:  "verify an export you already have with `glossa audit verify <dir> --public-key …`"}
 	default:
-		return usageError(inv.name, "unknown audit subcommand %q (verify)", pos[0])
+		return usageError(inv.name, "unknown audit subcommand %q (list, export, csv, verify)", pos[0])
 	}
 	if len(pos) != 2 {
 		return usageError(inv.name, "audit verify takes one export: a directory, or its manifest.json")
 	}
-	trusted, err := inv.auditKeys(keys)
+	trusted, err := inv.auditKeys(a.keys)
 	if err != nil {
 		return err
 	}
@@ -159,7 +169,8 @@ func verifyExportDir(dir string, keys []audit.PublicKey) (audit.ExportReport, er
 	return audit.VerifyExport(manifest, f, keys), nil
 }
 
-func (inv *invocation) reportAuditVerify(dir string, r audit.ExportReport) error {
+// auditVerifyDoc is the `audit verify --json` document for a report.
+func auditVerifyDoc(dir string, r audit.ExportReport) auditVerifyJSON {
 	out := auditVerifyJSON{Schema: "glossa.cli.audit.verify/v1", Path: dir, OK: r.OK, Verified: r.Verified}
 	if m := r.Manifest; m != nil {
 		out.TenantID, out.KeyID, out.CreatedAt = m.TenantID, m.KeyID, m.CreatedAt
@@ -169,21 +180,28 @@ func (inv *invocation) reportAuditVerify(dir string, r audit.ExportReport) error
 	if f := r.Failure; f != nil {
 		out.Failure = &auditFailureJSON{Check: string(f.Check), Line: f.Line, Sequence: f.Sequence, Reason: f.Reason}
 	}
-	err := inv.emit(out, func(p *printer) {
-		if r.OK {
-			p.line("%s audit export verified: %s, sequences %d–%d of tenant %s",
-				p.pass(), plural(int(out.EntryCount), "entry", "entries"), out.FirstSequence, out.LastSequence, out.TenantID)
-			p.line("  signed with %s at %s", out.KeyID, out.CreatedAt)
-			p.line("  last hash %s", out.LastHash)
-			return
-		}
-		p.line("%s audit export does not verify: %s", p.fail(), r.Failure.Error())
-		if r.Verified > 0 {
-			p.line("  %s verified before it", plural(int(r.Verified), "entry", "entries"))
-		}
-		p.line("  %s", p.dim(dir))
-	})
-	if err != nil {
+	return out
+}
+
+// printAuditVerify is verify's human report.
+func printAuditVerify(p *printer, dir string, r audit.ExportReport, out auditVerifyJSON) {
+	if r.OK {
+		p.line("%s audit export verified: %s, sequences %d–%d of tenant %s",
+			p.pass(), plural(int(out.EntryCount), "entry", "entries"), out.FirstSequence, out.LastSequence, out.TenantID)
+		p.line("  signed with %s at %s", out.KeyID, out.CreatedAt)
+		p.line("  last hash %s", out.LastHash)
+		return
+	}
+	p.line("%s audit export does not verify: %s", p.fail(), r.Failure.Error())
+	if r.Verified > 0 {
+		p.line("  %s verified before it", plural(int(r.Verified), "entry", "entries"))
+	}
+	p.line("  %s", p.dim(dir))
+}
+
+func (inv *invocation) reportAuditVerify(dir string, r audit.ExportReport) error {
+	out := auditVerifyDoc(dir, r)
+	if err := inv.emit(out, func(p *printer) { printAuditVerify(p, dir, r, out) }); err != nil {
 		return err
 	}
 	if !r.OK {

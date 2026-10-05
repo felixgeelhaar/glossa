@@ -4,6 +4,11 @@
  * mechanical change later: these keys become messages.
  */
 import { ApiError } from "./api/errors";
+import { auditProblems, auditStrings } from "./strings-audit";
+import { directoryProblems, directoryStrings } from "./strings-directory";
+import { instanceProblems, instanceStrings } from "./strings-instances";
+import { releaseOpsProblems, releaseOpsStrings } from "./strings-release-ops";
+import { workflowProblems, workflowStrings } from "./strings-workflows";
 
 export const strings = {
   app: {
@@ -48,6 +53,11 @@ export const strings = {
     work: "Your work",
     myWork: "My work",
     approvals: "Approvals",
+    workflow: "Workflow",
+    workflows: "Workflows",
+    groups: "Groups",
+    vendors: "Vendors",
+    audit: "Audit log",
   },
   tenantSettings: {
     knowledgeLink: "Translation memory & termbase",
@@ -346,6 +356,34 @@ export const strings = {
     cancelled: "You chose not to allow in-product editing.",
     granted: "Done \u2014 you can close this window.",
     badRequest: "This link is incomplete. Open the editor from your preview deployment again.",
+  },
+  device: {
+    title: "Sign in a device",
+    lead: "Enter the code your terminal shows to sign the Glossa CLI in.",
+    code: "Device code",
+    codeHint: "Eight letters, shown as XXXX-XXXX. Case and the hyphen don't matter.",
+    codeInvalid: "That isn't a device code. Codes are eight consonants, like BCDF-GHJK.",
+    lookUp: "Continue",
+    lookingUp: "Looking up…",
+    found: "Approve this sign-in?",
+    device: "Device",
+    deviceHint: "The name the device gave itself.",
+    requested: "Asked",
+    expires: "Code expires",
+    when: (relative: string, absolute: string) => `${relative} (${absolute})`,
+    warningTitle: "Only approve a sign-in you started yourself",
+    warning:
+      "Approving signs this device in as you, with all your access. If someone sent you this code, " +
+      "or you didn't just run a sign-in command, deny it.",
+    approve: "Approve",
+    approving: "Approving…",
+    deny: "Deny",
+    denying: "Denying…",
+    otherCode: "Enter a different code",
+    approvedTitle: "Device signed in",
+    approved: "Device signed in — you can return to your terminal.",
+    deniedTitle: "Sign-in denied",
+    denied: "Sign-in denied. The device was not signed in; you can close this page.",
   },
   locales: {
     title: "Locales",
@@ -668,7 +706,6 @@ export const strings = {
     insert: "Insert",
     sourceDiff: "Its source, compared with this one:",
     from: (key: string) => `From ${key}`,
-    imported: "Imported",
     scopeProject: "this project",
     scopeTenant: "workspace-wide",
     variablesKept: "a variable kept its name — check it",
@@ -719,7 +756,7 @@ export const strings = {
     moreUsages: (n: number) => `Showing the first ${n.toLocaleString()} usages.`,
     noData: "No usage data yet.",
     noDataHint:
-      "Usages come from the build: run glossa extract --upload, add @glossa/unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
+      "Usages come from the build: run glossa extract --upload, add @felixgeelhaar/glossa-unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
     unused: "Unused",
     unusedLead: "No current build uses this message.",
     unusedHint: "Dynamic keys are invisible to every collector, so this is only reported — nothing is obsoleted automatically.",
@@ -875,6 +912,7 @@ export const strings = {
   ai: {
     title: "AI suggestion",
     none: "No AI suggestion for this message yet. “Fill with AI” asks for one.",
+    outdated: "The source has changed since this suggestion was made.",
     status: { pending: "Pending", accepted: "Accepted", rejected: "Rejected", auto_applied: "Auto-applied", superseded: "Superseded" } as Record<string, string>,
     band: { very_high: "Very high confidence", high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as Record<string, string>,
     score: (x: string) => `score ${x}`,
@@ -1855,6 +1893,12 @@ export const strings = {
     superseded: "Replaced: a newer approval request for this text took its place. The list has been read again.",
     retry: "Read again",
   },
+  // RFC 0006 wave 5: the workflow editor and instances, vendors and groups, release requests and rollouts.
+  workflows: workflowStrings,
+  instances: instanceStrings,
+  directory: directoryStrings,
+  audit: auditStrings,
+  releaseOps: releaseOpsStrings,
   shortcuts: {
     title: "Keyboard shortcuts",
     lead: "Studio is built for the keyboard. Chords use ⌘ on macOS and Ctrl elsewhere.",
@@ -1886,6 +1930,7 @@ export const strings = {
     no_passkeys: "There's no passkey for this address. Use a sign-in link instead.",
     passkey_invalid: "The passkey couldn't be verified.",
     rate_limited: "Too many requests. Wait a moment and try again.",
+    device_authorization_not_found: "This code is unknown, expired, or already used.",
     slug_taken: "That slug is taken.",
     forbidden: "You don't have permission to do that here.",
     review_forbidden: "Approving and rejecting needs the reviewer role for this locale.",
@@ -1953,6 +1998,11 @@ export const strings = {
     assignment_state: "Already moved on: this assignment was completed, declined or expired meanwhile.",
     invalid_assignment: "That isn't possible for this assignment (a reason is at most 2,000 characters).",
     invalid_approval: "That decision isn't valid (a reason is at most 2,000 characters).",
+    ...workflowProblems,
+    ...instanceProblems,
+    ...directoryProblems,
+    ...auditProblems,
+    ...releaseOpsProblems,
   } as Record<string, string>,
 };
 

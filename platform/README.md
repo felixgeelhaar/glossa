@@ -149,7 +149,8 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_OUTBOX_HANDLER_TIMEOUT` | `30s` | Budget for one subscriber, retries included. |
 | `GLOSSA_AUTH_SECRET` | required | Base64 of ≥ 32 random bytes. The CSRF, TOTP-sealing, passkey-state and secret-sealing keys are derived from it (HKDF). Rotating it invalidates CSRF tokens and in-flight passkey ceremonies and makes enrolled TOTP secrets and tenants' AI provider keys unreadable (they are entered again). |
 | `GLOSSA_STUDIO_URL` | `http://localhost:5173` | Studio's origin; emailed links point into it. |
-| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime. |
+| `GLOSSA_SESSION_TTL` | `336h` | Session lifetime, the CLI's device sessions (`glossa login --device`) included. |
+| `GLOSSA_TRUSTED_PROXIES` | — | Comma-separated CIDRs (or addresses) of the reverse proxies whose `X-Forwarded-For` names the client. Limits per client address — starting a device sign-in, ten a minute — key on the rightmost untrusted hop; unset, the TCP peer is the client, so behind an ingress set it to the ingress's pod range. |
 | `GLOSSA_MAIL_DRIVER` | `none` | `none` (no email: magic links and password reset by email are off, password accounts work unverified), `smtp`, or `log` (development only: mail goes to the log, links included). |
 | `GLOSSA_MAIL_FROM` | `Glossa <no-reply@localhost>` | Sender. |
 | `GLOSSA_SMTP_ADDR` / `_USERNAME` / `_PASSWORD` | — | Submission server (`host:587`) and AUTH PLAIN credentials. STARTTLS is required. |
@@ -167,6 +168,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_AUDIT_EXPORTS_ENABLED` | `false` | Audit export jobs (RFC 0006 §6.2). `true` without `GLOSSA_AUDIT_SIGNING_KEY` refuses to start. |
 | `GLOSSA_AUDIT_SIGNING_KEY` | — | Exactly one `keyId=base64(32-byte Ed25519 seed)`: the audit export key. Its own key — the server refuses a seed that is also a release signing key, and there is no key derived from `GLOSSA_AUTH_SECRET`. See *Audit export format*. |
 | `GLOSSA_AUDIT_RETIRED_KEYS` | — | `keyId=base64(public key)`, comma-separated: earlier audit keys, published so the exports they signed keep verifying. |
+| `GLOSSA_AUDIT_EXPORT_RETENTION` | `168h` | How long an audit export job's two files are kept; the sweep deletes them afterwards (the job stays). |
 | `GLOSSA_EDGE_PUBLIC_URL` | — | glossa-edge's public base URL (`https://edge.example.com`). `GET /v1/meta` announces it, so Studio's snippets and other clients don't guess. |
 | `GLOSSA_AI_WORKERS_ENABLED` | `true` | Run AI translation job workers in this process. |
 | `GLOSSA_AI_WORKERS` | `2` | Jobs this process runs at once. Tenants' own caps (`max_concurrent_jobs`) apply across replicas. |
@@ -187,6 +189,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_PURGE_POLL_INTERVAL` | `5m` | How often a replica asks whether a job is due. It must not exceed the interval. |
 | `GLOSSA_PURGE_JITTER` | `0.2` | Fraction of the poll interval (0–1) each poll is spread by, so replicas started together don't ask in lockstep. |
 | `GLOSSA_PURGE_BATCH_SIZE` | `100` | Object-store deletes issued at a time while freeing unreferenced capture images. |
+| `GLOSSA_WORKFLOW_INSTANCE_RETENTION` | `4320h` | How long a finished workflow instance and its transition log are kept (RFC 0006 §2.5; at least `24h`). The daily `workflow.retention` job, one of the purge jobs, deletes them afterwards, at most 5,000 per tenant a run; running instances are never deleted. |
 | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES` | `2147483648` | Capture images one tenant may keep in object storage (2 GiB, RFC 0004 §3.3). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); retention frees space again. |
 | `GLOSSA_BRANCH_PUBLISHER_ENABLED` | `true` | Publish branch preview environments whose debounced request is due. A publish is keyed by its request, so every replica may run it. (The proposal sweep is not here: it is one of the leased `GLOSSA_PURGE_*` jobs.) |
 | `GLOSSA_BRANCH_PUBLISH_INTERVAL` | `5s` | How often due branch publishes are looked for (the debounce itself is 30 s). |
@@ -1854,8 +1857,11 @@ still need verifying (`TestRetiredKeysStillVerify`).
 **Public keys** are distributed as a `glossa.audit.keys/1` document,
 `{format, keys: [{key_id, algorithm: "Ed25519", public_key (base64url),
 active}]}`, the active key first. glossa-server serves it at
-`GET /.well-known/glossa-audit-keys.json` (wave 5, with the export jobs;
-public, no token — it holds public keys only). The verifier never takes
+`GET /.well-known/glossa-audit-keys.json` (public, no token — it holds
+public keys only; 404 on a deployment without an audit key). Export jobs
+(`POST /v1/tenants/{tenant}/audit-export-jobs`, owner only) write these
+two files to object storage and serve them at `…/{job}/file` and
+`…/{job}/manifest`. The verifier never takes
 a key from the export it is checking: `glossa audit verify` requires
 `--public-key`, either that document saved once and pinned, or
 `keyId=base64` from wherever the operator published it.

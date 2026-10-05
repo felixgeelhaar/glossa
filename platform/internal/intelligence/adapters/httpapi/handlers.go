@@ -7,6 +7,7 @@ import (
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
 	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
 )
 
 // ── providers ────────────────────────────────────────────────────────
@@ -439,6 +440,24 @@ func (a *API) ListAISuggestions(ctx context.Context, req apiv1.ListAISuggestions
 		return nil, mapError(err)
 	}
 	return apiv1.ListAISuggestions200JSONResponse{Items: toSuggestions(rows, sources), NextPageToken: next}, nil
+}
+
+// ListUnitAISuggestions is the translation workspace's read of the
+// suggestions for one unit, without what the job cost or drew on.
+func (a *API) ListUnitAISuggestions(ctx context.Context, req apiv1.ListUnitAISuggestionsRequestObject) (apiv1.ListUnitAISuggestionsResponseObject, error) {
+	project, err := pathID(req.Project)
+	if err != nil {
+		return nil, err
+	}
+	loc, err := bcp47.Parse(req.Locale)
+	if err != nil {
+		return nil, mapError(app.ErrNotFound)
+	}
+	rows, err := a.svc.UnitSuggestions(ctx, project, req.Message, loc)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apiv1.ListUnitAISuggestions200JSONResponse{Items: toUnitSuggestions(rows)}, nil
 }
 
 func (a *API) GetAISuggestion(ctx context.Context, req apiv1.GetAISuggestionRequestObject) (apiv1.GetAISuggestionResponseObject, error) {

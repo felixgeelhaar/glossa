@@ -95,7 +95,7 @@ func historyError(e, cause error) error {
 	switch ae.Status {
 	case 403:
 		ce.Fix = "importing history writes the organisation's audit trail, which only an owner may (audit.import); no API " +
-			"token scope reaches it. Send it with an owner's credential, or drop --history to import without it"
+			"token scope reaches it. Sign in as the owner with `glossa login --device` and run it again, or drop --history to import without it"
 	case 404:
 		if ae.Code == "not_found" && ce.Why != "" {
 			ce.Fix = "check tenant and project in glossa.yaml; a server older than RFC 0006 wave 4 has no audit-imports route"

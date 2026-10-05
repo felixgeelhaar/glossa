@@ -501,6 +501,51 @@ func (e AssignmentState) Valid() bool {
 	}
 }
 
+// Defines values for AuditExportJobState.
+const (
+	AuditExportJobStateFailed    AuditExportJobState = "failed"
+	AuditExportJobStateQueued    AuditExportJobState = "queued"
+	AuditExportJobStateRunning   AuditExportJobState = "running"
+	AuditExportJobStateSucceeded AuditExportJobState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AuditExportJobState enum.
+func (e AuditExportJobState) Valid() bool {
+	switch e {
+	case AuditExportJobStateFailed:
+		return true
+	case AuditExportJobStateQueued:
+		return true
+	case AuditExportJobStateRunning:
+		return true
+	case AuditExportJobStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditSource.
+const (
+	AuditSourceDirect AuditSource = "direct"
+	AuditSourceImport AuditSource = "import"
+	AuditSourceOutbox AuditSource = "outbox"
+)
+
+// Valid indicates whether the value is a known member of the AuditSource enum.
+func (e AuditSource) Valid() bool {
+	switch e {
+	case AuditSourceDirect:
+		return true
+	case AuditSourceImport:
+		return true
+	case AuditSourceOutbox:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BranchItemResultStatus.
 const (
 	BranchItemResultStatusFailed         BranchItemResultStatus = "failed"
@@ -942,6 +987,39 @@ func (e DeploymentAction) Valid() bool {
 	case DeploymentActionPublish:
 		return true
 	case DeploymentActionRollback:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceApprovalDecision.
+const (
+	DeviceApprovalDecisionApproved DeviceApprovalDecision = "approved"
+	DeviceApprovalDecisionDenied   DeviceApprovalDecision = "denied"
+)
+
+// Valid indicates whether the value is a known member of the DeviceApprovalDecision enum.
+func (e DeviceApprovalDecision) Valid() bool {
+	switch e {
+	case DeviceApprovalDecisionApproved:
+		return true
+	case DeviceApprovalDecisionDenied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceSessionTokenType.
+const (
+	Bearer DeviceSessionTokenType = "Bearer"
+)
+
+// Valid indicates whether the value is a known member of the DeviceSessionTokenType enum.
+func (e DeviceSessionTokenType) Valid() bool {
+	switch e {
+	case Bearer:
 		return true
 	default:
 		return false
@@ -2304,6 +2382,27 @@ func (e TranslationRevisionKind) Valid() bool {
 	}
 }
 
+// Defines values for UnitTMMatchKind.
+const (
+	UnitTMMatchKindContext UnitTMMatchKind = "context"
+	UnitTMMatchKindExact   UnitTMMatchKind = "exact"
+	UnitTMMatchKindFuzzy   UnitTMMatchKind = "fuzzy"
+)
+
+// Valid indicates whether the value is a known member of the UnitTMMatchKind enum.
+func (e UnitTMMatchKind) Valid() bool {
+	switch e {
+	case UnitTMMatchKindContext:
+		return true
+	case UnitTMMatchKindExact:
+		return true
+	case UnitTMMatchKindFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UsageKind.
 const (
 	UsageKindAccessor  UsageKind = "accessor"
@@ -2475,6 +2574,24 @@ func (e WorkflowTransitionOutcome) Valid() bool {
 	case WorkflowTransitionOutcomeIgnored:
 		return true
 	case WorkflowTransitionOutcomeRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAuditEntriesParamsOrder.
+const (
+	Asc  ListAuditEntriesParamsOrder = "asc"
+	Desc ListAuditEntriesParamsOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditEntriesParamsOrder enum.
+func (e ListAuditEntriesParamsOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
 		return true
 	default:
 		return false
@@ -3479,6 +3596,62 @@ type AssignmentList struct {
 	NextPageToken *string      `json:"next_page_token,omitempty"`
 }
 
+// AssignmentReport defines model for AssignmentReport.
+type AssignmentReport struct {
+	// GeneratedAt RFC 3339, UTC.
+	GeneratedAt Timestamp             `json:"generated_at"`
+	Rows        []AssignmentReportRow `json:"rows"`
+
+	// Since RFC 3339, UTC.
+	Since *Timestamp `json:"since,omitempty"`
+
+	// Truncated A bound stopped the report; its numbers cover only what was read before it.
+	Truncated bool `json:"truncated"`
+}
+
+// AssignmentReportRow One assignee's completed work in one locale (RFC 0006 §3.4).
+type AssignmentReportRow struct {
+	Approved int `json:"approved"`
+
+	// Assignee As stored: `vendor:<id>`, `member:<id>`, `group:<id>` or `role:<name>`.
+	Assignee             string `json:"assignee"`
+	Assignments          int    `json:"assignments"`
+	ChangedAfterDelivery int    `json:"changed_after_delivery"`
+	Draft                int    `json:"draft"`
+
+	// Findings Open findings by layer.
+	Findings        map[string]int `json:"findings"`
+	FindingsPerUnit float64        `json:"findings_per_unit"`
+	Late            int            `json:"late"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale           Locale  `json:"locale"`
+	MeanEditDistance float64 `json:"mean_edit_distance"`
+	MeanEditRatio    float64 `json:"mean_edit_ratio"`
+	NeedsReview      int     `json:"needs_review"`
+	NoDue            int     `json:"no_due"`
+	OnTime           int     `json:"on_time"`
+
+	// OnTimeRate On time over the assignments that had a due date.
+	OnTimeRate  float64 `json:"on_time_rate"`
+	Rejected    int     `json:"rejected"`
+	ReworkRate  float64 `json:"rework_rate"`
+	Reworked    int     `json:"reworked"`
+	SourceWords int     `json:"source_words"`
+
+	// TmWords Source words delivered from translation memory, by match band (`exact`).
+	TmWords map[string]int `json:"tm_words"`
+
+	// Unavailable Units whose facts could not be read.
+	Unavailable int `json:"unavailable"`
+	Units       int `json:"units"`
+	Unreviewed  int `json:"unreviewed"`
+}
+
 // AssignmentState `open` and `accepted` are live; the others are final.
 type AssignmentState string
 
@@ -3494,6 +3667,152 @@ type AssignmentUnit struct {
 	// MessageId An opaque identifier.
 	MessageId Id `json:"message_id"`
 }
+
+// AuditEntry One entry of the tenant's hash chain, as its `glossa.audit/v1`
+// export line holds it (RFC 0006 §6.1). Content-free: `summary`
+// keeps identifiers and selectors verbatim and records everything
+// else as its shape (`"string(len=27)"`).
+type AuditEntry struct {
+	// Action The event type (`release.published`) or direct action (`identity.person.signed_in`).
+	Action string `json:"action"`
+
+	// Actor `person:<id>`, `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor (`v0:<id>`).
+	Actor         string `json:"actor"`
+	AggregateId   string `json:"aggregate_id"`
+	AggregateType string `json:"aggregate_type"`
+
+	// EventId The act recorded: the outbox event's id, or a direct write's own.
+	EventId string `json:"event_id"`
+
+	// Hash sha256(prev_hash ‖ JCS(entry)).
+	Hash   string  `json:"hash"`
+	Locale *string `json:"locale,omitempty"`
+
+	// OccurredAt RFC 3339, UTC.
+	OccurredAt Timestamp `json:"occurred_at"`
+
+	// PrevHash The previous entry's hash (64 zero digits for the first).
+	PrevHash string `json:"prev_hash"`
+
+	// ProjectId An opaque identifier.
+	ProjectId *Id     `json:"project_id,omitempty"`
+	RequestId *string `json:"request_id,omitempty"`
+
+	// Sequence Its place in the tenant's chain.
+	Sequence int64 `json:"sequence"`
+
+	// Source Where an entry came from: a domain event (`outbox`), an act that
+	// never reaches the outbox such as a sign-in or an MCP tool call
+	// (`direct`), or v0.3's imported history (`import`).
+	Source AuditSource `json:"source"`
+
+	// Summary The act without its content.
+	Summary map[string]interface{} `json:"summary"`
+	TraceId *string                `json:"trace_id,omitempty"`
+}
+
+// AuditEntryList defines model for AuditEntryList.
+type AuditEntryList struct {
+	Items         []AuditEntry `json:"items"`
+	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// AuditExportFile defines model for AuditExportFile.
+type AuditExportFile struct {
+	Bytes int64 `json:"bytes"`
+
+	// DownloadUrl Where to download it; present while it is kept.
+	DownloadUrl *string `json:"download_url,omitempty"`
+
+	// Path `entries.jsonl` or `manifest.json`.
+	Path   string `json:"path"`
+	Sha256 string `json:"sha256"`
+}
+
+// AuditExportJob defines model for AuditExportJob.
+type AuditExportJob struct {
+	Attempts int `json:"attempts"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt  Timestamp        `json:"created_at"`
+	CreatedBy  string           `json:"created_by"`
+	Entries    *AuditExportFile `json:"entries,omitempty"`
+	EntryCount *int64           `json:"entry_count,omitempty"`
+
+	// ExpiresAt When retention deletes the files.
+	ExpiresAt      Timestamp `json:"expires_at"`
+	FailureCode    *string   `json:"failure_code,omitempty"`
+	FailureMessage *string   `json:"failure_message,omitempty"`
+
+	// FilesDeletedAt RFC 3339, UTC.
+	FilesDeletedAt *Timestamp `json:"files_deleted_at,omitempty"`
+
+	// FinishedAt RFC 3339, UTC.
+	FinishedAt *Timestamp `json:"finished_at,omitempty"`
+
+	// FirstPrevHash Where the export joins the chain before it.
+	FirstPrevHash *string `json:"first_prev_hash,omitempty"`
+
+	// FirstSequence The first entry; for a time range, once the job has run.
+	FirstSequence *int64 `json:"first_sequence,omitempty"`
+
+	// From A time range's start, as asked.
+	From *Timestamp `json:"from,omitempty"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// KeyId The audit key that signed the manifest.
+	KeyId *string `json:"key_id,omitempty"`
+
+	// LastHash The head the next export's `first_prev_hash` continues from.
+	LastHash *string `json:"last_hash,omitempty"`
+
+	// LastSequence The last entry; for a time range, once the job has run. `first_sequence − 1` for an empty export.
+	LastSequence *int64           `json:"last_sequence,omitempty"`
+	Manifest     *AuditExportFile `json:"manifest,omitempty"`
+
+	// StartedAt RFC 3339, UTC.
+	StartedAt *Timestamp          `json:"started_at,omitempty"`
+	State     AuditExportJobState `json:"state"`
+
+	// To A time range's end, as asked, or cut to when the job was made.
+	To *Timestamp `json:"to,omitempty"`
+
+	// UpdatedAt RFC 3339, UTC.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// AuditExportJobCreate Exactly one range: a time range (`from` and `to`), or a
+// sequence range (`first_sequence`, and `last_sequence` or the
+// chain's head).
+type AuditExportJobCreate struct {
+	FirstSequence *int64 `json:"first_sequence,omitempty"`
+
+	// From RFC 3339, UTC.
+	From         *Timestamp `json:"from,omitempty"`
+	LastSequence *int64     `json:"last_sequence,omitempty"`
+
+	// To RFC 3339, UTC.
+	To *Timestamp `json:"to,omitempty"`
+}
+
+// AuditExportJobList defines model for AuditExportJobList.
+type AuditExportJobList struct {
+	Items         []AuditExportJob `json:"items"`
+	NextPageToken *string          `json:"next_page_token,omitempty"`
+}
+
+// AuditExportJobState defines model for AuditExportJobState.
+type AuditExportJobState string
+
+// AuditExportManifest A `glossa.audit/v1` manifest (platform/README.md, *Audit export format*), as signed.
+type AuditExportManifest map[string]interface{}
+
+// AuditSource Where an entry came from: a domain event (`outbox`), an act that
+// never reaches the outbox such as a sign-in or an MCP tool call
+// (`direct`), or v0.3's imported history (`import`).
+type AuditSource string
 
 // Branch defines model for Branch.
 type Branch struct {
@@ -4850,6 +5169,69 @@ type DeploymentAction string
 type DeploymentList struct {
 	Items         []Deployment `json:"items"`
 	NextPageToken *string      `json:"next_page_token,omitempty"`
+}
+
+// DeviceApproval defines model for DeviceApproval.
+type DeviceApproval struct {
+	Decision DeviceApprovalDecision `json:"decision"`
+	UserCode string                 `json:"user_code"`
+}
+
+// DeviceApprovalDecision defines model for DeviceApproval.Decision.
+type DeviceApprovalDecision string
+
+// DeviceAuthorization defines model for DeviceAuthorization.
+type DeviceAuthorization struct {
+	// DeviceCode The device's secret for polling. Never shown to a person.
+	DeviceCode string `json:"device_code"`
+
+	// ExpiresIn Seconds until both codes expire.
+	ExpiresIn int `json:"expires_in"`
+
+	// Interval Seconds to wait between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Shown to the person, as `XXXX-XXXX`.
+	UserCode string `json:"user_code"`
+
+	// VerificationUri Studio's page where the person enters the code.
+	VerificationUri string `json:"verification_uri"`
+
+	// VerificationUriComplete The same page with the code filled in.
+	VerificationUriComplete string `json:"verification_uri_complete"`
+}
+
+// DeviceAuthorizationRequest defines model for DeviceAuthorizationRequest.
+type DeviceAuthorizationRequest struct {
+	// ClientName What the device calls itself, shown to the person who approves it — e.g. `glossa CLI on build-01`.
+	ClientName string `json:"client_name"`
+}
+
+// DeviceAuthorizationView defines model for DeviceAuthorizationView.
+type DeviceAuthorizationView struct {
+	ClientName  string    `json:"client_name"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	RequestedAt time.Time `json:"requested_at"`
+	UserCode    string    `json:"user_code"`
+}
+
+// DeviceSession defines model for DeviceSession.
+type DeviceSession struct {
+	// AccessToken `glossa_dev_…`: the person's session as a bearer.
+	AccessToken string `json:"access_token"`
+
+	// ExpiresAt When the session ends unless the person signs out sooner.
+	ExpiresAt time.Time              `json:"expires_at"`
+	PersonId  openapi_types.UUID     `json:"person_id"`
+	TokenType DeviceSessionTokenType `json:"token_type"`
+}
+
+// DeviceSessionTokenType defines model for DeviceSession.TokenType.
+type DeviceSessionTokenType string
+
+// DeviceSessionRequest defines model for DeviceSessionRequest.
+type DeviceSessionRequest struct {
+	DeviceCode string `json:"device_code"`
 }
 
 // Direction Derived from the locale's (likely) script.
@@ -7046,6 +7428,12 @@ type QualityUnmeasured struct {
 // QualityUnmeasuredNumber defines model for QualityUnmeasured.Number.
 type QualityUnmeasuredNumber string
 
+// RebaseWorkflowInstance defines model for RebaseWorkflowInstance.
+type RebaseWorkflowInstance struct {
+	// Version The version to move to; the definition's latest when absent.
+	Version *int `json:"version,omitempty"`
+}
+
 // Registration defines model for Registration.
 type Registration struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -8394,6 +8782,85 @@ type TranslationTerminologyFindings struct {
 	TargetText string `json:"target_text"`
 }
 
+// UnitAISuggestion An AI suggestion as a unit's workspace shows it. The job, provider, model, calls, usage, cost and provenance of `AISuggestion` are not part of it.
+type UnitAISuggestion struct {
+	Action     AIAction `json:"action"`
+	ActionNote *string  `json:"action_note,omitempty"`
+
+	// CreatedAt RFC 3339, UTC.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// Decidable Whether the caller may accept or reject it (`acceptAISuggestion`); false for a member with visibility `assigned`.
+	Decidable   bool                 `json:"decidable"`
+	Explanation []AIConfidenceFactor `json:"explanation"`
+	Findings    []QAFinding          `json:"findings"`
+
+	// Id An opaque identifier.
+	Id Id `json:"id"`
+
+	// Locale A BCP 47 language tag. Stored and returned canonicalized
+	// (`en_us` → `en-US`, `iw` → `he`).
+	//
+	//
+	// Examples: de, pt-BR, zh-Hant-TW
+	Locale Locale `json:"locale"`
+
+	// Message The translation in canonical MF2 syntax.
+	Message string `json:"message"`
+
+	// Outdated The message's source has been revised since the suggestion was made.
+	Outdated       bool               `json:"outdated"`
+	RiskTags       []string           `json:"risk_tags"`
+	Score          float64            `json:"score"`
+	SourceRevision int                `json:"source_revision"`
+	Status         AISuggestionStatus `json:"status"`
+	TermFindings   []AITermFinding    `json:"term_findings"`
+}
+
+// UnitAISuggestions defines model for UnitAISuggestions.
+type UnitAISuggestions struct {
+	Items []UnitAISuggestion `json:"items"`
+}
+
+// UnitTMMatch A match as a unit's workspace shows it: what was remembered and how well it fits, never which unit it is — there is no unit id, and `message_key` is left out for a member with visibility `assigned`.
+type UnitTMMatch struct {
+	Kind UnitTMMatchKind `json:"kind"`
+
+	// MessageKey The key of the message the match was learned from. Never returned to a member with visibility `assigned`.
+	MessageKey *MessageKey `json:"message_key,omitempty"`
+
+	// ProjectScoped True for a unit the project owns, false for a tenant-wide one.
+	ProjectScoped bool `json:"project_scoped"`
+	Score         int  `json:"score"`
+
+	// SourceNormalized The remembered source, normalized: what a fuzzy match is compared with.
+	SourceNormalized string `json:"source_normalized"`
+
+	// Target The remembered target in MF2, its variables renamed to the unit's by position.
+	Target string `json:"target"`
+
+	// TargetSyntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
+	TargetSyntax         Syntax `json:"target_syntax"`
+	TargetSyntaxFallback bool   `json:"target_syntax_fallback"`
+
+	// TargetText The same target in the syntax asked for; MF2 with `target_syntax_fallback` when MF1 can't express it.
+	TargetText string `json:"target_text"`
+
+	// VariablesAdapted False when a target variable had no counterpart and kept its name.
+	VariablesAdapted bool `json:"variables_adapted"`
+}
+
+// UnitTMMatchKind defines model for UnitTMMatch.Kind.
+type UnitTMMatchKind string
+
+// UnitTMMatches defines model for UnitTMMatches.
+type UnitTMMatches struct {
+	Items []UnitTMMatch `json:"items"`
+
+	// SourceNormalized The unit's own source, normalized.
+	SourceNormalized string `json:"source_normalized"`
+}
+
 // UnusedMessage defines model for UnusedMessage.
 type UnusedMessage struct {
 	// Id An opaque identifier.
@@ -8587,7 +9054,7 @@ type UsagesDocumentUsage struct {
 
 // UsagesTool defines model for UsagesTool.
 type UsagesTool struct {
-	// Name A package name: `@glossa/unplugin`, `glossa`.
+	// Name A package name: `@felixgeelhaar/glossa-unplugin`, `glossa`.
 	Name string `json:"name"`
 
 	// Version A semantic version.
@@ -9068,6 +9535,9 @@ type ApprovalPath = Id
 // AssignmentPath An opaque identifier.
 type AssignmentPath = Id
 
+// AuditExportJobPath An opaque identifier.
+type AuditExportJobPath = Id
+
 // BranchPath An opaque identifier.
 type BranchPath = Id
 
@@ -9416,6 +9886,18 @@ type ListApprovalsParams struct {
 	State   *ApprovalState   `form:"state,omitempty" json:"state,omitempty"`
 }
 
+// GetAssignmentReportParams defines parameters for GetAssignmentReport.
+type GetAssignmentReportParams struct {
+	// Project A project `id`.
+	Project *Id `form:"project,omitempty" json:"project,omitempty"`
+
+	// Vendor A vendor `id`.
+	Vendor *Id `form:"vendor,omitempty" json:"vendor,omitempty"`
+
+	// Since Only assignments completed at or after this time.
+	Since *Timestamp `form:"since,omitempty" json:"since,omitempty"`
+}
+
 // ListAssignmentsParams defines parameters for ListAssignments.
 type ListAssignmentsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -9437,6 +9919,47 @@ type ListAssignmentsParams struct {
 
 // CreateAssignmentParams defines parameters for CreateAssignment.
 type CreateAssignmentParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListAuditEntriesParams defines parameters for ListAuditEntries.
+type ListAuditEntriesParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+
+	// From Entries that happened at or after this instant.
+	From *Timestamp `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Entries that happened before this instant.
+	To            *Timestamp `form:"to,omitempty" json:"to,omitempty"`
+	FirstSequence *int64     `form:"first_sequence,omitempty" json:"first_sequence,omitempty"`
+	LastSequence  *int64     `form:"last_sequence,omitempty" json:"last_sequence,omitempty"`
+	Actor         *string    `form:"actor,omitempty" json:"actor,omitempty"`
+	Action        *string    `form:"action,omitempty" json:"action,omitempty"`
+
+	// Project A project `id`.
+	Project       *Id                          `form:"project,omitempty" json:"project,omitempty"`
+	Source        *AuditSource                 `form:"source,omitempty" json:"source,omitempty"`
+	AggregateType *string                      `form:"aggregate_type,omitempty" json:"aggregate_type,omitempty"`
+	AggregateId   *string                      `form:"aggregate_id,omitempty" json:"aggregate_id,omitempty"`
+	Order         *ListAuditEntriesParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// ListAuditEntriesParamsOrder defines parameters for ListAuditEntries.
+type ListAuditEntriesParamsOrder string
+
+// ListAuditExportJobsParams defines parameters for ListAuditExportJobs.
+type ListAuditExportJobsParams struct {
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// PageToken The `next_page_token` of the previous page.
+	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
+}
+
+// CreateAuditExportJobParams defines parameters for CreateAuditExportJob.
+type CreateAuditExportJobParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -9746,7 +10269,7 @@ type ListContextBuildsParams struct {
 
 // CreateContextBuildParams defines parameters for CreateContextBuild.
 type CreateContextBuildParams struct {
-	// Source The collector that wrote the document: `plugin` (@glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
+	// Source The collector that wrote the document: `plugin` (@felixgeelhaar/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
 	Source ContextSource `form:"source" json:"source"`
 }
 
@@ -9967,6 +10490,15 @@ type ListTranslationRevisionsParams struct {
 	PageToken *PageToken `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
+// ListUnitTMMatchesParams defines parameters for ListUnitTMMatches.
+type ListUnitTMMatchesParams struct {
+	Limit    *int `form:"limit,omitempty" json:"limit,omitempty"`
+	MinScore *int `form:"min_score,omitempty" json:"min_score,omitempty"`
+
+	// TargetSyntax The syntax of each `target_text`; by default the one the message's source is written in.
+	TargetSyntax *Syntax `form:"target_syntax,omitempty" json:"target_syntax,omitempty"`
+}
+
 // ListMessageUsagesParams defines parameters for ListMessageUsages.
 type ListMessageUsagesParams struct {
 	// Branch A branch view: that branch's latest builds, and the default branch's where it didn't rebuild. Absent: the default branch's.
@@ -10169,6 +10701,12 @@ type ListWorkflowInstancesParams struct {
 
 	// SubjectId A subject `id` (a message's or a release request's).
 	SubjectId *Id `form:"subject_id,omitempty" json:"subject_id,omitempty"`
+}
+
+// RebaseWorkflowInstanceParams defines parameters for RebaseWorkflowInstance.
+type RebaseWorkflowInstanceParams struct {
+	// IfMatch The `ETag` the change is based on.
+	IfMatch IfMatch `json:"If-Match"`
 }
 
 // ListWorkflowTransitionsParams defines parameters for ListWorkflowTransitions.
@@ -10422,6 +10960,15 @@ type SaveWorkflowDefinitionVersionParams struct {
 	IfMatch IfMatch `json:"If-Match"`
 }
 
+// DecideDeviceAuthorizationJSONRequestBody defines body for DecideDeviceAuthorization for application/json ContentType.
+type DecideDeviceAuthorizationJSONRequestBody = DeviceApproval
+
+// StartDeviceAuthorizationJSONRequestBody defines body for StartDeviceAuthorization for application/json ContentType.
+type StartDeviceAuthorizationJSONRequestBody = DeviceAuthorizationRequest
+
+// RedeemDeviceAuthorizationJSONRequestBody defines body for RedeemDeviceAuthorization for application/json ContentType.
+type RedeemDeviceAuthorizationJSONRequestBody = DeviceSessionRequest
+
 // ExchangeGitHubOIDCTokenJSONRequestBody defines body for ExchangeGitHubOIDCToken for application/json ContentType.
 type ExchangeGitHubOIDCTokenJSONRequestBody = GitHubOIDCExchange
 
@@ -10496,6 +11043,9 @@ type CreateAssignmentJSONRequestBody = CreateAssignment
 
 // DeclineAssignmentJSONRequestBody defines body for DeclineAssignment for application/json ContentType.
 type DeclineAssignmentJSONRequestBody = AssignmentDecline
+
+// CreateAuditExportJobJSONRequestBody defines body for CreateAuditExportJob for application/json ContentType.
+type CreateAuditExportJobJSONRequestBody = AuditExportJobCreate
 
 // CreateExportJobJSONRequestBody defines body for CreateExportJob for application/json ContentType.
 type CreateExportJobJSONRequestBody = ExportJobRequest
@@ -10652,6 +11202,9 @@ type CreateWaiverJSONRequestBody = CreateWaiver
 
 // CreateWorkflowBindingJSONRequestBody defines body for CreateWorkflowBinding for application/json ContentType.
 type CreateWorkflowBindingJSONRequestBody = CreateWorkflowBinding
+
+// RebaseWorkflowInstanceJSONRequestBody defines body for RebaseWorkflowInstance for application/json ContentType.
+type RebaseWorkflowInstanceJSONRequestBody = RebaseWorkflowInstance
 
 // CreateStyleGuideJSONRequestBody defines body for CreateStyleGuide for application/json ContentType.
 type CreateStyleGuideJSONRequestBody = CreateStyleGuide
@@ -10843,6 +11396,126 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+
+	// DecideDeviceAuthorizationWithBody Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DecideDeviceAuthorization Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorization(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartDeviceAuthorizationWithBody Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartDeviceAuthorization Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorization(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceAuthorization What a device code would sign in
+	//
+	// What Studio shows before the person approves: the name the
+	// device gave itself and when it asked, so a code read out by
+	// someone else is recognisable as not one's own. Only a browser
+	// session may look a code up. A code that is unknown, expired or
+	// already decided answers `404` `device_authorization_not_found`,
+	// whichever it is.
+	//
+	// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+	GetDeviceAuthorization(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeemDeviceAuthorizationWithBody Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeemDeviceAuthorization Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorization(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
 	//
@@ -11802,6 +12475,23 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
 	DecideApproval(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAssignmentReport Vendors' quality report
+	//
+	// The quality numbers of completed assignments, by assignee and
+	// locale (RFC 0006 §3.4), computed on read from the assignments,
+	// the catalog, the translations' revision logs and the findings,
+	// as the caller: it says nothing they could not read unit by unit.
+	// At most 2000 assignments and 5000 units are read; `truncated`
+	// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+	// `id`) and `since` (assignments completed at or after it).
+	// Needs `assignments.read` in the project scope; a member whose
+	// visibility is `assigned` is refused. Problem codes:
+	// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+	// server built without the contexts a report reads).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+	GetAssignmentReport(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAssignments Assignments, or my work
 	//
 	// What the caller may see. With `assignments.manage`, every
@@ -11830,8 +12520,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -11850,8 +12542,10 @@ type ClientInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -11910,6 +12604,166 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
 	DeclineAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAuditEntries The tenant's audit entries
+	//
+	// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+	// for chain order). An entry is content-free: identifiers and
+	// selectors verbatim, everything else as its shape; never message
+	// or translation text, an email or a secret.
+	//
+	// Filters, all optional and combined: `from`/`to` (when it
+	// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+	// place in the chain, inclusive), `actor` (`person:<id>`,
+	// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+	// `action` (an event type such as
+	// `localization.translation.revised`, or a direct action such as
+	// `identity.person.signed_in`), `project`, `source` (`outbox`,
+	// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+	//
+	// Needs `audit.read` (owner and admin; no API token scope grants
+	// it). A principal limited to some projects sees only the entries
+	// of those projects — not the tenant-level entries (sign-ins,
+	// members, tokens, vendors, groups), which belong to the
+	// organisation, not to a project. A member whose visibility is
+	// `assigned` is refused. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+	ListAuditEntries(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuditEntry One audit entry
+	//
+	// Needs `audit.read`. An entry outside a project-scoped caller's
+	// projects — and a tenant-level entry, for such a caller — is not
+	// found, exactly like one that does not exist.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+	GetAuditEntry(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAuditExportJobs Audit export jobs
+	//
+	// Newest first. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+	ListAuditExportJobs(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuditExportJobWithBody Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuditExportJob Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJob(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuditExportJob An audit export job
+	//
+	// A job ends `succeeded` — with the chain segment it holds
+	// (`first_sequence`, `last_sequence`, `entry_count`,
+	// `first_prev_hash`, `last_hash`), the key that signed it, and
+	// both files' digests and where to download them — or `failed`
+	// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+	GetAuditExportJob(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadAuditExportEntries Download an audit export's entries.jsonl
+	//
+	// The export's lines, byte for byte, streamed from object storage,
+	// with `Content-Disposition: attachment; filename="entries.jsonl"`
+	// and their SHA-256 — the manifest's `entries.sha256` — as the
+	// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+	// stays. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `export_not_ready` (409), `file_expired`
+	// (410), `storage_unavailable` (503).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+	DownloadAuditExportEntries(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadAuditExportManifest Download an audit export's signed manifest.json
+	//
+	// The signed manifest, byte for byte as the job wrote it (RFC 8785
+	// canonical JSON), with `Content-Disposition: attachment;
+	// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+	// and refused like the entries (`export_not_ready` 409,
+	// `file_expired` 410, `storage_unavailable` 503). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+	DownloadAuditExportManifest(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEffectiveStyleGuide The style that applies to a project, locale and namespace
 	//
@@ -12989,11 +13843,15 @@ type ClientInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13017,11 +13875,15 @@ type ClientInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13688,7 +14550,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -13719,7 +14581,7 @@ type ClientInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -14768,6 +15630,23 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslation(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListUnitAISuggestions AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ReviewTranslationWithBody Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -14800,6 +15679,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUnitTMMatches Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMessageUsages Where a message appears (its current usages)
 	//
@@ -15468,12 +16365,77 @@ type ClientInterface interface {
 
 	// GetWorkflowInstance A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkflowTransitions An instance's transition log
 	//
@@ -16234,6 +17196,196 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
 	GetWorkflowDefinitionVersion(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// DecideDeviceAuthorizationWithBody Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *Client) DecideDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DecideDeviceAuthorization Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *Client) DecideDeviceAuthorization(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartDeviceAuthorizationWithBody Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *Client) StartDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartDeviceAuthorization Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *Client) StartDeviceAuthorization(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetDeviceAuthorization What a device code would sign in
+//
+// What Studio shows before the person approves: the name the
+// device gave itself and when it asked, so a code read out by
+// someone else is recognisable as not one's own. Only a browser
+// session may look a code up. A code that is unknown, expired or
+// already decided answers `404` `device_authorization_not_found`,
+// whichever it is.
+//
+// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+func (c *Client) GetDeviceAuthorization(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceAuthorizationRequest(c.Server, userCode)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RedeemDeviceAuthorizationWithBody Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *Client) RedeemDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeemDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RedeemDeviceAuthorization Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *Client) RedeemDeviceAuthorization(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeemDeviceAuthorizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // ExchangeGitHubOIDCTokenWithBody Exchange a GitHub Actions ID token for a CI token
@@ -17954,6 +19106,33 @@ func (c *Client) DecideApproval(ctx context.Context, tenant TenantPath, approval
 	return c.Client.Do(req)
 }
 
+// GetAssignmentReport Vendors' quality report
+//
+// The quality numbers of completed assignments, by assignee and
+// locale (RFC 0006 §3.4), computed on read from the assignments,
+// the catalog, the translations' revision logs and the findings,
+// as the caller: it says nothing they could not read unit by unit.
+// At most 2000 assignments and 5000 units are read; `truncated`
+// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+// `id`) and `since` (assignments completed at or after it).
+// Needs `assignments.read` in the project scope; a member whose
+// visibility is `assigned` is refused. Problem codes:
+// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+// server built without the contexts a report reads).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+func (c *Client) GetAssignmentReport(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssignmentReportRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListAssignments Assignments, or my work
 //
 // What the caller may see. With `assignments.manage`, every
@@ -17992,8 +19171,10 @@ func (c *Client) ListAssignments(ctx context.Context, tenant TenantPath, params 
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type.
 //
@@ -18022,8 +19203,10 @@ func (c *Client) CreateAssignmentWithBody(ctx context.Context, tenant TenantPath
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18133,6 +19316,246 @@ func (c *Client) DeclineAssignmentWithBody(ctx context.Context, tenant TenantPat
 // Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
 func (c *Client) DeclineAssignment(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeclineAssignmentRequest(c.Server, tenant, assignment, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuditEntries The tenant's audit entries
+//
+// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+// for chain order). An entry is content-free: identifiers and
+// selectors verbatim, everything else as its shape; never message
+// or translation text, an email or a secret.
+//
+// Filters, all optional and combined: `from`/`to` (when it
+// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+// place in the chain, inclusive), `actor` (`person:<id>`,
+// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+// `action` (an event type such as
+// `localization.translation.revised`, or a direct action such as
+// `identity.person.signed_in`), `project`, `source` (`outbox`,
+// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+//
+// Needs `audit.read` (owner and admin; no API token scope grants
+// it). A principal limited to some projects sees only the entries
+// of those projects — not the tenant-level entries (sign-ins,
+// members, tokens, vendors, groups), which belong to the
+// organisation, not to a project. A member whose visibility is
+// `assigned` is refused. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+func (c *Client) ListAuditEntries(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuditEntriesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuditEntry One audit entry
+//
+// Needs `audit.read`. An entry outside a project-scoped caller's
+// projects — and a tenant-level entry, for such a caller — is not
+// found, exactly like one that does not exist.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+func (c *Client) GetAuditEntry(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuditEntryRequest(c.Server, tenant, sequence)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAuditExportJobs Audit export jobs
+//
+// Newest first. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+func (c *Client) ListAuditExportJobs(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuditExportJobsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuditExportJobWithBody Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *Client) CreateAuditExportJobWithBody(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuditExportJobRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateAuditExportJob Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *Client) CreateAuditExportJob(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuditExportJobRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAuditExportJob An audit export job
+//
+// A job ends `succeeded` — with the chain segment it holds
+// (`first_sequence`, `last_sequence`, `entry_count`,
+// `first_prev_hash`, `last_hash`), the key that signed it, and
+// both files' digests and where to download them — or `failed`
+// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+func (c *Client) GetAuditExportJob(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuditExportJobRequest(c.Server, tenant, auditExportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadAuditExportEntries Download an audit export's entries.jsonl
+//
+// The export's lines, byte for byte, streamed from object storage,
+// with `Content-Disposition: attachment; filename="entries.jsonl"`
+// and their SHA-256 — the manifest's `entries.sha256` — as the
+// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+// stays. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `export_not_ready` (409), `file_expired`
+// (410), `storage_unavailable` (503).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+func (c *Client) DownloadAuditExportEntries(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAuditExportEntriesRequest(c.Server, tenant, auditExportJob)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadAuditExportManifest Download an audit export's signed manifest.json
+//
+// The signed manifest, byte for byte as the job wrote it (RFC 8785
+// canonical JSON), with `Content-Disposition: attachment;
+// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+// and refused like the entries (`export_not_ready` 409,
+// `file_expired` 410, `storage_unavailable` 503). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+func (c *Client) DownloadAuditExportManifest(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAuditExportManifestRequest(c.Server, tenant, auditExportJob)
 	if err != nil {
 		return nil, err
 	}
@@ -19911,11 +21334,15 @@ func (c *Client) UpdateApplication(ctx context.Context, tenant TenantPath, proje
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes any type of body and a specified content type.
 //
@@ -19949,11 +21376,15 @@ func (c *Client) ImportV0HistoryWithBody(ctx context.Context, tenant TenantPath,
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20900,7 +22331,7 @@ func (c *Client) ListContextBuilds(ctx context.Context, tenant TenantPath, proje
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -20941,7 +22372,7 @@ func (c *Client) CreateContextBuildWithBody(ctx context.Context, tenant TenantPa
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -22610,6 +24041,33 @@ func (c *Client) PutTranslation(ctx context.Context, tenant TenantPath, project 
 	return c.Client.Do(req)
 }
 
+// ListUnitAISuggestions AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *Client) ListUnitAISuggestions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitAISuggestionsRequest(c.Server, tenant, project, message, locale)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ReviewTranslationWithBody Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -22663,6 +24121,34 @@ func (c *Client) ReviewTranslation(ctx context.Context, tenant TenantPath, proje
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 func (c *Client) ListTranslationRevisions(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTranslationRevisionsRequest(c.Server, tenant, project, message, locale, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListUnitTMMatches Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *Client) ListUnitTMMatches(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUnitTMMatchesRequest(c.Server, tenant, project, message, locale, params)
 	if err != nil {
 		return nil, err
 	}
@@ -23710,13 +25196,98 @@ func (c *Client) ListWorkflowInstances(ctx context.Context, tenant TenantPath, p
 
 // GetWorkflowInstance A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 func (c *Client) GetWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstanceWithBody Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstanceWithBody(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequestWithBody(c.Server, tenant, project, workflowInstance, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RebaseWorkflowInstance Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *Client) RebaseWorkflowInstance(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebaseWorkflowInstanceRequest(c.Server, tenant, project, workflowInstance, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25115,6 +26686,160 @@ func (c *Client) GetWorkflowDefinitionVersion(ctx context.Context, tenant Tenant
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewDecideDeviceAuthorizationRequest calls the generic DecideDeviceAuthorization builder with application/json body
+func NewDecideDeviceAuthorizationRequest(server string, body DecideDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDecideDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDecideDeviceAuthorizationRequestWithBody constructs an http.Request for the DecideDeviceAuthorization method, with any body, and a specified content type
+func NewDecideDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartDeviceAuthorizationRequest calls the generic StartDeviceAuthorization builder with application/json body
+func NewStartDeviceAuthorizationRequest(server string, body StartDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartDeviceAuthorizationRequestWithBody constructs an http.Request for the StartDeviceAuthorization method, with any body, and a specified content type
+func NewStartDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-authorizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceAuthorizationRequest constructs an http.Request for the GetDeviceAuthorization method
+func NewGetDeviceAuthorizationRequest(server string, userCode string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "user_code", userCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-authorizations/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRedeemDeviceAuthorizationRequest calls the generic RedeemDeviceAuthorization builder with application/json body
+func NewRedeemDeviceAuthorizationRequest(server string, body RedeemDeviceAuthorizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRedeemDeviceAuthorizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRedeemDeviceAuthorizationRequestWithBody constructs an http.Request for the RedeemDeviceAuthorization method, with any body, and a specified content type
+func NewRedeemDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/device-sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewExchangeGitHubOIDCTokenRequest calls the generic ExchangeGitHubOIDCToken builder with application/json body
@@ -27878,6 +29603,91 @@ func NewDecideApprovalRequestWithBody(server string, tenant TenantPath, approval
 	return req, nil
 }
 
+// NewGetAssignmentReportRequest constructs an http.Request for the GetAssignmentReport method
+func NewGetAssignmentReportRequest(server string, tenant TenantPath, params *GetAssignmentReportParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/assignment-reports", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Vendor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "vendor", *params.Vendor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Since != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListAssignmentsRequest constructs an http.Request for the ListAssignments method
 func NewListAssignmentsRequest(server string, tenant TenantPath, params *ListAssignmentsParams) (*http.Request, error) {
 	var err error
@@ -28246,6 +30056,510 @@ func NewDeclineAssignmentRequestWithBody(server string, tenant TenantPath, assig
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAuditEntriesRequest constructs an http.Request for the ListAuditEntries method
+func NewListAuditEntriesRequest(server string, tenant TenantPath, params *ListAuditEntriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-entries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.To != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", *params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FirstSequence != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "first_sequence", *params.FirstSequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.LastSequence != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "last_sequence", *params.LastSequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Actor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actor", *params.Actor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Action != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "action", *params.Action, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project", *params.Project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AggregateType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate_type", *params.AggregateType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.AggregateId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate_id", *params.AggregateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAuditEntryRequest constructs an http.Request for the GetAuditEntry method
+func NewGetAuditEntryRequest(server string, tenant TenantPath, sequence int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sequence", sequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-entries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAuditExportJobsRequest constructs an http.Request for the ListAuditExportJobs method
+func NewListAuditExportJobsRequest(server string, tenant TenantPath, params *ListAuditExportJobsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAuditExportJobRequest calls the generic CreateAuditExportJob builder with application/json body
+func NewCreateAuditExportJobRequest(server string, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAuditExportJobRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewCreateAuditExportJobRequestWithBody constructs an http.Request for the CreateAuditExportJob method, with any body, and a specified content type
+func NewCreateAuditExportJobRequestWithBody(server string, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAuditExportJobRequest constructs an http.Request for the GetAuditExportJob method
+func NewGetAuditExportJobRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadAuditExportEntriesRequest constructs an http.Request for the DownloadAuditExportEntries method
+func NewDownloadAuditExportEntriesRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s/file", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadAuditExportManifestRequest constructs an http.Request for the DownloadAuditExportManifest method
+func NewDownloadAuditExportManifestRequest(server string, tenant TenantPath, auditExportJob AuditExportJobPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "audit_export_job", auditExportJob, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/audit-export-jobs/%s/manifest", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -35941,6 +38255,61 @@ func NewPutTranslationRequestWithBody(server string, tenant TenantPath, project 
 	return req, nil
 }
 
+// NewListUnitAISuggestionsRequest constructs an http.Request for the ListUnitAISuggestions method
+func NewListUnitAISuggestionsRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/ai-suggestions", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewReviewTranslationRequest calls the generic ReviewTranslation builder with application/json body
 func NewReviewTranslationRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ReviewTranslationParams, body ReviewTranslationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -36093,6 +38462,112 @@ func NewListTranslationRevisionsRequest(server string, tenant TenantPath, projec
 		if params.PageToken != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUnitTMMatchesRequest constructs an http.Request for the ListUnitTMMatches method
+func NewListUnitTMMatchesRequest(server string, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "message", message, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithOptions("simple", false, "locale", locale, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/messages/%s/translations/%s/tm-matches", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MinScore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "min_score", *params.MinScore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetSyntax != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_syntax", *params.TargetSyntax, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -38472,6 +40947,80 @@ func NewGetWorkflowInstanceRequest(server string, tenant TenantPath, project Pro
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRebaseWorkflowInstanceRequest calls the generic RebaseWorkflowInstance builder with application/json body
+func NewRebaseWorkflowInstanceRequest(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRebaseWorkflowInstanceRequestWithBody(server, tenant, project, workflowInstance, params, "application/json", bodyReader)
+}
+
+// NewRebaseWorkflowInstanceRequestWithBody constructs an http.Request for the RebaseWorkflowInstance method, with any body, and a specified content type
+func NewRebaseWorkflowInstanceRequestWithBody(server string, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tenant", tenant, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "project", project, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "workflow_instance", workflowInstance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tenants/%s/projects/%s/workflow-instances/%s/rebase", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "If-Match", params.IfMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("If-Match", headerParam0)
+
 	}
 
 	return req, nil
@@ -41599,6 +44148,128 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// DecideDeviceAuthorizationWithBodyWithResponse Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error)
+
+	// DecideDeviceAuthorizationWithResponse Approve or deny a device code
+	//
+	// The signed-in person approves the code, which signs the device
+	// in as them, or denies it, which ends it. Only a browser session
+	// decides — never an API token, and never a device session, so a
+	// signed-in CLI cannot sign further devices in. The device's
+	// session belongs to the person and to nobody else: it acts with
+	// exactly the person's memberships, roles, project scope and
+	// visibility, in every tenant, and ends when the person signs out
+	// everywhere. Problem codes: `device_authorization_not_found`
+	// (404: unknown, expired or already decided).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+	DecideDeviceAuthorizationWithResponse(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error)
+
+	// StartDeviceAuthorizationWithBodyWithResponse Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error)
+
+	// StartDeviceAuthorizationWithResponse Start signing a device in as a person
+	//
+	// How `glossa login` signs a person in on a machine with no
+	// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+	// authorization grant, RFC 8628). The CLI asks for a
+	// `device_code`, shows the `user_code` and `verification_uri`,
+	// and polls `POST /v1/auth/device-sessions` every `interval`
+	// seconds while the person approves the code in Studio, signed
+	// in as themselves.
+	//
+	// The `device_code` is the CLI's secret and is never shown; the
+	// `user_code` is eight characters from an alphabet without
+	// look-alikes, shown as `XXXX-XXXX`, and is only good for
+	// approving or denying. Both expire after `expires_in` seconds
+	// (15 minutes). Unauthenticated, rate limited per client address.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+	StartDeviceAuthorizationWithResponse(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error)
+
+	// GetDeviceAuthorizationWithResponse What a device code would sign in
+	//
+	// What Studio shows before the person approves: the name the
+	// device gave itself and when it asked, so a code read out by
+	// someone else is recognisable as not one's own. Only a browser
+	// session may look a code up. A code that is unknown, expired or
+	// already decided answers `404` `device_authorization_not_found`,
+	// whichever it is.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+	GetDeviceAuthorizationWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetDeviceAuthorizationResponse, error)
+
+	// RedeemDeviceAuthorizationWithBodyWithResponse Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error)
+
+	// RedeemDeviceAuthorizationWithResponse Poll for the device's session
+	//
+	// The device polls with its `device_code`. Until the person
+	// decides, the answer is `400` `authorization_pending`; polling
+	// faster than `interval` answers `400` `slow_down`, and the device
+	// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+	// answers `400` `access_denied`, an expired or unknown one `400`
+	// `expired_token`. Once approved, the first poll returns the
+	// session's bearer and spends the code: a second poll with it is
+	// `expired_token`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+	RedeemDeviceAuthorizationWithResponse(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error)
+
 	// ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
 	//
 	// How a GitHub Actions run authenticates without a stored secret
@@ -42615,6 +45286,25 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/tenants/{tenant}/approvals/{approval}/decisions (the `DecideApproval` operationId).
 	DecideApprovalWithResponse(ctx context.Context, tenant TenantPath, approval ApprovalPath, body DecideApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideApprovalResponse, error)
 
+	// GetAssignmentReportWithResponse Vendors' quality report
+	//
+	// The quality numbers of completed assignments, by assignee and
+	// locale (RFC 0006 §3.4), computed on read from the assignments,
+	// the catalog, the translations' revision logs and the findings,
+	// as the caller: it says nothing they could not read unit by unit.
+	// At most 2000 assignments and 5000 units are read; `truncated`
+	// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+	// `id`) and `since` (assignments completed at or after it).
+	// Needs `assignments.read` in the project scope; a member whose
+	// visibility is `assigned` is refused. Problem codes:
+	// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+	// server built without the contexts a report reads).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+	GetAssignmentReportWithResponse(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*GetAssignmentReportResponse, error)
+
 	// ListAssignmentsWithResponse Assignments, or my work
 	//
 	// What the caller may see. With `assignments.manage`, every
@@ -42645,8 +45335,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -42665,8 +45357,10 @@ type ClientWithResponsesInterface interface {
 	// `invalid_assignment` (422: no units, too many, a key the
 	// project does not have, a due date in the past),
 	// `unknown_party` (422: no such member, group or vendor),
-	// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-	// `not_found` (404: the project).
+	// `workflow_limit_reached` (409: the assignee already holds 1,000
+	// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+	// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+	// project).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -42731,6 +45425,178 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/tenants/{tenant}/assignments/{assignment}/decline (the `DeclineAssignment` operationId).
 	DeclineAssignmentWithResponse(ctx context.Context, tenant TenantPath, assignment AssignmentPath, body DeclineAssignmentJSONRequestBody, reqEditors ...RequestEditorFn) (*DeclineAssignmentResponse, error)
+
+	// ListAuditEntriesWithResponse The tenant's audit entries
+	//
+	// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+	// for chain order). An entry is content-free: identifiers and
+	// selectors verbatim, everything else as its shape; never message
+	// or translation text, an email or a secret.
+	//
+	// Filters, all optional and combined: `from`/`to` (when it
+	// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+	// place in the chain, inclusive), `actor` (`person:<id>`,
+	// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+	// `action` (an event type such as
+	// `localization.translation.revised`, or a direct action such as
+	// `identity.person.signed_in`), `project`, `source` (`outbox`,
+	// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+	//
+	// Needs `audit.read` (owner and admin; no API token scope grants
+	// it). A principal limited to some projects sees only the entries
+	// of those projects — not the tenant-level entries (sign-ins,
+	// members, tokens, vendors, groups), which belong to the
+	// organisation, not to a project. A member whose visibility is
+	// `assigned` is refused. Problem codes: `invalid_query`,
+	// `invalid_page_size`, `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+	ListAuditEntriesWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*ListAuditEntriesResponse, error)
+
+	// GetAuditEntryWithResponse One audit entry
+	//
+	// Needs `audit.read`. An entry outside a project-scoped caller's
+	// projects — and a tenant-level entry, for such a caller — is not
+	// found, exactly like one that does not exist.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+	GetAuditEntryWithResponse(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*GetAuditEntryResponse, error)
+
+	// ListAuditExportJobsWithResponse Audit export jobs
+	//
+	// Newest first. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `invalid_page_size`,
+	// `invalid_page_token` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+	ListAuditExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*ListAuditExportJobsResponse, error)
+
+	// CreateAuditExportJobWithBodyWithResponse Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error)
+
+	// CreateAuditExportJobWithResponse Export a range of the audit trail
+	//
+	// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+	// platform/README.md's *Audit export format*): two objects,
+	// `entries.jsonl` and a `manifest.json` signed with the
+	// deployment's audit key, downloadable when the job has
+	// `succeeded` and verifiable offline with `glossa audit verify
+	// <dir> --public-key …` (the key is published at
+	// `/.well-known/glossa-audit-keys.json`).
+	//
+	// The range is either a time range, `from` and `to` — the entries
+	// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+	// the future is cut to now, so an export never claims a range that
+	// has not happened yet — or a sequence range, `first_sequence`
+	// and optionally `last_sequence` (the chain's head when omitted,
+	// fixed when the job is made), at most 1,000,000 entries. An
+	// export is always one unbroken segment of the tenant's chain, so
+	// it is the tenant's whole trail for the range and never one
+	// project's: a project's entries are not a chain on their own and
+	// could not be verified. A time range whose entries are not one
+	// unbroken segment — imported v0.3 history appended in the middle
+	// of it, whose `occurred_at` lies years back — fails with
+	// `range_not_contiguous`; export it by sequence instead.
+	//
+	// Needs `audit.export`, which only `owner` holds by default and no
+	// API token scope grants, by a principal limited to no project.
+	// Making the job, and its end, are themselves recorded in the
+	// trail (`audit.export.requested`, `audit.export.completed`).
+	// Problem codes: `invalid_range` (400), `range_too_long`,
+	// `sequence_out_of_range` (422: past the chain's head),
+	// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+	// this deployment has no audit key, or exports are off).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+	CreateAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error)
+
+	// GetAuditExportJobWithResponse An audit export job
+	//
+	// A job ends `succeeded` — with the chain segment it holds
+	// (`first_sequence`, `last_sequence`, `entry_count`,
+	// `first_prev_hash`, `last_hash`), the key that signed it, and
+	// both files' digests and where to download them — or `failed`
+	// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+	GetAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*GetAuditExportJobResponse, error)
+
+	// DownloadAuditExportEntriesWithResponse Download an audit export's entries.jsonl
+	//
+	// The export's lines, byte for byte, streamed from object storage,
+	// with `Content-Disposition: attachment; filename="entries.jsonl"`
+	// and their SHA-256 — the manifest's `entries.sha256` — as the
+	// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+	// kept for the deployment's retention period
+	// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+	// stays. Needs `audit.export`, by a principal limited to no
+	// project. Problem codes: `export_not_ready` (409), `file_expired`
+	// (410), `storage_unavailable` (503).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+	DownloadAuditExportEntriesWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportEntriesResponse, error)
+
+	// DownloadAuditExportManifestWithResponse Download an audit export's signed manifest.json
+	//
+	// The signed manifest, byte for byte as the job wrote it (RFC 8785
+	// canonical JSON), with `Content-Disposition: attachment;
+	// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+	// and refused like the entries (`export_not_ready` 409,
+	// `file_expired` 410, `storage_unavailable` 503). Needs
+	// `audit.export`, by a principal limited to no project.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+	DownloadAuditExportManifestWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportManifestResponse, error)
 
 	// GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
 	//
@@ -43878,11 +46744,15 @@ type ClientWithResponsesInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -43906,11 +46776,15 @@ type ClientWithResponsesInterface interface {
 	// that could carry one, and a member it does not name is ignored.
 	//
 	// Writing the tenant's audit trail is the owner's: it needs
-	// `audit.export`, which only an owner holds by default and no API
-	// token scope grants, in the project. Every row is recorded under
-	// the project in the path. Answers `audit_import_unavailable`
-	// (503) on a server that does not run the importer. Problem codes:
-	// `invalid_request` (400), `audit_import_unavailable` (503).
+	// `audit.import`, which only `owner` holds, no API token scope
+	// grants and no background principal may be given, by a
+	// principal limited to no project — the trail is the
+	// organisation's, not one project's (RFC 0006 §7.2). Every row is
+	// recorded under the project in the path. Answers
+	// `audit_import_unavailable` (503) on a server that does not run
+	// the importer. Problem codes: `invalid_request` (400),
+	// `invalid_entry` (422: a row is not shaped like v0.3 history;
+	// nothing was recorded), `audit_import_unavailable` (503).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44605,7 +47479,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -44636,7 +47510,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The body is one `glossa.usages/v1` document: where one
 	// application's messages are used at one commit, as
-	// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+	// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 	// write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 	// It is validated by the schema's rules — members it doesn't define
 	// are ignored within v1, anything else it refuses is
@@ -45735,6 +48609,25 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale} (the `PutTranslation` operationId).
 	PutTranslationWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *PutTranslationParams, body PutTranslationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutTranslationResponse, error)
 
+	// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+	//
+	// The newest suggestions (at most 5) for one translation unit — the
+	// message the key names, in the locale — as its workspace shows
+	// them: the text, its score with the explanation, the routed
+	// action, risks and findings. It is the read a member with
+	// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+	// assignment of theirs, and anything else is `404`. The job,
+	// provider, model, calls, cost and the translation-memory units it
+	// drew on are not part of it; they stay with
+	// `getAISuggestion`. `decidable` is false for an `assigned`
+	// member, who writes the translation instead of accepting a
+	// suggestion. Needs `intelligence.read`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+	ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error)
+
 	// ReviewTranslationWithBodyWithResponse Record a review decision
 	//
 	// Moves the translation to `state` and appends a `review` revision
@@ -45769,6 +48662,26 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/revisions (the `ListTranslationRevisions` operationId).
 	ListTranslationRevisionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListTranslationRevisionsParams, reqEditors ...RequestEditorFn) (*ListTranslationRevisionsResponse, error)
+
+	// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+	//
+	// The memory's matches for one translation unit — the message the
+	// key names, in the locale — scored as `lookupTranslationMemory`
+	// scores them, from the tenant-wide units and the project's own,
+	// best first. It is the translation workspace's read, and the only
+	// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+	// unit must be in an assignment of theirs, and anything else —
+	// another unit, another project — is `404`. A match is text and a
+	// score, never the matched unit: for an `assigned` member no id or
+	// key of the remembered unit is returned (`message_key` is omitted),
+	// so the memory does not tell a vendor what else is in the
+	// project. It records no hit. Needs `knowledge.read`. Problem
+	// codes: `invalid_query`, `invalid_syntax` (400).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+	ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error)
 
 	// ListMessageUsagesWithResponse Where a message appears (its current usages)
 	//
@@ -46483,14 +49396,79 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowInstanceWithResponse A workflow instance
 	//
-	// Its definition version, subject, state and status. Needs
-	// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-	// (503).
+	// Its definition version, subject, state and status. The `ETag` is
+	// the definition version the instance runs on: what a rebase's
+	// `If-Match` names. Needs `workflows.read`. Problem codes:
+	// `workflow_instances_unavailable` (503).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance} (the `GetWorkflowInstance` operationId).
 	GetWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, reqEditors ...RequestEditorFn) (*GetWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
+
+	// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+	//
+	// A running instance stays on the version it started with until a
+	// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+	// instance's state by name: the target version — `version`, or the
+	// definition's latest when the body names none — must be newer, and
+	// must have that state as one an instance can wait in. A rebase
+	// changes what happens next, never what already happened: it runs
+	// no entry action again (the assignments and approvals the state
+	// asked for stand), and a pending due date keeps its time. An
+	// instance that has not started yet starts on the new version at
+	// its next event.
+	//
+	// The rebase is recorded in the instance's transition log as event
+	// `rebase` (its one action says which versions), and published as
+	// `workflow.instance.rebased` naming who did it. `If-Match` is the
+	// instance's `ETag`: the version it runs on.
+	//
+	// Needs `workflows.manage` in the project. Problem codes:
+	// `workflow_instance_finished` (409: nothing left to run),
+	// `invalid_workflow_rebase` (422: the version is not newer, or the
+	// definition has no such version), `workflow_rebase_state_missing`
+	// (422: the target has no such state), `workflow_rebase_state_final`
+	// (422: the state is final in the target), `precondition_failed`
+	// (412), `precondition_required` (428),
+	// `workflow_instances_unavailable` (503).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+	RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error)
 
 	// ListWorkflowTransitionsWithResponse An instance's transition log
 	//
@@ -47309,6 +50287,233 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/tenants/{tenant}/workflow-definitions/{workflow_definition}/versions/{version} (the `GetWorkflowDefinitionVersion` operationId).
 	GetWorkflowDefinitionVersionWithResponse(ctx context.Context, tenant TenantPath, workflowDefinition WorkflowDefinitionPath, version WorkflowVersionPath, reqEditors ...RequestEditorFn) (*GetWorkflowDefinitionVersionResponse, error)
+}
+
+type DecideDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DecideDeviceAuthorizationResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r DecideDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DecideDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DecideDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DecideDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceAuthorization
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StartDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorization {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r StartDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r StartDeviceAuthorizationResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r StartDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceAuthorizationView
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorizationView {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetDeviceAuthorizationResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetDeviceAuthorizationResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RedeemDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceSession
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON429 the response for an HTTP 429 `application/problem+json` response
+	ApplicationproblemJSON429 *TooManyRequests
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RedeemDeviceAuthorizationResponse) GetJSON200() *DeviceSession {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RedeemDeviceAuthorizationResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON429 returns the response for an HTTP 429 `application/problem+json` response
+func (r RedeemDeviceAuthorizationResponse) GetApplicationproblemJSON429() *TooManyRequests {
+	return r.ApplicationproblemJSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r RedeemDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RedeemDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RedeemDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RedeemDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type ExchangeGitHubOIDCTokenResponse struct {
@@ -50768,6 +53973,82 @@ func (r DecideApprovalResponse) ContentType() string {
 	return ""
 }
 
+type GetAssignmentReportResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AssignmentReport
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAssignmentReportResponse) GetJSON200() *AssignmentReport {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r GetAssignmentReportResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAssignmentReportResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAssignmentReportResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAssignmentReportResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAssignmentReportResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListAssignmentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50850,6 +54131,8 @@ type CreateAssignmentResponse struct {
 	ApplicationproblemJSON403 *Forbidden
 	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
 	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *UnprocessableEntity
 	// Headers201 the parsed response headers for an HTTP 201 response
@@ -50879,6 +54162,11 @@ func (r CreateAssignmentResponse) GetApplicationproblemJSON403() *Forbidden {
 // GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
 func (r CreateAssignmentResponse) GetApplicationproblemJSON404() *NotFound {
 	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r CreateAssignmentResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
 }
 
 // GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
@@ -51213,6 +54501,513 @@ func (r DeclineAssignmentResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DeclineAssignmentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuditEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditEntryList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuditEntriesResponse) GetJSON200() *AuditEntryList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAuditEntriesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuditEntriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuditEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuditEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuditEntriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuditEntryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditEntry
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuditEntryResponse) GetJSON200() *AuditEntry {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAuditEntryResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuditEntryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuditEntryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuditEntryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuditEntryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuditExportJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportJobList
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuditExportJobsResponse) GetJSON200() *AuditExportJobList {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListAuditExportJobsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAuditExportJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuditExportJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuditExportJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuditExportJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateAuditExportJobResponse201Headers the declared response headers of an HTTP 201 response for CreateAuditExportJob
+type CreateAuditExportJobResponse201Headers struct {
+	IdempotentReplayed *string
+	Location           *string
+}
+
+type CreateAuditExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AuditExportJob
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *UnprocessableEntity
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateAuditExportJobResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateAuditExportJobResponse) GetJSON201() *AuditExportJob {
+	return r.JSON201
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON422() *UnprocessableEntity {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r CreateAuditExportJobResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateAuditExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAuditExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAuditExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAuditExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuditExportJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportJob
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAuditExportJobResponse) GetJSON200() *AuditExportJob {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r GetAuditExportJobResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAuditExportJobResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuditExportJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuditExportJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuditExportJobResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DownloadAuditExportEntriesResponse200Headers the declared response headers of an HTTP 200 response for DownloadAuditExportEntries
+type DownloadAuditExportEntriesResponse200Headers struct {
+	ContentDisposition *string
+	ETag               *string
+}
+
+type DownloadAuditExportEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON410 the response for an HTTP 410 `application/problem+json` response
+	ApplicationproblemJSON410 *Gone
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DownloadAuditExportEntriesResponse200Headers
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON410 returns the response for an HTTP 410 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON410() *Gone {
+	return r.ApplicationproblemJSON410
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DownloadAuditExportEntriesResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadAuditExportEntriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadAuditExportEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadAuditExportEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadAuditExportEntriesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DownloadAuditExportManifestResponse200Headers the declared response headers of an HTTP 200 response for DownloadAuditExportManifest
+type DownloadAuditExportManifestResponse200Headers struct {
+	ContentDisposition *string
+	ETag               *string
+}
+
+type DownloadAuditExportManifestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AuditExportManifest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON410 the response for an HTTP 410 `application/problem+json` response
+	ApplicationproblemJSON410 *Gone
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DownloadAuditExportManifestResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DownloadAuditExportManifestResponse) GetJSON200() *AuditExportManifest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON410 returns the response for an HTTP 410 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON410() *Gone {
+	return r.ApplicationproblemJSON410
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r DownloadAuditExportManifestResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadAuditExportManifestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadAuditExportManifestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadAuditExportManifestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadAuditExportManifestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -60118,6 +63913,68 @@ func (r PutTranslationResponse) ContentType() string {
 	return ""
 }
 
+type ListUnitAISuggestionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitAISuggestions
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitAISuggestionsResponse) GetJSON200() *UnitAISuggestions {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitAISuggestionsResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitAISuggestionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitAISuggestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitAISuggestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitAISuggestionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // ReviewTranslationResponse200Headers the declared response headers of an HTTP 200 response for ReviewTranslation
 type ReviewTranslationResponse200Headers struct {
 	ETag *string
@@ -60278,6 +64135,75 @@ func (r ListTranslationRevisionsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListTranslationRevisionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListUnitTMMatchesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UnitTMMatches
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUnitTMMatchesResponse) GetJSON200() *UnitTMMatches {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r ListUnitTMMatchesResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListUnitTMMatchesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUnitTMMatchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUnitTMMatchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListUnitTMMatchesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -62406,6 +66332,11 @@ func (r ListWorkflowInstancesResponse) ContentType() string {
 	return ""
 }
 
+// GetWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for GetWorkflowInstance
+type GetWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
 type GetWorkflowInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -62419,6 +66350,8 @@ type GetWorkflowInstanceResponse struct {
 	ApplicationproblemJSON404 *NotFound
 	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
 	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetWorkflowInstanceResponse200Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -62469,6 +66402,117 @@ func (r GetWorkflowInstanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetWorkflowInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RebaseWorkflowInstanceResponse200Headers the declared response headers of an HTTP 200 response for RebaseWorkflowInstance
+type RebaseWorkflowInstanceResponse200Headers struct {
+	ETag *string
+}
+
+type RebaseWorkflowInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WorkflowInstance
+	// ApplicationproblemJSON400 the response for an HTTP 400 `application/problem+json` response
+	ApplicationproblemJSON400 *BadRequest
+	// ApplicationproblemJSON401 the response for an HTTP 401 `application/problem+json` response
+	ApplicationproblemJSON401 *Unauthenticated
+	// ApplicationproblemJSON403 the response for an HTTP 403 `application/problem+json` response
+	ApplicationproblemJSON403 *Forbidden
+	// ApplicationproblemJSON404 the response for an HTTP 404 `application/problem+json` response
+	ApplicationproblemJSON404 *NotFound
+	// ApplicationproblemJSON409 the response for an HTTP 409 `application/problem+json` response
+	ApplicationproblemJSON409 *Conflict
+	// ApplicationproblemJSON412 the response for an HTTP 412 `application/problem+json` response
+	ApplicationproblemJSON412 *PreconditionFailed
+	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
+	ApplicationproblemJSON422 *Problem
+	// ApplicationproblemJSON428 the response for an HTTP 428 `application/problem+json` response
+	ApplicationproblemJSON428 *PreconditionRequired
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *Unavailable
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *RebaseWorkflowInstanceResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RebaseWorkflowInstanceResponse) GetJSON200() *WorkflowInstance {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSON400 returns the response for an HTTP 400 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON400() *BadRequest {
+	return r.ApplicationproblemJSON400
+}
+
+// GetApplicationproblemJSON401 returns the response for an HTTP 401 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON401() *Unauthenticated {
+	return r.ApplicationproblemJSON401
+}
+
+// GetApplicationproblemJSON403 returns the response for an HTTP 403 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON403() *Forbidden {
+	return r.ApplicationproblemJSON403
+}
+
+// GetApplicationproblemJSON404 returns the response for an HTTP 404 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON404() *NotFound {
+	return r.ApplicationproblemJSON404
+}
+
+// GetApplicationproblemJSON409 returns the response for an HTTP 409 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON409() *Conflict {
+	return r.ApplicationproblemJSON409
+}
+
+// GetApplicationproblemJSON412 returns the response for an HTTP 412 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON412() *PreconditionFailed {
+	return r.ApplicationproblemJSON412
+}
+
+// GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON422() *Problem {
+	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON428 returns the response for an HTTP 428 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON428() *PreconditionRequired {
+	return r.ApplicationproblemJSON428
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r RebaseWorkflowInstanceResponse) GetApplicationproblemJSON503() *Unavailable {
+	return r.ApplicationproblemJSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r RebaseWorkflowInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RebaseWorkflowInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RebaseWorkflowInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RebaseWorkflowInstanceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -65697,6 +69741,170 @@ func (r GetWorkflowDefinitionVersionResponse) ContentType() string {
 	return ""
 }
 
+// DecideDeviceAuthorizationWithBodyWithResponse Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *ClientWithResponses) DecideDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error) {
+	rsp, err := c.DecideDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideDeviceAuthorizationResponse(rsp)
+}
+
+// DecideDeviceAuthorizationWithResponse Approve or deny a device code
+//
+// The signed-in person approves the code, which signs the device
+// in as them, or denies it, which ends it. Only a browser session
+// decides — never an API token, and never a device session, so a
+// signed-in CLI cannot sign further devices in. The device's
+// session belongs to the person and to nobody else: it acts with
+// exactly the person's memberships, roles, project scope and
+// visibility, in every tenant, and ends when the person signs out
+// everywhere. Problem codes: `device_authorization_not_found`
+// (404: unknown, expired or already decided).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-approvals (the `DecideDeviceAuthorization` operationId).
+func (c *ClientWithResponses) DecideDeviceAuthorizationWithResponse(ctx context.Context, body DecideDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideDeviceAuthorizationResponse, error) {
+	rsp, err := c.DecideDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDecideDeviceAuthorizationResponse(rsp)
+}
+
+// StartDeviceAuthorizationWithBodyWithResponse Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *ClientWithResponses) StartDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error) {
+	rsp, err := c.StartDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDeviceAuthorizationResponse(rsp)
+}
+
+// StartDeviceAuthorizationWithResponse Start signing a device in as a person
+//
+// How `glossa login` signs a person in on a machine with no
+// browser session (RFC 0006 §7.2, the OAuth 2.0 device
+// authorization grant, RFC 8628). The CLI asks for a
+// `device_code`, shows the `user_code` and `verification_uri`,
+// and polls `POST /v1/auth/device-sessions` every `interval`
+// seconds while the person approves the code in Studio, signed
+// in as themselves.
+//
+// The `device_code` is the CLI's secret and is never shown; the
+// `user_code` is eight characters from an alphabet without
+// look-alikes, shown as `XXXX-XXXX`, and is only good for
+// approving or denying. Both expire after `expires_in` seconds
+// (15 minutes). Unauthenticated, rate limited per client address.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-authorizations (the `StartDeviceAuthorization` operationId).
+func (c *ClientWithResponses) StartDeviceAuthorizationWithResponse(ctx context.Context, body StartDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDeviceAuthorizationResponse, error) {
+	rsp, err := c.StartDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDeviceAuthorizationResponse(rsp)
+}
+
+// GetDeviceAuthorizationWithResponse What a device code would sign in
+//
+// What Studio shows before the person approves: the name the
+// device gave itself and when it asked, so a code read out by
+// someone else is recognisable as not one's own. Only a browser
+// session may look a code up. A code that is unknown, expired or
+// already decided answers `404` `device_authorization_not_found`,
+// whichever it is.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/auth/device-authorizations/{user_code} (the `GetDeviceAuthorization` operationId).
+func (c *ClientWithResponses) GetDeviceAuthorizationWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetDeviceAuthorizationResponse, error) {
+	rsp, err := c.GetDeviceAuthorization(ctx, userCode, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceAuthorizationResponse(rsp)
+}
+
+// RedeemDeviceAuthorizationWithBodyWithResponse Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *ClientWithResponses) RedeemDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error) {
+	rsp, err := c.RedeemDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeemDeviceAuthorizationResponse(rsp)
+}
+
+// RedeemDeviceAuthorizationWithResponse Poll for the device's session
+//
+// The device polls with its `device_code`. Until the person
+// decides, the answer is `400` `authorization_pending`; polling
+// faster than `interval` answers `400` `slow_down`, and the device
+// adds five seconds to its interval (RFC 8628 §3.5). A denied code
+// answers `400` `access_denied`, an expired or unknown one `400`
+// `expired_token`. Once approved, the first poll returns the
+// session's bearer and spends the code: a second poll with it is
+// `expired_token`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/auth/device-sessions (the `RedeemDeviceAuthorization` operationId).
+func (c *ClientWithResponses) RedeemDeviceAuthorizationWithResponse(ctx context.Context, body RedeemDeviceAuthorizationJSONRequestBody, reqEditors ...RequestEditorFn) (*RedeemDeviceAuthorizationResponse, error) {
+	rsp, err := c.RedeemDeviceAuthorization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeemDeviceAuthorizationResponse(rsp)
+}
+
 // ExchangeGitHubOIDCTokenWithBodyWithResponse Exchange a GitHub Actions ID token for a CI token
 //
 // How a GitHub Actions run authenticates without a stored secret
@@ -67169,6 +71377,31 @@ func (c *ClientWithResponses) DecideApprovalWithResponse(ctx context.Context, te
 	return ParseDecideApprovalResponse(rsp)
 }
 
+// GetAssignmentReportWithResponse Vendors' quality report
+//
+// The quality numbers of completed assignments, by assignee and
+// locale (RFC 0006 §3.4), computed on read from the assignments,
+// the catalog, the translations' revision logs and the findings,
+// as the caller: it says nothing they could not read unit by unit.
+// At most 2000 assignments and 5000 units are read; `truncated`
+// says a bound stopped it. Filters: `project`, `vendor` (a vendor
+// `id`) and `since` (assignments completed at or after it).
+// Needs `assignments.read` in the project scope; a member whose
+// visibility is `assigned` is refused. Problem codes:
+// `invalid_query` (400), `workflow_instances_unavailable` (503, a
+// server built without the contexts a report reads).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/assignment-reports (the `GetAssignmentReport` operationId).
+func (c *ClientWithResponses) GetAssignmentReportWithResponse(ctx context.Context, tenant TenantPath, params *GetAssignmentReportParams, reqEditors ...RequestEditorFn) (*GetAssignmentReportResponse, error) {
+	rsp, err := c.GetAssignmentReport(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAssignmentReportResponse(rsp)
+}
+
 // ListAssignmentsWithResponse Assignments, or my work
 //
 // What the caller may see. With `assignments.manage`, every
@@ -67205,8 +71438,10 @@ func (c *ClientWithResponses) ListAssignmentsWithResponse(ctx context.Context, t
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -67231,8 +71466,10 @@ func (c *ClientWithResponses) CreateAssignmentWithBodyWithResponse(ctx context.C
 // `invalid_assignment` (422: no units, too many, a key the
 // project does not have, a due date in the past),
 // `unknown_party` (422: no such member, group or vendor),
-// `idempotency_key_reused` (422), `invalid_idempotency_key` (400),
-// `not_found` (404: the project).
+// `workflow_limit_reached` (409: the assignee already holds 1,000
+// open assignments, RFC 0006 §9.6), `idempotency_key_reused`
+// (422), `invalid_idempotency_key` (400), `not_found` (404: the
+// project).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -67332,6 +71569,226 @@ func (c *ClientWithResponses) DeclineAssignmentWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseDeclineAssignmentResponse(rsp)
+}
+
+// ListAuditEntriesWithResponse The tenant's audit entries
+//
+// The tenant's trail (RFC 0006 §6.1), newest first (`order=asc`
+// for chain order). An entry is content-free: identifiers and
+// selectors verbatim, everything else as its shape; never message
+// or translation text, an email or a secret.
+//
+// Filters, all optional and combined: `from`/`to` (when it
+// happened, `[from, to)`), `first_sequence`/`last_sequence` (its
+// place in the chain, inclusive), `actor` (`person:<id>`,
+// `token:<id>`, `system:<id>`, `unknown`, or a v0.3 actor),
+// `action` (an event type such as
+// `localization.translation.revised`, or a direct action such as
+// `identity.person.signed_in`), `project`, `source` (`outbox`,
+// `direct`, `import`), `aggregate_type` and `aggregate_id`.
+//
+// Needs `audit.read` (owner and admin; no API token scope grants
+// it). A principal limited to some projects sees only the entries
+// of those projects — not the tenant-level entries (sign-ins,
+// members, tokens, vendors, groups), which belong to the
+// organisation, not to a project. A member whose visibility is
+// `assigned` is refused. Problem codes: `invalid_query`,
+// `invalid_page_size`, `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries (the `ListAuditEntries` operationId).
+func (c *ClientWithResponses) ListAuditEntriesWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditEntriesParams, reqEditors ...RequestEditorFn) (*ListAuditEntriesResponse, error) {
+	rsp, err := c.ListAuditEntries(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuditEntriesResponse(rsp)
+}
+
+// GetAuditEntryWithResponse One audit entry
+//
+// Needs `audit.read`. An entry outside a project-scoped caller's
+// projects — and a tenant-level entry, for such a caller — is not
+// found, exactly like one that does not exist.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-entries/{sequence} (the `GetAuditEntry` operationId).
+func (c *ClientWithResponses) GetAuditEntryWithResponse(ctx context.Context, tenant TenantPath, sequence int64, reqEditors ...RequestEditorFn) (*GetAuditEntryResponse, error) {
+	rsp, err := c.GetAuditEntry(ctx, tenant, sequence, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuditEntryResponse(rsp)
+}
+
+// ListAuditExportJobsWithResponse Audit export jobs
+//
+// Newest first. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `invalid_page_size`,
+// `invalid_page_token` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs (the `ListAuditExportJobs` operationId).
+func (c *ClientWithResponses) ListAuditExportJobsWithResponse(ctx context.Context, tenant TenantPath, params *ListAuditExportJobsParams, reqEditors ...RequestEditorFn) (*ListAuditExportJobsResponse, error) {
+	rsp, err := c.ListAuditExportJobs(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuditExportJobsResponse(rsp)
+}
+
+// CreateAuditExportJobWithBodyWithResponse Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *ClientWithResponses) CreateAuditExportJobWithBodyWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error) {
+	rsp, err := c.CreateAuditExportJobWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuditExportJobResponse(rsp)
+}
+
+// CreateAuditExportJobWithResponse Export a range of the audit trail
+//
+// Queues a `glossa.audit/v1` export (RFC 0006 §6.2; the format is
+// platform/README.md's *Audit export format*): two objects,
+// `entries.jsonl` and a `manifest.json` signed with the
+// deployment's audit key, downloadable when the job has
+// `succeeded` and verifiable offline with `glossa audit verify
+// <dir> --public-key …` (the key is published at
+// `/.well-known/glossa-audit-keys.json`).
+//
+// The range is either a time range, `from` and `to` — the entries
+// that happened in `[from, to)`, at most 31 days (§9.6); a `to` in
+// the future is cut to now, so an export never claims a range that
+// has not happened yet — or a sequence range, `first_sequence`
+// and optionally `last_sequence` (the chain's head when omitted,
+// fixed when the job is made), at most 1,000,000 entries. An
+// export is always one unbroken segment of the tenant's chain, so
+// it is the tenant's whole trail for the range and never one
+// project's: a project's entries are not a chain on their own and
+// could not be verified. A time range whose entries are not one
+// unbroken segment — imported v0.3 history appended in the middle
+// of it, whose `occurred_at` lies years back — fails with
+// `range_not_contiguous`; export it by sequence instead.
+//
+// Needs `audit.export`, which only `owner` holds by default and no
+// API token scope grants, by a principal limited to no project.
+// Making the job, and its end, are themselves recorded in the
+// trail (`audit.export.requested`, `audit.export.completed`).
+// Problem codes: `invalid_range` (400), `range_too_long`,
+// `sequence_out_of_range` (422: past the chain's head),
+// `idempotency_key_reused` (422), `audit_export_unavailable` (503:
+// this deployment has no audit key, or exports are off).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/audit-export-jobs (the `CreateAuditExportJob` operationId).
+func (c *ClientWithResponses) CreateAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, params *CreateAuditExportJobParams, body CreateAuditExportJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuditExportJobResponse, error) {
+	rsp, err := c.CreateAuditExportJob(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuditExportJobResponse(rsp)
+}
+
+// GetAuditExportJobWithResponse An audit export job
+//
+// A job ends `succeeded` — with the chain segment it holds
+// (`first_sequence`, `last_sequence`, `entry_count`,
+// `first_prev_hash`, `last_hash`), the key that signed it, and
+// both files' digests and where to download them — or `failed`
+// (`failure_code`: `range_not_contiguous`, `internal`). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job} (the `GetAuditExportJob` operationId).
+func (c *ClientWithResponses) GetAuditExportJobWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*GetAuditExportJobResponse, error) {
+	rsp, err := c.GetAuditExportJob(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuditExportJobResponse(rsp)
+}
+
+// DownloadAuditExportEntriesWithResponse Download an audit export's entries.jsonl
+//
+// The export's lines, byte for byte, streamed from object storage,
+// with `Content-Disposition: attachment; filename="entries.jsonl"`
+// and their SHA-256 — the manifest's `entries.sha256` — as the
+// `ETag`. Save it beside the manifest as `entries.jsonl`. Files are
+// kept for the deployment's retention period
+// (`GLOSSA_AUDIT_EXPORT_RETENTION`, 7 days by default); the job
+// stays. Needs `audit.export`, by a principal limited to no
+// project. Problem codes: `export_not_ready` (409), `file_expired`
+// (410), `storage_unavailable` (503).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/file (the `DownloadAuditExportEntries` operationId).
+func (c *ClientWithResponses) DownloadAuditExportEntriesWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportEntriesResponse, error) {
+	rsp, err := c.DownloadAuditExportEntries(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadAuditExportEntriesResponse(rsp)
+}
+
+// DownloadAuditExportManifestWithResponse Download an audit export's signed manifest.json
+//
+// The signed manifest, byte for byte as the job wrote it (RFC 8785
+// canonical JSON), with `Content-Disposition: attachment;
+// filename="manifest.json"` and its SHA-256 as the `ETag`. Kept
+// and refused like the entries (`export_not_ready` 409,
+// `file_expired` 410, `storage_unavailable` 503). Needs
+// `audit.export`, by a principal limited to no project.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/audit-export-jobs/{audit_export_job}/manifest (the `DownloadAuditExportManifest` operationId).
+func (c *ClientWithResponses) DownloadAuditExportManifestWithResponse(ctx context.Context, tenant TenantPath, auditExportJob AuditExportJobPath, reqEditors ...RequestEditorFn) (*DownloadAuditExportManifestResponse, error) {
+	rsp, err := c.DownloadAuditExportManifest(ctx, tenant, auditExportJob, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadAuditExportManifestResponse(rsp)
 }
 
 // GetEffectiveStyleGuideWithResponse The style that applies to a project, locale and namespace
@@ -68894,11 +73351,15 @@ func (c *ClientWithResponses) UpdateApplicationWithResponse(ctx context.Context,
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68928,11 +73389,15 @@ func (c *ClientWithResponses) ImportV0HistoryWithBodyWithResponse(ctx context.Co
 // that could carry one, and a member it does not name is ignored.
 //
 // Writing the tenant's audit trail is the owner's: it needs
-// `audit.export`, which only an owner holds by default and no API
-// token scope grants, in the project. Every row is recorded under
-// the project in the path. Answers `audit_import_unavailable`
-// (503) on a server that does not run the importer. Problem codes:
-// `invalid_request` (400), `audit_import_unavailable` (503).
+// `audit.import`, which only `owner` holds, no API token scope
+// grants and no background principal may be given, by a
+// principal limited to no project — the trail is the
+// organisation's, not one project's (RFC 0006 §7.2). Every row is
+// recorded under the project in the path. Answers
+// `audit_import_unavailable` (503) on a server that does not run
+// the importer. Problem codes: `invalid_request` (400),
+// `invalid_entry` (422: a row is not shaped like v0.3 history;
+// nothing was recorded), `audit_import_unavailable` (503).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69795,7 +74260,7 @@ func (c *ClientWithResponses) ListContextBuildsWithResponse(ctx context.Context,
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -69832,7 +74297,7 @@ func (c *ClientWithResponses) CreateContextBuildWithBodyWithResponse(ctx context
 //
 // The body is one `glossa.usages/v1` document: where one
 // application's messages are used at one commit, as
-// `@glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
+// `@felixgeelhaar/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
 // write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
 // It is validated by the schema's rules — members it doesn't define
 // are ignored within v1, anything else it refuses is
@@ -71303,6 +75768,31 @@ func (c *ClientWithResponses) PutTranslationWithResponse(ctx context.Context, te
 	return ParsePutTranslationResponse(rsp)
 }
 
+// ListUnitAISuggestionsWithResponse AI suggestions for one unit
+//
+// The newest suggestions (at most 5) for one translation unit — the
+// message the key names, in the locale — as its workspace shows
+// them: the text, its score with the explanation, the routed
+// action, risks and findings. It is the read a member with
+// visibility `assigned` has (RFC 0006 §3.3): the unit must be in an
+// assignment of theirs, and anything else is `404`. The job,
+// provider, model, calls, cost and the translation-memory units it
+// drew on are not part of it; they stay with
+// `getAISuggestion`. `decidable` is false for an `assigned`
+// member, who writes the translation instead of accepting a
+// suggestion. Needs `intelligence.read`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/ai-suggestions (the `ListUnitAISuggestions` operationId).
+func (c *ClientWithResponses) ListUnitAISuggestionsWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, reqEditors ...RequestEditorFn) (*ListUnitAISuggestionsResponse, error) {
+	rsp, err := c.ListUnitAISuggestions(ctx, tenant, project, message, locale, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitAISuggestionsResponse(rsp)
+}
+
 // ReviewTranslationWithBodyWithResponse Record a review decision
 //
 // Moves the translation to `state` and appends a `review` revision
@@ -71354,6 +75844,32 @@ func (c *ClientWithResponses) ListTranslationRevisionsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListTranslationRevisionsResponse(rsp)
+}
+
+// ListUnitTMMatchesWithResponse Translation-memory matches for one unit
+//
+// The memory's matches for one translation unit — the message the
+// key names, in the locale — scored as `lookupTranslationMemory`
+// scores them, from the tenant-wide units and the project's own,
+// best first. It is the translation workspace's read, and the only
+// one a member with visibility `assigned` has (RFC 0006 §3.3): the
+// unit must be in an assignment of theirs, and anything else —
+// another unit, another project — is `404`. A match is text and a
+// score, never the matched unit: for an `assigned` member no id or
+// key of the remembered unit is returned (`message_key` is omitted),
+// so the memory does not tell a vendor what else is in the
+// project. It records no hit. Needs `knowledge.read`. Problem
+// codes: `invalid_query`, `invalid_syntax` (400).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches (the `ListUnitTMMatches` operationId).
+func (c *ClientWithResponses) ListUnitTMMatchesWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, message MessagePath, locale LocalePath, params *ListUnitTMMatchesParams, reqEditors ...RequestEditorFn) (*ListUnitTMMatchesResponse, error) {
+	rsp, err := c.ListUnitTMMatches(ctx, tenant, project, message, locale, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUnitTMMatchesResponse(rsp)
 }
 
 // ListMessageUsagesWithResponse Where a message appears (its current usages)
@@ -72291,9 +76807,10 @@ func (c *ClientWithResponses) ListWorkflowInstancesWithResponse(ctx context.Cont
 
 // GetWorkflowInstanceWithResponse A workflow instance
 //
-// Its definition version, subject, state and status. Needs
-// `workflows.read`. Problem codes: `workflow_instances_unavailable`
-// (503).
+// Its definition version, subject, state and status. The `ETag` is
+// the definition version the instance runs on: what a rebase's
+// `If-Match` names. Needs `workflows.read`. Problem codes:
+// `workflow_instances_unavailable` (503).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -72304,6 +76821,82 @@ func (c *ClientWithResponses) GetWorkflowInstanceWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithBodyWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithBodyWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstanceWithBody(ctx, tenant, project, workflowInstance, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
+}
+
+// RebaseWorkflowInstanceWithResponse Move a running instance to a newer version of its definition
+//
+// A running instance stays on the version it started with until a
+// workflow manager moves it (RFC 0006 §2.3). The rebase keeps the
+// instance's state by name: the target version — `version`, or the
+// definition's latest when the body names none — must be newer, and
+// must have that state as one an instance can wait in. A rebase
+// changes what happens next, never what already happened: it runs
+// no entry action again (the assignments and approvals the state
+// asked for stand), and a pending due date keeps its time. An
+// instance that has not started yet starts on the new version at
+// its next event.
+//
+// The rebase is recorded in the instance's transition log as event
+// `rebase` (its one action says which versions), and published as
+// `workflow.instance.rebased` naming who did it. `If-Match` is the
+// instance's `ETag`: the version it runs on.
+//
+// Needs `workflows.manage` in the project. Problem codes:
+// `workflow_instance_finished` (409: nothing left to run),
+// `invalid_workflow_rebase` (422: the version is not newer, or the
+// definition has no such version), `workflow_rebase_state_missing`
+// (422: the target has no such state), `workflow_rebase_state_final`
+// (422: the state is final in the target), `precondition_failed`
+// (412), `precondition_required` (428),
+// `workflow_instances_unavailable` (503).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/tenants/{tenant}/projects/{project}/workflow-instances/{workflow_instance}/rebase (the `RebaseWorkflowInstance` operationId).
+func (c *ClientWithResponses) RebaseWorkflowInstanceWithResponse(ctx context.Context, tenant TenantPath, project ProjectPath, workflowInstance WorkflowInstancePath, params *RebaseWorkflowInstanceParams, body RebaseWorkflowInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebaseWorkflowInstanceResponse, error) {
+	rsp, err := c.RebaseWorkflowInstance(ctx, tenant, project, workflowInstance, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebaseWorkflowInstanceResponse(rsp)
 }
 
 // ListWorkflowTransitionsWithResponse An instance's transition log
@@ -73500,6 +78093,176 @@ func (c *ClientWithResponses) GetWorkflowDefinitionVersionWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseGetWorkflowDefinitionVersionResponse(rsp)
+}
+
+// ParseDecideDeviceAuthorizationResponse parses an HTTP response from a DecideDeviceAuthorizationWithResponse call
+func ParseDecideDeviceAuthorizationResponse(rsp *http.Response) (*DecideDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DecideDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartDeviceAuthorizationResponse parses an HTTP response from a StartDeviceAuthorizationWithResponse call
+func ParseStartDeviceAuthorizationResponse(rsp *http.Response) (*StartDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceAuthorization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceAuthorizationResponse parses an HTTP response from a GetDeviceAuthorizationWithResponse call
+func ParseGetDeviceAuthorizationResponse(rsp *http.Response) (*GetDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceAuthorizationView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRedeemDeviceAuthorizationResponse parses an HTTP response from a RedeemDeviceAuthorizationWithResponse call
+func ParseRedeemDeviceAuthorizationResponse(rsp *http.Response) (*RedeemDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RedeemDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest TooManyRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON429 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseExchangeGitHubOIDCTokenResponse parses an HTTP response from a ExchangeGitHubOIDCTokenWithResponse call
@@ -76338,6 +81101,67 @@ func ParseDecideApprovalResponse(rsp *http.Response) (*DecideApprovalResponse, e
 	return response, nil
 }
 
+// ParseGetAssignmentReportResponse parses an HTTP response from a GetAssignmentReportWithResponse call
+func ParseGetAssignmentReportResponse(rsp *http.Response) (*GetAssignmentReportResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAssignmentReportResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AssignmentReport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAssignmentsResponse parses an HTTP response from a ListAssignmentsWithResponse call
 func ParseListAssignmentsResponse(rsp *http.Response) (*ListAssignmentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -76433,6 +81257,13 @@ func ParseCreateAssignmentResponse(rsp *http.Response) (*CreateAssignmentRespons
 			return nil, err
 		}
 		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest UnprocessableEntity
@@ -76728,6 +81559,444 @@ func ParseDeclineAssignmentResponse(rsp *http.Response) (*DeclineAssignmentRespo
 	switch {
 	case rsp.StatusCode == 200:
 		var headers DeclineAssignmentResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseListAuditEntriesResponse parses an HTTP response from a ListAuditEntriesWithResponse call
+func ParseListAuditEntriesResponse(rsp *http.Response) (*ListAuditEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuditEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditEntryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuditEntryResponse parses an HTTP response from a GetAuditEntryWithResponse call
+func ParseGetAuditEntryResponse(rsp *http.Response) (*GetAuditEntryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuditEntryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditEntry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAuditExportJobsResponse parses an HTTP response from a ListAuditExportJobsWithResponse call
+func ParseListAuditExportJobsResponse(rsp *http.Response) (*ListAuditExportJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuditExportJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAuditExportJobResponse parses an HTTP response from a CreateAuditExportJobWithResponse call
+func ParseCreateAuditExportJobResponse(rsp *http.Response) (*CreateAuditExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAuditExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AuditExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableEntity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateAuditExportJobResponse201Headers
+		if values := rsp.Header.Values("Idempotent-Replayed"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Idempotent-Replayed", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.IdempotentReplayed = &value
+		}
+		if values := rsp.Header.Values("Location"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Location", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.Location = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetAuditExportJobResponse parses an HTTP response from a GetAuditExportJobWithResponse call
+func ParseGetAuditExportJobResponse(rsp *http.Response) (*GetAuditExportJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuditExportJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportJob
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadAuditExportEntriesResponse parses an HTTP response from a DownloadAuditExportEntriesWithResponse call
+func ParseDownloadAuditExportEntriesResponse(rsp *http.Response) (*DownloadAuditExportEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadAuditExportEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Gone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DownloadAuditExportEntriesResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDownloadAuditExportManifestResponse parses an HTTP response from a DownloadAuditExportManifestWithResponse call
+func ParseDownloadAuditExportManifestResponse(rsp *http.Response) (*DownloadAuditExportManifestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadAuditExportManifestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditExportManifest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Gone
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DownloadAuditExportManifestResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
 		if values := rsp.Header.Values("ETag"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
@@ -84362,6 +89631,53 @@ func ParsePutTranslationResponse(rsp *http.Response) (*PutTranslationResponse, e
 	return response, nil
 }
 
+// ParseListUnitAISuggestionsResponse parses an HTTP response from a ListUnitAISuggestionsWithResponse call
+func ParseListUnitAISuggestionsResponse(rsp *http.Response) (*ListUnitAISuggestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitAISuggestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitAISuggestions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseReviewTranslationResponse parses an HTTP response from a ReviewTranslationWithResponse call
 func ParseReviewTranslationResponse(rsp *http.Response) (*ReviewTranslationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -84466,6 +89782,60 @@ func ParseListTranslationRevisionsResponse(rsp *http.Response) (*ListTranslation
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TranslationRevisionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUnitTMMatchesResponse parses an HTTP response from a ListUnitTMMatchesWithResponse call
+func ParseListUnitTMMatchesResponse(rsp *http.Response) (*ListUnitTMMatchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUnitTMMatchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UnitTMMatches
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -86279,6 +91649,121 @@ func ParseGetWorkflowInstanceResponse(rsp *http.Response) (*GetWorkflowInstanceR
 		}
 		response.ApplicationproblemJSON503 = &dest
 
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRebaseWorkflowInstanceResponse parses an HTTP response from a RebaseWorkflowInstanceWithResponse call
+func ParseRebaseWorkflowInstanceResponse(rsp *http.Response) (*RebaseWorkflowInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RebaseWorkflowInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthenticated
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest PreconditionFailed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 428:
+		var dest PreconditionRequired
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON428 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Unavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers RebaseWorkflowInstanceResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

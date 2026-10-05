@@ -2,7 +2,7 @@
  * The vendored Unicode MessageFormat suite against the runtime interpreter.
  *
  * The runtime has no parser, so each `src` is parsed with the reference parser
- * (through @glossa/messageformat, test-only) into the canonical data model,
+ * (through @felixgeelhaar/glossa-messageformat, test-only) into the canonical data model,
  * which is exactly what release artifacts carry. The runtime then interprets
  * it and must produce `exp`, `expParts` and `expErrors`.
  *
@@ -10,9 +10,9 @@
  * messages before they reach an artifact, so here we only check that the
  * reference parser rejects them too.
  */
-import { parseMF2 } from "@glossa/messageformat";
-import { caseKind, caseName, paramValues, suiteCases } from "@glossa/messageformat/testing";
-import type { SuiteCase } from "@glossa/messageformat/testing";
+import { parseMF2 } from "@felixgeelhaar/glossa-messageformat";
+import { caseKind, caseName, paramValues, suiteCases } from "@felixgeelhaar/glossa-messageformat/testing";
+import type { SuiteCase } from "@felixgeelhaar/glossa-messageformat/testing";
 import { describe, expect, it } from "vitest";
 import { format, formatToParts } from "./index.js";
 import type { MessageError } from "./index.js";

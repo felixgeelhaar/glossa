@@ -2,7 +2,7 @@ name: Release
 
 # Pipeline shape:
 #
-#   publish-api / publish-admin — build + push container images to
+#   publish-api — build + push the API image to
 #   ghcr.io on push to main, on v*.*.* tag pushes, and on
 #   workflow_dispatch. Tag pushes also produce :latest + :<semver>
 #   tags so downstream operators can pin.
@@ -31,7 +31,6 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_API: ghcr.io/${{ github.repository_owner }}/glossa-api
-  IMAGE_ADMIN: ghcr.io/${{ github.repository_owner }}/glossa-admin
 
 jobs:
   publish-api:
@@ -79,41 +78,3 @@ jobs:
       - name: nox scan (api image — placeholder)
         run: echo "nox scan disabled until felixgeelhaar/nox-action is published"
 
-  publish-admin:
-    name: Build + push admin image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        id: meta
-        with:
-          images: ${{ env.IMAGE_ADMIN }}
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short,prefix=main-,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=sha,format=short,prefix=manual-,enable=${{ github.event_name == 'workflow_dispatch' }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          # Monorepo root build context — apps/admin/Dockerfile
-          # needs the workspace tree to resolve @felixgeelhaar/glossa-* deps.
-          context: .
-          file: apps/admin/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-
-      - name: nox scan (admin image — placeholder)
-        run: echo "nox scan disabled until felixgeelhaar/nox-action is published"

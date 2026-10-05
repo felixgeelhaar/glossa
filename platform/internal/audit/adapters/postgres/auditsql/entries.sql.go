@@ -87,6 +87,290 @@ func (q *Queries) AuditEntriesAfter(ctx context.Context, arg AuditEntriesAfterPa
 	return items, nil
 }
 
+const auditEntriesFilteredAsc = `-- name: AuditEntriesFilteredAsc :many
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = $1
+  AND sequence > $2
+  AND ($3::timestamptz IS NULL OR occurred_at >= $3)
+  AND ($4::timestamptz IS NULL OR occurred_at < $4)
+  AND ($5::bigint IS NULL OR sequence >= $5)
+  AND ($6::bigint IS NULL OR sequence <= $6)
+  AND ($7::text IS NULL OR actor = $7)
+  AND ($8::text IS NULL OR action = $8)
+  AND ($9::text IS NULL OR source = $9)
+  AND ($10::text IS NULL OR aggregate_type = $10)
+  AND ($11::text IS NULL OR aggregate_id = $11)
+  AND ($12::uuid IS NULL OR project_id = $12)
+  AND ($13::uuid[] IS NULL OR project_id = ANY($13::uuid[]))
+ORDER BY sequence
+LIMIT $14::int
+`
+
+type AuditEntriesFilteredAscParams struct {
+	TenantID      uuid.UUID
+	AfterSequence int64
+	OccurredFrom  pgtype.Timestamptz
+	OccurredTo    pgtype.Timestamptz
+	FirstSequence pgtype.Int8
+	LastSequence  pgtype.Int8
+	Actor         pgtype.Text
+	Action        pgtype.Text
+	Source        pgtype.Text
+	AggregateType pgtype.Text
+	AggregateID   pgtype.Text
+	Project       uuid.NullUUID
+	Projects      []uuid.UUID
+	PageSize      int32
+}
+
+type AuditEntriesFilteredAscRow struct {
+	TenantID      uuid.UUID
+	Sequence      int64
+	EventID       uuid.UUID
+	Source        string
+	Action        string
+	Actor         string
+	OccurredAt    time.Time
+	AggregateType string
+	AggregateID   string
+	ProjectID     uuid.NullUUID
+	Locale        pgtype.Text
+	Summary       json.RawMessage
+	RequestID     pgtype.Text
+	TraceID       pgtype.Text
+	PrevHash      []byte
+	Hash          []byte
+}
+
+// AuditEntriesFilteredAsc and …Desc list entries matching every filter
+// that is set, in chain order or newest first, past a cursor sequence.
+// projects, when set, limits them to those projects: a project-scoped
+// caller's, which leaves out the tenant-level entries (a NULL
+// project_id never matches ANY).
+func (q *Queries) AuditEntriesFilteredAsc(ctx context.Context, arg AuditEntriesFilteredAscParams) ([]AuditEntriesFilteredAscRow, error) {
+	rows, err := q.db.Query(ctx, auditEntriesFilteredAsc,
+		arg.TenantID,
+		arg.AfterSequence,
+		arg.OccurredFrom,
+		arg.OccurredTo,
+		arg.FirstSequence,
+		arg.LastSequence,
+		arg.Actor,
+		arg.Action,
+		arg.Source,
+		arg.AggregateType,
+		arg.AggregateID,
+		arg.Project,
+		arg.Projects,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditEntriesFilteredAscRow
+	for rows.Next() {
+		var i AuditEntriesFilteredAscRow
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Sequence,
+			&i.EventID,
+			&i.Source,
+			&i.Action,
+			&i.Actor,
+			&i.OccurredAt,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.ProjectID,
+			&i.Locale,
+			&i.Summary,
+			&i.RequestID,
+			&i.TraceID,
+			&i.PrevHash,
+			&i.Hash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const auditEntriesFilteredDesc = `-- name: AuditEntriesFilteredDesc :many
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = $1
+  AND sequence < $2
+  AND ($3::timestamptz IS NULL OR occurred_at >= $3)
+  AND ($4::timestamptz IS NULL OR occurred_at < $4)
+  AND ($5::bigint IS NULL OR sequence >= $5)
+  AND ($6::bigint IS NULL OR sequence <= $6)
+  AND ($7::text IS NULL OR actor = $7)
+  AND ($8::text IS NULL OR action = $8)
+  AND ($9::text IS NULL OR source = $9)
+  AND ($10::text IS NULL OR aggregate_type = $10)
+  AND ($11::text IS NULL OR aggregate_id = $11)
+  AND ($12::uuid IS NULL OR project_id = $12)
+  AND ($13::uuid[] IS NULL OR project_id = ANY($13::uuid[]))
+ORDER BY sequence DESC
+LIMIT $14::int
+`
+
+type AuditEntriesFilteredDescParams struct {
+	TenantID       uuid.UUID
+	BeforeSequence int64
+	OccurredFrom   pgtype.Timestamptz
+	OccurredTo     pgtype.Timestamptz
+	FirstSequence  pgtype.Int8
+	LastSequence   pgtype.Int8
+	Actor          pgtype.Text
+	Action         pgtype.Text
+	Source         pgtype.Text
+	AggregateType  pgtype.Text
+	AggregateID    pgtype.Text
+	Project        uuid.NullUUID
+	Projects       []uuid.UUID
+	PageSize       int32
+}
+
+type AuditEntriesFilteredDescRow struct {
+	TenantID      uuid.UUID
+	Sequence      int64
+	EventID       uuid.UUID
+	Source        string
+	Action        string
+	Actor         string
+	OccurredAt    time.Time
+	AggregateType string
+	AggregateID   string
+	ProjectID     uuid.NullUUID
+	Locale        pgtype.Text
+	Summary       json.RawMessage
+	RequestID     pgtype.Text
+	TraceID       pgtype.Text
+	PrevHash      []byte
+	Hash          []byte
+}
+
+func (q *Queries) AuditEntriesFilteredDesc(ctx context.Context, arg AuditEntriesFilteredDescParams) ([]AuditEntriesFilteredDescRow, error) {
+	rows, err := q.db.Query(ctx, auditEntriesFilteredDesc,
+		arg.TenantID,
+		arg.BeforeSequence,
+		arg.OccurredFrom,
+		arg.OccurredTo,
+		arg.FirstSequence,
+		arg.LastSequence,
+		arg.Actor,
+		arg.Action,
+		arg.Source,
+		arg.AggregateType,
+		arg.AggregateID,
+		arg.Project,
+		arg.Projects,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditEntriesFilteredDescRow
+	for rows.Next() {
+		var i AuditEntriesFilteredDescRow
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Sequence,
+			&i.EventID,
+			&i.Source,
+			&i.Action,
+			&i.Actor,
+			&i.OccurredAt,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.ProjectID,
+			&i.Locale,
+			&i.Summary,
+			&i.RequestID,
+			&i.TraceID,
+			&i.PrevHash,
+			&i.Hash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const auditEntryAt = `-- name: AuditEntryAt :one
+
+SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,
+       aggregate_type, aggregate_id, project_id, locale, summary,
+       request_id, trace_id, prev_hash, hash
+FROM audit_entries
+WHERE tenant_id = $1 AND sequence = $2
+`
+
+type AuditEntryAtParams struct {
+	TenantID uuid.UUID
+	Sequence int64
+}
+
+type AuditEntryAtRow struct {
+	TenantID      uuid.UUID
+	Sequence      int64
+	EventID       uuid.UUID
+	Source        string
+	Action        string
+	Actor         string
+	OccurredAt    time.Time
+	AggregateType string
+	AggregateID   string
+	ProjectID     uuid.NullUUID
+	Locale        pgtype.Text
+	Summary       json.RawMessage
+	RequestID     pgtype.Text
+	TraceID       pgtype.Text
+	PrevHash      []byte
+	Hash          []byte
+}
+
+// ── the read API (RFC 0006 §6.2, wave 5) ───────────────────────────
+// AuditEntryAt reads one entry by its place in the chain.
+func (q *Queries) AuditEntryAt(ctx context.Context, arg AuditEntryAtParams) (AuditEntryAtRow, error) {
+	row := q.db.QueryRow(ctx, auditEntryAt, arg.TenantID, arg.Sequence)
+	var i AuditEntryAtRow
+	err := row.Scan(
+		&i.TenantID,
+		&i.Sequence,
+		&i.EventID,
+		&i.Source,
+		&i.Action,
+		&i.Actor,
+		&i.OccurredAt,
+		&i.AggregateType,
+		&i.AggregateID,
+		&i.ProjectID,
+		&i.Locale,
+		&i.Summary,
+		&i.RequestID,
+		&i.TraceID,
+		&i.PrevHash,
+		&i.Hash,
+	)
+	return i, err
+}
+
 const auditHead = `-- name: AuditHead :one
 SELECT sequence, hash
 FROM audit_entries
@@ -104,6 +388,38 @@ func (q *Queries) AuditHead(ctx context.Context, tenantID uuid.UUID) (AuditHeadR
 	row := q.db.QueryRow(ctx, auditHead, tenantID)
 	var i AuditHeadRow
 	err := row.Scan(&i.Sequence, &i.Hash)
+	return i, err
+}
+
+const auditOccurredSpan = `-- name: AuditOccurredSpan :one
+SELECT coalesce(min(sequence), 0)::bigint AS first_sequence,
+       coalesce(max(sequence), 0)::bigint AS last_sequence,
+       count(*)::bigint AS inside
+FROM audit_entries
+WHERE tenant_id = $1
+  AND occurred_at >= $2 AND occurred_at < $3
+`
+
+type AuditOccurredSpanParams struct {
+	TenantID     uuid.UUID
+	OccurredFrom time.Time
+	OccurredTo   time.Time
+}
+
+type AuditOccurredSpanRow struct {
+	FirstSequence int64
+	LastSequence  int64
+	Inside        int64
+}
+
+// AuditOccurredSpan is the chain segment a time range's entries occupy
+// — the least and greatest sequence that occurred in [from, to) — and
+// how many entries occurred in it. An export of the range is that
+// segment, and only when the segment holds no other entry.
+func (q *Queries) AuditOccurredSpan(ctx context.Context, arg AuditOccurredSpanParams) (AuditOccurredSpanRow, error) {
+	row := q.db.QueryRow(ctx, auditOccurredSpan, arg.TenantID, arg.OccurredFrom, arg.OccurredTo)
+	var i AuditOccurredSpanRow
+	err := row.Scan(&i.FirstSequence, &i.LastSequence, &i.Inside)
 	return i, err
 }
 

@@ -4,26 +4,36 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 
+	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
+	auditmetrics "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/metrics"
 	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
 	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
 	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
 	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
 )
 
 // newAudit wires the Audit context (RFC 0006 §6) and subscribes its
 // projection to every event type. It is built before Identity and MCP,
 // which record sign-ins and tool calls through it.
-func newAudit(pool *pgxpool.Pool, events *outbox.Registry, keys *auditdomain.KeySet, logger *slog.Logger) (*auditapp.Service, error) {
+func newAudit(
+	pool *pgxpool.Pool, events *outbox.Registry, keys *auditdomain.KeySet, logger *slog.Logger, reg prometheus.Registerer,
+) (*auditapp.Service, error) {
 	uow := db.NewUnitOfWork(pool)
 	svc := auditapp.New(auditpg.NewStore(uow),
-		auditapp.WithHistory(outbox.NewHistory(uow)), auditapp.WithExportKeys(keys), auditapp.WithLogger(logger))
+		auditapp.WithHistory(outbox.NewHistory(uow)), auditapp.WithExportKeys(keys), auditapp.WithLogger(logger),
+		// RFC 0006 §10.1: entries appended, broken chains, export jobs.
+		auditapp.WithMetrics(auditmetrics.New(reg)))
 	if err := svc.Subscribe(events); err != nil {
 		return nil, err
 	}
@@ -126,4 +136,68 @@ func (a *app) startAuditBackfill(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// newAuditAPI wires Audit's HTTP edge (RFC 0006 §6.2): the trail's
+// entries, the export jobs and the v0.3 history import. The export jobs
+// run only with GLOSSA_AUDIT_EXPORTS_ENABLED and a key (config refuses
+// the one without the other); otherwise the routes answer
+// `audit_export_unavailable` and worker is nil.
+func newAuditAPI(cfg config.Audit, pool *pgxpool.Pool, svc *auditapp.Service, objects objectstore.StreamStore,
+	logger *slog.Logger,
+) (api *auditapi.API, worker *auditapp.ExportWorker) {
+	uow := db.NewUnitOfWork(pool)
+	store := auditpg.NewStore(uow)
+	keys := svc.ExportKeys()
+	exports := auditapp.NewExportService(auditapp.ExportConfig{Enabled: cfg.ExportsEnabled, Retention: cfg.ExportRetention},
+		store, auditpg.NewExportJobs(uow), objects, keys, auditapp.WithExportLogger(logger),
+		auditapp.WithExportMetrics(svc.Metrics()))
+	if cfg.ExportsEnabled && keys != nil {
+		worker = auditapp.NewExportWorker(exports, auditpg.NewExportClaimer(uow), auditapp.ExportWorkerConfig{})
+	}
+	return auditapi.New(v0HistoryImporter(svc), auditapi.WithReads(auditapp.NewReadService(store)),
+		auditapi.WithExports(exports)), worker
+}
+
+// auditKeysPath is where the deployment publishes the public halves of
+// its audit keys (RFC 0006 §6.2). It is outside /v1 and the Guard: no
+// tenant, no token, public keys only, and not in openapi.yaml.
+const auditKeysPath = "/.well-known/glossa-audit-keys.json"
+
+// auditKeysHandler serves the glossa.audit.keys/1 document: the active
+// key first, every retired key after it, so an export signed before a
+// rotation still finds its key. A deployment without an audit key
+// answers 404 — it has never signed an export.
+func auditKeysHandler(keys *auditdomain.KeySet) (http.HandlerFunc, error) {
+	if keys == nil {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			problem.Write(w, http.StatusNotFound, "this deployment has no audit key")
+		}, nil
+	}
+	doc, err := auditdomain.KeyDocument(keys.PublicKeys())
+	if err != nil {
+		return nil, err
+	}
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = w.Write(doc)
+	}, nil
+}
+
+// startAuditExports runs the audit export worker until ctx ends; a job
+// in progress finishes its current attempt first (bounded by its
+// timeout), and an unfinished one is claimed again when its lease ends.
+func (a *app) startAuditExports(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	if a.auditExports == nil {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		a.auditExports.Run(ctx)
+	}()
+	return done
 }

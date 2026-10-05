@@ -157,6 +157,79 @@ func TestAssignmentsCreate(t *testing.T) {
 	}
 }
 
+func reportRow(assignee, locale string, assignments, onTime, late, units, words, approved int, ratio float64) map[string]any {
+	return map[string]any{"assignee": assignee, "locale": locale, "assignments": assignments, "on_time": onTime, "late": late,
+		"no_due": 0, "units": units, "unavailable": 0, "source_words": words, "tm_words": map[string]int{"exact": words / 4},
+		"approved": approved, "rejected": 0, "needs_review": 0, "draft": 0, "unreviewed": units - approved,
+		"changed_after_delivery": 1, "mean_edit_distance": 3.5, "mean_edit_ratio": ratio,
+		"findings": map[string]int{"terminology": 1}, "findings_per_unit": 0.25, "reworked": 0, "rework_rate": 0.0, "on_time_rate": 0.5}
+}
+
+func TestAssignmentsReportIsTheServersNumbers(t *testing.T) {
+	srv, w := seeded(t)
+	srv.wf.reportRows = []map[string]any{
+		reportRow("vendor:ven_9", "ja", 2, 1, 1, 8, 120, 6, 0.125),
+		reportRow("vendor:ven_2", "de", 1, 1, 0, 4, 40, 4, 0),
+	}
+
+	r := w.run("assignments", "report", "--json")
+	r.want(t, ExitOK)
+	golden(t, "assignments-report.json", r.stdout)
+
+	var doc assignmentReportDoc
+	w.json(&doc, "assignments", "report", "--vendor", "ven_9", "--since", "2026-09-01T00:00:00Z").want(t, ExitOK)
+	if doc.Action != "report" || len(doc.Rows) != 1 || doc.Rows[0].Assignee != "vendor:ven_9" || doc.Vendor != "ven_9" ||
+		!strings.Contains(srv.wf.lastReportQuery, "vendor=ven_9") || !strings.Contains(srv.wf.lastReportQuery, "since=2026-09-01T00%3A00%3A00Z") {
+		t.Fatalf("report = %+v (query %q)", doc, srv.wf.lastReportQuery)
+	}
+
+	w.json(&doc, "assignments", "report", "--project", "prj_1", "--since", "720h").want(t, ExitOK)
+	if !strings.Contains(srv.wf.lastReportQuery, "project=prj_1") || !strings.Contains(srv.wf.lastReportQuery, "since=") {
+		t.Fatalf("query %q", srv.wf.lastReportQuery)
+	}
+
+	human := w.run("assignments", "report")
+	human.want(t, ExitOK)
+	if !strings.Contains(human.stdout, "vendor:ven_9") || !strings.Contains(human.stdout, "FINDINGS/UNIT") || strings.Contains(human.stdout, "bound") {
+		t.Fatalf("human report:\n%s", human.stdout)
+	}
+	srv.wf.reportTruncated = true
+	if r := w.run("assignments", "report"); !strings.Contains(r.stdout, "hit a bound") {
+		t.Fatalf("truncated report:\n%s", r.stdout)
+	}
+	srv.wf.reportRows = nil
+	if r := w.run("assignments", "report"); !strings.Contains(r.stdout, "No completed assignments") {
+		t.Fatalf("empty report:\n%s", r.stdout)
+	}
+}
+
+func TestAssignmentsReportRefusals(t *testing.T) {
+	srv, w := seeded(t)
+	var e errorDoc
+	w.json(&e, "assignments", "report", "--since", "yesterday").want(t, ExitUsage)
+	w.json(&e, "assignments", "report", "--vendor", "Lingua").want(t, ExitUsage)
+	w.json(&e, "assignments", "report", "extra").want(t, ExitUsage)
+
+	srv.wf.refuseAssign = true
+	w.json(&e, "assignments", "report").want(t, ExitNetwork)
+	if e.Error.Code != "forbidden" || !strings.Contains(e.Error.Fix, "assignments.read") || !strings.Contains(e.Error.Fix, "assigned") {
+		t.Fatalf("refused report = %+v", e)
+	}
+}
+
+func TestParseReportSince(t *testing.T) {
+	now := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	if d, err := parseReportSince("720h", now); err != nil || !d.Equal(now.Add(-720*time.Hour)) {
+		t.Fatalf("720h = %v, %v", d, err)
+	}
+	if d, err := parseReportSince("2026-09-01T00:00:00+02:00", now); err != nil || !d.Equal(time.Date(2026, 8, 31, 22, 0, 0, 0, time.UTC)) {
+		t.Fatalf("rfc3339 = %v, %v", d, err)
+	}
+	if _, err := parseReportSince("-1h", now); err == nil {
+		t.Fatal("a negative duration parsed")
+	}
+}
+
 func TestParseDue(t *testing.T) {
 	now := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
 	if d, err := parseDue("72h", now); err != nil || !d.Equal(now.Add(72*time.Hour)) {

@@ -126,6 +126,17 @@ var problems = []struct {
 		"this repository feeds several projects: send project_id (or pass --project)"}},
 	{domain.ErrGitHubOIDCUnavailable, mapping{503, "github_not_configured",
 		"this deployment has no GitHub App, so it cannot exchange GitHub Actions ID tokens; use an API token"}},
+	// Device sign-in (RFC 0006 §7.2): RFC 8628 §3.5's codes, unchanged.
+	{app.ErrDeviceSignInUnavailable, mapping{503, "device_sign_in_unavailable",
+		"this server does not offer device sign-in; use an API token"}},
+	{app.ErrDeviceAuthorizationNotFound, mapping{404, "device_authorization_not_found",
+		"no pending sign-in with this code: it may have expired or been decided already"}},
+	{app.ErrAuthorizationPending, mapping{400, "authorization_pending", "the person has not approved the code yet"}},
+	{app.ErrSlowDown, mapping{400, "slow_down", "poll more slowly: add five seconds to the interval"}},
+	{app.ErrAccessDenied, mapping{400, "access_denied", "the person denied this sign-in"}},
+	{app.ErrExpiredToken, mapping{400, "expired_token", "the device code is unknown, expired or already used; start again"}},
+	{app.ErrInvalidClientName, mapping{400, "invalid_request", "client_name is 1-100 characters"}},
+	{app.ErrDeviceRateLimited, mapping{429, "rate_limited", "too many device sign-in attempts; wait a minute and try again"}},
 	{tenancy.ErrInvalidSlug, mapping{400, "invalid_slug", "lowercase letters, digits and inner hyphens, at most 63"}},
 	{tenancy.ErrInvalidName, mapping{400, "invalid_name", "1-200 characters"}},
 }

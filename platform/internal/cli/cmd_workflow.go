@@ -197,6 +197,12 @@ Actions:
                                document saves nothing. Without --project it is tenant-wide
   pull <name> [--version N] [-o file]
                                the document of the latest (or Nth) version, to stdout or a file
+  export <name> [--version N] [-o file]
+                               the same: the glossa.workflow/v1 document alone — no IDs, no
+                               tenant — so another tenant or server can import it
+  import <file> [--project P] [--if-version N]
+                               the same as push: create the definition, or save its next version,
+                               with the server's lint findings shown
   list                         the definitions the project may bind (the tenant's and its own)
   show <name> [--version N]    a definition, its versions and where the project binds it
   bind <name> [--locales de,fr] [--namespace ns]
@@ -207,11 +213,14 @@ Actions:
   instances [--status active|finished] [--definition D] [--locale L] [--message key]
                                the project's workflow instances
   log <instance-id>            an instance's transition log, oldest first
+  rebase <instance-id> [--version N]
+                               move a running instance to the definition's latest (or Nth)
+                               version, keeping its state; refused when that version lacks it
 
 <file> is JSON, or YAML when it ends in .yaml or .yml; - is stdin. <name> is a definition's
 name or ID. --project (slug or ID) is the project acted in; glossa.yaml's by default.
 
-Saving and binding need the workflows.manage permission: an API token holds it only with the
+Saving, binding and rebasing need the workflows.manage permission: an API token holds it only with the
 opt-in workflows scope, and a GitHub Actions credential never does.`
 
 type workflowArgs struct {
@@ -226,10 +235,10 @@ func parseWorkflowArgs(inv *invocation, args []string) (workflowArgs, error) {
 	fs := inv.flags(workflowUsage)
 	var a workflowArgs
 	fs.StringVar(&a.project, "project", "", "the project, by slug or ID (push: the project the definition belongs to; default tenant-wide)")
-	fs.IntVar(&a.version, "version", 0, "pull, show: this version instead of the latest")
-	fs.IntVar(&a.ifVersion, "if-version", 0, "push: save only if the latest version is still N (the one you edited)")
-	fs.StringVar(&a.out, "out", "", "pull: write the document to this file (.yaml/.yml: YAML)")
-	fs.StringVar(&a.out, "o", "", "pull: shorthand for --out")
+	fs.IntVar(&a.version, "version", 0, "pull, export, show: this version instead of the latest; rebase: the version to move to")
+	fs.IntVar(&a.ifVersion, "if-version", 0, "push, import: save only if the latest version is still N (the one you edited)")
+	fs.StringVar(&a.out, "out", "", "pull, export: write the document to this file (.yaml/.yml: YAML)")
+	fs.StringVar(&a.out, "o", "", "pull, export: shorthand for --out")
 	fs.Var(&a.locales, "locales", "bind, unbind: the binding's locales (repeatable or comma-separated)")
 	fs.StringVar(&a.namespace, "namespace", "", "bind, unbind: the binding's namespace")
 	fs.StringVar(&a.binding, "binding", "", "unbind: the binding's ID")
@@ -242,7 +251,7 @@ func parseWorkflowArgs(inv *invocation, args []string) (workflowArgs, error) {
 		return a, err
 	}
 	if len(pos) == 0 {
-		return a, usageError(inv.name, "missing action: lint, push, pull, list, show, bind, unbind, bindings, instances or log")
+		return a, usageError(inv.name, "missing action: lint, push, pull, export, import, list, show, bind, unbind, bindings, instances, log or rebase")
 	}
 	a.action, pos = pos[0], pos[1:]
 	one := func(what string) error {
@@ -253,11 +262,11 @@ func parseWorkflowArgs(inv *invocation, args []string) (workflowArgs, error) {
 		return noMore(inv, pos[1:])
 	}
 	switch a.action {
-	case "lint", "push":
+	case "lint", "push", "import":
 		return a, one("a file (`-` for stdin)")
-	case "pull", "show", "bind":
+	case "pull", "export", "show", "bind":
 		return a, one("a definition's name or ID")
-	case "log":
+	case "log", "rebase":
 		return a, one("an instance ID (`glossa workflow instances` lists them)")
 	case "unbind":
 		if a.binding != "" {
@@ -279,7 +288,7 @@ func parseWorkflowArgs(inv *invocation, args []string) (workflowArgs, error) {
 		}
 		return a, noMore(inv, pos)
 	}
-	return a, usageError(inv.name, "unknown action %q (lint, push, pull, list, show, bind, unbind, bindings, instances, log)", a.action)
+	return a, usageError(inv.name, "unknown action %q (lint, push, pull, export, import, list, show, bind, unbind, bindings, instances, log, rebase)", a.action)
 }
 
 func runWorkflow(ctx context.Context, inv *invocation, args []string) error {
@@ -293,7 +302,7 @@ func runWorkflow(ctx context.Context, inv *invocation, args []string) error {
 	// Reading the file first: a typo in the path is a usage error, not
 	// a round trip to the server.
 	var doc map[string]any
-	if a.action == "lint" || a.action == "push" {
+	if a.action == "lint" || a.action == "push" || a.action == "import" {
 		if doc, err = inv.readWorkflowFile(a.target); err != nil {
 			return err
 		}
@@ -305,7 +314,10 @@ func runWorkflow(ctx context.Context, inv *invocation, args []string) error {
 	switch a.action {
 	case "lint":
 		return inv.workflowLint(ctx, p, a, doc)
-	case "push":
+	case "push", "import":
+		// Import is push by its portable name: a definition document
+		// exported from another tenant or server is created here, or
+		// saved as the next version of the one of its name.
 		return inv.workflowPush(ctx, p, a, doc)
 	}
 	target, err := inv.workflowProject(ctx, p, a.project)
@@ -314,8 +326,10 @@ func runWorkflow(ctx context.Context, inv *invocation, args []string) error {
 	}
 	s := remote.Scope{Tenant: p.scope.Tenant, Project: target.Id}
 	switch a.action {
-	case "pull":
+	case "pull", "export":
 		return inv.workflowPull(ctx, p, s, a)
+	case "rebase":
+		return inv.workflowRebase(ctx, p, s, a)
 	case "list":
 		return inv.workflowList(ctx, p, s)
 	case "show":
@@ -477,7 +491,7 @@ func (inv *invocation) workflowPush(ctx context.Context, p *project, a workflowA
 	if err != nil {
 		return err
 	}
-	out := workflowPushDoc{Schema: workflowSchema, Action: "push", File: a.target, Findings: []workflowFindingJSON{}}
+	out := workflowPushDoc{Schema: workflowSchema, Action: a.action, File: a.target, Findings: []workflowFindingJSON{}}
 	var saved remote.WorkflowDefinitionSaved
 	switch {
 	case !found && a.ifVersion > 0:
@@ -667,11 +681,80 @@ func (inv *invocation) workflowPull(ctx context.Context, p *project, s remote.Sc
 	if err != nil {
 		return &Error{Exit: ExitUsage, Code: "workflow_file_unwritable", What: "can't write the workflow file", Where: path, Why: err.Error()}
 	}
-	out := workflowPullDoc{Schema: workflowSchema, Action: "pull", File: a.out, Definition: definitionJSON(def), Version: n}
+	out := workflowPullDoc{Schema: workflowSchema, Action: a.action, File: a.out, Definition: definitionJSON(def), Version: n}
 	return inv.emit(out, func(pr *printer) {
 		pr.line("%s Wrote %s version %d to %s", pr.pass(), def.Name, n, a.out)
+		if a.action == "export" {
+			pr.line("  %s", pr.dim("`glossa workflow import "+a.out+"` creates it in another tenant or server, or saves it as the next version of the one called "+def.Name))
+			return
+		}
 		pr.line("  %s", pr.dim("edit it and `glossa workflow push "+a.out+" --if-version "+strconv.Itoa(n)+"` saves the next version, unless someone else saved one first"))
 	})
+}
+
+// ── rebase ──────────────────────────────────────────────────────────
+
+type workflowRebaseDoc struct {
+	Schema      string               `json:"schema"`
+	Action      string               `json:"action"`
+	FromVersion int                  `json:"from_version"`
+	Instance    workflowInstanceJSON `json:"instance"`
+}
+
+// workflowRebase moves a running instance to a newer version of its
+// definition (RFC 0006 §2.3). The If-Match is the version the instance
+// runs on as read here, so a rebase someone else made in between is
+// refused, never repeated.
+func (inv *invocation) workflowRebase(ctx context.Context, p *project, s remote.Scope, a workflowArgs) error {
+	cur, err := p.client.WorkflowInstance(ctx, s, a.target)
+	if err != nil {
+		return inv.workflowError(err, "can't read instance "+a.target, "")
+	}
+	it, err := p.client.RebaseWorkflowInstance(ctx, s, a.target, cur.DefinitionVersion, a.version)
+	if err != nil {
+		return inv.rebaseError(err, cur)
+	}
+	names := inv.definitionNames(ctx, p, s)
+	out := workflowRebaseDoc{Schema: workflowSchema, Action: "rebase", FromVersion: cur.DefinitionVersion, Instance: instanceJSON(it, names)}
+	return inv.emit(out, func(pr *printer) {
+		pr.line("%s Rebased %s from version %d to %d, in %s", pr.pass(), it.Id, cur.DefinitionVersion, it.DefinitionVersion, stateLabel(it.State))
+		pr.line("  %s", pr.dim("nothing ran again: what the state asked for stands, and the next event moves it on the new version"))
+	})
+}
+
+func stateLabel(state string) string {
+	if state == "" {
+		return "no state yet (it starts on the new version at its next event)"
+	}
+	return "state " + state
+}
+
+// rebaseError explains a refused rebase: the server's reason is precise
+// (the state the target lacks, a finished instance), so it is passed on
+// with what to do about it.
+func (inv *invocation) rebaseError(err error, cur remote.WorkflowInstance) error {
+	var ae *remote.APIError
+	if !errors.As(err, &ae) {
+		return inv.workflowError(err, "can't rebase instance "+cur.Id, "")
+	}
+	e := &Error{Exit: ExitNetwork, Code: ae.Code, What: "can't rebase instance " + cur.Id, Where: ae.Method + " " + ae.URL, Why: ae.Detail}
+	switch ae.Code {
+	case "workflow_rebase_state_missing", "workflow_rebase_state_final":
+		e.Exit = ExitUsage
+		e.Fix = "keep a waiting state called " + cur.State + " in the version you rebase onto, or pick one that has it with --version"
+	case "invalid_workflow_rebase":
+		e.Exit = ExitUsage
+		e.Fix = fmt.Sprintf("it runs on version %d; `glossa workflow show <definition>` lists the newer ones", cur.DefinitionVersion)
+	case "workflow_instance_finished":
+		e.Exit = ExitUsage
+		e.Fix = "a finished instance stays on the version it finished on"
+	case "precondition_failed":
+		e.Why = "someone rebased it since it was read; nothing was changed"
+		e.Fix = "run it again to rebase from the version it runs on now"
+	default:
+		return inv.workflowError(err, "can't rebase instance "+cur.Id, "")
+	}
+	return e
 }
 
 func (inv *invocation) workflowList(ctx context.Context, p *project, s remote.Scope) error {
@@ -1193,7 +1276,7 @@ func (inv *invocation) workflowError(err error, what, name string) error {
 	switch {
 	case ae.Status == 403 && strings.Contains(ae.Detail, "workflows.manage"):
 		e.Code = "workflows_scope_required"
-		e.Why = "the credential lacks the `workflows` scope: saving and binding workflow definitions takes workflows.manage, " +
+		e.Why = "the credential lacks the `workflows` scope: saving and binding workflow definitions, and rebasing instances, takes workflows.manage, " +
 			"which an API token holds only with that opt-in scope (no other scope implies it), and a GitHub Actions credential never holds"
 		e.Fix = "create an API token with the `workflows` scope in Studio (Settings → API tokens) and set GLOSSA_TOKEN to it for this step"
 	case ae.Status == 403 && strings.Contains(ae.Detail, "workflows.read"):

@@ -945,6 +945,7 @@ the value until it is set.
 | `server.purge.pollInterval` | `5m` | `GLOSSA_PURGE_POLL_INTERVAL`: how often a pod asks whether a job is due. |
 | `server.purge.jitter` | `0.2` | `GLOSSA_PURGE_JITTER`: fraction of the poll interval each poll is spread by (0–1), so replicas don't ask in lockstep. |
 | `server.purge.batchSize` | `100` | `GLOSSA_PURGE_BATCH_SIZE`: object-store deletes issued at a time while freeing unreferenced images. |
+| `server.workflow.instanceRetention` | `4320h` | `GLOSSA_WORKFLOW_INSTANCE_RETENTION`: a finished workflow instance and its transition log are kept this long (180 days, at least `24h`), then the daily `workflow.retention` job — one of the purge jobs, so it runs only where `server.purge.enabled` — deletes them. Running instances are never deleted; who did what stays in the audit trail. |
 | `server.context.storageQuotaBytes` | `2147483648` | `GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES`: capture images one tenant may keep in object storage (2 GiB). A capture upload whose new pixels would pass it is refused with `storage_quota_exceeded` (413); the daily purge frees space again. Watch `glossa_context_capture_bytes_used` against `glossa_context_capture_quota_bytes`. |
 | `server.mcp.enabled` | `false` | `GLOSSA_MCP_ENABLED`: serve MCP at `/mcp` (RFC 0005 §7). Off, the path is not registered at all. See [MCP](#mcp) before turning it on. |
 | `server.mcp.sessionTimeout` | `30m` | `GLOSSA_MCP_SESSION_TIMEOUT`: close a session idle this long, so an agent that walks away does not hold one open. |

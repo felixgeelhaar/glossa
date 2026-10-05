@@ -101,6 +101,12 @@ server:
     jitter: 0.2
     # -- GLOSSA_PURGE_BATCH_SIZE: object-store deletes issued at a time.
     batchSize: 100
+  # Workflow (RFC 0006 §2.5): a finished instance keeps its transition log
+  # this long; the daily workflow.retention job (one of the purge jobs
+  # above) then deletes it. Running instances are never deleted.
+  workflow:
+    # -- GLOSSA_WORKFLOW_INSTANCE_RETENTION: at least 24h.
+    instanceRetention: 4320h
   context:
     # -- GLOSSA_CONTEXT_STORAGE_QUOTA_BYTES: capture images one tenant may keep in
     # object storage (2 GiB). A capture upload whose new pixels would pass it is

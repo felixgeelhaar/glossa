@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 
 	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
 	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
@@ -38,8 +39,11 @@ type API struct {
 	// origin, for the CORS middleware. A field so it can be stubbed.
 	originLookup func(ctx context.Context, origin string) (bool, error)
 	csrfKey      []byte
-	logger       *slog.Logger
-	errs         errorWriter
+	// trustedProxies are the proxies whose X-Forwarded-For names the
+	// client (SetTrustedProxies).
+	trustedProxies []netip.Prefix
+	logger         *slog.Logger
+	errs           errorWriter
 }
 
 // New returns the API. csrfKey derives CSRF tokens from sessions.
@@ -202,6 +206,14 @@ func (a *API) FinishPasskeySignIn(ctx context.Context, req apiv1.FinishPasskeySi
 
 func (a *API) SignOut(ctx context.Context, _ apiv1.SignOutRequestObject) (apiv1.SignOutResponseObject, error) {
 	c, ok := callerFrom(ctx)
+	if ok && c.device != "" {
+		// `glossa logout`: the device's session ends, the person's
+		// others don't, and there is no cookie to clear.
+		if err := a.svc.SignOutDevice(ctx, c.device); err != nil {
+			return nil, err
+		}
+		return apiv1.SignOut204Response{}, nil
+	}
 	if !ok || c.session == "" {
 		return nil, app.ErrUnauthenticated
 	}
@@ -232,8 +244,14 @@ func (a *API) GetMe(ctx context.Context, _ apiv1.GetMeRequestObject) (apiv1.GetM
 		return nil, err
 	}
 	c, _ := callerFrom(ctx)
+	// A device session needs no CSRF token, and there is no cookie to
+	// derive one from: it gets none.
+	csrf := ""
+	if c.session != "" {
+		csrf = a.csrfToken(c.session)
+	}
 	out := apiv1.GetMe200JSONResponse{
-		Person: toPerson(me.Person), CsrfToken: a.csrfToken(c.session),
+		Person: toPerson(me.Person), CsrfToken: csrf,
 		Memberships: make([]apiv1.Membership, 0, len(me.Memberships)),
 	}
 	for _, m := range me.Memberships {

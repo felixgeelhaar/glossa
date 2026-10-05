@@ -106,6 +106,11 @@ func (s *Service) LookupTM(ctx context.Context, q TMQuery) ([]TMMatch, error) {
 	if err := tmScope(ctx, authz.KnowledgeRead, q.ProjectID, q.AllProjects); err != nil {
 		return nil, err
 	}
+	return s.lookup(ctx, q)
+}
+
+// lookup is LookupTM after the caller's access has been decided.
+func (s *Service) lookup(ctx context.Context, q TMQuery) ([]TMMatch, error) {
 	if err := q.normalize(); err != nil {
 		return nil, err
 	}

@@ -24,6 +24,14 @@ const (
 	EventGroupDeleted             = "identity.group.deleted"
 	EventGroupMemberAdded         = "identity.group.member_added"
 	EventGroupMemberRemoved       = "identity.group.member_removed"
+
+	// Device sign-in (RFC 0006 §7.2). A device authorization belongs
+	// to a person, not to a tenant, so each event is published in every
+	// tenant the person belongs to: the device acts there as them, and
+	// each tenant's trail says so.
+	EventDeviceApproved = "identity.device_authorization.approved"
+	EventDeviceDenied   = "identity.device_authorization.denied"
+	EventDeviceRedeemed = "identity.device_authorization.redeemed"
 )
 
 // Aggregate types, the middle segment of the event names.
@@ -33,7 +41,21 @@ const (
 	AggregateToken  = "token"
 	AggregateVendor = "vendor"
 	AggregateGroup  = "group"
+	// AggregateDeviceAuthorization is a device sign-in (RFC 0006 §7.2).
+	AggregateDeviceAuthorization = "device_authorization"
 )
+
+// DeviceAuthorizationChanged is published when a person approves or
+// denies a device, and when the approved device takes its session. The
+// client name is what the device called itself; the audit trail
+// records it only as its length.
+type DeviceAuthorizationChanged struct {
+	AuthorizationID string `json:"authorization_id"`
+	PersonID        string `json:"person_id"`
+	Status          string `json:"status"`
+	ClientName      string `json:"client_name"`
+	By              string `json:"by"`
+}
 
 // TenantCreated is published when an individual or organization tenant
 // comes into existence.

@@ -17,7 +17,7 @@ var failsIf = map[string]string{
 	"12.3": "any pointer moves before the second approval as seen at the edge, or a rollback waits.",
 	"12.4": "any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other.",
 	"12.5": "a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks.",
-	"12.6": "any rendering differs between v0.3's formatter and @glossa/runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing.",
+	"12.6": "any rendering differs between v0.3's formatter and @felixgeelhaar/glossa-runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing.",
 	"12.7": "any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say.",
 }
 
@@ -108,10 +108,80 @@ func (s *scenario) report() []byte {
 		}
 	}
 
-	w("## What this test cannot prove\n\n")
-	w("RFC 0006 §1.3 and §12: production rendering in real products, a real vendor's onboarding without a test\n")
-	w("mailer, real cohort proportions, and v0.3's shutdown. Those are the dogfood phase (§7.4).\n")
+	s.reportCannotProve(&b)
+	s.reportFlakeReview(&b)
 	return b.Bytes()
+}
+
+// cannotProve is RFC 0006 §12's list, then what this harness itself
+// fakes. Each item says what the test stands in for, so a green report
+// is not read as more than it is.
+var cannotProve = []struct{ claim, why string }{
+	{"Production rendering in real products (RFC 0006 §1.3, §12).",
+		"The renderings compared in §12.6 are of a generated fixture of 300 keys, not of any Klarlabs product's strings, locales or arguments."},
+	{"A real vendor can be onboarded (§12).",
+		"The invitation, verification link and sign-in travel over SMTP to a capturing **test mailer** the harness runs. No real mail provider, spam filter, link rewriting or delay was involved."},
+	{"Real users land in rollout cohorts in the proportions the fixture shows (§12).",
+		"§12.4 drives the runtimes with 10,000 installation ids from a fixture through a **fake transport** over the edge's real manifest. Real installation ids, real refresh timing and real network failure were not."},
+	{"v0.3's namespace can be deleted without someone noticing (§12).",
+		"§12.6 imports a **seeded** v0.3 server built from `apps/api` on its own Postgres. Nothing here shuts a production v0.3 down or finds who still calls it."},
+	{"Anything a real GitHub does.",
+		"The Git connection of §12.2 talks to a **fake GitHub** on loopback: no App installation, webhook signature, rate limit or permission model of the real one."},
+	{"Anything a real AI provider does.",
+		"The AI fill of §12.2 is drafted by a **fake provider** on loopback. Quality, latency, errors and cost of a real model are untested."},
+	{"Studio in a browser.",
+		"This test reads the public API, the edge, the runtimes and the CLI. Studio's own end-to-end tests are a separate suite; nothing here shows a user can reach any of this through the UI."},
+	{"That the access surface is closed beyond what the spec and the MCP tool list say.",
+		"§12.2's sweep generates **GET** operations from `platform/api/openapi.yaml` and calls them with fixture ids; writes are checked by a fixed list. A leak through a route that is not in the spec, through an id the fixture did not make, or by timing is invisible to it. A tool that needs an argument the fixture cannot fill is marked ∅ and fails the criterion."},
+	{"The audit export is complete for calls the harness did not make.",
+		"§12.5 compares the export with the harness's own log of the calls *it* made in §12.1–§12.4. Entries for system actions, other callers or calls the harness did not record are not checked against anything."},
+	{"Behaviour under load, partial failure, clock skew or restarts.",
+		"One server, one edge, one Postgres and one bucket, started once on loopback, with no faults injected."},
+	{"The Dart, Go and JS runtimes on real devices.",
+		"They are run as host processes against a fake transport; no mobile OS, app lifecycle or storage is involved."},
+}
+
+func (s *scenario) reportCannotProve(b *bytes.Buffer) {
+	w := func(format string, args ...any) { fmt.Fprintf(b, format, args...) }
+	w("## What this test cannot prove\n\n")
+	w("The first four are RFC 0006 §12's list; the rest are what this harness fakes or does not look at. All of\n")
+	w("it is the dogfood phase's to prove (§7.4), or another suite's.\n\n")
+	for _, c := range cannotProve {
+		w("- **%s** %s\n", c.claim, c.why)
+	}
+	// What this particular run could not do, from the run itself.
+	if !s.vendorAsVendor {
+		w("- **In this run, a vendor member.** The platform could not make the translator a vendor member, so §12.2 shows what an ordinary `de` translator sees, not a vendor.\n")
+	}
+	for _, c := range s.criteria {
+		if c.skipped != "" {
+			w("- **In this run, §%s.** It was not run: %s\n", c.id, oneLine(c.skipped))
+		}
+	}
+	w("\n")
+}
+
+func (s *scenario) reportFlakeReview(b *bytes.Buffer) {
+	w := func(format string, args ...any) { fmt.Fprintf(b, format, args...) }
+	w("## Flake review\n\n")
+	w("What the harness does about timing and shared state, so a red run can be told from a flaky one:\n\n")
+	w("- **Positive waits** (a pointer arrives, a state is reached, a service is ready) are polls with a stated deadline\n")
+	w("  (`softly`, `edgeServes`): 10–90 s, the last observed state in the failure. No positive claim rests on a fixed sleep.\n")
+	w("- **Negative claims** (the edge has *not* moved, the translation is *not yet* approved) are watched for their whole\n")
+	w("  window by `staysFor`, which fails on the first violation and treats a check it cannot make as a failure, not a pass.\n")
+	w("  The window (3 s) must cover the outbox and the edge's refresh; a window too short could only make such a step pass\n")
+	w("  wrongly, never fail, so it is the one place a wait is a lower bound on rigour. It is never the only evidence: each\n")
+	w("  is followed by the positive step that the next approval does move it.\n")
+	w("- **No retries.** No step is repeated until it passes; an HTTP call that fails once fails the step.\n")
+	w("- **Order.** §12.1–§12.4 share one server, one fixture and one `production` environment and run in that order;\n")
+	w("  §12.4 starts from the stable release §12.3 leaves, and §12.5 compares the export with the calls of §12.1–§12.4.\n")
+	w("  Each criterion records its own gaps, so a failure in one does not stop the next, but a later one that needs an\n")
+	w("  earlier one's state reports *not reached* with the reason. §12.7 runs first and alone, because the earlier exit\n")
+	w("  tests collide at sign-in with a second running server.\n")
+	w("- **Known platform-side flake, not fixed here.** In M3's PR-check queue, `integration_github_checks.available_at`\n")
+	w("  is set with the application clock but claimed with Postgres `now()`; with a skewed clock a check can be claimed\n")
+	w("  early or late. M5's harness does not touch that queue (§12.2 creates a check *run* through the API, not a pull-request\n")
+	w("  check), but §12.7 runs M3's exit test, so a red §12.7 naming a PR check is this, not M5.\n\n")
 }
 
 func (s *scenario) reportFixture(b *bytes.Buffer) {
@@ -173,7 +243,8 @@ func (s *scenario) reportSweep(b *bytes.Buffer) {
 	w("Every GET operation of `platform/api/openapi.yaml`, called as the vendor's translator — inside the\n")
 	w("assignment (project B, an assigned unit) and, where the operation is addressed by a project or a\n")
 	w("message, outside it (project A, an unassigned unit, which must answer 404). **%d hold, %d show something\n", ok, leaks)
-	w("outside the assignment or answer undocumented, %d have no verdict** (no fixture id to address them).\n\n", unexercised)
+	w("outside the assignment or answer undocumented, %d have no verdict** (no fixture id to address them).\n", unexercised)
+	w("An operation of the spec with no row at all, or a row marked ∅, fails §12.2.\n\n")
 	w("| | Operation | Inside | Outside | Why |\n|---|---|---|---|---|\n")
 	for _, r := range s.sweep {
 		mark, why := "✅", r.Why
@@ -189,11 +260,14 @@ func (s *scenario) reportSweep(b *bytes.Buffer) {
 	if len(s.mcpSweep) > 0 {
 		w("The MCP read tools, as the same member:\n\n| | Tool | Answer | Why |\n|---|---|---|---|\n")
 		for _, r := range s.mcpSweep {
-			mark := "✅"
-			if !r.OK {
+			mark, why := "✅", r.Why
+			switch {
+			case r.Unexercised != "":
+				mark, why = "∅", r.Unexercised
+			case !r.OK:
 				mark = "❌"
 			}
-			w("| %s | `%s` | %s | %s |\n", mark, r.Operation, orDash(r.Inside), oneLine(r.Why))
+			w("| %s | `%s` | %s | %s |\n", mark, r.Operation, orDash(r.Inside), oneLine(why))
 		}
 		w("\n")
 	}
@@ -280,7 +354,7 @@ func (s *scenario) reportV03(b *bytes.Buffer) {
 		if len(rows) == 0 {
 			return
 		}
-		w("%s\n\n| Key | Locale | Arguments | v0.3's formatter | @glossa/runtime |\n|---|---|---|---|---|\n", title)
+		w("%s\n\n| Key | Locale | Arguments | v0.3's formatter | @felixgeelhaar/glossa-runtime |\n|---|---|---|---|---|\n", title)
 		for i, m := range rows {
 			if i == 40 {
 				w("| … | | | %d more | |\n", len(rows)-40)

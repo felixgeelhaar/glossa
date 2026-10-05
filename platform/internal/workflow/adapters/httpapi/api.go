@@ -33,6 +33,7 @@ type API struct {
 	instances *app.Instances
 	work      *app.WorkService
 	catalog   app.Catalog
+	rebase    Rebaser
 }
 
 // New returns the API. instances is the instance runner's read side; nil

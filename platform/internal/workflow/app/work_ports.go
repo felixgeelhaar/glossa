@@ -109,6 +109,11 @@ type CoverageQuery struct {
 // tenant transaction.
 type WorkStore interface {
 	InsertAssignment(ctx context.Context, a domain.Assignment) error
+	// LiveAssignmentsOf counts the assignee's live (open or accepted)
+	// assignments, holding a lock on that assignee until the
+	// transaction ends, so two concurrent assignments cannot both take
+	// the last place under the limit (RFC 0006 §9.6).
+	LiveAssignmentsOf(ctx context.Context, assignee domain.Assignee) (int, error)
 	GetAssignment(ctx context.Context, id uuid.UUID) (domain.Assignment, error)
 	// LockAssignment reads an assignment and locks it until the
 	// transaction ends.

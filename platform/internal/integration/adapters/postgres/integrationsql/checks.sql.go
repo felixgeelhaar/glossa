@@ -92,25 +92,32 @@ const claimCheck = `-- name: ClaimCheck :one
 WITH due AS (
     SELECT c.id
     FROM integration_github_checks c
-    WHERE c.state = 'queued' AND c.available_at <= now()
+    WHERE c.state = 'queued' AND c.available_at <= $1::timestamptz
     ORDER BY c.available_at, c.id
     LIMIT 1
     FOR UPDATE OF c SKIP LOCKED
 )
 UPDATE integration_github_checks e
 SET attempts     = e.attempts + 1,
-    available_at = now() + make_interval(secs => $1::float8),
+    available_at = $1::timestamptz + make_interval(secs => $2::float8),
     claim_token  = gen_random_uuid()
 FROM due
 WHERE e.id = due.id
 RETURNING e.id, e.tenant_id, e.installation_id, e.repository_id, e.pull_request, e.branch, e.head_sha, e.comment_id, e.runs, e.state, e.conclusion, e.attempts, e.failure, e.claim_token, e.requested_at, e.available_at, e.completed_at, e.updated_at, e.from_fork, e.opened_at
 `
 
+type ClaimCheckParams struct {
+	Now          time.Time
+	LeaseSeconds float64
+}
+
 // ClaimCheck leases the oldest due check. The row is the pull request,
 // so claiming it is what keeps one job per pull request: two jobs can
-// never race the one sticky comment.
-func (q *Queries) ClaimCheck(ctx context.Context, leaseSeconds float64) (IntegrationGithubCheck, error) {
-	row := q.db.QueryRow(ctx, claimCheck, leaseSeconds)
+// never race the one sticky comment. "Due" and the lease are measured
+// on the app's clock (now), the clock every available_at here is
+// written with — never Postgres's now(), which may differ from it.
+func (q *Queries) ClaimCheck(ctx context.Context, arg ClaimCheckParams) (IntegrationGithubCheck, error) {
+	row := q.db.QueryRow(ctx, claimCheck, arg.Now, arg.LeaseSeconds)
 	var i IntegrationGithubCheck
 	err := row.Scan(
 		&i.ID,
@@ -346,17 +353,17 @@ func (q *Queries) RerunCheck(ctx context.Context, arg RerunCheckParams) (int64, 
 
 const retryCheck = `-- name: RetryCheck :execrows
 UPDATE integration_github_checks
-SET available_at = now() + make_interval(secs => $1::float8),
-    failure      = $2,
+SET available_at = $1::timestamptz + make_interval(secs => $2::float8),
+    failure      = $3,
     claim_token  = NULL,
-    updated_at   = $3
+    updated_at   = $1
 WHERE id = $4 AND claim_token = $5::uuid
 `
 
 type RetryCheckParams struct {
+	Now          time.Time
 	DelaySeconds float64
 	Failure      string
-	Now          time.Time
 	ID           uuid.UUID
 	ClaimToken   uuid.UUID
 }
@@ -365,9 +372,9 @@ type RetryCheckParams struct {
 // everything it learned.
 func (q *Queries) RetryCheck(ctx context.Context, arg RetryCheckParams) (int64, error) {
 	result, err := q.db.Exec(ctx, retryCheck,
+		arg.Now,
 		arg.DelaySeconds,
 		arg.Failure,
-		arg.Now,
 		arg.ID,
 		arg.ClaimToken,
 	)

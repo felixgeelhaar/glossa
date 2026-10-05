@@ -234,6 +234,8 @@ func TestWorkflowEventsKeepTheirPartiesAndDropTheirText(t *testing.T) {
 		"workflow.assignment.declined": `{"assignment_id":"s1","project_id":"p1","assignee":"member:u2",
 			"permission":"translations.write","state":"declined","reason":"Too busy this week","by":"person:u2","units":[]}`,
 		"workflow.definition_saved": `{"definition_id":"d1","project_id":"p1","name":"Legal sign-off","subject":"translation","version":2}`,
+		"workflow.instance.rebased": `{"instance_id":"i1","project_id":"p1","definition_id":"d1","subject_kind":"translation",
+			"locale":"de","from_version":1,"to_version":2,"state":"legal_review"}`,
 	} {
 		p, ok := domain.Projections[typ]
 		if !ok {
@@ -245,7 +247,7 @@ func TestWorkflowEventsKeepTheirPartiesAndDropTheirText(t *testing.T) {
 				t.Errorf("%s kept %q verbatim: %s", typ, text, got)
 			}
 		}
-		for _, id := range []string{"group:g1", "member:u2", `"version":2`} {
+		for _, id := range []string{"group:g1", "member:u2", `"version":2`, `"to_version":2`, `"state":"legal_review"`} {
 			if strings.Contains(payload, id) && !strings.Contains(got, id) {
 				t.Errorf("%s dropped the identifier %s: %s", typ, id, got)
 			}

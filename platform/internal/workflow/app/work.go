@@ -33,7 +33,12 @@ type WorkService struct {
 	// (RFC 0006 §5.1); nil refuses every decision on one.
 	releases ReleaseRequests
 	catalog  Catalog
-	now      func() time.Time
+	// metrics counts recorded decisions; nil counts nothing.
+	metrics DecisionMetrics
+	// facts reads the quality numbers of a delivered unit (§3.4); nil
+	// answers ErrReportUnavailable.
+	facts QualityFacts
+	now   func() time.Time
 }
 
 // WorkOption configures a WorkService.
@@ -194,6 +199,14 @@ func (s *WorkService) assign(ctx context.Context, id, instance, project uuid.UUI
 		assignee, err := s.resolve(ctx, to)
 		if err != nil {
 			return err
+		}
+		live, err := st.LiveAssignmentsOf(ctx, assignee)
+		if err != nil {
+			return err
+		}
+		if live >= domain.MaxOpenAssignments {
+			return fmt.Errorf("%w: %s already holds %d open assignments; at most %d per assignee",
+				ErrLimit, assignee, live, domain.MaxOpenAssignments)
 		}
 		a, err := domain.NewAssignment(project, units, assignee, perm, due, actor.String(), s.now().UTC())
 		if err != nil {
@@ -625,8 +638,12 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 		return domain.Approval{}, err
 	}
 
-	var out domain.Approval
+	var (
+		out     domain.Approval
+		decided *domain.Decision
+	)
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st WorkStore) error {
+		decided = nil
 		a, err := st.LockApproval(ctx, id)
 		if err != nil {
 			return err
@@ -663,8 +680,12 @@ func (s *WorkService) Decide(ctx context.Context, id uuid.UUID, verdict domain.V
 		if d.Verdict == domain.VerdictDenied {
 			event = domain.EventTypeApprovalDenied
 		}
+		decided = &d
 		return st.Publish(ctx, approvalEvent(event, a, &d, author, actor))
 	})
+	if err == nil && decided != nil && s.metrics != nil {
+		s.metrics.Decision(string(out.Subject.Kind), string(decided.Verdict))
+	}
 	return out, err
 }
 

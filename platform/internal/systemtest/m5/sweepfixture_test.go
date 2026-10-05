@@ -75,6 +75,21 @@ func (s *scenario) sweepResources(sides [2]sweepSide) {
 			}
 		}
 	}
+	// Tenant- and person-level resources: one id serves both sides.
+	for _, r := range []struct {
+		what string
+		fn   func() (string, string, error)
+	}{
+		{"an audit export job", s.sweepAuditExportJob},
+		{"a device authorization", s.sweepDeviceAuthorization},
+	} {
+		name, id, err := r.fn()
+		if err != nil {
+			s.note("12.2", "The fixture could not make %s for the sweep: %v", r.what, err)
+			continue
+		}
+		s.sweepInside[name], s.sweepOutside[name] = id, id
+	}
 	// The AI fills last and together: their jobs run while the rest is
 	// made, and both are waited for at once.
 	if err := s.sweepAI(sides); err != nil {
@@ -413,4 +428,38 @@ func (p *fakeProvider) refusedRequests() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]string(nil), p.refused...)
+}
+
+// sweepAuditExportJob starts an export of the last hour as the owner, so
+// the sweep can address a job and its two files.
+func (s *scenario) sweepAuditExportJob() (string, string, error) {
+	var job struct {
+		ID string `json:"id"`
+	}
+	_, err := s.owner.try(http.MethodPost, s.auditExportJobsPath(), map[string]any{
+		"from": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339), "to": time.Now().UTC().Format(time.RFC3339),
+	}, http.StatusCreated, &job)
+	return "audit_export_job", job.ID, err
+}
+
+// sweepDeviceAuthorization starts a device sign-in the way the CLI does,
+// unauthenticated and outside the harness's call log (no one acts, so
+// the trail has nothing to record), for its user code.
+func (s *scenario) sweepDeviceAuthorization() (string, string, error) {
+	body := strings.NewReader(`{"client_name":"m5 sweep"}`)
+	resp, err := http.Post(s.owner.base+"/v1/auth/device-authorizations", "application/json", body)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	var d struct {
+		UserCode string `json:"user_code"`
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("POST /v1/auth/device-authorizations answered %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		return "", "", err
+	}
+	return "user_code", d.UserCode, nil
 }

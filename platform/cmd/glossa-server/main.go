@@ -22,7 +22,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/trace"
 
-	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
 	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
 	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
 	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
@@ -140,6 +139,9 @@ type app struct {
 	githubChecks *integrationapp.CheckWorker
 	// audit is the Audit context; its backfill runs once at startup.
 	audit *auditapp.Service
+	// auditExports runs audit export jobs and their retention; nil
+	// unless GLOSSA_AUDIT_EXPORTS_ENABLED.
+	auditExports *auditapp.ExportWorker
 	// identity is waited on at shutdown for the failed sign-ins it is
 	// still recording in the background.
 	identity   *identityapp.Service
@@ -184,7 +186,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	audit, err := newAudit(pool, events, auditKeys, logger)
+	audit, err := newAudit(pool, events, auditKeys, logger, registry)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -199,9 +201,16 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		pool.Close()
 		return nil, err
 	}
-	// Audit's HTTP edge: the v0.3 history import (RFC 0006 §7.2), which
-	// answers audit_import_unavailable until Audit implements it.
-	bounded.auditAPI = auditapi.New(v0HistoryImporter(audit))
+	// Audit's HTTP edge (RFC 0006 §6.2, §7.2): the trail's entries, its
+	// export jobs (on the contexts' object storage) and the v0.3 history
+	// import. Audit is built before the other contexts, so it meets the
+	// object store here.
+	var auditExports *auditapp.ExportWorker
+	bounded.auditAPI, auditExports = newAuditAPI(cfg.Audit, pool, audit, bounded.objects, logger)
+	if bounded.auditKeys, err = auditKeysHandler(auditKeys); err != nil {
+		pool.Close()
+		return nil, err
+	}
 	for _, o := range opts {
 		o(&bounded)
 	}
@@ -248,7 +257,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 		integrationWorker: bounded.integrationWorker, keyIndexes: bounded.keyIndexes, purger: purger, workflowTimers: workflowTimers,
 		rolloutSweep:    rolloutSweep,
 		branchPublisher: bounded.branchPublisher, githubInbox: bounded.githubInbox,
-		githubChecks: bounded.githubChecks, audit: audit, identity: identitySvc, shutdownTP: shutdownTP,
+		githubChecks: bounded.githubChecks, audit: audit, auditExports: auditExports, identity: identitySvc, shutdownTP: shutdownTP,
 	}, nil
 }
 
@@ -304,6 +313,7 @@ func (a *app) run(ctx context.Context) error {
 	dispatched := a.startDispatcher(dispatchCtx, errc)
 	worked := a.startWorker(dispatchCtx)
 	moved := a.startIntegrationWorker(dispatchCtx)
+	exported := a.startAuditExports(dispatchCtx)
 	purged := a.startPurger(dispatchCtx)
 	published := a.startBranchPublisher(dispatchCtx)
 	delivered := a.startGitHubInbox(dispatchCtx)
@@ -318,7 +328,7 @@ func (a *app) run(ctx context.Context) error {
 	case runErr = <-errc:
 		a.logger.Error("component failed; shutting down", slog.Any("error", runErr))
 	}
-	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, purged, published, delivered, checked))
+	return errors.Join(runErr, a.shutdown(stopDispatch, dispatched, worked, moved, exported, purged, published, delivered, checked))
 }
 
 // startPurger runs the daily retention jobs until ctx ends; a run in
@@ -478,7 +488,7 @@ func (a *app) startDispatcher(ctx context.Context, errc chan<- error) <-chan str
 }
 
 func (a *app) shutdown(stopDispatch context.CancelFunc,
-	dispatched, worked, moved, purged, published, delivered, checked <-chan struct{},
+	dispatched, worked, moved, exported, purged, published, delivered, checked <-chan struct{},
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
@@ -510,6 +520,11 @@ func (a *app) shutdown(stopDispatch context.CancelFunc,
 	case <-moved:
 	case <-ctx.Done():
 		errs = append(errs, errors.New("import/export workers did not stop before the shutdown timeout; their jobs resume from their last checkpoint when the lease ends"))
+	}
+	select {
+	case <-exported:
+	case <-ctx.Done():
+		errs = append(errs, errors.New("the audit export worker did not stop before the shutdown timeout; its job is claimed again when the lease ends"))
 	}
 	select {
 	case <-purged:

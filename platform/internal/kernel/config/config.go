@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -109,7 +110,27 @@ type Config struct {
 	GitHub               GitHub
 	MCP                  MCP
 	Audit                Audit
+	Workflow             Workflow
 }
+
+// Workflow configures the Workflow context's housekeeping (RFC 0006
+// §2.5, §13 wave 6).
+type Workflow struct {
+	// InstanceRetention is how long a finished workflow instance and its
+	// transition log are kept; the daily workflow.retention job (one of
+	// the Purge jobs) deletes them afterwards. Running instances are
+	// never deleted. At least a day.
+	InstanceRetention time.Duration
+}
+
+// DefaultInstanceRetention keeps a finished instance's log for half a
+// year: long enough to answer "why was this approved?" for a release
+// cycle or two; the audit trail keeps who did what for longer.
+const DefaultInstanceRetention = 180 * 24 * time.Hour
+
+// minInstanceRetention mirrors workflow/app.MinInstanceRetention, which
+// the sweep enforces too: config does not import a context.
+const minInstanceRetention = 24 * time.Hour
 
 // Audit configures the Audit context's exports (RFC 0006 §6.2).
 //
@@ -130,6 +151,9 @@ type Audit struct {
 	// "keyId=base64(ed25519 public key),…". Never drop one while an
 	// export it signed may still need verifying.
 	RetiredKeys string
+	// ExportRetention is how long an export job's two objects are kept;
+	// the sweep deletes them afterwards (the job stays).
+	ExportRetention time.Duration
 }
 
 // MCP configures the Model Context Protocol endpoint (RFC 0005 §7):
@@ -294,6 +318,10 @@ type Identity struct {
 	SessionTTL time.Duration
 	Mail       Mail
 	WebAuthn   WebAuthn
+	// TrustedProxies are the reverse proxies (CIDRs) whose
+	// X-Forwarded-For names the client, for limits per client address
+	// such as device sign-in starts. Empty: the peer is the client.
+	TrustedProxies []netip.Prefix
 }
 
 // AuthKey returns the decoded AuthSecret (validated by Load).
@@ -453,6 +481,9 @@ func Load(lookup LookupFunc) (Config, error) {
 		Burst: r.intRange("GLOSSA_MCP_BURST", 240, 1, 100_000),
 	}
 	cfg.Audit = r.audit()
+	cfg.Workflow = Workflow{
+		InstanceRetention: r.duration("GLOSSA_WORKFLOW_INSTANCE_RETENTION", DefaultInstanceRetention),
+	}
 	cfg.validate(&r)
 	if len(r.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %w", errors.Join(r.errs...))
@@ -465,6 +496,8 @@ func (r *reader) audit() Audit {
 		ExportsEnabled: r.boolean("GLOSSA_AUDIT_EXPORTS_ENABLED", false),
 		SigningKey:     Secret{r.str("GLOSSA_AUDIT_SIGNING_KEY", "")},
 		RetiredKeys:    r.str("GLOSSA_AUDIT_RETIRED_KEYS", ""),
+		// M2's export files' default (GLOSSA_INTEGRATION_RETENTION).
+		ExportRetention: r.duration("GLOSSA_AUDIT_EXPORT_RETENTION", 7*24*time.Hour),
 	}
 	if key := a.SigningKey.Reveal(); key != "" {
 		if strings.Contains(key, ",") {
@@ -511,6 +544,9 @@ func (c Config) validate(r *reader) {
 	if c.Purge.PollInterval > c.Purge.Interval {
 		r.fail("GLOSSA_PURGE_POLL_INTERVAL", "must not exceed GLOSSA_PURGE_INTERVAL")
 	}
+	if c.Workflow.InstanceRetention > 0 && c.Workflow.InstanceRetention < minInstanceRetention {
+		r.fail("GLOSSA_WORKFLOW_INSTANCE_RETENTION", "must be at least 24h: a finished instance's log is kept a day at least")
+	}
 }
 
 func (r *reader) identity() Identity {
@@ -544,6 +580,21 @@ func (r *reader) identity() Identity {
 		}
 	default:
 		r.fail("GLOSSA_MAIL_DRIVER", "must be none, smtp or log (got %q)", id.Mail.Driver)
+	}
+	for _, raw := range strings.Split(r.str("GLOSSA_TRUSTED_PROXIES", ""), ",") {
+		if raw = strings.TrimSpace(raw); raw == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(raw)
+		if err != nil {
+			addr, aerr := netip.ParseAddr(raw)
+			if aerr != nil {
+				r.fail("GLOSSA_TRUSTED_PROXIES", "%q is not a CIDR or an address", raw)
+				continue
+			}
+			p = netip.PrefixFrom(addr, addr.BitLen())
+		}
+		id.TrustedProxies = append(id.TrustedProxies, p.Masked())
 	}
 	if id.WebAuthn.Enabled() {
 		for _, o := range strings.Split(r.str("GLOSSA_WEBAUTHN_ORIGINS", id.StudioURL), ",") {

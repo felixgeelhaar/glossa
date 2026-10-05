@@ -23,6 +23,8 @@ type (
 	WorkflowInstance          = apiclient.WorkflowInstance
 	WorkflowTransition        = apiclient.WorkflowTransition
 	Assignment                = apiclient.Assignment
+	AssignmentReport          = apiclient.AssignmentReport
+	AssignmentReportRow       = apiclient.AssignmentReportRow
 	Party                     = apiclient.Party
 	Role                      = apiclient.Role
 )
@@ -205,6 +207,22 @@ func (c *Client) WorkflowInstance(ctx context.Context, s Scope, id string) (Work
 	return *r.JSON200, nil
 }
 
+// RebaseWorkflowInstance moves a running instance to version (0: the
+// definition's latest) if it still runs on fromVersion — the instance's
+// ETag is that version, so a rebase another overtook is 412.
+func (c *Client) RebaseWorkflowInstance(ctx context.Context, s Scope, id string, fromVersion, version int) (WorkflowInstance, error) {
+	body := apiclient.RebaseWorkflowInstance{}
+	if version > 0 {
+		body.Version = &version
+	}
+	r, err := c.api.RebaseWorkflowInstanceWithResponse(ctx, s.Tenant, s.Project, id,
+		&apiclient.RebaseWorkflowInstanceParams{IfMatch: strconv.Quote(strconv.Itoa(fromVersion))}, body)
+	if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/workflow-instances/%s/rebase", s.Tenant, s.Project, id)); err != nil {
+		return WorkflowInstance{}, err
+	}
+	return *r.JSON200, nil
+}
+
 // WorkflowTransitions lists an instance's transition log, oldest first.
 func (c *Client) WorkflowTransitions(ctx context.Context, s Scope, id string) ([]WorkflowTransition, error) {
 	size := pageSize
@@ -249,6 +267,23 @@ func (c *Client) Assignments(ctx context.Context, tenant string, f AssignmentFil
 		}
 		return r.JSON200.Items, r.JSON200.NextPageToken, nil
 	})
+}
+
+// AssignmentReportFilter narrows AssignmentReport; an empty field
+// doesn't. Vendor is a vendor's id.
+type AssignmentReportFilter struct {
+	Project, Vendor string
+	Since           *time.Time
+}
+
+// AssignmentReport reads the per-vendor quality numbers (RFC 0006 §3.4).
+func (c *Client) AssignmentReport(ctx context.Context, tenant string, f AssignmentReportFilter) (AssignmentReport, error) {
+	params := apiclient.GetAssignmentReportParams{Project: optional(f.Project), Vendor: optional(f.Vendor), Since: f.Since}
+	r, err := c.api.GetAssignmentReportWithResponse(ctx, tenant, &params)
+	if err := check(r, err, http.MethodGet, c.tenantPath(tenant, "/assignment-reports")); err != nil {
+		return AssignmentReport{}, err
+	}
+	return *r.JSON200, nil
 }
 
 // Assignment reads one assignment.

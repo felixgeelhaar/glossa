@@ -1,7 +1,7 @@
 # Usage fixtures
 
 **One behaviour, two implementations.** Two tools find where a message is used:
-`@glossa/unplugin`, the bundler plugin for web builds, and `glossa extract`, which handles Go and
+`@felixgeelhaar/glossa-unplugin`, the bundler plugin for web builds, and `glossa extract`, which handles Go and
 anything built without a bundler ([RFC 0004 §2.1](../../../docs/rfcs/0004-context.md)). They have to
 agree, so both run this suite. **A difference between them becomes a fixture here first**, and then
 both are fixed. Neither implementation is the reference.

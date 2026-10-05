@@ -675,6 +675,30 @@ func softly(timeout time.Duration, cond func() (bool, string)) (bool, string) {
 	}
 }
 
+// staysFor is how a negative claim ("the pointer did not move", "the
+// translation is not approved yet") is checked: the condition is
+// polled for the whole window and the first violation ends it, so a
+// transient move is caught rather than slept through. A check that
+// cannot be made is an error, never a pass. The window has to cover
+// the outbox and the edge's refresh interval; it is not shortened to
+// save time, and it is never the only evidence for a positive claim.
+func staysFor(window time.Duration, violated func() (string, error)) error {
+	deadline := time.Now().Add(window)
+	for {
+		what, err := violated()
+		if err != nil {
+			return err
+		}
+		if what != "" {
+			return fmt.Errorf("%s", what)
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 // parallel runs fn for every item on n workers and returns the errors.
 func parallel[T any](items []T, n int, fn func(T) error) []error {
 	var (
