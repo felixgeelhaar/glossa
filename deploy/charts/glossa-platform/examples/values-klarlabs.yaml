@@ -144,6 +144,16 @@ release:
     secretName: glossa-release-signing   # key GLOSSA_RELEASE_SIGNING_KEYS
   retiredKeys: ""
 
+# Audit exports (RFC 0006 §6.2), signed with their own key, never the
+# release key. Its public half is published at
+# https://api.glossa.klarlabs.de/.well-known/glossa-audit-keys.json.
+audit:
+  exports:
+    enabled: true
+  signingKey:
+    secretName: glossa-audit-signing     # key GLOSSA_AUDIT_SIGNING_KEY
+  retiredKeys: ""
+
 # Mail: out of scope for now (owner decision). With no SMTP server the
 # chart sets no GLOSSA_MAIL_*/GLOSSA_SMTP_* variables, needs no glossa-smtp
 # Secret and opens no SMTP egress (README.md, "Mail"). To turn it on later:
