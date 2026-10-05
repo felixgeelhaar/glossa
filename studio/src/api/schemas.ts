@@ -259,6 +259,9 @@ export const Member = z.object({
   status: z.enum(["invited", "active"]),
   roles: z.array(Role),
   locales: z.array(z.string()),
+  projects: z.array(id),
+  vendor_id: id.optional(),
+  visibility: z.enum(["all", "assigned"]),
   created_at: timestamp,
   updated_at: timestamp,
 });
@@ -278,11 +281,27 @@ export const EnvironmentPolicy = z.object({
  */
 export const EnvironmentKind = z.enum(["standard", "branch"]);
 
+/** Exactly one of `member`, `role` or `group` — who may approve a release (RFC 0006 §5.1). Never a vendor. */
+export const EnvironmentApprovalParty = z.object({
+  member: z.string().min(1).optional(),
+  role: Role.optional(),
+  group: z.string().min(1).optional(),
+});
+
+/** `n` distinct people of `from`, never the requester (always true: no self-approval). */
+export const EnvironmentApproval = z.object({
+  n: z.number().int().min(1).max(10),
+  from: EnvironmentApprovalParty,
+  distinct_from_requester: z.boolean(),
+});
+
 export const Environment = z.object({
   name: z.string().min(1),
   kind: EnvironmentKind,
   branch: z.string().min(1).optional(),
   policy: EnvironmentPolicy,
+  /** Present when a publish or promote here needs approval (RFC 0006 §5.1). */
+  approval: EnvironmentApproval.optional(),
   current_release_id: id.optional(),
   created_at: timestamp,
   updated_at: timestamp,
@@ -432,6 +451,8 @@ export type SigningKeys = z.infer<typeof SigningKeys>;
 export type ShippableState = z.infer<typeof ShippableState>;
 export type EnvironmentPolicy = z.infer<typeof EnvironmentPolicy>;
 export type Environment = z.infer<typeof Environment>;
+export type EnvironmentApproval = z.infer<typeof EnvironmentApproval>;
+export type EnvironmentApprovalParty = z.infer<typeof EnvironmentApprovalParty>;
 export type Deployment = z.infer<typeof Deployment>;
 export type Release = z.infer<typeof Release>;
 export type ReleaseCounts = z.infer<typeof ReleaseCounts>;

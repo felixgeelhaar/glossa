@@ -102,7 +102,17 @@ func (s *systemStore) ActiveMembership(ctx context.Context, person domain.Person
 	if err != nil {
 		return app.MembershipGrant{}, err
 	}
-	return app.MembershipGrant{Member: domain.MemberID(row.ID), Roles: roles, Locales: locales}, nil
+	projects, err := projectScope(row.Projects)
+	if err != nil {
+		return app.MembershipGrant{}, fmt.Errorf("identity: stored project scope of member %s: %w", row.ID, err)
+	}
+	visibility, err := domain.ParseVisibility(row.Visibility)
+	if err != nil {
+		return app.MembershipGrant{}, fmt.Errorf("identity: stored visibility of member %s: %w", row.ID, err)
+	}
+	return app.MembershipGrant{
+		Member: domain.MemberID(row.ID), Roles: roles, Locales: locales, Projects: projects, Visibility: visibility,
+	}, nil
 }
 
 func access(roles, locales []string) (domain.Roles, domain.LocaleScope, error) {
@@ -175,8 +185,12 @@ func (s *systemStore) TokenByHash(ctx context.Context, hash string) (app.TokenRe
 	if err != nil {
 		return app.TokenRecord{}, fmt.Errorf("identity: stored scopes of token %s: %w", row.ID, err)
 	}
+	projects, err := projectScope(row.Projects)
+	if err != nil {
+		return app.TokenRecord{}, fmt.Errorf("identity: stored project scope of token %s: %w", row.ID, err)
+	}
 	return app.TokenRecord{
-		ID: domain.TokenID(row.ID), Tenant: tenancy.ID(row.TenantID), Scopes: scopes,
+		ID: domain.TokenID(row.ID), Tenant: tenancy.ID(row.TenantID), Scopes: scopes, Projects: projects,
 		ExpiresAt: timePtr(row.ExpiresAt), RevokedAt: timePtr(row.RevokedAt), LastUsedAt: timePtr(row.LastUsedAt),
 	}, nil
 }

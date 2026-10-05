@@ -7,6 +7,7 @@ import (
 
 	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
 	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
 	"github.com/felixgeelhaar/glossa/platform/internal/localization/app"
 )
 
@@ -54,6 +55,12 @@ func TestBulkUpsertProjectsSynchronously(t *testing.T) {
 	}
 	if n := outdatedEvents(); n != 1 {
 		t.Errorf("outdated events after the push = %d, want 1", n)
+	}
+	// Inside the push, the outdating is the pusher's own change.
+	pusher, _ := authz.EventActor(ctx)
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'localization.translation.outdated' AND actor = $1",
+		pusher.String()); n != 1 {
+		t.Errorf("the outdated event does not name the pusher %s", pusher)
 	}
 
 	h.drain(t) // the catch-up finds the projection current

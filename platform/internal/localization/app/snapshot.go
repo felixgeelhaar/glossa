@@ -16,7 +16,7 @@ import (
 // list filters through it. It reads Localization's projection, so a
 // message is listed once its catalog event has been handled.
 func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f CoverageFilter) ([]uuid.UUID, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return nil, err
 	}
 	var ids []uuid.UUID
@@ -33,7 +33,7 @@ func (s *Service) MessagesWithCoverage(ctx context.Context, project uuid.UUID, f
 // outdated (a branch's status report, RFC 0004 §4.1). It reveals counts,
 // not text, so catalog.read is enough.
 func (s *Service) CurrentTranslations(ctx context.Context, project uuid.UUID, ids []uuid.UUID) (map[string]int, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project); err != nil {
 		return nil, err
 	}
 	var out map[string]int
@@ -62,7 +62,7 @@ type TranslationWithSource struct {
 // translation is revised or reviewed. It needs translations.read (and,
 // through Catalog's port, catalog.read).
 func (s *Service) TranslationWithSource(ctx context.Context, project uuid.UUID, id domain.TranslationID) (TranslationWithSource, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return TranslationWithSource{}, err
 	}
 	var out TranslationWithSource
@@ -138,7 +138,7 @@ func (s *Service) LiveTranslations(ctx context.Context, project uuid.UUID, state
 }
 
 func (s *Service) translationSnapshot(ctx context.Context, project uuid.UUID, states []domain.ReviewState, includeObsolete bool) (TranslationSnapshot, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return TranslationSnapshot{}, err
 	}
 	p, err := s.catalog.Project(ctx, project)

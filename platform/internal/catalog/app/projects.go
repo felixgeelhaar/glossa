@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 
@@ -24,7 +25,13 @@ type NewProject struct {
 
 // CreateProject creates a project. A repeated idemKey returns the first
 // request's project with replayed set.
+//
+// A principal limited to some projects can't: the new project would be
+// outside their own scope (RFC 0006 §4.1).
 func (s *Service) CreateProject(ctx context.Context, in NewProject, idemKey string) (p domain.Project, replayed bool, err error) {
+	if err := authz.RequireUnscoped(ctx, authz.CatalogWrite); err != nil {
+		return domain.Project{}, false, err
+	}
 	by, err := author(ctx, authz.CatalogWrite)
 	if err != nil {
 		return domain.Project{}, false, err
@@ -76,14 +83,16 @@ func (s *Service) CreateProject(ctx context.Context, in NewProject, idemKey stri
 
 func projectEvent(typ string, p domain.Project, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateProject, AggregateID: p.ID.String(),
+		Type: typ, AggregateType: domain.AggregateProject, AggregateID: p.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ProjectEventOf(p, by),
 	}
 }
 
-// GetProject returns one project.
+// GetProject returns one project. A project outside the caller's scope
+// — for an assigned member, one no assignment of theirs reaches into —
+// is not found (RFC 0006 §4.1, §3.3).
 func (s *Service) GetProject(ctx context.Context, id domain.ProjectID) (domain.Project, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireProject(ctx, authz.CatalogRead, id.UUID()); err != nil {
 		return domain.Project{}, err
 	}
 	var p domain.Project
@@ -95,9 +104,17 @@ func (s *Service) GetProject(ctx context.Context, id domain.ProjectID) (domain.P
 	return p, err
 }
 
-// ListProjects lists the tenant's projects.
+// ListProjects lists the tenant's projects a caller may see: those in
+// their project scope (RFC 0006 §4.1), filtered in the query, and for
+// an assigned member only those an assignment of theirs reaches into
+// (§3.3).
 func (s *Service) ListProjects(ctx context.Context, page pagination.Page) ([]domain.Project, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	p, ok := authz.From(ctx)
+	if ok && p.Assigned() {
+		return s.listAssignedProjects(ctx, page)
+	}
+	scope, err := authz.Projects(ctx, authz.CatalogRead)
+	if err != nil {
 		return nil, nil, err
 	}
 	after, err := afterUUID(page.After)
@@ -106,7 +123,7 @@ func (s *Service) ListProjects(ctx context.Context, page pagination.Page) ([]dom
 	}
 	var rows []domain.Project
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		rows, err = st.Projects(ctx, domain.ProjectID(after), page.Limit())
+		rows, err = st.Projects(ctx, domain.ProjectID(after), scope.IDs(), page.Limit())
 		return err
 	})
 	if err != nil {
@@ -116,9 +133,54 @@ func (s *Service) ListProjects(ctx context.Context, page pagination.Page) ([]dom
 	return items, next, nil
 }
 
+// listAssignedProjects is ListProjects for a member whose visibility
+// is `assigned`: the projects an assignment of theirs reaches into,
+// found by asking authz project by project. The filter runs before the
+// page is cut, so the page is full whenever more such projects exist.
+func (s *Service) listAssignedProjects(ctx context.Context, page pagination.Page) ([]domain.Project, *string, error) {
+	after, err := afterUUID(page.After)
+	if err != nil {
+		return nil, nil, err
+	}
+	var rows []domain.Project
+	cursor := domain.ProjectID(after)
+	for len(rows) < page.Limit() {
+		var batch []domain.Project
+		err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+			var err error
+			batch, err = st.Projects(ctx, cursor, nil, assignedProjectScan)
+			return err
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, pr := range batch {
+			switch err := authz.RequireProject(ctx, authz.CatalogRead, pr.ID.UUID()); {
+			case err == nil:
+				rows = append(rows, pr)
+			case !errors.Is(err, authz.ErrNotVisible):
+				return nil, nil, err
+			}
+			if len(rows) == page.Limit() {
+				break
+			}
+		}
+		if len(batch) < assignedProjectScan {
+			break
+		}
+		cursor = batch[len(batch)-1].ID
+	}
+	items, next := pagination.Trim(rows, page, func(p domain.Project) string { return p.ID.String() })
+	return items, next, nil
+}
+
+// assignedProjectScan is how many projects listAssignedProjects reads
+// at a time.
+const assignedProjectScan = 200
+
 // UpdateProject changes a project if it is still at version ifMatch.
 func (s *Service) UpdateProject(ctx context.Context, id domain.ProjectID, ifMatch int, c domain.ProjectChange) (domain.Project, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, id.UUID())
 	if err != nil {
 		return domain.Project{}, err
 	}
@@ -170,7 +232,7 @@ func (s *Service) requiredLocales(ctx context.Context, id domain.ProjectID, sett
 // sees catalog.project.deleted. It needs tenant.manage: it destroys
 // history.
 func (s *Service) DeleteProject(ctx context.Context, id domain.ProjectID, ifMatch *int) error {
-	by, err := author(ctx, authz.TenantManage)
+	by, err := authorIn(ctx, authz.TenantManage, id.UUID())
 	if err != nil {
 		return err
 	}
@@ -198,7 +260,7 @@ type NewApplication struct {
 
 // CreateApplication adds an application to a project.
 func (s *Service) CreateApplication(ctx context.Context, project domain.ProjectID, in NewApplication, idemKey string) (a domain.Application, replayed bool, err error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Application{}, false, err
 	}
@@ -243,14 +305,14 @@ func (s *Service) CreateApplication(ctx context.Context, project domain.ProjectI
 
 func applicationEvent(typ string, a domain.Application, by domain.Author) outbox.Event {
 	return outbox.Event{
-		Type: typ, AggregateType: domain.AggregateApplication, AggregateID: a.ID.String(),
+		Type: typ, AggregateType: domain.AggregateApplication, AggregateID: a.ID.String(), Actor: outbox.Actor(by),
 		Payload: domain.ApplicationEventOf(a, by),
 	}
 }
 
 // GetApplication returns one application.
 func (s *Service) GetApplication(ctx context.Context, project domain.ProjectID, id domain.ApplicationID) (domain.Application, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return domain.Application{}, err
 	}
 	var a domain.Application
@@ -264,7 +326,7 @@ func (s *Service) GetApplication(ctx context.Context, project domain.ProjectID, 
 
 // ListApplications lists a project's applications.
 func (s *Service) ListApplications(ctx context.Context, project domain.ProjectID, page pagination.Page) ([]domain.Application, *string, error) {
-	if err := authz.Require(ctx, authz.CatalogRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.CatalogRead, project.UUID()); err != nil {
 		return nil, nil, err
 	}
 	after, err := afterUUID(page.After)
@@ -288,7 +350,7 @@ func (s *Service) ListApplications(ctx context.Context, project domain.ProjectID
 
 // UpdateApplication changes an application at version ifMatch.
 func (s *Service) UpdateApplication(ctx context.Context, project domain.ProjectID, id domain.ApplicationID, ifMatch int, c domain.ApplicationChange) (domain.Application, error) {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return domain.Application{}, err
 	}
@@ -314,7 +376,7 @@ func (s *Service) UpdateApplication(ctx context.Context, project domain.ProjectI
 
 // DeleteApplication removes an application.
 func (s *Service) DeleteApplication(ctx context.Context, project domain.ProjectID, id domain.ApplicationID, ifMatch *int) error {
-	by, err := author(ctx, authz.CatalogWrite)
+	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@
  * `go generate ./internal/systemtest/m3/...` writes — the exit test must
  * never run on a stale bundle or on stale usages.
  *
- * It is the same contract @glossa/capture keeps for the capture agent it
+ * It is the same contract @felixgeelhaar/glossa-capture keeps for the capture agent it
  * bundles into the CLI. The two usages documents are compared exactly;
  * the bundles are compared by what the exit test reads from them — every
  * message of the application, and the loader's markers — because a
@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@glossa/runtime/dev";
+import { LOADER_ATTRIBUTE, OVERLAY_PATH } from "@felixgeelhaar/glossa-runtime/dev";
 
 import { APP, buildFixture, outputs } from "../scripts/m3-fixture.mjs";
 import type { UsagesDocument } from "./usage.js";
@@ -67,7 +67,7 @@ describe("the M3 exit test's fixture application", () => {
       const committed = read(join(APP, name));
       expect(
         committed,
-        "out of date: run `go generate ./internal/systemtest/m3/...` in platform/, then `pnpm --filter @glossa/unplugin build:m3`",
+        "out of date: run `go generate ./internal/systemtest/m3/...` in platform/, then `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`",
       ).toEqual(fresh);
     },
   );

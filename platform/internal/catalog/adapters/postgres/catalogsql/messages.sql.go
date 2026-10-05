@@ -354,8 +354,11 @@ WHERE project_id = $1
   AND ($3::text IS NULL OR namespace = $3)
   AND ($4::text IS NULL OR state = $4)
   AND ($5::text IS NULL OR key LIKE $5)
+  -- only limits the page to ids: the messages an assigned member's
+  -- units are in (RFC 0006 §3.3), filtered before the LIMIT.
+  AND (NOT $6::boolean OR id = ANY ($7::uuid[]))
 ORDER BY key
-LIMIT $6
+LIMIT $8
 `
 
 type ListMessagesParams struct {
@@ -364,6 +367,8 @@ type ListMessagesParams struct {
 	Namespace pgtype.Text
 	State     pgtype.Text
 	KeyLike   pgtype.Text
+	FilterIds bool
+	Ids       []uuid.UUID
 	MaxRows   int32
 }
 
@@ -376,6 +381,8 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]C
 		arg.Namespace,
 		arg.State,
 		arg.KeyLike,
+		arg.FilterIds,
+		arg.Ids,
 		arg.MaxRows,
 	)
 	if err != nil {

@@ -54,7 +54,7 @@ type TranslationStats struct {
 // outdated count of every locale, and an aggregate over the project's
 // indexed rows is correct by construction.
 func (s *Service) TranslationStats(ctx context.Context, project uuid.UUID) (TranslationStats, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return TranslationStats{}, err
 	}
 	p, err := s.catalog.Project(ctx, project)
@@ -132,7 +132,7 @@ type LeadTimeSample struct {
 // work that is not finished would be a guess wearing a measurement's
 // clothes.
 func (s *Service) LeadTimeSamples(ctx context.Context, project uuid.UUID, q LeadTimeQuery) ([]LeadTimeSample, error) {
-	if err := authz.Require(ctx, authz.TranslationsRead); err != nil {
+	if err := authz.RequireIn(ctx, authz.TranslationsRead, project); err != nil {
 		return nil, err
 	}
 	if _, err := s.catalog.Project(ctx, project); err != nil {

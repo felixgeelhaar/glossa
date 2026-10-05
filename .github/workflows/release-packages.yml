@@ -18,6 +18,15 @@ name: Release packages
 #     Repository:   glossa
 #     Workflow:     .github/workflows/release-packages.yml
 #     Environment:  (empty)
+#   Packages (each needs its own trusted-publisher entry; the first
+#   publish of a new name is made once by hand, or the entry is
+#   created on the "Publishing access" page before it exists):
+#     v0.3 line (unchanged): glossa-format, glossa-sdk, glossa-ui, glossa-cli
+#     RFC 0002 rewrite (0.4.0): glossa-messageformat, glossa-runtime,
+#       glossa-elements (0.3.x -> 0.4.0), glossa-vue, glossa-react,
+#       glossa-astro, glossa-unplugin, glossa-capture, glossa-overlay
+#   A version already on npm is skipped, so a package whose version
+#   was set to 0.4.0 by hand is published without a changeset.
 #   Setup-node + pnpm exchange the workflow's OIDC token for a
 #   short-lived publish token at runtime. Provenance + signature
 #   are attached automatically.
@@ -81,7 +90,7 @@ jobs:
           pnpm --filter @felixgeelhaar/glossa-format build
           pnpm --filter @felixgeelhaar/glossa-sdk build
           pnpm --filter @felixgeelhaar/glossa-ui build
-          pnpm --filter @felixgeelhaar/glossa-elements build
+          pnpm -r --filter ./messageformat/js --filter "./runtimes/js/*" build
           pnpm --filter @felixgeelhaar/glossa-cli build
 
       - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0

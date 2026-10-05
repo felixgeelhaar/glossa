@@ -532,6 +532,11 @@ func TestTokenAuthResolvesTenantAndScopes(t *testing.T) {
 	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'identity.token.revoked'"); n != 1 {
 		t.Errorf("token.revoked events = %d", n)
 	}
+	revoker, _ := authz.From(inAcme)
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'identity.token.revoked' AND actor = $1",
+		revoker.Actor.String()); n != 1 {
+		t.Errorf("token.revoked does not name the person who revoked it (%s)", revoker.Actor)
+	}
 
 	exp := h.clock.Now().Add(time.Hour)
 	short, err := h.svc.CreateToken(inAcme, "short-lived", []string{"read"}, &exp, "")
@@ -604,6 +609,11 @@ func TestInvitationBecomesMembershipOnSignIn(t *testing.T) {
 	}
 	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'identity.member.activated'"); n != 1 {
 		t.Errorf("member.activated events = %d", n)
+	}
+	// Accepting an invitation is the invitee's act, not the inviter's.
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'identity.member.activated' AND actor = $1",
+		domain.PersonActor(carol.Person.ID).String()); n != 1 {
+		t.Error("member.activated does not name the person who accepted the invitation")
 	}
 	me, err := h.svc.GetMe(h.as(t, carol, tenancy.ID{}))
 	if err != nil || len(me.Memberships) != 2 {

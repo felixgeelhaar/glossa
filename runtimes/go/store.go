@@ -18,10 +18,11 @@ import (
 // leaves a manifest pointing at missing artifacts.
 
 const (
-	stateFile    = "release.json"
-	artifactsDir = "a"
-	dirPerm      = 0o700
-	filePerm     = 0o600
+	stateFile          = "release.json"
+	installationIDFile = "installation-id"
+	artifactsDir       = "a"
+	dirPerm            = 0o700
+	filePerm           = 0o600
 )
 
 // store is a cache directory. A nil *store is a disabled cache.
@@ -71,6 +72,28 @@ func (s *store) saveState(st persistedState) error {
 		return err
 	}
 	return writeFileAtomic(s.dir, stateFile, b)
+}
+
+// installationID reads the persisted installation id (SPEC §1.4).
+func (s *store) installationID() (string, error) {
+	if s == nil {
+		return "", fs.ErrNotExist
+	}
+	b, err := os.ReadFile(filepath.Join(s.dir, installationIDFile))
+	if err != nil {
+		return "", err
+	}
+	if id := strings.TrimSpace(string(b)); installationIDPattern.MatchString(id) {
+		return id, nil
+	}
+	return "", fmt.Errorf("glossa: %s is not 32 lowercase hex digits", installationIDFile)
+}
+
+func (s *store) saveInstallationID(id string) error {
+	if s == nil {
+		return nil
+	}
+	return writeFileAtomic(s.dir, installationIDFile, []byte(id))
 }
 
 func (s *store) artifact(digest string) ([]byte, error) {

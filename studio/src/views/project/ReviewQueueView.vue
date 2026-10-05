@@ -4,17 +4,23 @@
  * across messages and the member's locales, riskiest first, triaged from
  * the keyboard — a accept, e edit, r reject, j/k move. Batch accept only
  * takes suggestions the routing policy recommends approving.
+ *
+ * Where a workflow is bound (RFC 0006 §3.1), an "assigned to me" filter
+ * narrows the queue to the units of my live assignments. Intelligence's
+ * queue stays the source; the assignments only say which of it is mine.
  */
 import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { isApiError } from "../../api/errors";
 import type { AISuggestion } from "../../api/intelligence-schemas";
 import { useIntelligence } from "../../api/intelligence";
+import { useWork } from "../../api/work";
 import SuggestionCard from "../../components/assist/SuggestionCard.vue";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import ModalDialog from "../../components/ModalDialog.vue";
 import { actionTone, bandOf, bandTone, batchAcceptable, formatScore } from "../../lib/confidence";
 import { ariaKeys, keyLabel, useShortcuts } from "../../lib/shortcuts";
+import { liveUnits, unitKey } from "../../lib/work";
 import { allowsFor } from "../../session/permissions";
 import { problemText, strings } from "../../strings";
 import { useProject } from "./context";
@@ -69,7 +75,56 @@ async function load(more = false): Promise<void> {
 }
 watch(queryLocales, () => void load(), { immediate: true });
 
-const current = computed(() => items.value[active.value]);
+// ── "assigned to me" (RFC 0006 §3.1) ──────────────────────────────────
+const work = useWork();
+/** Whether a workflow applies to translations in any of my locales; the filter exists only then. */
+const workflow = ref<"checking" | "bound" | "unbound" | "failed">("checking");
+watch(
+  () => [projectId.value, myLocales.value.map((l) => l.code).join(" ")] as const,
+  async () => {
+    workflow.value = "checking";
+    const codes = myLocales.value.map((l) => l.code);
+    try {
+      const answers = await Promise.all((codes.length ? codes : [undefined]).map((c) => work.resolveWorkflow(ref_(), c)));
+      workflow.value = answers.some((r) => r.bound) ? "bound" : "unbound";
+    } catch {
+      workflow.value = "failed";
+    }
+  },
+  { immediate: true },
+);
+const mineOn = computed(() => workflow.value === "bound" && route.query.mine === "1");
+type Mine = { phase: "off" } | { phase: "loading" } | { phase: "ready"; units: Set<string> } | { phase: "failed"; error: unknown };
+const mine = shallowRef<Mine>({ phase: "off" });
+watch(
+  mineOn,
+  async (on) => {
+    if (!on) {
+      mine.value = { phase: "off" };
+      return;
+    }
+    mine.value = { phase: "loading" };
+    try {
+      mine.value = { phase: "ready", units: liveUnits(await work.myAssignments(tenant.value, { project: projectId.value })) };
+    } catch (error) {
+      mine.value = { phase: "failed", error };
+    }
+    active.value = 0;
+  },
+  { immediate: true },
+);
+/** What the list shows: the queue, or — filtered — only my units of it. Unknown assignments show nothing, never everything. */
+const shown = computed(() => {
+  if (!mineOn.value) return items.value;
+  const m = mine.value;
+  if (m.phase !== "ready") return [];
+  return items.value.filter((sg) => m.units.has(unitKey(sg.message_id, sg.locale)));
+});
+function setMine(on: boolean): void {
+  void router.replace({ query: { ...route.query, mine: on ? "1" : undefined } });
+}
+
+const current = computed(() => shown.value[active.value]);
 const canDecide = (sg: AISuggestion | undefined) =>
   !!sg && allowsFor(grant.value, "intelligence.translate", sg.locale) && allowsFor(grant.value, "translations.write", sg.locale);
 
@@ -87,16 +142,16 @@ const keyOf = (sg: AISuggestion) => sg.source?.message_key ?? sg.message_key;
 const sourceChanged = (sg: AISuggestion) => !!sg.source && sg.source.source_revision > sg.source_revision;
 
 function move(by: number): void {
-  if (!items.value.length) return;
-  active.value = Math.max(0, Math.min(items.value.length - 1, active.value + by));
+  if (!shown.value.length) return;
+  active.value = Math.max(0, Math.min(shown.value.length - 1, active.value + by));
   void nextTick(() => listEl.value?.querySelector<HTMLElement>(`[data-index="${active.value}"]`)?.scrollIntoView?.({ block: "nearest" }));
 }
 
 function removeDecided(id: string): void {
-  const i = items.value.findIndex((x) => x.id === id);
+  const i = shown.value.findIndex((x) => x.id === id);
   if (i < 0) return;
   items.value = items.value.filter((x) => x.id !== id);
-  active.value = Math.min(i, Math.max(0, items.value.length - 1));
+  active.value = Math.min(i, Math.max(0, shown.value.length - 1));
 }
 
 async function decide(sg: AISuggestion, run: () => Promise<AISuggestion>, done: string): Promise<void> {
@@ -164,13 +219,13 @@ function onListKey(e: KeyboardEvent): void {
   if (e.key === "ArrowDown") move(1);
   else if (e.key === "ArrowUp") move(-1);
   else if (e.key === "Home") active.value = 0;
-  else if (e.key === "End") active.value = Math.max(0, items.value.length - 1);
+  else if (e.key === "End") active.value = Math.max(0, shown.value.length - 1);
   else return;
   e.preventDefault();
 }
 
 // ── batch accept ────────────────────────────────────────────────────
-const recommended = computed(() => items.value.filter((x) => batchAcceptable(x) && canDecide(x)));
+const recommended = computed(() => shown.value.filter((x) => batchAcceptable(x) && canDecide(x)));
 const batchOpen = ref(false);
 async function acceptRecommended(): Promise<void> {
   busy.value = true;
@@ -210,17 +265,31 @@ function setLocale(code: string): void {
             <option v-for="l in myLocales" :key="l.code" :value="l.code">{{ l.code }}</option>
           </select>
         </div>
+        <div v-if="workflow === 'bound'" class="field mine">
+          <label class="check" for="rq-mine">
+            <input id="rq-mine" type="checkbox" :checked="mineOn" aria-describedby="rq-mine-hint" data-testid="review-mine" @change="setMine(($event.target as HTMLInputElement).checked)" />
+            {{ strings.work.assignedToMe }}
+          </label>
+          <span id="rq-mine-hint" class="hint">{{ strings.work.assignedHint }}</span>
+        </div>
         <button type="button" class="btn" :disabled="!recommended.length || busy" data-testid="batch-accept" @click="batchOpen = true">{{ s.batch(recommended.length) }}</button>
       </div>
     </div>
     <ErrorAlert :error="error" />
+    <p v-if="workflow === 'failed'" class="hint" data-testid="review-workflow-unknown">{{ strings.work.resolutionFailed }}</p>
     <p class="muted" role="status" data-testid="review-status">{{ status }}</p>
 
     <p v-if="loading && !items.length" class="muted">{{ strings.app.loading }}</p>
+    <p v-else-if="mine.phase === 'loading'" class="muted" data-testid="review-mine-loading">{{ strings.work.assignedLoading }}</p>
+    <div v-else-if="mine.phase === 'failed'" class="alert alert-error" role="alert" data-testid="review-mine-failed">
+      <p>{{ strings.work.assignedFailed }}</p>
+      <p>{{ problemText(mine.error) }}</p>
+    </div>
+    <p v-else-if="mineOn && !shown.length" class="card muted" data-testid="review-mine-empty">{{ strings.work.assignedEmpty }}</p>
     <p v-else-if="!items.length" class="card muted" data-testid="review-empty">{{ s.empty }}</p>
     <div v-else class="queue">
       <div class="stack-sm">
-        <p class="hint">{{ s.count(items.length, !!next) }} · <span aria-hidden="true">{{ s.keys }}</span></p>
+        <p class="hint">{{ s.count(shown.length, !!next) }} · <span aria-hidden="true">{{ s.keys }}</span></p>
         <ul
           ref="listEl"
           class="items"
@@ -232,7 +301,7 @@ function setLocale(code: string): void {
           @keydown="onListKey"
         >
           <li
-            v-for="(sg, i) in items"
+            v-for="(sg, i) in shown"
             :id="`rq-${sg.id}`"
             :key="sg.id"
             role="option"
@@ -309,6 +378,14 @@ function setLocale(code: string): void {
 }
 .lead {
   max-inline-size: 48rem;
+}
+.mine {
+  max-inline-size: 18rem;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kl-space-2);
 }
 .queue {
   display: grid;

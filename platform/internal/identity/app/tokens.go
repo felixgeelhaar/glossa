@@ -56,18 +56,43 @@ type CreatedToken struct {
 // CreateToken issues an API token in the context's tenant. Its scopes
 // may not exceed what the caller may do.
 func (s *Service) CreateToken(ctx context.Context, name string, scopes []string, expiresAt *time.Time, idemKey string) (CreatedToken, error) {
+	return s.IssueToken(ctx, TokenRequest{Name: name, Scopes: scopes, ExpiresAt: expiresAt}, idemKey)
+}
+
+// TokenRequest is a token to issue. Projects limits it to some projects
+// (RFC 0006 §4.1); empty is every project. A token is never wider than
+// its creator: a project-scoped creator's token is cut to their scope,
+// and naming a project outside it is refused.
+type TokenRequest struct {
+	Name      string
+	Scopes    []string
+	Projects  []string
+	ExpiresAt *time.Time
+}
+
+// IssueToken issues an API token in the context's tenant, possibly
+// project-scoped. Its scopes may not exceed what the caller may do.
+func (s *Service) IssueToken(ctx context.Context, req TokenRequest, idemKey string) (CreatedToken, error) {
 	if err := authz.Require(ctx, authz.TokensManage); err != nil {
 		return CreatedToken{}, err
 	}
 	p, _ := authz.From(ctx)
-	sc, err := domain.ParseScopes(scopes)
+	sc, err := domain.ParseScopes(req.Scopes)
 	if err != nil {
 		return CreatedToken{}, err
 	}
-	tok, secret, err := domain.NewAPIToken(p.Tenant, name, sc, expiresAt, p.Actor, s.now())
+	projects, err := domain.ParseProjectScope(req.Projects)
 	if err != nil {
 		return CreatedToken{}, err
 	}
+	if projects, err = withinActor(p, projects); err != nil {
+		return CreatedToken{}, err
+	}
+	tok, secret, err := domain.NewAPIToken(p.Tenant, req.Name, sc, req.ExpiresAt, p.Actor, s.now())
+	if err != nil {
+		return CreatedToken{}, err
+	}
+	tok.Projects = projects
 	if !p.Grant.Covers(tok.Grant()) {
 		return CreatedToken{}, domain.ErrScopeExceedsGrant
 	}
@@ -96,8 +121,10 @@ func (s *Service) CreateToken(ctx context.Context, name string, scopes []string,
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventTokenCreated, AggregateType: domain.AggregateToken, AggregateID: tok.ID.String(),
+			Actor: outbox.Actor(p.Actor.String()),
 			Payload: domain.TokenCreated{
-				TokenID: tok.ID.String(), Name: tok.Name, Scopes: tok.Scopes.Strings(), CreatedBy: p.Actor.String(),
+				TokenID: tok.ID.String(), Name: tok.Name, Scopes: tok.Scopes.Strings(), Projects: tok.Projects.Strings(),
+				CreatedBy: p.Actor.String(),
 			},
 		})
 	})
@@ -127,6 +154,7 @@ func (s *Service) RevokeToken(ctx context.Context, id domain.TokenID) error {
 		}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventTokenRevoked, AggregateType: domain.AggregateToken, AggregateID: t.ID.String(),
+			Actor:   outbox.Actor(p.Actor.String()),
 			Payload: domain.TokenRevoked{TokenID: t.ID.String(), RevokedBy: p.Actor.String()},
 		})
 	})

@@ -16,3 +16,16 @@ SELECT tenant_id, project_id, id FROM release_delivery_keys
 WHERE revoked_at IS NULL AND index_version < sqlc.arg(index_version)
 ORDER BY tenant_id, id
 LIMIT sqlc.arg(max_rows)::int;
+
+-- name: ListExpiredRollouts :many
+-- System scope release.rollout_sweeper: active rollouts past their
+-- max_duration (RFC 0006 §5.2), which the sweep aborts.
+SELECT tenant_id, project_id, environment, id FROM release_rollouts
+WHERE status = 'active' AND expires_at <= sqlc.arg(now)
+ORDER BY expires_at, id
+LIMIT sqlc.arg(max_rows)::int;
+
+-- name: CountActiveRollouts :one
+-- System scope release.rollout_sweeper: the glossa_release_rollouts
+-- gauge (RFC 0006 §10.1).
+SELECT count(*)::integer FROM release_rollouts WHERE status = 'active';

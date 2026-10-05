@@ -83,6 +83,17 @@ type Scanner interface {
 	// StaleKeyIndexes lists active keys whose index object was last
 	// written in a format older than version.
 	StaleKeyIndexes(ctx context.Context, version, limit int) ([]KeyRef, error)
+	// ExpiredRollouts lists active rollouts whose max_duration has
+	// passed at now (RFC 0006 §5.2).
+	ExpiredRollouts(ctx context.Context, now time.Time, limit int) ([]RolloutRef, error)
+	// ActiveRollouts counts the deployment's active rollouts.
+	ActiveRollouts(ctx context.Context) (int, error)
+}
+
+// RolloutRef names a rollout of a tenant's project environment.
+type RolloutRef struct {
+	EnvironmentRef
+	Rollout uuid.UUID
 }
 
 // Transactor runs units of work scoped to the tenant on ctx.
@@ -147,5 +158,57 @@ type Store interface {
 	// written in.
 	MarkKeyIndexed(ctx context.Context, id uuid.UUID, version int) error
 
+	// InsertRollout records r; false if the environment has an active
+	// rollout already, or one with r's ID exists.
+	InsertRollout(ctx context.Context, r domain.Rollout) (bool, error)
+	Rollout(ctx context.Context, project, id uuid.UUID) (domain.Rollout, error)
+	// ActiveRollout is the environment's active rollout (ErrNotFound if
+	// none); lock it under the environment's lock only.
+	ActiveRollout(ctx context.Context, project uuid.UUID, environment string, lock bool) (domain.Rollout, error)
+	// Rollouts lists an environment's rollouts, newest first, after the
+	// rollout after (none: from the newest).
+	Rollouts(ctx context.Context, project uuid.UUID, environment string, after uuid.UUID, limit int) ([]domain.Rollout, error)
+	// UpdateRollout saves r if the stored version is expected
+	// (ErrStaleVersion otherwise).
+	UpdateRollout(ctx context.Context, r domain.Rollout, expected int) error
+
+	// InsertReleaseRequest records a new request (RFC 0006 §5.1). The
+	// environment has at most one pending request: inserting a second is
+	// a unique violation, so the caller withdraws the first beforehand.
+	InsertReleaseRequest(ctx context.Context, r domain.ReleaseRequest) error
+	ReleaseRequest(ctx context.Context, project, id uuid.UUID, lock bool) (domain.ReleaseRequest, error)
+	// PendingReleaseRequest locks the environment's open request
+	// (ErrNotFound if none).
+	PendingReleaseRequest(ctx context.Context, project uuid.UUID, environment string) (domain.ReleaseRequest, error)
+	// ReleaseRequestFor is the newest request to deploy release into
+	// environment (ErrNotFound if none).
+	ReleaseRequestFor(ctx context.Context, project, release uuid.UUID, environment string) (domain.ReleaseRequest, error)
+	ReleaseRequests(ctx context.Context, f RequestFilter) ([]domain.ReleaseRequest, error)
+	// UpdateReleaseRequest saves r if the stored version is expected
+	// (ErrStaleVersion otherwise).
+	UpdateReleaseRequest(ctx context.Context, r domain.ReleaseRequest, expected int) error
+
 	Publish(ctx context.Context, e outbox.Event) error
+}
+
+// RequestFilter narrows a list of release requests: newest first, below
+// Before. Zero fields do not filter.
+type RequestFilter struct {
+	Project     uuid.UUID
+	Environment string
+	State       domain.RequestState
+	Before      uuid.UUID
+	Limit       int
+}
+
+// Approvals is who has approved a release request (RFC 0006 §5.1):
+// every grant on its current approval, one entry per granting decision,
+// in the outbox spelling ("person:<id>"), or none once it was denied.
+// Workflow keeps the approvals; an adapter of Workflow's implements
+// this, so Release never imports Workflow (RFC 0006 §2.1). Release
+// counts the grants itself against the environment's requirement and
+// refuses to move a pointer until it is met, whatever a workflow
+// definition says.
+type Approvals interface {
+	Granters(ctx context.Context, project, request uuid.UUID) ([]string, error)
 }

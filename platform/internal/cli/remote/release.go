@@ -116,13 +116,19 @@ func (r *ReleaseService) Environment(ctx context.Context, s release.Scope, name 
 }
 
 // Promote implements release.Service. Promoting the release already
-// served changes nothing, so the request is retried like a read.
-func (r *ReleaseService) Promote(ctx context.Context, s release.Scope, releaseID, environment string) (release.Environment, error) {
+// served changes nothing, so the request is retried like a read. An
+// environment that requires approvals answers 202: the promote is held
+// as a release request and the environment is not returned.
+func (r *ReleaseService) Promote(ctx context.Context, s release.Scope, releaseID, environment string) (release.Environment, *release.Held, error) {
 	resp, err := r.c.api.PromoteReleaseWithResponse(idempotent(ctx), s.Tenant, s.Project, environment, apiclient.Promotion{ReleaseId: releaseID})
 	if err := check(resp, err, http.MethodPost, r.project(s, "/environments/%s/promotions", environment)); err != nil {
-		return release.Environment{}, err
+		return release.Environment{}, nil, err
 	}
-	return toEnvironment(*resp.JSON200), nil
+	if resp.StatusCode() == http.StatusAccepted {
+		h, err := toHeld(resp.JSON202, http.MethodPost, r.project(s, "/environments/%s/promotions", environment))
+		return release.Environment{}, h, err
+	}
+	return toEnvironment(*resp.JSON200), nil, nil
 }
 
 // Rollback implements release.Service. Without a target a repeated
@@ -214,7 +220,12 @@ func (r *ReleaseService) Publish(ctx context.Context, s release.Scope, req relea
 	if err := check(resp, err, http.MethodPost, r.project(s, "/releases")); err != nil {
 		return release.Published{}, err
 	}
-	return release.Published{Release: toRelease(*resp.JSON201), Replayed: resp.HTTPResponse.Header.Get("Idempotent-Replayed") == "true"}, nil
+	replayed := resp.HTTPResponse.Header.Get("Idempotent-Replayed") == "true"
+	if resp.StatusCode() == http.StatusAccepted {
+		h, err := toHeld(resp.JSON202, http.MethodPost, r.project(s, "/releases"))
+		return release.Published{Held: h, Replayed: replayed}, err
+	}
+	return release.Published{Release: toRelease(*resp.JSON201), Replayed: replayed}, nil
 }
 
 // PreviewPublish implements release.Service. It stores nothing, so it

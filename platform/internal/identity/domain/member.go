@@ -33,7 +33,11 @@ type Member struct {
 	Email    authgo.Email
 	Roles    Roles
 	Locales  LocaleScope
-	Status   MemberStatus
+	// Restriction is the member's project scope, vendor and visibility
+	// (RFC 0006 §3.3, §4.1), enforced by package authz in every read
+	// and write path (see RestrictionEnforced).
+	Restriction Restriction
+	Status      MemberStatus
 	// Version increments with every change; it is the member's ETag.
 	Version   int
 	CreatedAt time.Time
@@ -43,40 +47,52 @@ type Member struct {
 // NewOwner is the first member of a tenant: its creator, active at once.
 func NewOwner(tenant tenancy.ID, person PersonID, email authgo.Email, now time.Time) Member {
 	return Member{
-		ID:        NewMemberID(),
-		TenantID:  tenant,
-		PersonID:  person,
-		Email:     email,
-		Roles:     Roles{RoleOwner},
-		Status:    MemberActive,
-		Version:   1,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          NewMemberID(),
+		TenantID:    tenant,
+		PersonID:    person,
+		Email:       email,
+		Roles:       Roles{RoleOwner},
+		Restriction: Restriction{Visibility: VisibilityAll},
+		Status:      MemberActive,
+		Version:     1,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 }
 
 // Invite opens an invitation in an organization. actor is the inviter's
 // grant: only an owner may hand out the owner role.
 func Invite(tenant tenancy.ID, kind tenancy.Kind, email authgo.Email, roles Roles, locales LocaleScope, actor Grant, now time.Time) (Member, error) {
+	return InviteWith(tenant, kind, email, roles, locales, Restriction{}, actor, now)
+}
+
+// InviteWith opens an invitation narrowed by r: limited to some
+// projects, or for a vendor's person who sees only their assignments.
+func InviteWith(tenant tenancy.ID, kind tenancy.Kind, email authgo.Email, roles Roles, locales LocaleScope, r Restriction, actor Grant, now time.Time) (Member, error) {
 	if kind == tenancy.KindIndividual {
 		return Member{}, ErrIndividualTenant
 	}
 	if err := checkAccess(roles, locales); err != nil {
 		return Member{}, err
 	}
+	r = r.normalized()
+	if err := r.check(roles); err != nil {
+		return Member{}, err
+	}
 	if roles.Has(RoleOwner) && !actor.Allows(PermOwnersManage) {
 		return Member{}, ErrOwnerChangeForbidden
 	}
 	return Member{
-		ID:        NewMemberID(),
-		TenantID:  tenant,
-		Email:     email,
-		Roles:     roles,
-		Locales:   locales,
-		Status:    MemberInvited,
-		Version:   1,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          NewMemberID(),
+		TenantID:    tenant,
+		Email:       email,
+		Roles:       roles,
+		Locales:     locales,
+		Restriction: r,
+		Status:      MemberInvited,
+		Version:     1,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}, nil
 }
 
@@ -105,6 +121,7 @@ func (m *Member) Activate(person PersonID, now time.Time) error {
 func (m Member) IsOwner() bool { return m.Roles.Has(RoleOwner) }
 
 // Grant is what the member may do; an open invitation grants nothing.
+// It does not yet reflect m.Restriction (RFC 0006 wave 2).
 func (m Member) Grant() Grant {
 	if m.Status != MemberActive {
 		return Grant{}
@@ -119,6 +136,9 @@ func (m *Member) ChangeAccess(roles Roles, locales LocaleScope, actor Grant, act
 	if err := checkAccess(roles, locales); err != nil {
 		return err
 	}
+	if err := m.Restriction.normalized().check(roles); err != nil {
+		return err
+	}
 	touchesOwner := m.IsOwner() || roles.Has(RoleOwner)
 	if touchesOwner && !actor.Allows(PermOwnersManage) {
 		return ErrOwnerChangeForbidden
@@ -130,6 +150,22 @@ func (m *Member) ChangeAccess(roles Roles, locales LocaleScope, actor Grant, act
 	m.touch(now)
 	return nil
 }
+
+// Restrict replaces the member's project scope, vendor and visibility.
+// The application layer decides who may (members.manage, and
+// vendors.manage to name a vendor).
+func (m *Member) Restrict(r Restriction, now time.Time) error {
+	r = r.normalized()
+	if err := r.check(m.Roles); err != nil {
+		return err
+	}
+	m.Restriction = r
+	m.touch(now)
+	return nil
+}
+
+// IsVendorMember reports whether the member works for a vendor.
+func (m Member) IsVendorMember() bool { return !m.Restriction.Vendor.IsZero() }
 
 // CheckRemoval reports whether actor may remove the member.
 func (m Member) CheckRemoval(actor Grant, activeOwners int) error {

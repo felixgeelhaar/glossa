@@ -4,11 +4,11 @@
 -- name: InsertMember :execrows
 -- ON CONFLICT (id) DO NOTHING makes a retried idempotent create a no-op;
 -- the caller then loads the existing row.
-INSERT INTO identity_members (id, tenant_id, person_id, email, roles, locales, status, version,
-                              created_by, created_at, updated_at)
+INSERT INTO identity_members (id, tenant_id, person_id, email, roles, locales, projects, vendor_id,
+                              visibility, status, version, created_by, created_at, updated_at)
 VALUES (sqlc.arg(id), app_current_tenant(), sqlc.narg(person_id), sqlc.arg(email), sqlc.arg(roles),
-        sqlc.arg(locales), sqlc.arg(status), sqlc.arg(version), sqlc.arg(created_by),
-        sqlc.arg(created_at), sqlc.arg(created_at))
+        sqlc.arg(locales), sqlc.arg(projects)::uuid[], sqlc.narg(vendor_id), sqlc.arg(visibility),
+        sqlc.arg(status), sqlc.arg(version), sqlc.arg(created_by), sqlc.arg(created_at), sqlc.arg(created_at))
 ON CONFLICT (id) DO NOTHING;
 
 -- name: GetMember :one
@@ -42,6 +42,16 @@ SET roles = sqlc.arg(roles), locales = sqlc.arg(locales), version = sqlc.arg(ver
     updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) - 1;
 
+-- name: UpdateMemberRestriction :execrows
+-- Project scope, vendor and visibility (RFC 0006 §3.3, §4.1).
+UPDATE identity_members
+SET projects = sqlc.arg(projects)::uuid[], vendor_id = sqlc.narg(vendor_id), visibility = sqlc.arg(visibility),
+    version = sqlc.arg(version), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) - 1;
+
+-- name: CountVendorMembers :one
+SELECT count(*) FROM identity_members WHERE vendor_id = sqlc.arg(vendor_id);
+
 -- name: ActivateMember :execrows
 UPDATE identity_members
 SET person_id = sqlc.arg(person_id), status = 'active', version = version + 1,
@@ -54,7 +64,7 @@ DELETE FROM identity_members WHERE id = sqlc.arg(id);
 -- System scope (db.SystemTx), before a tenant is chosen.
 
 -- name: SystemGetActiveMembership :one
-SELECT id, roles, locales FROM identity_members
+SELECT id, roles, locales, projects, visibility FROM identity_members
 WHERE person_id = sqlc.arg(person_id) AND tenant_id = sqlc.arg(tenant_id) AND status = 'active';
 
 -- name: SystemListMembershipsOfPerson :many

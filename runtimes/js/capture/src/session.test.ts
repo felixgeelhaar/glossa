@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createRuntime } from "@glossa/runtime";
-import type { Runtime } from "@glossa/runtime";
+import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import type { Runtime } from "@felixgeelhaar/glossa-runtime";
 import { createApp, defineComponent, h, nextTick } from "vue";
-import { GlossaText, createGlossa as createVueGlossa, useGlossa as useVueGlossa } from "@glossa/vue";
+import { GlossaText, createGlossa as createVueGlossa, useGlossa as useVueGlossa } from "@felixgeelhaar/glossa-vue";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { GlossaProvider, T, createGlossa as createReactGlossa, useGlossa } from "@glossa/react";
-import "@glossa/elements";
+import { GlossaProvider, T, createGlossa as createReactGlossa, useGlossa } from "@felixgeelhaar/glossa-react";
+import "@felixgeelhaar/glossa-elements";
 
 import { END, START, hasMarkers, strip } from "./markers.js";
 import { collectRegions } from "./regions.js";

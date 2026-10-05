@@ -1,12 +1,12 @@
-# @glossa/vue
+# @felixgeelhaar/glossa-vue
 
-Glossa for Vue 3.5+, on [`@glossa/runtime`](../runtime): a plugin, reactive
+Glossa for Vue 3.5+, on [`@felixgeelhaar/glossa-runtime`](../runtime): a plugin, reactive
 composables, `$t` in templates and a `<GlossaText>` component. SSR-safe and
 hydration-safe.
 
 ```ts
 import { createApp } from "vue";
-import { createGlossa } from "@glossa/vue";
+import { createGlossa } from "@felixgeelhaar/glossa-vue";
 
 createApp(App)
   .use(createGlossa({ edge: "https://edge.example.com", deliveryKey: "pk_7Hc2…", locales: "de" }))
@@ -15,7 +15,7 @@ createApp(App)
 
 ```vue
 <script setup lang="ts">
-import { useGlossa } from "@glossa/vue";
+import { useGlossa } from "@felixgeelhaar/glossa-vue";
 const { t, locale, dir, setLocale, availableLocales } = useGlossa();
 </script>
 
@@ -55,12 +55,12 @@ Without `app.use(createGlossa(…))` it warns once and renders inline defaults.
 
 **`<GlossaText id values?>`** renders a message without a wrapper element.
 The default slot is the inline default, then the message ID. Safe MF2 markup
-(`{#b}…{/b}`) becomes elements by the same rules as `@glossa/elements`
+(`{#b}…{/b}`) becomes elements by the same rules as `@felixgeelhaar/glossa-elements`
 (attribute-free inline tags only); translation text is never rendered as HTML.
 
 **Capture mode** (RFC 0004 §3.1). While a capture or editor session has an
 `onRender` hook installed on the runtime (see
-[`@glossa/capture`](../capture/README.md)), `<GlossaText>` wraps its content
+[`@felixgeelhaar/glossa-capture`](../capture/README.md)), `<GlossaText>` wraps its content
 in a `<span style="display: contents">` carrying `data-glossa-id` and
 `data-glossa-locale`, and `t()` strings carry the session's invisible markers.
 Both go away when the session ends. A normal page view, and server rendering,
@@ -90,7 +90,7 @@ m.t("cart.itmes", { count: 3 }); // error: unknown ID
 To type every `useGlossa()` and `$t` call instead, register the map once:
 
 ```ts
-declare module "@glossa/vue" {
+declare module "@felixgeelhaar/glossa-vue" {
   interface GlossaRegister {
     messages: Messages;
   }
@@ -109,7 +109,7 @@ Code generation is a later task (`glossa generate`); the intended output is a
   (`resolveLocales(…, acceptLanguage(req.headers["accept-language"]))`).
 - To hydrate without mismatches, the client's first render must see the same
   release and locale as the server: pass the same `bundled` release (from
-  `glossa pull --release`, or the release `@glossa/astro` inlines) and the same
+  `glossa pull --release`, or the release `@felixgeelhaar/glossa-astro` inlines) and the same
   `locales`, and mount right after `createGlossa()`. The runtime renders a
   bundled release synchronously; a newer persisted or network release
   activates afterwards and re-renders.
@@ -123,5 +123,5 @@ Minified and brotli-compressed (`pnpm size`), Vue excluded:
 
 | Import | Size | Budget |
 |---|---|---|
-| `@glossa/vue` own code (incl. the shared markup rules) | 1.2 kB | 1.5 kB |
-| `@glossa/vue` with `@glossa/runtime` | 7.1 kB | 8 kB |
+| `@felixgeelhaar/glossa-vue` own code (incl. the shared markup rules) | 1.2 kB | 1.5 kB |
+| `@felixgeelhaar/glossa-vue` with `@felixgeelhaar/glossa-runtime` | 7.1 kB | 8 kB |

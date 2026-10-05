@@ -116,7 +116,11 @@ type JobEvent struct {
 	By          string         `json:"by"`
 }
 
-func completedEvent(j domain.Job) outbox.Event {
+// completedEvent announces j's end. by is who ended it: the person or
+// token whose request did (a reused result, a cancel before the job
+// ran), or the worker that ran it to its end. The payload's By stays
+// the job's requester.
+func completedEvent(j domain.Job, by outbox.Actor) outbox.Event {
 	typ, agg := EventImportCompleted, aggregateImport
 	if j.Direction == domain.Export {
 		typ, agg = EventExportCompleted, aggregateExport
@@ -131,7 +135,7 @@ func completedEvent(j domain.Job) outbox.Event {
 	if j.ReusedJobID != nil {
 		e.ReusedJobID = j.ReusedJobID.String()
 	}
-	return outbox.Event{Type: typ, AggregateType: agg, AggregateID: j.ID.String(), Payload: e}
+	return outbox.Event{Type: typ, AggregateType: agg, AggregateID: j.ID.String(), Actor: by, Payload: e}
 }
 
 // actorOf returns the acting principal's actor.

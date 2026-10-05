@@ -208,6 +208,9 @@ func (f *fakeStore) Publish(_ context.Context, e outbox.Event) error {
 	if !f.records {
 		panic("not on this path")
 	}
+	if err := e.Validate(); err != nil { // what the outbox would refuse
+		return err
+	}
 	f.published = append(f.published, e)
 	return nil
 }

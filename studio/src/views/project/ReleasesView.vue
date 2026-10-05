@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { RouterLink } from "vue-router";
+import { useReleaseOps } from "../../api/release-ops";
+import type { Rollout } from "../../api/release-ops-schemas";
 import { useReleases } from "../../api/releases";
 import ErrorAlert from "../../components/ErrorAlert.vue";
 import { createReleaseBook } from "../../components/releases/book";
@@ -10,6 +12,8 @@ import PolicyDialog from "../../components/releases/PolicyDialog.vue";
 import PromoteDialog from "../../components/releases/PromoteDialog.vue";
 import PublishDialog from "../../components/releases/PublishDialog.vue";
 import RollbackDialog from "../../components/releases/RollbackDialog.vue";
+import { usePartyNames } from "../../components/releases/party-names";
+import { activeRollout } from "../../lib/release-ops";
 import { servingMap } from "../../lib/releases";
 import { useShortcuts } from "../../lib/shortcuts";
 import { absoluteTime, relativeTime } from "../../lib/time";
@@ -24,6 +28,42 @@ const s = strings.releases;
 const c = s.columns;
 const project = () => ({ tenant: tenant.value, project: projectId.value });
 const canPublish = computed(() => allows(grant.value, "releases.publish"));
+const canGovern = computed(() => allows(grant.value, "workflows.manage"));
+const ops = useReleaseOps();
+const ro = strings.releaseOps;
+const partyNames = usePartyNames(() => tenant.value);
+const envRoute = (environment: string) => ({ name: "environment", params: { tenant: tenant.value, project: projectId.value, environment } });
+const requestsRoute = (environment?: string) => ({
+  name: "release-requests",
+  params: { tenant: tenant.value, project: projectId.value },
+  query: environment ? { environment } : {},
+});
+
+/**
+ * RFC 0006 §5, best effort: pending release requests per environment and
+ * each environment's running rollout. Neither blocks the page; a failure
+ * only leaves the summaries out.
+ */
+const pending = shallowRef<Map<string, number>>();
+const rollouts = shallowRef(new Map<string, Rollout>());
+async function loadOps(): Promise<void> {
+  const p = project();
+  const envs = book.environments.value.filter((e) => e.kind !== "branch");
+  const [reqs, ...rs] = await Promise.allSettled([ops.releaseRequests(p, { state: "pending" }), ...envs.map((e) => ops.rollouts(p, e.name))]);
+  if (reqs.status === "fulfilled") {
+    const m = new Map<string, number>();
+    for (const r of reqs.value) m.set(r.environment, (m.get(r.environment) ?? 0) + 1);
+    pending.value = m;
+  } else pending.value = undefined;
+  const active = new Map<string, Rollout>();
+  rs.forEach((r, i) => {
+    const a = r.status === "fulfilled" ? activeRollout(r.value) : undefined;
+    if (a) active.set(envs[i]!.name, a);
+  });
+  rollouts.value = active;
+  await book.ensure([...active.values()].map((r) => r.release_id)).catch(() => undefined);
+}
+const pendingTotal = computed(() => (pending.value ? [...pending.value.values()].reduce((a, b) => a + b, 0) : undefined));
 const person = usePeople(() => tenant.value);
 const book = createReleaseBook(port, project);
 const serving = computed(() => servingMap(book.environments.value));
@@ -36,6 +76,7 @@ async function load(): Promise<void> {
   error.value = null;
   try {
     await book.load();
+    void loadOps();
   } catch (e) {
     error.value = e;
   }
@@ -86,9 +127,14 @@ useShortcuts({
         <h1>{{ s.title }}</h1>
         <p class="muted lead">{{ s.lead }}</p>
       </div>
-      <button v-if="canPublish" type="button" class="btn btn-primary" :disabled="!book.loaded.value" aria-keyshortcuts="p" @click="open({ kind: 'publish' })">
-        {{ s.publish }}
-      </button>
+      <div class="row">
+        <RouterLink class="btn" :to="requestsRoute()" data-testid="requests-link">
+          {{ ro.requestsLink }}<template v-if="pendingTotal"> · {{ ro.pendingCount(pendingTotal) }}</template>
+        </RouterLink>
+        <button v-if="canPublish" type="button" class="btn btn-primary" :disabled="!book.loaded.value" aria-keyshortcuts="p" @click="open({ kind: 'publish' })">
+          {{ s.publish }}
+        </button>
+      </div>
     </div>
     <p v-if="!canPublish" class="alert" data-testid="releases-read-only">{{ s.readOnly }}</p>
     <ErrorAlert :error="error" />
@@ -107,6 +153,12 @@ useShortcuts({
           :can-publish="canPublish"
           :person="person"
           :release-route="releaseRoute"
+          :env-route="e.kind === 'branch' ? undefined : envRoute(e.name)"
+          :requests-route="requestsRoute(e.name)"
+          :pending="pending?.get(e.name)"
+          :rollout="rollouts.get(e.name)"
+          :rollout-label="book.label(rollouts.get(e.name)?.release_id)"
+          :party-names="partyNames"
           @promote="open({ kind: 'promote', environment: e.name })"
           @rollback="open({ kind: 'rollback', environment: e.name })"
           @history="open({ kind: 'history', environment: e.name })"
@@ -188,7 +240,15 @@ useShortcuts({
       @close="close"
       @done="changed"
     />
-    <PolicyDialog :open="dialog?.kind === 'policy'" :port="port" :project="project()" :environment="envOf(dialog)" @close="close" @done="changed" />
+    <PolicyDialog
+      :open="dialog?.kind === 'policy'"
+      :port="port"
+      :project="project()"
+      :environment="envOf(dialog)"
+      :can-govern="canGovern"
+      @close="close"
+      @done="changed"
+    />
     <DeploymentsDialog
       :open="dialog?.kind === 'history'"
       :port="port"

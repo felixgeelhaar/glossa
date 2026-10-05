@@ -1,6 +1,6 @@
 // Package capture is `glossa capture` (RFC 0004 §3.2): it opens each
 // page of the capture plan in headless Chrome with scout, finds where the
-// page rendered its messages with the capture agent of @glossa/capture,
+// page rendered its messages with the capture agent of @felixgeelhaar/glossa-capture,
 // and takes a full-page screenshot, into one glossa.captures/v1 document.
 //
 // Capture runs where the app already runs, in the product's CI, against a

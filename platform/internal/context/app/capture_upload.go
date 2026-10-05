@@ -80,7 +80,7 @@ func (s *Service) IngestCaptures(ctx context.Context, in IngestCaptures) (_ Capt
 		attribute.Int("glossa.manifest_bytes", len(in.Manifest)))
 	defer end(&err)
 
-	by, err := actor(ctx, authz.CatalogWrite)
+	by, err := actorIn(ctx, authz.CatalogWrite, in.Project)
 	if err != nil {
 		return CapturesIngested{}, err
 	}
@@ -469,6 +469,7 @@ func (s *Service) insertCaptures(ctx context.Context, b domain.Build, captures [
 			}
 			if err := st.Publish(ctx, outbox.Event{
 				Type: domain.EventCaptureIngested, AggregateType: domain.AggregateCapture, AggregateID: c.ID.String(),
+				Actor:   outbox.Actor(c.CreatedBy),
 				Payload: domain.CaptureIngestedOf(c, b), OccurredAt: c.CreatedAt,
 			}); err != nil {
 				return err
@@ -477,6 +478,7 @@ func (s *Service) insertCaptures(ctx context.Context, b domain.Build, captures [
 		out = CapturesIngested{Build: b, Captures: len(captures), UnknownKeys: unknown}
 		return st.Publish(ctx, outbox.Event{
 			Type: domain.EventBuildIngested, AggregateType: domain.AggregateBuild, AggregateID: b.ID.String(),
+			Actor:   outbox.Actor(b.CreatedBy),
 			Payload: domain.BuildIngestedOf(b, 0), OccurredAt: b.CreatedAt,
 		})
 	})

@@ -386,6 +386,13 @@ func (s *store) Capture(ctx context.Context, id uuid.UUID) (domain.Capture, erro
 	return capture(r)
 }
 
+func (s *store) CaptureShows(ctx context.Context, capture uuid.UUID, messages []uuid.UUID) (bool, error) {
+	if len(messages) == 0 {
+		return false, nil
+	}
+	return s.q.CaptureShowsAny(ctx, contextsql.CaptureShowsAnyParams{CaptureID: capture, MessageIds: messages})
+}
+
 func (s *store) UnknownRegionKeys(ctx context.Context, buildID uuid.UUID) ([]string, error) {
 	keys, err := s.q.ListBuildUnknownRegionKeys(ctx, buildID)
 	return keys, storeError(err)

@@ -51,9 +51,22 @@ export interface EffectiveStyleQuery {
   namespace?: string;
 }
 
+/** Narrows a unit's matches; the targets come in `target_syntax`. */
+export interface UnitTMQuery {
+  target_syntax?: "mf1" | "mf2";
+  limit?: number;
+  min_score?: number;
+}
+
 export interface KnowledgePort {
   /** Exact and fuzzy translation-memory matches for a source message, best first. */
   lookupTM(tenant: string, q: TMLookupInput, signal?: AbortSignal): Promise<K.TMLookupResult>;
+  /**
+   * The matches of one unit (a message's key in a locale): the workspace's
+   * read, and the only one an assigned member (a vendor) has — text and
+   * score, never which unit they came from (RFC 0006 §3.3).
+   */
+  unitTMMatches(tenant: string, project: string, key: string, locale: string, q?: UnitTMQuery, signal?: AbortSignal): Promise<K.UnitTMMatches>;
   /** Active units containing a phrase: how it was translated before. */
   concordance(tenant: string, q: ConcordanceQuery, signal?: AbortSignal): Promise<K.TMConcordance>;
   recognizeTerms(tenant: string, body: TermRecognitionInput, signal?: AbortSignal): Promise<K.TermRecognition>;
@@ -86,6 +99,16 @@ const t = (tenant: string) => ({ tenant });
 export const apiKnowledge: KnowledgePort = {
   lookupTM: (tenant, body, signal) =>
     value(read(client.POST("/v1/tenants/{tenant}/tm-lookups", { params: { path: t(tenant) }, body, ...withSignal(signal) }), K.TMLookupResult)),
+  unitTMMatches: (tenant, project, message, locale, query = {}, signal) =>
+    value(
+      read(
+        client.GET("/v1/tenants/{tenant}/projects/{project}/messages/{message}/translations/{locale}/tm-matches", {
+          params: { path: { tenant, project, message, locale }, query },
+          ...withSignal(signal),
+        }),
+        K.UnitTMMatches,
+      ),
+    ),
   concordance: (tenant, query, signal) =>
     value(read(client.GET("/v1/tenants/{tenant}/tm-concordance", { params: { path: t(tenant), query }, ...withSignal(signal) }), K.TMConcordance)),
   recognizeTerms: (tenant, body, signal) =>

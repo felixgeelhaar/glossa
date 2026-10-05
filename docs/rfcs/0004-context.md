@@ -30,7 +30,7 @@ The internal exit test is §12. The real exit (Nexa's tax PDF and Lexora's expor
 
 Three sources feed the Context context. They all produce the same document (§2.2).
 
-- **Bundler plugin** (`@glossa/unplugin`, new in `runtimes/js/unplugin`). It's built on `unplugin`, so one core serves Vite, Rollup, webpack and esbuild. Astro gets it through `@glossa/astro`, which adds it to Vite.
+- **Bundler plugin** (`@felixgeelhaar/glossa-unplugin`, new in `runtimes/js/unplugin`). It's built on `unplugin`, so one core serves Vite, Rollup, webpack and esbuild. Astro gets it through `@felixgeelhaar/glossa-astro`, which adds it to Vite.
   - The plugin reads modules **after** the framework transforms (Vue SFC templates compiled, JSX and TS stripped). It parses them with the bundler's own parser and maps every hit back to the original file and line through the combined source map.
   - It recognizes the same call shapes as `glossa extract`: `t()`/`$t()`, `<GlossaText id>`, `<glossa-text key>`, React `<T id>`, and the typed accessors from `glossa generate`.
   - **Component** means the component that defines the call: the SFC or `.astro` file name, or the nearest enclosing capitalized function or class for JSX. The ancestry path from intent §17 (`PaymentFooter > PrimaryButton`) needs the running tree and waits for a later milestone.
@@ -50,7 +50,7 @@ A **usage** is a message × a location × a build. A **build** is one upload for
   "schema": "glossa.usages/v1",
   "application": "web",
   "commit": "9f2c1e7…", "branch": "feat/checkout-copy",
-  "tool": { "name": "@glossa/unplugin", "version": "0.1.0" },
+  "tool": { "name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0" },
   "usages": [
     { "key": "checkout.pay", "file": "src/checkout/PaymentFooter.vue", "line": 42, "column": 9,
       "component": "PaymentFooter", "route": "/checkout/payment", "kind": "t" }
@@ -78,7 +78,7 @@ A **usage** is a message × a location × a build. A **build** is one upload for
 
 A screenshot is useful only if it shows **which pixels** belong to a message. The runtime can mark what it renders, but only while a capture or editor session is active.
 
-- `@glossa/runtime` gains one extension point, `onRender(hook)`: a hook that sees (id, locale, values digest, output) and may decorate the output. It costs well under 100 bytes and stays inside the 6.5 kB budget. The runtime ships no capture code itself.
+- `@felixgeelhaar/glossa-runtime` gains one extension point, `onRender(hook)`: a hook that sees (id, locale, values digest, output) and may decorate the output. It costs well under 100 bytes and stays inside the 6.5 kB budget. The runtime ships no capture code itself.
 - The capture module (loaded only in a session, §5.1) installs a hook that does two things:
   - Component-rendered messages (`<glossa-text>`, `<GlossaText>`, React `<T>`) get `data-glossa-id` and `data-glossa-locale` on the host element. For them, the host element's box is the message region.
   - Strings returned by `t()` are wrapped in **invisible markers**: a start mark, the index of the render in the session's log (encoded in zero-width characters), the text, and an end mark. The capture script walks text nodes and attribute values, turns each marked range into boxes with `Range.getClientRects()`, and looks the index up in the render log. The markers are zero-width, so the layout doesn't move.
@@ -150,8 +150,8 @@ Branch environments hold unreleased copy (intent §50), so a production key ship
 
 ### 5.1 Never in production
 
-`@glossa/overlay` is a Lit web component (RFC 0002 §9). It lives in a shadow root with constructable stylesheets, and it is **not an npm import applications make**. Three layers keep it out of production:
-1. **Build time.** `@glossa/unplugin` injects the overlay loader only when the plugin's `environment` option isn't `production`. It keys on the Glossa environment, not Vite's `mode`, because static preview deployments are built in production mode. A build with `environment: production` and `overlay: true` fails.
+`@felixgeelhaar/glossa-overlay` is a Lit web component (RFC 0002 §9). It lives in a shadow root with constructable stylesheets, and it is **not an npm import applications make**. Three layers keep it out of production:
+1. **Build time.** `@felixgeelhaar/glossa-unplugin` injects the overlay loader only when the plugin's `environment` option isn't `production`. It keys on the Glossa environment, not Vite's `mode`, because static preview deployments are built in production mode. A build with `environment: production` and `overlay: true` fails.
 2. **Runtime.** The loader activates only after the runtime has loaded a manifest whose (signed) `environment` isn't `production`, and only after an explicit gesture: `?glossa=edit`, or Alt+Shift+E.
 3. **Delivery.** The overlay script itself is served from the Studio origin (`/overlay/v1/overlay.js`, with an SRI hash pinned in the loader). A production page's CSP never needs to allow it.
 
@@ -209,7 +209,7 @@ Tests cover each layer: a production fixture build must not contain the loader (
   ```bash
   glossa push --branch "$GITHUB_HEAD_REF" --pr "$PR_NUMBER"    # default branch: glossa push
   glossa extract --upload                                      # Go and templates
-  glossa context push .glossa/usages.json                      # from @glossa/unplugin
+  glossa context push .glossa/usages.json                      # from @felixgeelhaar/glossa-unplugin
   glossa capture --upload                                      # optional, needs a running app
   glossa preview register --url "$PREVIEW_URL"                 # optional
   ```
@@ -235,18 +235,18 @@ Tests cover each layer: a production fixture build must not contain the loader (
 
 ## 7. Runtimes
 
-### 7.1 React (`@glossa/react`)
+### 7.1 React (`@felixgeelhaar/glossa-react`)
 
 React is needed for Nomi (React on Tauri), Armada and Dispatch (Atlassian Forge) (RFC 0002 §12.2).
 - **API.** `createGlossa(options)` returns an instance for `<GlossaProvider>`. `useGlossa()` returns `{ t, parts, locale, dir, setLocales, explain }`. `useMessages<M>()` gives typed accessors, and `<T id values>{default}</T>` renders a message.
-- **Rendering.** Markup goes through `@glossa/elements/parts`, with the same safe-markup rules as Vue. Translation text is never rendered as HTML.
+- **Rendering.** Markup goes through `@felixgeelhaar/glossa-elements/parts`, with the same safe-markup rules as Vue. Translation text is never rendered as HTML.
 - **SSR and React versions.** It's SSR- and hydration-safe through `useSyncExternalStore` with a server snapshot. It supports React 18.3+ and 19.
-- `glossa generate` gains `generate.react`, which writes the `GlossaRegister` augmentation for `@glossa/react`, as `generate.vue` already does for Vue.
-- **Contract.** The same bar as `@glossa/vue`:
+- `glossa generate` gains `generate.react`, which writes the `GlossaRegister` augmentation for `@felixgeelhaar/glossa-react`, as `generate.vue` already does for Vue.
+- **Contract.** The same bar as `@felixgeelhaar/glossa-vue`:
   - the SPEC scenario and loading fixtures, rendered through React
   - hydration and SSR tests
   - capture-mode attributes (§3.1)
-  - `size-limit` budgets: own code ≤ 1.5 kB, with `@glossa/runtime` ≤ 8 kB (brotli, React excluded)
+  - `size-limit` budgets: own code ≤ 1.5 kB, with `@felixgeelhaar/glossa-runtime` ≤ 8 kB (brotli, React excluded)
 - **Forge and Tauri.** Forge's Custom UI needs a declared egress for the edge, so the README recommends bundled releases (`glossa pull --release`) with over-the-air updates optional. Tauri apps persist in `localStorage`.
 
 ### 7.2 Go runtime: documents
@@ -294,9 +294,9 @@ The graph from intent §18 connects concepts, messages, terms, screens, componen
   - `glossa usages <key>`
   - All of them with `--json`.
 - **Runtimes:**
-  - `@glossa/react` and `@glossa/unplugin`
-  - `@glossa/overlay`, served by Studio
-  - `onRender` and dev-only `override` in `@glossa/runtime`
+  - `@felixgeelhaar/glossa-react` and `@felixgeelhaar/glossa-unplugin`
+  - `@felixgeelhaar/glossa-overlay`, served by Studio
+  - `onRender` and dev-only `override` in `@felixgeelhaar/glossa-runtime`
   - the Go additions in §7.2
 
 ## 10. Privacy and security (intent §17, §50)
@@ -326,7 +326,7 @@ The graph from intent §18 connects concepts, messages, terms, screens, componen
 
 `platform/internal/systemtest/m3` (`make system-m3`, Docker: Postgres, MinIO, headless Chrome) runs against a real `glossa-server` and writes `REPORT.md`, like M2.
 
-1. **Fixture app.** `testdata/app` has about 150 messages, with de as the source and en, es, fr and ja as targets. It's a Vite + Vue app with one React island and Go templates. It builds with `@glossa/unplugin`, runs `glossa extract --upload`, and runs `glossa capture --upload` over 8 routes in de and ja at two viewports. The test asserts that **every active message has ≥ 1 usage with file, line and component, and ≥ 1 visible region**. A Playwright test then opens the "Where it appears" pane for three messages against the same server.
+1. **Fixture app.** `testdata/app` has about 150 messages, with de as the source and en, es, fr and ja as targets. It's a Vite + Vue app with one React island and Go templates. It builds with `@felixgeelhaar/glossa-unplugin`, runs `glossa extract --upload`, and runs `glossa capture --upload` over 8 routes in de and ja at two viewports. The test asserts that **every active message has ≥ 1 usage with file, line and component, and ≥ 1 visible region**. A Playwright test then opens the "Where it appears" pane for three messages against the same server.
 2. **Pull request.** A fake GitHub server receives signed, recorded webhooks and serves the App endpoints. Nothing deploys an application per PR (§14.2): `pr-7` is a delivery target the test reads through the edge, and the overlay flow runs against the fixture served from the shared `preview` environment. The flow runs like this:
    - Opening a PR creates the branch and `pr-7`.
    - A CI push adds 5 keys and 1 invalid message, so the check is `failure`, with annotations on `file:line`.
@@ -350,19 +350,19 @@ Each slice is about an hour of agent work. At most one slice per wave edits `pla
 | 1 | Go runtime: `Parts`, `HTML`/`th`, `Runs` over the engine's `FormatToParts` | no |
 | 1 | Go runtime: standalone formatters, `Decimal`/`Money`, time zones, template `num`/`money`/`date` | no |
 | 1 | runtime-format fixture: es/fr/ja cases; JS and Go pass or record skips | no |
-| 1 | `@glossa/react`: provider, hooks, `<T>`, SSR, SPEC fixtures, size budgets | no |
+| 1 | `@felixgeelhaar/glossa-react`: provider, hooks, `<T>`, SSR, SPEC fixtures, size budgets | no |
 | 1 | GitHub adapter: App JWT, installation tokens, checks, comments, webhook verification, against a fake GitHub | no |
 | 2 | Context API: build upload, usages queries; `message_context` fills usages and co-located neighbours | yes |
-| 2 | `@glossa/unplugin` (Vite, Rollup, webpack, esbuild) + Astro wiring; passes the usage fixtures | no |
+| 2 | `@felixgeelhaar/glossa-unplugin` (Vite, Rollup, webpack, esbuild) + Astro wiring; passes the usage fixtures | no |
 | 2 | `glossa extract` on `go/ast` and `text/template/parse`, with components; `--upload`, `context push` | no |
-| 2 | Capture mode: `onRender` in `@glossa/runtime`, data attributes in elements/Vue/React, markers, capture script | no |
+| 2 | Capture mode: `onRender` in `@felixgeelhaar/glossa-runtime`, data attributes in elements/Vue/React, markers, capture script | no |
 | 2 | Catalog branch overlay: branches, `proposed` messages, source proposals, activation on default-branch push | no |
 | 3 | Captures API: multipart upload, validation and re-encoding, MinIO with dedupe, the per-tenant storage quota, image read | yes |
 | 3 | `glossa capture` on `scout`: capture plan, viewports, locales, playbooks, redaction, coverage report | no |
 | 3 | Release: branch environments (overlay build, not promotable), delivery-key scopes in the key index and the edge | no |
 | 3 | Studio: "Where it appears" pane and message filters | no (consume) |
 | 4 | Branches API: upsert, proposals, status report, close; environment lifecycle and debounced auto-publish | yes |
-| 4 | `@glossa/overlay` (Lit): inspect, edit, history, comment, AI suggestion, against a fake API | no |
+| 4 | `@felixgeelhaar/glossa-overlay` (Lit): inspect, edit, history, comment, AI suggestion, against a fake API | no |
 | 4 | Go document fixtures in five locales: HTML and `Runs` goldens, fpdf example with Noto fonts | no |
 | 5 | GitHub API: install flow with verified ownership, Git connections, webhook endpoint and inbox | yes |
 | 5 | Overlay loader: runtime dev entry, unplugin injection, the three production guards and their tests | no |

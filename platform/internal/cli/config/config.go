@@ -84,9 +84,9 @@ func ValidApplication(s string) bool { return applicationSlug.MatchString(s) }
 type Generate struct {
 	// TypeScript is the typed module (messages.ts).
 	TypeScript string `yaml:"typescript,omitempty" json:"typescript,omitempty"`
-	// Vue is the @glossa/vue registration module; needs TypeScript.
+	// Vue is the @felixgeelhaar/glossa-vue registration module; needs TypeScript.
 	Vue string `yaml:"vue,omitempty" json:"vue,omitempty"`
-	// React is the @glossa/react registration module; needs TypeScript.
+	// React is the @felixgeelhaar/glossa-react registration module; needs TypeScript.
 	React string `yaml:"react,omitempty" json:"react,omitempty"`
 	// Go is the typed Go file.
 	Go string `yaml:"go,omitempty" json:"go,omitempty"`

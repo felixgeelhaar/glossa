@@ -24,6 +24,22 @@ type IdentityApiToken struct {
 	LastUsedAt pgtype.Timestamptz
 	RevokedAt  pgtype.Timestamptz
 	RevokedBy  pgtype.Text
+	Projects   []uuid.UUID
+}
+
+type IdentityDeviceAuthorization struct {
+	ID              uuid.UUID
+	DeviceCodeHash  string
+	UserCodeHash    string
+	ClientName      string
+	Status          string
+	PersonID        uuid.NullUUID
+	IntervalSeconds int32
+	RequestedAt     time.Time
+	ExpiresAt       time.Time
+	LastPolledAt    pgtype.Timestamptz
+	DecidedAt       pgtype.Timestamptz
+	RedeemedAt      pgtype.Timestamptz
 }
 
 type IdentityEmailLink struct {
@@ -35,6 +51,16 @@ type IdentityEmailLink struct {
 	CreatedAt time.Time
 }
 
+type IdentityGroup struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	Name      string
+	Version   int32
+	CreatedBy string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type IdentityLoginAttempt struct {
 	Key          string
 	FailureCount int32
@@ -43,17 +69,20 @@ type IdentityLoginAttempt struct {
 }
 
 type IdentityMember struct {
-	ID        uuid.UUID
-	TenantID  uuid.UUID
-	PersonID  uuid.NullUUID
-	Email     string
-	Roles     []string
-	Locales   []string
-	Status    string
-	Version   int32
-	CreatedBy string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uuid.UUID
+	TenantID   uuid.UUID
+	PersonID   uuid.NullUUID
+	Email      string
+	Roles      []string
+	Locales    []string
+	Status     string
+	Version    int32
+	CreatedBy  string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Projects   []uuid.UUID
+	VendorID   uuid.NullUUID
+	Visibility string
 }
 
 type IdentityPasskey struct {
@@ -76,19 +105,24 @@ type IdentityPreviewOrigin struct {
 	CreatedAt time.Time
 }
 
-type IdentitySession struct {
-	TokenHash string
-	PersonID  uuid.UUID
-	CreatedAt time.Time
-	ExpiresAt time.Time
-}
-
 type IdentityTotp struct {
 	PersonID         uuid.UUID
 	SecretCiphertext string
 	ConfirmedAt      pgtype.Timestamptz
 	LastStep         pgtype.Int8
 	UpdatedAt        time.Time
+}
+
+type IdentityVendor struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	Name      string
+	Contact   string
+	Locales   []string
+	Version   int32
+	CreatedBy string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Tenant struct {

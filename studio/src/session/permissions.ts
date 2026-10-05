@@ -29,9 +29,19 @@ export type Permission =
   | "intelligence.translate"
   | "integration.read"
   | "integration.import"
-  | "integration.manage";
+  | "integration.manage"
+  // The operations permissions (RFC 0006 §4.2).
+  | "workflows.read"
+  | "workflows.manage"
+  | "assignments.read"
+  | "assignments.manage"
+  | "approvals.decide"
+  | "vendors.manage"
+  | "audit.read"
+  | "audit.export";
 
 const ALL: Permission[] = [
+  "approvals.decide", "assignments.manage", "assignments.read", "audit.export", "audit.read", "vendors.manage", "workflows.manage", "workflows.read",
   "catalog.read", "catalog.write", "integration.import", "integration.manage", "integration.read", "intelligence.manage", "intelligence.read", "intelligence.translate",
   "knowledge.read", "knowledge.write", "members.manage", "members.read", "owners.manage", "releases.publish",
   "releases.read", "tenant.manage", "tenant.read", "tokens.manage", "tokens.read", "translations.read",
@@ -39,22 +49,23 @@ const ALL: Permission[] = [
 ];
 const READ_ALL: Permission[] = [
   "tenant.read", "members.read", "catalog.read", "translations.read", "releases.read", "knowledge.read",
-  "intelligence.read", "integration.read",
+  "intelligence.read", "integration.read", "workflows.read", "assignments.read",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ALL.filter((p) => p !== "owners.manage"),
+  // Only an owner manages owners and, by default, exports the audit log.
+  admin: ALL.filter((p) => p !== "owners.manage" && p !== "audit.export"),
   developer: [
     ...READ_ALL, "tokens.read", "tokens.manage", "catalog.write", "translations.write", "releases.publish",
     "knowledge.write", "intelligence.translate", "integration.import", "integration.manage",
   ],
   translator: [...READ_ALL, "translations.write", "intelligence.translate", "integration.import"],
-  reviewer: [...READ_ALL, "translations.write", "translations.review", "intelligence.translate", "integration.import"],
+  reviewer: [...READ_ALL, "translations.write", "translations.review", "intelligence.translate", "integration.import", "approvals.decide"],
 };
 
 const LOCALE_SCOPED_PERMISSIONS = new Set<Permission>([
-  "translations.write", "translations.review", "intelligence.translate", "integration.import",
+  "translations.write", "translations.review", "intelligence.translate", "integration.import", "approvals.decide",
 ]);
 const LOCALE_SCOPED_ROLES = new Set<Role>(["translator", "reviewer"]);
 
