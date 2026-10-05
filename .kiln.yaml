@@ -1,0 +1,71 @@
+# Kiln builds Glossa's platform images (owner decision, 2026-10-05: Kiln
+# instead of GitHub Actions for publishing). Warden proves the commit — the
+# checks live in .warden.yaml — Kiln builds, signs with the operator's
+# cosign key and pushes, and RollOps is the only thing that ships.
+#
+# VERSION is a fixed build argument, not read from the tag: Kiln takes no
+# passthrough args, so a build is reproducible from its commit. Bump it
+# with deploy/charts/glossa-platform/Chart.yaml's appVersion, in the same
+# commit the release tag points at. The commit itself is in the
+# provenance, so REVISION keeps the Dockerfiles' default.
+apiVersion: kiln.klarlabs.de/v1
+kind: Pipeline
+
+on:
+  pull_request: [prove]
+  push: [prove]
+  tag: [prove, publish]
+
+prove:
+  from: warden
+  # node_modules is gitignored, so it lives in the clone, never in the
+  # disposable worktree the gate runs in. pnpm keeps one per workspace
+  # package (pnpm-workspace.yaml), each with its own .bin, so every one is
+  # named here: with only the root, the gate's build fails "tsc: command
+  # not found". Keep this list in step with the workspace.
+  materialize:
+    - node_modules
+    - messageformat/js/node_modules
+    - packages/cli/node_modules
+    - packages/format/node_modules
+    - packages/sdk/node_modules
+    - packages/ui/node_modules
+    - runtimes/js/astro/node_modules
+    - runtimes/js/capture/node_modules
+    - runtimes/js/elements/node_modules
+    - runtimes/js/overlay/node_modules
+    - runtimes/js/react/node_modules
+    - runtimes/js/react/react-18/node_modules
+    - runtimes/js/runtime/node_modules
+    - runtimes/js/unplugin/node_modules
+    - runtimes/js/vue/node_modules
+    - studio/node_modules
+
+publish:
+  - kind: image
+    image: ghcr.io/felixgeelhaar/glossa-server
+    dockerfile: platform/Dockerfile.server
+    context: .
+    platforms: [linux/amd64]
+    tags: [sha, semver, latest]
+    args: {VERSION: "0.5.0"}
+
+  - kind: image
+    image: ghcr.io/felixgeelhaar/glossa-edge
+    dockerfile: platform/Dockerfile.edge
+    context: .
+    platforms: [linux/amd64]
+    tags: [sha, semver, latest]
+    args: {VERSION: "0.5.0"}
+
+  - kind: image
+    image: ghcr.io/felixgeelhaar/glossa-studio
+    dockerfile: studio/Dockerfile
+    context: .
+    platforms: [linux/amd64]
+    tags: [sha, semver, latest]
+    args: {VERSION: "0.5.0"}
+
+watch:
+  remote: origin
+  ref: main

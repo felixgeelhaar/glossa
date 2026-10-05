@@ -36,6 +36,16 @@ printf '%s' "$semver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || usage
 # `repository@sha256:…` reference must name.
 digest_of() {
   local ref="$1"
+  # Kiln tags a release `v0.5.0` (its semver tag); the GitHub workflow
+  # tagged `0.5.0`. Prefer the bare version, fall back to the v-prefixed.
+  case "$ref" in *:"$semver")
+    if ! _digest "$ref" > /dev/null 2>&1; then ref="${ref%:*}:v$semver"; fi ;;
+  esac
+  _digest "$ref"
+}
+
+_digest() {
+  local ref="$1"
   if command -v crane > /dev/null 2>&1; then
     crane digest "$ref"
   elif docker buildx version > /dev/null 2>&1; then

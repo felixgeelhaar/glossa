@@ -37,3 +37,6 @@ pnpm-debug.log*
 # Dart / Flutter
 .dart_tool/
 /runtimes/dart/flutter/build/
+
+# Kiln run ledger (local)
+.kiln/
