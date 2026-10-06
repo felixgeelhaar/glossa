@@ -45,6 +45,27 @@ spec:
       securityContext:
         {{- include "gp.podSecurityContext" 65532 | nindent 8 }}
       {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
+      {{- if .Values.postgres.enabled }}
+      # A new pod's first connections can be refused for a moment while
+      # its network policy is programmed (k3s), and the migration does not
+      # retry: wait until the in-namespace Postgres answers, at most 60 s.
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ include "gp.externalImage" (dict "image" .Values.postgres.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - for i in $(seq 1 60); do pg_isready -q -t 2 -h "$PGHOST" -p 5432 && exit 0; sleep 1; done; echo "Postgres at $PGHOST does not answer" >&2; exit 1
+          env:
+            - name: PGHOST
+              value: {{ include "gp.postgres.host" . | quote }}
+          securityContext:
+            {{- include "gp.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 32Mi }
+      {{- end }}
       containers:
         - name: migrate
           image: {{ include "gp.image" (dict "root" $ "component" "server" "image" $v.image) }}
