@@ -60,6 +60,11 @@ spec:
           env:
             - name: PGHOST
               value: {{ include "gp.postgres.host" . | quote }}
+            # pg_isready needs a user name to try at all; uid 65532 has no
+            # passwd entry, so without one it answers "no attempt" (exit 3).
+            # It never authenticates, so the name is only a formality.
+            - name: PGUSER
+              value: postgres
           securityContext:
             {{- include "gp.containerSecurityContext" . | nindent 12 }}
           resources:
