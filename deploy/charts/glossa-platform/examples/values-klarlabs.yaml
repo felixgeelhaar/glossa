@@ -4,7 +4,8 @@
 # app role, FORCE RLS), with the owner's infrastructure decisions:
 #
 #   namespace       glossa-platform (its own; v0.3 keeps running in "glossa")
-#   hosts           app. / api. / cdn.glossa.klarlabs.de
+#   hosts           glossa.klarlabs.de (Studio, and the API under /v1) and
+#                   cdn.glossa.klarlabs.de (glossa-edge)
 #   database        the Klarlabs Postgres pattern: the in-namespace Postgres 16
 #                   StatefulSet on longhorn (3 replicas), no operator
 #   object storage  the in-namespace MinIO on longhorn (3 replicas)
@@ -40,12 +41,13 @@
 # The namespace is glossa-platform's own, so nothing collides with v0.3.
 fullnameOverride: glossa
 
-# Standard §4. TODO(infra): does a CDN front cdn.glossa.klarlabs.de, and
+# One host for Studio and the API (hosts.api empty); the passkey RP ID
+# stays glossa.klarlabs.de. TODO(infra): does a CDN front cdn.glossa.klarlabs.de, and
 # which one? (Without one, traefik serves the edge directly; compression
 # there stays off, ingress.compress.cdn.)
 hosts:
-  studio: app.glossa.klarlabs.de
-  api: api.glossa.klarlabs.de
+  studio: glossa.klarlabs.de
+  api: ""
   cdn: cdn.glossa.klarlabs.de
 
 commonLabels:
