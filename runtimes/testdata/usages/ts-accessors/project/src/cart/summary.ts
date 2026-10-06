@@ -1,4 +1,4 @@
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
 import { createMessages } from "../generated/messages";
 
 const runtime = createRuntime({ edge: "https://edge.example.com", deliveryKey: "pk_fixture" });

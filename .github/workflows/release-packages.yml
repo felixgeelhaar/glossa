@@ -1,6 +1,6 @@
 name: Release packages
 
-# Publishes the `@felixgeelhaar/glossa-*` npm packages.
+# Publishes the `@klarlabs-studio/glossa-*` (and v0.3 `@felixgeelhaar/glossa-*`) npm packages.
 #
 # Flow:
 #   1. PR lands on `main` with a `.changeset/*.md` file describing
@@ -14,7 +14,7 @@ name: Release packages
 #
 # Auth: npm trusted publishing (OIDC). No long-lived token.
 #   On npmjs.com, configure each package as a trusted publisher:
-#     Owner:        felixgeelhaar
+#     Owner:        klarlabs-studio
 #     Repository:   glossa
 #     Workflow:     .github/workflows/release-packages.yml
 #     Environment:  (empty)

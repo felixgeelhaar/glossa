@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSSRApp, defineComponent, h } from "vue";
 import { renderToString } from "vue/server-renderer";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
 
 import { GlossaText, createGlossa, useGlossa } from "./index.js";
 import { App, r1 } from "./testing/app.js";

@@ -45,7 +45,7 @@ podAnnotations: {}
 ## ── glossa-server ─────────────────────────────────────────────────
 server:
   image:
-    repository: felixgeelhaar/glossa-server
+    repository: klarlabs-studio/glossa-server
     # -- Defaults to .Chart.AppVersion.
     tag: ""
     # -- sha256:… pins the image by digest (tag is kept for readability).
@@ -225,7 +225,7 @@ server:
 ## ── glossa-edge ───────────────────────────────────────────────────
 edge:
   image:
-    repository: felixgeelhaar/glossa-edge
+    repository: klarlabs-studio/glossa-edge
     tag: ""
     digest: ""
   replicas: 2
@@ -265,7 +265,7 @@ edge:
 ## ── Studio ────────────────────────────────────────────────────────
 studio:
   image:
-    repository: felixgeelhaar/glossa-studio
+    repository: klarlabs-studio/glossa-studio
     tag: ""
     digest: ""
   replicas: 2

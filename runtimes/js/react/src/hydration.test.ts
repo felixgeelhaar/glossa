@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { StrictMode, act, createElement as h } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { createRuntime, memoryStorage } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime, memoryStorage } from "@klarlabs-studio/glossa-runtime";
 
 import { GlossaProvider, createGlossa, useGlossa } from "./index.js";
 import { Root, r1, r2 } from "./testing/app.js";

@@ -2,14 +2,14 @@
  * Starting an editor session on a page (RFC 0004 §5): a capture session
  * marks what the page's runtimes render, Alt+click (or Alt+Enter on a
  * focused element) finds the message under it, and `<glossa-overlay>`
- * opens on it. The loader (`@felixgeelhaar/glossa-runtime/dev`) decides whether a page
+ * opens on it. The loader (`@klarlabs-studio/glossa-runtime/dev`) decides whether a page
  * may have a session at all — never production — and calls this; the popup
  * that mints the token is a later slice, so this takes a token provider as
  * given.
  */
-import { startCapture } from "@felixgeelhaar/glossa-capture";
-import type { CaptureSession } from "@felixgeelhaar/glossa-capture";
-import type { Message as Model, Runtime } from "@felixgeelhaar/glossa-runtime";
+import { startCapture } from "@klarlabs-studio/glossa-capture";
+import type { CaptureSession } from "@klarlabs-studio/glossa-capture";
+import type { Message as Model, Runtime } from "@klarlabs-studio/glossa-runtime";
 
 import { OverlayApi } from "./api.js";
 import type { ApiOptions, InContext } from "./api.js";

@@ -28,7 +28,7 @@ kubectl apply -k deploy/k3s/glossa
 `git tag v0.1.0 && git push --tags` triggers
 `.github/workflows/release.yml`. That job:
 
-1. Builds + pushes `ghcr.io/felixgeelhaar/glossa-api:<tag>` and
+1. Builds + pushes `ghcr.io/klarlabs-studio/glossa-api:<tag>` and
    `glossa-admin:<tag>`.
 2. SSHes to `edge-1` over Tailscale and runs
    `kubectl -n glossa set image deploy/api ...` for the new tag,

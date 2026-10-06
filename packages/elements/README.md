@@ -1,6 +1,6 @@
 # `@felixgeelhaar/glossa-elements`
 
-Framework-agnostic Lit web components for [Glossa](https://github.com/felixgeelhaar/glossa). Drop `<glossa-text>` / `<glossa-rich>` / `<glossa-plural>` / `<glossa-select>` into any Vue / React / Svelte / Astro / plain-HTML page. ~500 LOC, ~10 KB unpacked.
+Framework-agnostic Lit web components for [Glossa](https://github.com/klarlabs-studio/glossa). Drop `<glossa-text>` / `<glossa-rich>` / `<glossa-plural>` / `<glossa-select>` into any Vue / React / Svelte / Astro / plain-HTML page. ~500 LOC, ~10 KB unpacked.
 
 ```bash
 pnpm add @felixgeelhaar/glossa-elements

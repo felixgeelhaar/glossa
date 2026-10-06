@@ -15,7 +15,7 @@
  * Nothing here is imported by an application: the module isn't reachable
  * from the package's entry point.
  */
-import type { Runtime } from "@felixgeelhaar/glossa-runtime";
+import type { Runtime } from "@klarlabs-studio/glossa-runtime";
 
 import { probe } from "./probes.js";
 import type { ProbeOptions } from "./probes.js";
@@ -54,7 +54,7 @@ type Global = typeof globalThis & {
   __glossaCapture?: Agent;
 };
 
-/** The page's runtime registry, as `@felixgeelhaar/glossa-runtime` names it. */
+/** The page's runtime registry, as `@klarlabs-studio/glossa-runtime` names it. */
 const REGISTRY: unique symbol = Symbol.for("glossa.runtimes") as never;
 
 /** The attribute that marks an element to black out (RFC 0004 §10). */

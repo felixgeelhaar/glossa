@@ -17,7 +17,7 @@ export function memoryStorage(): RuntimeStorage {
 /**
  * `localStorage` (or `sessionStorage`) as JSON: synchronous and small, so it
  * suits small catalogs. Larger ones should use `indexedDbStorage` from
- * `@felixgeelhaar/glossa-runtime/idb`.
+ * `@klarlabs-studio/glossa-runtime/idb`.
  */
 export function webStorage(
   store: Pick<Storage, "getItem" | "setItem"> = localStorage,

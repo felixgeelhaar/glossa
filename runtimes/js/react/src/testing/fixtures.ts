@@ -1,11 +1,11 @@
 /**
  * The runtime contract's conformance fixtures (runtimes/testdata), test-only:
- * the same shapes @felixgeelhaar/glossa-runtime's contract tests read.
+ * the same shapes @klarlabs-studio/glossa-runtime's contract tests read.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Manifest } from "@felixgeelhaar/glossa-runtime";
+import type { Manifest } from "@klarlabs-studio/glossa-runtime";
 
 import type { EdgeManifest } from "./edge.js";
 

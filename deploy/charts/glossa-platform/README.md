@@ -79,9 +79,9 @@ requests only build them (`.github/workflows/platform.yml`). The v0.3
 
 | Image | Dockerfile | Base (pinned by digest) | User | Port |
 |---|---|---|---|---|
-| `ghcr.io/felixgeelhaar/glossa-server` | `platform/Dockerfile.server` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8080 |
-| `ghcr.io/felixgeelhaar/glossa-edge` | `platform/Dockerfile.edge` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8081 |
-| `ghcr.io/felixgeelhaar/glossa-studio` | `studio/Dockerfile` | `nginxinc/nginx-unprivileged:1.29-alpine` | 101 | 8080 |
+| `ghcr.io/klarlabs-studio/glossa-server` | `platform/Dockerfile.server` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8080 |
+| `ghcr.io/klarlabs-studio/glossa-edge` | `platform/Dockerfile.edge` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8081 |
+| `ghcr.io/klarlabs-studio/glossa-studio` | `studio/Dockerfile` | `nginxinc/nginx-unprivileged:1.29-alpine` | 101 | 8080 |
 
 All three build from the repository root, e.g.
 `docker build -f platform/Dockerfile.server .`. A release tags each one
@@ -127,7 +127,7 @@ A release is a tag. Everything else follows from it.
 3. **Kiln publishes** (owner decision, 2026-10-05: Kiln, not GitHub
    Actions). On the tag, Kiln re-proves the commit with warden, builds the
    three images for `linux/amd64`, pushes them to
-   `ghcr.io/felixgeelhaar/glossa-{server,edge,studio}` tagged `sha-…`,
+   `ghcr.io/klarlabs-studio/glossa-{server,edge,studio}` tagged `sha-…`,
    `v0.5.0` and `latest`, and signs each digest with the fleet's cosign key
    (`KILN_COSIGN_KEY=k8s://signing/cosign-key`), the key RollOps verifies
    at apply time. A box that watches the repository builds the tag by
@@ -136,7 +136,7 @@ A release is a tag. Everything else follows from it.
    ```sh
    KILN_COSIGN_KEY=k8s://signing/cosign-key \
      kiln run --sha v0.5.0 --event tag --ref refs/tags/v0.5.0
-   kiln verify ghcr.io/felixgeelhaar/glossa-server:v0.5.0 --key cosign.pub
+   kiln verify ghcr.io/klarlabs-studio/glossa-server:v0.5.0 --key cosign.pub
    ```
 
    `.github/workflows/release-platform.yml` no longer runs on tags; it stays
@@ -879,7 +879,7 @@ the value until it is set.
 | `image.pullPolicy` | `IfNotPresent` | |
 | `image.requireDigest` | `false` | Refuse to render unless server, edge and studio are each pinned by digest. The release's `values-images.yaml` sets it with the digests ([Cutting a release](#cutting-a-release)). |
 | `image.pullSecrets` | `[]` | `imagePullSecrets` for every pod. |
-| `<component>.image.repository` | `felixgeelhaar/glossa-{server,edge,studio}` | `<component>` is `server`, `edge` or `studio`. |
+| `<component>.image.repository` | `klarlabs-studio/glossa-{server,edge,studio}` | `<component>` is `server`, `edge` or `studio`. |
 | `<component>.image.tag` | `""` → `appVersion` | |
 | `<component>.image.digest` | `""` | `sha256:<64 hex>`; appended as `@digest`, and what is actually pulled. Anything else fails the render. |
 | `commonLabels` | `{}` | Labels on every resource. |

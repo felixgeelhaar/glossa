@@ -9,7 +9,7 @@
  * Node 22, CLDR 47). So only add cases whose output is the same in CLDR 47
  * and 48: regenerate with both and diff before committing.
  *
- * Regenerate with `pnpm --filter @felixgeelhaar/glossa-messageformat generate:runtime-format`.
+ * Regenerate with `pnpm --filter @klarlabs-studio/glossa-messageformat generate:runtime-format`.
  * This module has no runtime imports so the generator (plain Node) and the
  * drift test (vitest) can both use it.
  */

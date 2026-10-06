@@ -1,7 +1,7 @@
 /**
  * MF2 syntax in and out of the canonical data model, and formatting through
  * the reference implementation (Studio preview, tooling). Browser runtimes
- * use `@felixgeelhaar/glossa-runtime` instead, which interprets the same data model
+ * use `@klarlabs-studio/glossa-runtime` instead, which interprets the same data model
  * without a parser.
  */
 import {

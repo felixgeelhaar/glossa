@@ -1,6 +1,6 @@
 /**
  * Server-side and build-time rendering of `<glossa-*>` markup
- * (`@felixgeelhaar/glossa-elements/ssr`): pure string processing, no DOM and no Lit.
+ * (`@klarlabs-studio/glossa-elements/ssr`): pure string processing, no DOM and no Lit.
  *
  * `prerender(html, runtime)` replaces the inline default inside every
  * `<glossa-text|rich|plural|select>` whose message resolves with the
@@ -11,7 +11,7 @@
  * whose message is missing keep their inline default. `<script>`, `<style>`,
  * `<textarea>`, `<template>` and comments are left alone.
  */
-import type { Runtime } from "@felixgeelhaar/glossa-runtime";
+import type { Runtime } from "@klarlabs-studio/glossa-runtime";
 
 import { escapeHtml, parseVars, partsToTree, resolveParts, treeToHtml } from "./parts.js";
 

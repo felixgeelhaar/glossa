@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { GlossaText, useGlossa } from "@felixgeelhaar/glossa-vue";
+import { GlossaText, useGlossa } from "@klarlabs-studio/glossa-vue";
 import { useTypedMessages } from "../glossa/glossa-vue";
 
 const props = defineProps<{ total: number; count: number }>();

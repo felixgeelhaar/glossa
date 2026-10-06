@@ -64,8 +64,8 @@ describe("glossa()", () => {
   it("serves the config and the release as virtual modules and registers the middleware", async () => {
     const calls = await setup({ release: r, environment: "production", edge: "https://edge.test" });
     const vite = calls.updateConfig.mock.calls[0]![0].vite;
-    expect(vite.ssr.noExternal).toContain("@felixgeelhaar/glossa-astro");
-    expect(vite.optimizeDeps.exclude).toContain("@felixgeelhaar/glossa-astro");
+    expect(vite.ssr.noExternal).toContain("@klarlabs-studio/glossa-astro");
+    expect(vite.optimizeDeps.exclude).toContain("@klarlabs-studio/glossa-astro");
     const plugin = vite.plugins[0];
     expect(plugin.resolveId("virtual:glossa/config")).toBe("\0virtual:glossa/config");
     expect(plugin.resolveId("./other.js")).toBeUndefined();
@@ -95,15 +95,15 @@ describe("glossa()", () => {
     );
   });
 
-  it("adds @felixgeelhaar/glossa-unplugin to Vite for usages, unless usages: false", async () => {
+  it("adds @klarlabs-studio/glossa-unplugin to Vite for usages, unless usages: false", async () => {
     const names = (calls: Awaited<ReturnType<typeof setup>>) =>
       (calls.updateConfig.mock.calls[0]![0].vite.plugins as Array<{ name: string }>).map((p) => p.name);
     const on = await setup({ release: r });
-    expect(names(on)).toEqual(["@felixgeelhaar/glossa-astro:virtual", "@felixgeelhaar/glossa-unplugin"]);
+    expect(names(on)).toEqual(["@klarlabs-studio/glossa-astro:virtual", "@klarlabs-studio/glossa-unplugin"]);
     const plugin = on.updateConfig.mock.calls[0]![0].vite.plugins[1];
     expect(plugin).toMatchObject({ enforce: "post", apply: "build" });
     const off = await setup({ release: r, usages: false });
-    expect(names(off)).toEqual(["@felixgeelhaar/glossa-astro:virtual"]);
+    expect(names(off)).toEqual(["@klarlabs-studio/glossa-astro:virtual"]);
   });
 
   describe("the overlay loader (RFC 0004 §5.1)", () => {
@@ -121,7 +121,7 @@ describe("glossa()", () => {
       expect(calls.injectScript).toHaveBeenCalledWith("page", LOADER);
       const plugins = calls.updateConfig.mock.calls[0]![0].vite.plugins as unknown[];
       const names = plugins.flat().map((p) => (p as { name: string }).name);
-      expect(names).toEqual(["@felixgeelhaar/glossa-astro:virtual", "@felixgeelhaar/glossa-unplugin:overlay"]);
+      expect(names).toEqual(["@klarlabs-studio/glossa-astro:virtual", "@klarlabs-studio/glossa-unplugin:overlay"]);
     });
 
     it("is never on a production site", async () => {

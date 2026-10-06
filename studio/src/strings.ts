@@ -756,7 +756,7 @@ export const strings = {
     moreUsages: (n: number) => `Showing the first ${n.toLocaleString()} usages.`,
     noData: "No usage data yet.",
     noDataHint:
-      "Usages come from the build: run glossa extract --upload, add @felixgeelhaar/glossa-unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
+      "Usages come from the build: run glossa extract --upload, add @klarlabs-studio/glossa-unplugin to the bundler and push its .glossa/usages.json, and run glossa capture --upload for screenshots.",
     unused: "Unused",
     unusedLead: "No current build uses this message.",
     unusedHint: "Dynamic keys are invisible to every collector, so this is only reported — nothing is obsoleted automatically.",

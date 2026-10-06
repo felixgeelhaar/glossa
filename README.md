@@ -60,7 +60,7 @@ Glossa is the localization backbone for [Brotwerk](https://brotwerk.felixgeelhaa
 ## Quick start (Docker)
 
 ```bash
-git clone https://github.com/felixgeelhaar/glossa
+git clone https://github.com/klarlabs-studio/glossa
 cd glossa
 docker compose up --build
 ```
@@ -111,7 +111,7 @@ glossa/
 ├── packages/
 │   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
 │   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
-│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components
+│   ├── elements/               # @klarlabs-studio/glossa-elements — Lit web components
 │   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
 │   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
 ├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases

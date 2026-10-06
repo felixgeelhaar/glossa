@@ -25,7 +25,7 @@
  * `locus.locale`, `locus.region`, `message`, `subject`, `evidence` — is the
  * wire shape verbatim.
  */
-import type { Runtime, RuntimeError } from "@felixgeelhaar/glossa-runtime";
+import type { Runtime, RuntimeError } from "@klarlabs-studio/glossa-runtime";
 
 import { flatParent, validKey, validLocale } from "./regions.js";
 import type { Capture, Host } from "./regions.js";

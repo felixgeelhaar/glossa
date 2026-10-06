@@ -1,7 +1,7 @@
 {
-  "name": "@felixgeelhaar/glossa-react",
+  "name": "@klarlabs-studio/glossa-react",
   "version": "0.4.0",
-  "description": "Glossa for React 18.3+ and 19: a provider, useGlossa()/useMessages() hooks and <T>, SSR- and hydration-safe through useSyncExternalStore, on @felixgeelhaar/glossa-runtime.",
+  "description": "Glossa for React 18.3+ and 19: a provider, useGlossa()/useMessages() hooks and <T>, SSR- and hydration-safe through useSyncExternalStore, on @klarlabs-studio/glossa-runtime.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -25,16 +25,16 @@
   },
   "size-limit": [
     {
-      "name": "@felixgeelhaar/glossa-react, own code (react and @felixgeelhaar/glossa-runtime excluded)",
+      "name": "@klarlabs-studio/glossa-react, own code (react and @klarlabs-studio/glossa-runtime excluded)",
       "path": "dist/index.js",
       "ignore": [
         "react",
-        "@felixgeelhaar/glossa-runtime"
+        "@klarlabs-studio/glossa-runtime"
       ],
       "limit": "1.5 KB"
     },
     {
-      "name": "@felixgeelhaar/glossa-react with @felixgeelhaar/glossa-runtime (react excluded)",
+      "name": "@klarlabs-studio/glossa-react with @klarlabs-studio/glossa-runtime (react excluded)",
       "path": "dist/index.js",
       "ignore": [
         "react"
@@ -46,8 +46,8 @@
     "react": "^18.3.0 || ^19.0.0"
   },
   "dependencies": {
-    "@felixgeelhaar/glossa-elements": "workspace:^",
-    "@felixgeelhaar/glossa-runtime": "workspace:^"
+    "@klarlabs-studio/glossa-elements": "workspace:^",
+    "@klarlabs-studio/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "11.2.0",
@@ -65,7 +65,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/react"
   },
   "engines": {
@@ -75,6 +75,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/react#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/react#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }

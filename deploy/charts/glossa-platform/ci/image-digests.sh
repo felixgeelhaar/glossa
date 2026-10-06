@@ -15,7 +15,7 @@
 # (they are public for this repository, so usually no login).
 set -euo pipefail
 
-OWNER="${GLOSSA_IMAGE_OWNER:-felixgeelhaar}"
+OWNER="${GLOSSA_IMAGE_OWNER:-klarlabs-studio}"
 REGISTRY="${GLOSSA_IMAGE_REGISTRY:-ghcr.io}"
 
 usage() {

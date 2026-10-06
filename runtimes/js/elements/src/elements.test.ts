@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { RuntimeError, RuntimeOptions } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { RuntimeError, RuntimeOptions } from "@klarlabs-studio/glossa-runtime";
 
 import "./index.js";
 import { GlossaProvider } from "./glossa-provider.js";

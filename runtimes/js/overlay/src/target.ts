@@ -5,8 +5,8 @@
  * hosts carry `data-glossa-id`/`data-glossa-locale`. This module turns a
  * click (or a focused element) into one of those.
  */
-import { ranges } from "@felixgeelhaar/glossa-capture";
-import type { LoggedRender } from "@felixgeelhaar/glossa-capture";
+import { ranges } from "@klarlabs-studio/glossa-capture";
+import type { LoggedRender } from "@klarlabs-studio/glossa-capture";
 
 /** A rendered message the overlay can open. */
 export interface Target {

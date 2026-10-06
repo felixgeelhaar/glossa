@@ -22,7 +22,7 @@ One folder per project (`evidence/<project>/`, outside the repository; never com
 ## Before you start
 
 - The platform is deployed (RFC 0006 §1.3) and the project exists on it. The importer is idempotent: a re-run never undoes a review made in between.
-- `glossa` is installed. `node` 22 or later is on the machine that runs `--verify`, and `@felixgeelhaar/glossa-format` and `@felixgeelhaar/glossa-runtime` are built (`make system-m5-deps` in a Glossa checkout, or installed under `node_modules/`).
+- `glossa` is installed. `node` 22 or later is on the machine that runs `--verify`, and `@felixgeelhaar/glossa-format` and `@klarlabs-studio/glossa-runtime` are built (`make system-m5-deps` in a Glossa checkout, or installed under `node_modules/`).
 - Shell variables used below: `V0_TENANT` (v0.3 tenant slug), `V0_PROJECT` (v0.3 project slug), `RESTORE_DB` (a new database name, e.g. `glossa_v0_restore_<project>`).
 
 ## 1. Freeze writes on v0.3
@@ -106,7 +106,7 @@ glossa import --from v0 --v0-db "postgres://postgres@localhost/$RESTORE_DB" \
   --verify --edge https://cdn.glossa.klarlabs.de --environment staging --json > evidence/verify.json
 ```
 
-`--verify` imports and writes nothing. It renders every key in every locale twice, with v0.3's own formatter and with `@felixgeelhaar/glossa-runtime` over the release the edge serves, using the same generated arguments (each plural at 0, 1, 2, 5, 21 and its exact keys; each select key plus a catch-all value). `--node`, `--format-module` and `--runtime-module` point it at other builds.
+`--verify` imports and writes nothing. It renders every key in every locale twice, with v0.3's own formatter and with `@klarlabs-studio/glossa-runtime` over the release the edge serves, using the same generated arguments (each plural at 0, 1, 2, 5, 21 and its exact keys; each select key plus a catch-all value). `--node`, `--format-module` and `--runtime-module` point it at other builds.
 
 Reading `glossa.cli.import-verify/v1`:
 
@@ -130,7 +130,7 @@ Rollback: fix the data or release and re-run; `glossa release rollback --environ
 
 ## 7. Switch the product's runtime to the edge
 
-In the product repository (deferred until the Glossa rewrite is finished; owner decision): replace the v0.3 SDK with `createRuntime({ edge: "https://cdn.glossa.klarlabs.de", deliveryKey })` from `@felixgeelhaar/glossa-runtime` (or the Go or Dart runtime), keep the product's fallbacks, deploy to staging, then production. For a gradual start use `glossa release rollout start …` (CLI README, *Staged rollouts*).
+In the product repository (deferred until the Glossa rewrite is finished; owner decision): replace the v0.3 SDK with `createRuntime({ edge: "https://cdn.glossa.klarlabs.de", deliveryKey })` from `@klarlabs-studio/glossa-runtime` (or the Go or Dart runtime), keep the product's fallbacks, deploy to staging, then production. For a gradual start use `glossa release rollout start …` (CLI README, *Staged rollouts*).
 
 Rollback: redeploy the previous product build, which reads v0.3. Keep v0.3's `api` deployment and read keys until step 10 so this stays one deploy away.
 

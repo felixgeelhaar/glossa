@@ -100,8 +100,8 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - name: build Studio
         run: |
-          pnpm --filter @felixgeelhaar/glossa-messageformat build
-          pnpm --filter @felixgeelhaar/glossa-overlay... build
+          pnpm --filter @klarlabs-studio/glossa-messageformat build
+          pnpm --filter @klarlabs-studio/glossa-overlay... build
           pnpm --filter @glossa/studio build
       - name: install Chromium for Playwright
         run: pnpm --filter @glossa/studio exec playwright install --with-deps chromium

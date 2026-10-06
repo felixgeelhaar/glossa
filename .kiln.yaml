@@ -43,28 +43,28 @@ prove:
 
 publish:
   - kind: image
-    image: ghcr.io/felixgeelhaar/glossa-server
+    image: ghcr.io/klarlabs-studio/glossa-server
     dockerfile: platform/Dockerfile.server
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.0"}
+    args: {VERSION: "0.5.1"}
 
   - kind: image
-    image: ghcr.io/felixgeelhaar/glossa-edge
+    image: ghcr.io/klarlabs-studio/glossa-edge
     dockerfile: platform/Dockerfile.edge
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.0"}
+    args: {VERSION: "0.5.1"}
 
   - kind: image
-    image: ghcr.io/felixgeelhaar/glossa-studio
+    image: ghcr.io/klarlabs-studio/glossa-studio
     dockerfile: studio/Dockerfile
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.0"}
+    args: {VERSION: "0.5.1"}
 
 watch:
   remote: origin

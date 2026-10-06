@@ -10,7 +10,7 @@ spec:
     spec:
       namespace: glossa
       resource: deployment/admin
-      image: ghcr.io/felixgeelhaar/glossa-admin:0.4.0@sha256:a76b57db6de2a26763c1a77acd25e6c0640794afb6cb9034f379a6ffec76c98d
+      image: ghcr.io/klarlabs-studio/glossa-admin:0.4.0@sha256:a76b57db6de2a26763c1a77acd25e6c0640794afb6cb9034f379a6ffec76c98d
       manifest: |
         apiVersion: apps/v1
         kind: Deployment
@@ -46,7 +46,7 @@ spec:
                 app.kubernetes.io/name: glossa
             spec:
               containers:
-              - image: ghcr.io/felixgeelhaar/glossa-admin:v0.2.0
+              - image: ghcr.io/klarlabs-studio/glossa-admin:v0.2.0
                 imagePullPolicy: IfNotPresent
                 name: admin
                 ports:

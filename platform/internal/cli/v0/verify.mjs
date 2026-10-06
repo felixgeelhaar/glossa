@@ -11,7 +11,7 @@
 //           v0Requoted, requotedError, runtime, runtimeError }] }
 //
 // Each case is rendered by v0.3's own formatter (@felixgeelhaar/glossa-format,
-// its hand-written ICU subset) over v0.3's text, and by @felixgeelhaar/glossa-runtime over
+// its hand-written ICU subset) over v0.3's text, and by @klarlabs-studio/glossa-runtime over
 // the release glossa-edge serves to the delivery key in the environment —
 // with the same arguments. The two share no code. `requoted` is v0.3's text
 // with its apostrophes rewritten the way ICU reads them; v0.3's formatter
@@ -75,7 +75,7 @@ for (const c of input.cases) {
       row.runtimeError = `resolved from ${ex.resolvedFrom ?? "nothing (the inline default)"}, not ${c.locale}`;
     }
   } catch (e) {
-    row.runtimeError = String(e?.message ?? e) || "@felixgeelhaar/glossa-runtime failed";
+    row.runtimeError = String(e?.message ?? e) || "@klarlabs-studio/glossa-runtime failed";
   }
   rows.push(row);
 }

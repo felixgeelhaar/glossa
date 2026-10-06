@@ -6,10 +6,10 @@
  * terminology, AI suggestions, keyboard use and ending the session.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { Runtime } from "@felixgeelhaar/glossa-runtime";
-import { strip } from "@felixgeelhaar/glossa-capture";
-import "@felixgeelhaar/glossa-elements";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { Runtime } from "@klarlabs-studio/glossa-runtime";
+import { strip } from "@klarlabs-studio/glossa-capture";
+import "@klarlabs-studio/glossa-elements";
 
 import { activate } from "./activate.js";
 import type { Overlay } from "./activate.js";

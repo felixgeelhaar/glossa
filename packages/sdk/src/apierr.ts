@@ -3,7 +3,7 @@
 // resolver that takes an HTTP response body and turns it into the
 // localised string to show the user.
 //
-// Wire shape (matches apierr.Error in github.com/felixgeelhaar/glossa/apierr):
+// Wire shape (matches apierr.Error in github.com/klarlabs-studio/glossa/apierr):
 //
 //   { "error": {
 //       "code":    "validation_email_required",

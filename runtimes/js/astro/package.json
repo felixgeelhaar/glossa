@@ -1,5 +1,5 @@
 {
-  "name": "@felixgeelhaar/glossa-astro",
+  "name": "@klarlabs-studio/glossa-astro",
   "version": "0.4.0",
   "description": "Glossa for Astro 5: static pages rendered with the release at build time, islands and <glossa-*> elements sharing one runtime with the same release, and locale routing helpers.",
   "type": "module",
@@ -44,10 +44,10 @@
   },
   "size-limit": [
     {
-      "name": "@felixgeelhaar/glossa-astro/client, the islands' page runtime (@felixgeelhaar/glossa-runtime excluded)",
+      "name": "@klarlabs-studio/glossa-astro/client, the islands' page runtime (@klarlabs-studio/glossa-runtime excluded)",
       "path": "dist/client.js",
       "ignore": [
-        "@felixgeelhaar/glossa-runtime",
+        "@klarlabs-studio/glossa-runtime",
         "virtual:glossa/config"
       ],
       "limit": "0.75 KB"
@@ -57,10 +57,10 @@
     "astro": "^6.4.0 || ^7.0.0"
   },
   "dependencies": {
-    "@felixgeelhaar/glossa-elements": "workspace:^",
-    "@felixgeelhaar/glossa-runtime": "workspace:^",
-    "@felixgeelhaar/glossa-unplugin": "workspace:^",
-    "@felixgeelhaar/glossa-vue": "workspace:^"
+    "@klarlabs-studio/glossa-elements": "workspace:^",
+    "@klarlabs-studio/glossa-runtime": "workspace:^",
+    "@klarlabs-studio/glossa-unplugin": "workspace:^",
+    "@klarlabs-studio/glossa-vue": "workspace:^"
   },
   "devDependencies": {
     "@astrojs/vue": "7.0.3",
@@ -76,7 +76,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/astro"
   },
   "engines": {
@@ -86,6 +86,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/astro#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/astro#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }

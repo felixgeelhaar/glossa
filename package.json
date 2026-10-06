@@ -7,7 +7,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git"
+    "url": "git+https://github.com/klarlabs-studio/glossa.git"
   },
   "packageManager": "pnpm@10.6.0",
   "engines": {

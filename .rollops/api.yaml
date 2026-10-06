@@ -10,7 +10,7 @@ spec:
     spec:
       namespace: glossa
       resource: deployment/api
-      image: ghcr.io/felixgeelhaar/glossa-api:0.5.0@sha256:eeab361a056b0251f283b22f0031fbf6a5d2b22fc8dd2b5e548516b97956ae05
+      image: ghcr.io/klarlabs-studio/glossa-api:0.5.0@sha256:eeab361a056b0251f283b22f0031fbf6a5d2b22fc8dd2b5e548516b97956ae05
       manifest: |
         apiVersion: apps/v1
         kind: Deployment
@@ -51,7 +51,7 @@ spec:
                     name: glossa-app-config
                 - secretRef:
                     name: glossa-app
-                image: ghcr.io/felixgeelhaar/glossa-api:v0.2.0
+                image: ghcr.io/klarlabs-studio/glossa-api:v0.2.0
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 3
@@ -140,7 +140,7 @@ spec:
                     secretKeyRef:
                       key: DATABASE_URL
                       name: glossa-app
-                image: ghcr.io/felixgeelhaar/glossa-api:v0.2.0
+                image: ghcr.io/klarlabs-studio/glossa-api:v0.2.0
                 imagePullPolicy: IfNotPresent
                 name: migrate
                 resources:

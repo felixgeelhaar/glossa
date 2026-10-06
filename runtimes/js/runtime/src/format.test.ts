@@ -1,4 +1,4 @@
-import { parseMF2 } from "@felixgeelhaar/glossa-messageformat";
+import { parseMF2 } from "@klarlabs-studio/glossa-messageformat";
 import { describe, expect, it } from "vitest";
 import { format, formatToParts } from "./index.js";
 import type { Message, MessageError, MessageFunction } from "./index.js";

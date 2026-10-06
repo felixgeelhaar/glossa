@@ -137,16 +137,16 @@ importers:
 
   runtimes/js/astro:
     dependencies:
-      '@felixgeelhaar/glossa-elements':
+      '@klarlabs-studio/glossa-elements':
         specifier: workspace:^
         version: link:../elements
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:^
         version: link:../runtime
-      '@felixgeelhaar/glossa-unplugin':
+      '@klarlabs-studio/glossa-unplugin':
         specifier: workspace:^
         version: link:../unplugin
-      '@felixgeelhaar/glossa-vue':
+      '@klarlabs-studio/glossa-vue':
         specifier: workspace:^
         version: link:../vue
     devDependencies:
@@ -177,16 +177,16 @@ importers:
 
   runtimes/js/capture:
     devDependencies:
-      '@felixgeelhaar/glossa-elements':
+      '@klarlabs-studio/glossa-elements':
         specifier: workspace:*
         version: link:../elements
-      '@felixgeelhaar/glossa-react':
+      '@klarlabs-studio/glossa-react':
         specifier: workspace:*
         version: link:../react
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@felixgeelhaar/glossa-vue':
+      '@klarlabs-studio/glossa-vue':
         specifier: workspace:*
         version: link:../vue
       '@playwright/test':
@@ -234,7 +234,7 @@ importers:
 
   runtimes/js/elements:
     dependencies:
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:^
         version: link:../runtime
       '@lit/context':
@@ -265,7 +265,7 @@ importers:
 
   runtimes/js/overlay:
     dependencies:
-      '@felixgeelhaar/glossa-capture':
+      '@klarlabs-studio/glossa-capture':
         specifier: workspace:^
         version: link:../capture
       lit:
@@ -275,16 +275,16 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@felixgeelhaar/glossa-elements':
+      '@klarlabs-studio/glossa-elements':
         specifier: workspace:*
         version: link:../elements
-      '@felixgeelhaar/glossa-messageformat':
+      '@klarlabs-studio/glossa-messageformat':
         specifier: workspace:*
         version: link:../../../messageformat/js
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@felixgeelhaar/glossa-unplugin':
+      '@klarlabs-studio/glossa-unplugin':
         specifier: workspace:*
         version: link:../unplugin
       '@playwright/test':
@@ -323,10 +323,10 @@ importers:
 
   runtimes/js/react:
     dependencies:
-      '@felixgeelhaar/glossa-elements':
+      '@klarlabs-studio/glossa-elements':
         specifier: workspace:^
         version: link:../elements
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:^
         version: link:../runtime
     devDependencies:
@@ -363,7 +363,7 @@ importers:
 
   runtimes/js/react/react-18:
     devDependencies:
-      '@felixgeelhaar/glossa-react':
+      '@klarlabs-studio/glossa-react':
         specifier: workspace:*
         version: link:..
       '@types/node':
@@ -384,7 +384,7 @@ importers:
 
   runtimes/js/runtime:
     devDependencies:
-      '@felixgeelhaar/glossa-messageformat':
+      '@klarlabs-studio/glossa-messageformat':
         specifier: workspace:*
         version: link:../../../messageformat/js
       '@size-limit/preset-small-lib':
@@ -411,12 +411,12 @@ importers:
 
   runtimes/js/unplugin:
     dependencies:
-      '@felixgeelhaar/glossa-runtime':
-        specifier: workspace:^
-        version: link:../runtime
       '@jridgewell/trace-mapping':
         specifier: 0.3.31
         version: 0.3.31
+      '@klarlabs-studio/glossa-runtime':
+        specifier: workspace:^
+        version: link:../runtime
       acorn:
         specifier: 8.18.0
         version: 8.18.0
@@ -424,10 +424,10 @@ importers:
         specifier: 3.4.0
         version: 3.4.0(esbuild@0.28.2)(rolldown@1.2.9)(rollup@4.63.4)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(webpack@5.111.1(esbuild@0.28.2)(lightningcss@1.33.0))
     devDependencies:
-      '@felixgeelhaar/glossa-react':
+      '@klarlabs-studio/glossa-react':
         specifier: workspace:*
         version: link:../react
-      '@felixgeelhaar/glossa-vue':
+      '@klarlabs-studio/glossa-vue':
         specifier: workspace:*
         version: link:../vue
       '@types/node':
@@ -478,10 +478,10 @@ importers:
 
   runtimes/js/vue:
     dependencies:
-      '@felixgeelhaar/glossa-elements':
+      '@klarlabs-studio/glossa-elements':
         specifier: workspace:^
         version: link:../elements
-      '@felixgeelhaar/glossa-runtime':
+      '@klarlabs-studio/glossa-runtime':
         specifier: workspace:^
         version: link:../runtime
     devDependencies:
@@ -509,7 +509,7 @@ importers:
 
   studio:
     dependencies:
-      '@felixgeelhaar/glossa-messageformat':
+      '@klarlabs-studio/glossa-messageformat':
         specifier: workspace:*
         version: link:../messageformat/js
       '@klarlabs-studio/ui':
@@ -537,7 +537,7 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@felixgeelhaar/glossa-overlay':
+      '@klarlabs-studio/glossa-overlay':
         specifier: workspace:*
         version: link:../runtimes/js/overlay
       '@playwright/test':

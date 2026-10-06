@@ -17,7 +17,7 @@ describe("snippets", () => {
 
   it("uses each runtime's own API", () => {
     const [runtime, vue, elements, go] = snippets(base);
-    expect(runtime!.code).toContain('import { createRuntime } from "@felixgeelhaar/glossa-runtime";');
+    expect(runtime!.code).toContain('import { createRuntime } from "@klarlabs-studio/glossa-runtime";');
     expect(vue!.code).toContain(".use(\n    createGlossa({");
     expect(elements!.code).toContain(`<glossa-provider\n  edge="https://edge.example.com"\n  delivery-key="${key}"`);
     expect(go!.code).toContain("glossa.New(glossa.Config{");

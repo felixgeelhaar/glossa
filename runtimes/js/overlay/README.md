@@ -1,4 +1,4 @@
-# @felixgeelhaar/glossa-overlay
+# @klarlabs-studio/glossa-overlay
 
 The in-product editor ([RFC 0004 §5](../../../docs/rfcs/0004-context.md)): a
 translator Alt+clicks a message in a running preview of the product, and a
@@ -9,7 +9,7 @@ once.
 
 **The overlay is never in production.** It is not a package applications
 import. Studio serves it at `/overlay/v1/overlay.js`, and a loader that
-[`@felixgeelhaar/glossa-unplugin`](../unplugin/README.md#the-in-product-editors-loader) adds
+[`@klarlabs-studio/glossa-unplugin`](../unplugin/README.md#the-in-product-editors-loader) adds
 to non-production builds loads it, pinned by an SRI hash, after an explicit
 gesture. Three layers keep it out of production (RFC 0004 §5.1): the build
 (a production build has no loader, and one that asks for it fails), the
@@ -22,11 +22,11 @@ comes from Studio, so a production page's CSP never allows it).
 edited; nothing else calls it.
 
 ```ts
-import { activate } from "@felixgeelhaar/glossa-overlay";
+import { activate } from "@klarlabs-studio/glossa-overlay";
 
 const overlay = activate({
   apiBase: "https://studio.example.com", // the API origin (Studio serves /v1)
-  token: grant, // an in-context grant; @felixgeelhaar/glossa-runtime/dev mints it through Studio's popup
+  token: grant, // an in-context grant; @klarlabs-studio/glossa-runtime/dev mints it through Studio's popup
   onAuthFailure: () => grant.invalidate(), // a 401 drops it, so the next call asks again
   tenant: "ten_…",
   project: "prj_…",
@@ -42,7 +42,7 @@ overlay.deactivate(); // panel, listeners, markers and previews gone
 
 `pnpm build` writes two things: `dist/`, the package's modules, and
 `dist/bundle/overlay.js`, the **one minified ES module Studio publishes** at
-`/overlay/v1/overlay.js` (esbuild, Lit and `@felixgeelhaar/glossa-capture` included, licence
+`/overlay/v1/overlay.js` (esbuild, Lit and `@klarlabs-studio/glossa-capture` included, licence
 notices kept, no source map, so the same sources always give the same bytes
 and the same SRI hash). Studio's build copies it and publishes
 `/overlay/v1/overlay.json` with its `version` and `integrity` beside it
@@ -56,7 +56,7 @@ script would need `'unsafe-inline'`.
 ## What it does
 
 - **Finding the message.** `activate()` starts a
-  [`@felixgeelhaar/glossa-capture`](../capture/README.md) session on the page's runtimes, so
+  [`@klarlabs-studio/glossa-capture`](../capture/README.md) session on the page's runtimes, so
   `t()` strings carry invisible markers that index the session's render log and
   component hosts carry `data-glossa-id`/`data-glossa-locale`. An Alt+click
   takes the innermost marked text under the pointer (the browser's caret
@@ -151,19 +151,19 @@ fail on any `securitypolicyviolation`.
   the session. Every request and response body the fake sees is validated
   against `platform/api/openapi.yaml`, so the fake can't drift from the API.
 - `pnpm test:browser`: Chromium with Playwright. `e2e/loader.spec.ts` builds
-  a preview deployment with Vite and `@felixgeelhaar/glossa-unplugin` and runs the real
+  a preview deployment with Vite and `@klarlabs-studio/glossa-unplugin` and runs the real
   loader against the real bundle served from a Studio origin: the gesture, the
   injected module script with its `integrity` and `crossorigin`, a tampered
   script that the browser refuses, and a page whose runtime serves a
   production release, which stays uneditable even with `?glossa=edit`.
   `e2e/overlay.spec.ts` covers the panel itself. The app page (from
-  `@felixgeelhaar/glossa-runtime` and `@felixgeelhaar/glossa-elements`), the overlay script (from a Studio
+  `@klarlabs-studio/glossa-runtime` and `@klarlabs-studio/glossa-elements`), the overlay script (from a Studio
   origin) and the fake API (cross-origin, with CORS) are served by route
   handlers under the CSP above. Covers Alt+click targeting with real layout
   (nested markers, duplicate text, an attribute, a component host), live
   override on save, the focus trap, axe, and constructable stylesheets. Needs
   the workspace built and `pnpm exec playwright install chromium`.
-- `pnpm size`: 16 kB brotli with Lit and `@felixgeelhaar/glossa-capture`, 8.5 kB own code.
+- `pnpm size`: 16 kB brotli with Lit and `@klarlabs-studio/glossa-capture`, 8.5 kB own code.
   An editor session measures nothing, so it is started without
-  `@felixgeelhaar/glossa-capture`'s visual probe pass (RFC 0005 §5.1) and that module never
+  `@klarlabs-studio/glossa-capture`'s visual probe pass (RFC 0005 §5.1) and that module never
   enters this bundle.

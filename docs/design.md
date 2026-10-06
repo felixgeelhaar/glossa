@@ -232,8 +232,8 @@ CREATE POLICY projects_isolation ON projects USING (tenant_id::text = current_se
 
 Mirror IRI's `deploy/k3s/` structure:
 
-- `apps/api` builds + pushes to `ghcr.io/felixgeelhaar/glossa-api`
-- `apps/admin` builds + pushes to `ghcr.io/felixgeelhaar/glossa-admin`
+- `apps/api` builds + pushes to `ghcr.io/klarlabs-studio/glossa-api`
+- `apps/admin` builds + pushes to `ghcr.io/klarlabs-studio/glossa-admin`
 - StatefulSet for Postgres (20Gi PVC)
 - Ingress: `<glossa-domain>` → admin; `<glossa-domain>/api/*` → API
 - Daily backup CronJob via existing rclone-config + Hetzner Storage Box pattern
