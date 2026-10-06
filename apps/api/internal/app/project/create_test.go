@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	projectapp "go.klarlabs.de/glossa/apps/api/internal/app/project"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/apikey"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/project"
 )
 
 // stubLocaleRepo captures Save calls so the test can assert the

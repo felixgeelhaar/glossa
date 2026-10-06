@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 // cohorts is runtimes/testdata/rollout/cohorts.json: SPEC §1.4's

@@ -12,7 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcminio "github.com/testcontainers/testcontainers-go/modules/minio"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store"
 )
 
 const (

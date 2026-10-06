@@ -15,7 +15,7 @@ import (
 	"sync"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // fakeEdge is glossa-edge serving one release to one delivery key in

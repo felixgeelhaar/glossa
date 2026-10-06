@@ -8,11 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // setPolicy stores the project's check-policy document, which is where

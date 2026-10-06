@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tbx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tmx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/xliff"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tbx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tmx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/xliff"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // Files renders the fixture's files: fixture.json and the interchange

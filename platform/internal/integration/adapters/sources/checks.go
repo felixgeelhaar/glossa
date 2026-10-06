@@ -8,22 +8,22 @@ import (
 
 	"github.com/google/uuid"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	knowledgedomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	releasedelivery "github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	knowledgedomain "go.klarlabs.de/glossa/platform/internal/knowledge/domain"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
+	releasedelivery "go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 // Checks implements app.CheckSources: the read model the Glossa PR

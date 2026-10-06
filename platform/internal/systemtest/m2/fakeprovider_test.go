@@ -12,9 +12,9 @@ import (
 	"sync"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 // The fake provider: an OpenAI-compatible /chat/completions endpoint on

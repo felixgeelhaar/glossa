@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0/v0test"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0/v0test"
 )
 
 // `glossa import --from v0 --v0-db` end to end on the CLI's side: a v0.3

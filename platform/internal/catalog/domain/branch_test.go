@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
 )
 
 func newBranch(t *testing.T) domain.Branch {

@@ -12,13 +12,13 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/imaging"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/adapters/imaging"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 // minioStore boots a disposable MinIO and returns a store on a fresh

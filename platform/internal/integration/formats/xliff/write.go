@@ -6,11 +6,11 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/inline"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/xmlx"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/inline"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/xmlx"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // WriteOptions configure Write.

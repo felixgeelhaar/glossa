@@ -9,8 +9,8 @@ import (
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/passkey"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/passkey"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 type repo struct{ creds []authgo.PasskeyCredential }

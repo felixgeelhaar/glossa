@@ -15,13 +15,13 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/edge"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/edge"
+	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // pushBranch pushes items (key → source) from branch, without a pull

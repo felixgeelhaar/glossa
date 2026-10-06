@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
 )
 
 // The read ports other contexts use. They are ordinary use cases —

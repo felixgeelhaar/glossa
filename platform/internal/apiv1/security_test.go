@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
 )
 
 func TestRequirementsCoverEveryRoute(t *testing.T) {

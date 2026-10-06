@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/codegen"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
+	"go.klarlabs.de/glossa/platform/internal/cli/codegen"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
 )
 
 type generatedFile struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/messageformat"
+	"go.klarlabs.de/glossa/messageformat"
 )
 
 // Rendering (runtimes/SPEC.md §4.3, §5): resolve through the fallback

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // `glossa assignments report` (RFC 0006 §3.4): the quality numbers of

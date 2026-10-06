@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture/capturetest"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m3/fixture"
 )
 
 // TestM3Exit is RFC 0004 §12's exit test. It runs the four parts in

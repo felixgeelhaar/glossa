@@ -12,19 +12,19 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	catalogport "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/catalog"
-	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	catalogpg "go.klarlabs.de/glossa/platform/internal/catalog/adapters/postgres"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	catalogport "go.klarlabs.de/glossa/platform/internal/context/adapters/catalog"
+	contextpg "go.klarlabs.de/glossa/platform/internal/context/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 var env *dbtest.Env
@@ -204,7 +204,7 @@ type placedUse struct {
 func documentOf(application, commit, branch string, uses ...placedUse) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, `{"schema":"glossa.usages/v1","application":%q,"commit":%q,"branch":%q,`+
-		`"tool":{"name":"@felixgeelhaar/glossa-unplugin","version":"0.1.0"},"usages":[`, application, sha(commit), branch)
+		`"tool":{"name":"@klarlabs-studio/glossa-unplugin","version":"0.1.0"},"usages":[`, application, sha(commit), branch)
 	for i, u := range uses {
 		if i > 0 {
 			b.WriteByte(',')

@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 	"go.klarlabs.de/fortify/ferrors"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 const (

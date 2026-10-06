@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // Capture is the capture plan of `glossa capture` (RFC 0004 §3.2): which

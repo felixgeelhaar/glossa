@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	integrationpg "go.klarlabs.de/glossa/platform/internal/integration/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The check queue on real Postgres with row-level security on (RFC 0004

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // ── output shapes (cmd/glossa/README.md, "JSON output") ─────────────

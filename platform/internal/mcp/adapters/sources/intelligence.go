@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // Intelligence adapts Intelligence's application service to

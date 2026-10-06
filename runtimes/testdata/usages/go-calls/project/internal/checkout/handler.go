@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
 	"example.com/shop/internal/msg"
 )

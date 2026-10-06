@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	identitydomain "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	mcpidentity "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/identity"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	identitydomain "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	mcpidentity "go.klarlabs.de/glossa/platform/internal/mcp/adapters/identity"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // fakeTokens stands in for Identity's service. It records what it was

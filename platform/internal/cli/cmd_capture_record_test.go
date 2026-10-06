@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa capture --check` puts its run on the record too (RFC 0005

@@ -11,15 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // xliffDoc is an XLIFF 2.1 document of plain units: key, source,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 // CI records the GitHub Actions OIDC exchange (RFC 0004 §6.3): how many

@@ -7,9 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/catalog/app"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
 )
 
 // The reads and the upsert the Branches API serves (RFC 0004 §4.1, §9).

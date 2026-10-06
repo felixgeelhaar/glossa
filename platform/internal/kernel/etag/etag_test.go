@@ -3,7 +3,7 @@ package etag_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/etag"
+	"go.klarlabs.de/glossa/platform/internal/kernel/etag"
 )
 
 func TestRoundTrip(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m3/fixture"
 )
 
 const dir = "../testdata"
@@ -38,12 +38,12 @@ func TestFixtureIsCurrent(t *testing.T) {
 	// app is either generated or written by the JS build.
 	built, err := os.ReadFile(filepath.Join(dir, "app", fixture.FileUsages))
 	if err != nil || len(built) == 0 {
-		t.Errorf("%s is missing — run `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`", fixture.FileUsages)
+		t.Errorf("%s is missing — run `pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`", fixture.FileUsages)
 	}
 	for _, d := range []string{fixture.DirPreview, fixture.DirProduction} {
 		entries, err := os.ReadDir(filepath.Join(dir, "app", filepath.FromSlash(d)))
 		if err != nil || len(entries) == 0 {
-			t.Errorf("app/%s is missing — run `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`", d)
+			t.Errorf("app/%s is missing — run `pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`", d)
 		}
 	}
 }

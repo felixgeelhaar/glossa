@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/audit"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/adapters/audit"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 type recorder struct{ calls []auditdomain.ToolCall }

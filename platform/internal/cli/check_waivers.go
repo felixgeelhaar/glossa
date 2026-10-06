@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa check` applies the project's waivers (RFC 0005 §2.3).

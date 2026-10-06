@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/resilient"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/resilient"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 type scripted struct {

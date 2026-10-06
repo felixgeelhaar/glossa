@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	audit "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	audit "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // `glossa audit list` and `glossa audit export` (RFC 0006 §6.2, wave 6)

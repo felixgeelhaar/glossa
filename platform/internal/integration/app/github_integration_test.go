@@ -10,14 +10,14 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	integrationpg "github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	catalogpg "go.klarlabs.de/glossa/platform/internal/catalog/adapters/postgres"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	integrationpg "go.klarlabs.de/glossa/platform/internal/integration/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The GitHub store and the webhook inbox against a real Postgres with

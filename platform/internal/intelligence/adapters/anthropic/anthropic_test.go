@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/anthropic"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/anthropic"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 func request() domain.CompletionRequest {

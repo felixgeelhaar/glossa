@@ -1,4 +1,4 @@
-module github.com/felixgeelhaar/glossa/apps/api
+module go.klarlabs.de/glossa/apps/api
 
 go 1.26.3
 
@@ -12,9 +12,12 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 )
 
-require github.com/felixgeelhaar/glossa/apierr/ginerr v0.0.0-20260525144025-17766830bcc3
+require go.klarlabs.de/glossa/apierr/ginerr v0.0.0-20260525144025-17766830bcc3
 
-require go.opentelemetry.io/otel/sdk v1.45.0 // indirect
+require (
+	go.opentelemetry.io/otel/sdk v1.45.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.45.0 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -37,7 +40,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525144025-17766830bcc3
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -85,6 +87,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	go.klarlabs.de/glossa/apierr v0.0.0-20260525144025-17766830bcc3
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
@@ -100,4 +103,11 @@ require (
 	golang.org/x/text v0.41.0
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+// The apierr modules are not published under the new path yet; build from the
+// tree. v0.3 line: build fixes only.
+replace (
+	go.klarlabs.de/glossa/apierr => ../../apierr
+	go.klarlabs.de/glossa/apierr/ginerr => ../../apierr/ginerr
 )

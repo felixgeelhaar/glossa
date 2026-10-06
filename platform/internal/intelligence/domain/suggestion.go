@@ -4,7 +4,7 @@ import (
 	"errors"
 	"slices"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // Action is what the review routing policy does with a suggestion

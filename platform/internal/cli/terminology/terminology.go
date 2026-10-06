@@ -12,8 +12,8 @@ import (
 	"context"
 	"sort"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // CheckName is the layer the findings belong to, under the name

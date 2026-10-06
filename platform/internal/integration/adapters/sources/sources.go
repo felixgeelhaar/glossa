@@ -12,16 +12,16 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	knowledgedomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	knowledgedomain "go.klarlabs.de/glossa/platform/internal/knowledge/domain"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // ── Catalog ──────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 //
 // The output is a pure function of -seed; the committed files were
 // written with fixture.DefaultSeed. Rebuild the app afterwards with
-// `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`.
+// `pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`.
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m3/fixture"
 )
 
 func main() {

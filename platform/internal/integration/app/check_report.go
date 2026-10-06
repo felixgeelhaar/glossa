@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // Rendering the Glossa check (RFC 0004 §6.4): what it reports, which

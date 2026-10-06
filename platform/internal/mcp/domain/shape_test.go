@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 func TestShape(t *testing.T) {

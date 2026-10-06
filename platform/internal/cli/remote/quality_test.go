@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 func ptr[T any](v T) *T { return &v }

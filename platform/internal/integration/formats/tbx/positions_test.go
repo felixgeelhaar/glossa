@@ -3,7 +3,7 @@ package tbx_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 func TestReadRecordsPositions(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tbx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tbx"
 )
 
 // FuzzRead: any input is an error or a termbase, never a panic, and a

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
 )
 
 // The audit export signing key (RFC 0006 §6.2). It is the audit

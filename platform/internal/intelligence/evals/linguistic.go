@@ -13,12 +13,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/cassette"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/linguistic"
-	qdomain "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/cassette"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/linguistic"
+	qdomain "go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The linguistic layer's golden set (RFC 0005 §3.8, RFC 0003 §4).

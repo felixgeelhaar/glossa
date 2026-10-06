@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
 )
 
 // recordedSpans collects the spans a run produced.

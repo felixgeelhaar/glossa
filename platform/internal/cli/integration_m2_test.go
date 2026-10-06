@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli"
 )
 
 // session is a signed-in Studio user (the project's owner): what the

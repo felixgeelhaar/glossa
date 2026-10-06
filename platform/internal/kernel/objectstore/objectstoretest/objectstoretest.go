@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
 )
 
 // Run exercises s. It must start empty (or at least without the keys

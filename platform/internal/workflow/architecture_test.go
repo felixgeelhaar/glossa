@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	localization "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	localization "go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // The §2.1 architecture test (RFC 0006 §2.1, intent §42).
@@ -23,7 +23,7 @@ import (
 // tree, and each names the rule it holds when it fails. The tests read
 // source, not compiled packages, so they also see code behind build tags.
 
-const module = "github.com/felixgeelhaar/glossa/platform"
+const module = "go.klarlabs.de/glossa/platform"
 
 // platformRoot is platform/, relative to this package's directory.
 const platformRoot = "../.."

@@ -12,9 +12,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 // Service implements Context's use cases.
@@ -42,7 +42,7 @@ type Service struct {
 }
 
 // tracerName names Context's spans' instrumentation scope.
-const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/context"
+const tracerName = "go.klarlabs.de/glossa/platform/internal/context"
 
 // WithTracerProvider makes Context trace a CI upload end to end
 // (RFC 0004 §11: one trace per upload, ingest → events). The events it

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/imaging"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/adapters/imaging"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 // picture is a small image with some structure.

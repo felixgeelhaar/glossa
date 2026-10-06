@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/inline"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/inline"
 )
 
 func spans(t *testing.T, src string) []inline.Span {

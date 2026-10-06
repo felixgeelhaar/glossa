@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
+	"go.klarlabs.de/glossa/platform/internal/kernel/scheduler"
 )
 
 // leases is an in-memory Lease with the real one's semantics: a job is

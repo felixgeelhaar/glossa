@@ -6,9 +6,9 @@ package audit
 import (
 	"context"
 
-	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	auditapp "go.klarlabs.de/glossa/platform/internal/audit/app"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 // SignIns implements app.SignInAudit.

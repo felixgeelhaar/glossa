@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"slices"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // Handler runs one tool. It is an ordinary Go function over the

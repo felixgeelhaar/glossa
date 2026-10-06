@@ -18,11 +18,11 @@ import (
 	browse "go.klarlabs.de/scout"
 	"go.klarlabs.de/scout/agent"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
-// agentScript is @felixgeelhaar/glossa-capture's capture agent (src/agent.ts), bundled
-// by `pnpm --filter @felixgeelhaar/glossa-capture build:cli`. A test in that package
+// agentScript is @klarlabs-studio/glossa-capture's capture agent (src/agent.ts), bundled
+// by `pnpm --filter @klarlabs-studio/glossa-capture build:cli`. A test in that package
 // fails when this copy is stale.
 //
 //go:embed agent.js
@@ -352,7 +352,7 @@ func refuse(j Job, st pageStatus) *Refusal {
 	r := &Refusal{URL: j.URL}
 	switch {
 	case st.Runtimes == 0:
-		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@felixgeelhaar/glossa-runtime), so nothing marks its messages"
+		r.Code, r.Reason = "no_runtime", "the page created no Glossa runtime (@klarlabs-studio/glossa-runtime), so nothing marks its messages"
 		return r
 	case len(st.Environments) != st.Runtimes || len(st.Locales) != st.Runtimes:
 		r.Code, r.Reason = "environment_unknown", "the capture agent's status is malformed"

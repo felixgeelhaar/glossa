@@ -12,8 +12,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 // Service implements Quality's stored use cases: recording a check run
@@ -73,7 +73,7 @@ type Service struct {
 }
 
 // tracerName names Quality's spans' instrumentation scope.
-const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/quality"
+const tracerName = "go.klarlabs.de/glossa/platform/internal/quality"
 
 // Option configures a Service.
 type Option func(*Service)

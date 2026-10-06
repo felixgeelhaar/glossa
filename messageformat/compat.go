@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/felixgeelhaar/glossa/messageformat/internal/cldr"
+	"go.klarlabs.de/glossa/messageformat/internal/cldr"
 )
 
 // Structural QA (product intent §29.1): is a translation structurally

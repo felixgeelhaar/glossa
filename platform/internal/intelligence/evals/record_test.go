@@ -13,10 +13,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/cassette"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/evals"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/cassette"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/evals"
 )
 
 var record = flag.String("record", "", `re-record the cassettes: "scripted" (hand-crafted answers from testdata/scripted) or "live" (real providers; build with -tags=live)`)

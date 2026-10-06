@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/text/encoding/htmlindex"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 // entry is one parsed PO entry.

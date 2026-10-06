@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The fingerprint's bytes are a stored format (RFC 0005 §2.1, §2.3).

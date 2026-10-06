@@ -8,16 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apierr/ginerr"
-	aitranslatorapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/aitranslator"
-	translationapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/translation"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/translation"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
+	"go.klarlabs.de/glossa/apierr/ginerr"
+	aitranslatorapp "go.klarlabs.de/glossa/apps/api/internal/app/aitranslator"
+	translationapp "go.klarlabs.de/glossa/apps/api/internal/app/translation"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/analytics"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/audit"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/project"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/translation"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/user"
+	"go.klarlabs.de/glossa/apps/api/internal/errs"
 )
 
 // handleListBundle returns the full (project, locale) message map.

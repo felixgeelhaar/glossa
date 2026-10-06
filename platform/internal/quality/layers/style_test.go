@@ -3,8 +3,8 @@ package layers_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The style layer (RFC 0005 §3.2): the mechanical fields of the

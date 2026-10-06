@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m3/fixture"
 )
 
 // appDir is the generated fixture application.

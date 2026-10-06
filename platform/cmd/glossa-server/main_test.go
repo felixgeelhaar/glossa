@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
 )
 
 func lookupFrom(m map[string]string) func(string) (string, bool) {

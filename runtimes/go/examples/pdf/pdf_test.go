@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/image/font/sfnt"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 const docs = "../../testdata/documents"

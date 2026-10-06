@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
+	"go.klarlabs.de/glossa/apps/api/internal/app/auth"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/user"
 )
 
 // fakeUserRepo is a tiny in-memory implementation. The auth tests

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
 )
 
 var (

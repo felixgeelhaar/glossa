@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/gemini"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/gemini"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 func request() domain.CompletionRequest {

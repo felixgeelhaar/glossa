@@ -11,9 +11,9 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // schemaErrors validates raw against captures.v1 (which references

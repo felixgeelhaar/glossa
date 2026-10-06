@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 var (
@@ -25,7 +25,7 @@ const rfcDocument = `{
   "schema": "glossa.usages/v1",
   "application": "web",
   "commit": "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e", "branch": "feat/checkout-copy",
-  "tool": { "name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0" },
+  "tool": { "name": "@klarlabs-studio/glossa-unplugin", "version": "0.1.0" },
   "usages": [
     { "key": "checkout.pay", "file": "src/checkout/PaymentFooter.vue", "line": 42, "column": 9,
       "component": "PaymentFooter", "route": "/checkout/payment", "kind": "t" }
@@ -44,7 +44,7 @@ func TestParseUploadReadsTheRFCDocument(t *testing.T) {
 	if up.Application != "web" || up.Commit.String() != "9f2c1e7a4b3d5c6e8f0a1b2c3d4e5f6a7b8c9d0e" || up.Branch.String() != "feat/checkout-copy" {
 		t.Errorf("header = %q %q %q", up.Application, up.Commit, up.Branch)
 	}
-	if up.Tool != (domain.Tool{Name: "@felixgeelhaar/glossa-unplugin", Version: "0.1.0"}) {
+	if up.Tool != (domain.Tool{Name: "@klarlabs-studio/glossa-unplugin", Version: "0.1.0"}) {
 		t.Errorf("tool = %+v", up.Tool)
 	}
 	want := domain.Usage{
@@ -66,7 +66,7 @@ func TestParseUploadRejectsInvalidDocuments(t *testing.T) {
 		"no branch":          strings.Replace(rfcDocument, "feat/checkout-copy", "", 1),
 		"branch with space":  strings.Replace(rfcDocument, "feat/checkout-copy", "feat checkout", 1),
 		"branch with dotdot": strings.Replace(rfcDocument, "feat/checkout-copy", "feat/../main", 1),
-		"no tool name":       strings.Replace(rfcDocument, "@felixgeelhaar/glossa-unplugin", "", 1),
+		"no tool name":       strings.Replace(rfcDocument, "@klarlabs-studio/glossa-unplugin", "", 1),
 		"no key":             strings.Replace(rfcDocument, `"checkout.pay"`, `""`, 1),
 		"no file":            strings.Replace(rfcDocument, `"src/checkout/PaymentFooter.vue"`, `""`, 1),
 		"line zero":          strings.Replace(rfcDocument, `"line": 42`, `"line": 0`, 1),

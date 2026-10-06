@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/postgres/mcpsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/mcp/adapters/postgres/mcpsql"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
 )
 
 // maxAffected bounds the ids one row records. A write tool that touches

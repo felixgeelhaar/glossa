@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // maxOAuthResponse bounds GitHub's token answer, which is one small

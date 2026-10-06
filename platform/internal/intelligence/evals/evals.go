@@ -24,10 +24,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/cassette"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/memory"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/cassette"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/memory"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // Case is one golden-set entry.

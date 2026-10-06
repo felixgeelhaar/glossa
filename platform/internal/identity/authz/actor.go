@@ -3,8 +3,8 @@ package authz
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 )
 
 // EventActor returns the principal on ctx as the actor of the events

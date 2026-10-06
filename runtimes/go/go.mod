@@ -1,15 +1,15 @@
-module github.com/felixgeelhaar/glossa/runtimes/go
+module go.klarlabs.de/glossa/runtimes/go
 
 go 1.26.5
 
 // In this repository the runtime builds against the messageformat
 // beside it. Consumers ignore this replace and resolve the required
 // version, so tag messageformat/vX before runtimes/go/vX.
-replace github.com/felixgeelhaar/glossa/messageformat => ../../messageformat
+replace go.klarlabs.de/glossa/messageformat => ../../messageformat
 
 require (
-	github.com/felixgeelhaar/glossa/messageformat v0.4.0
 	go.klarlabs.de/fortify v1.10.0
+	go.klarlabs.de/glossa/messageformat v0.4.1
 	golang.org/x/text v0.40.0
 )
 

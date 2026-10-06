@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 var localeNames = map[string]string{"es": "Spanish", "fr": "French", "ja": "Japanese"}

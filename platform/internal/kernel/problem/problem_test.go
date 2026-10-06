@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 func decode(t *testing.T, rec *httptest.ResponseRecorder) problem.Details {

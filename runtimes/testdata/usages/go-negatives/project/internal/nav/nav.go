@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // homeKey is a constant, but only literals at the call site are usages.

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 func ptr[T any](v T) *T { return &v }

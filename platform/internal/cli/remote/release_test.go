@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 var scope = release.Scope{Tenant: "t1", Project: "p1"}

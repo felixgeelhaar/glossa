@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 const project = "0192f5a0-7a4e-7cc3-9d1e-3a4b5c6d7e8f"

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
 )
 
 // cliReview is a definition as a repository would keep it: when a

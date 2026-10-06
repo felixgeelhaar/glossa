@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/scheduler"
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/scheduler"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
 )
 
 // The rollout sweep's cadence (RFC 0006 §5.2). A rollout's max_duration

@@ -8,14 +8,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	widentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/sources"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	widentity "go.klarlabs.de/glossa/platform/internal/workflow/adapters/identity"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/sources"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // askThenApprove asks one reviewer for an approval on entry, and when

@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/defaults"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/defaults"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 func read(t *testing.T, path string) []byte {

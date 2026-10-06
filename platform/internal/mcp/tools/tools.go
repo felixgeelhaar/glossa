@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
 )
 
 // Read returns the read tools of RFC 0005 §7.3, in the order a client

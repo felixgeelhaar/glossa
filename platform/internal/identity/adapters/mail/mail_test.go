@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/mail"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/mail"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 // fakeSMTP is a minimal SMTP server: enough of RFC 5321 for net/smtp.

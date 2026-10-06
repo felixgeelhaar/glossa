@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // glossa release rollout (RFC 0006 §5.2): serve a candidate release to

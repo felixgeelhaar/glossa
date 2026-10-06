@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // The flake-control rule of RFC 0005 §5.2, on the finding.

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0/v0test"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0/v0test"
 )
 
 // One v0.3 server (apps/api's migrations, the seed) for every case; each

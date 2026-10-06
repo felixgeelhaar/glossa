@@ -19,20 +19,20 @@ import (
 
 	"github.com/google/uuid"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	knowledgedomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	knowledgedomain "go.klarlabs.de/glossa/platform/internal/knowledge/domain"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
+	releasedomain "go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // ── Catalog ──────────────────────────────────────────────────────────

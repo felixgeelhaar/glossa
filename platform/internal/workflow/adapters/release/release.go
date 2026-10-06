@@ -19,10 +19,10 @@ import (
 
 	"github.com/google/uuid"
 
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
+	releasedomain "go.klarlabs.de/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // Requests implements app.ReleaseRequests over Release's service.

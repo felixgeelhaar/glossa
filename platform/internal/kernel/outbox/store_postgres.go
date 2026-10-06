@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox/outboxsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox/outboxsql"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // PostgresStore is the Store adapter over outbox_events. It claims and

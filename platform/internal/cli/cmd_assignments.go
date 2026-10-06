@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // Assignments (RFC 0006 §3.1): a batch of translation units given to a

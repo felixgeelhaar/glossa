@@ -89,7 +89,7 @@
 // it: text, markup, placeholder values and fallbacks, with the same
 // resolution and fallbacks as T. On top of the parts, [Localizer.HTML]
 // (the template function th) renders safe HTML, with the rules of
-// @felixgeelhaar/glossa-elements: only allow-listed inline tags become elements, markup
+// @klarlabs-studio/glossa-elements: only allow-listed inline tags become elements, markup
 // options are always dropped (a translation can't add a link), and other
 // markup keeps only its text. [Localizer.Runs] renders text runs with
 // bold, italic and underline flags, whose [Run.Style] is fpdf's SetFont

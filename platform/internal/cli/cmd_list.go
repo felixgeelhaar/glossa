@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // ── locales ─────────────────────────────────────────────────────────

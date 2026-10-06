@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // The documents' data, as in runtimes/go/testdata/documents/data. Every

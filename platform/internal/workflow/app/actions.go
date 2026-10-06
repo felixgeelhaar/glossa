@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // Action outcomes, as the transition log records them.

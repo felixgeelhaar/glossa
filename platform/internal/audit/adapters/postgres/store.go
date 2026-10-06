@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres/auditsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/audit/adapters/postgres/auditsql"
+	"go.klarlabs.de/glossa/platform/internal/audit/app"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 )
 
 // Store implements app.Store.

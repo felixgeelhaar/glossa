@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 var otherApplication = uuid.MustParse("0192a1b2-0000-7000-8000-0000000000dd")

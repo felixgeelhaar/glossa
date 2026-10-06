@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // Rolling out a stricter policy, end to end (RFC 0005 §4.3).

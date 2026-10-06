@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/messageformat"
+	"go.klarlabs.de/glossa/messageformat"
 )
 
 // Numbers, money and dates outside messages (RFC 0004 §7.2): table cells,

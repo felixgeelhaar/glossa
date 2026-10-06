@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // Device sign-in (RFC 0006 §7.2, RFC 8628): `glossa login --device`

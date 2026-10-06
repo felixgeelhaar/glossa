@@ -1,8 +1,8 @@
 package capture
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // Schema is the document type Document carries.

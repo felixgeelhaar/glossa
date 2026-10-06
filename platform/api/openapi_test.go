@@ -11,7 +11,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/felixgeelhaar/glossa/platform/api"
+	"go.klarlabs.de/glossa/platform/api"
 )
 
 func load(t *testing.T) *openapi3.T {

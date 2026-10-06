@@ -22,7 +22,7 @@ import (
 	"go.klarlabs.de/fortify/retry"
 	"go.klarlabs.de/fortify/timeout"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // Options tunes the client. Zero values take the defaults.

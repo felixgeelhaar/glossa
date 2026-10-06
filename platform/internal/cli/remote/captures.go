@@ -8,7 +8,7 @@ import (
 	"net/textproto"
 	"slices"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // CaptureUpload is what a capture upload stored (RFC 0004 §3.2): the

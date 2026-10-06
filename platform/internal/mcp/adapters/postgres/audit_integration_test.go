@@ -13,14 +13,14 @@ import (
 
 	"github.com/google/uuid"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	mcppg "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/postgres/mcpsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	mcppg "go.klarlabs.de/glossa/platform/internal/mcp/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/mcp/adapters/postgres/mcpsql"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 var env *dbtest.Env

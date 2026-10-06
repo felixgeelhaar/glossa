@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 func main() {

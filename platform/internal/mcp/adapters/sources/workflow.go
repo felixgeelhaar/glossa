@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
-	workflowapp "github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	workflow "github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
+	workflowapp "go.klarlabs.de/glossa/platform/internal/workflow/app"
+	workflow "go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // Workflow adapts Workflow's application services to tools.Workflow

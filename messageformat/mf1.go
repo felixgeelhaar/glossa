@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/messageformat/internal/cldr"
 	"github.com/kaptinlin/messageformat-go/mf1"
+	"go.klarlabs.de/glossa/messageformat/internal/cldr"
 	"golang.org/x/text/language"
 )
 

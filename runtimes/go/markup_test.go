@@ -13,7 +13,7 @@ import (
 )
 
 // runtimes/testdata/markup.json: the safe-markup rules shared with
-// @felixgeelhaar/glossa-elements (SAFE_TAGS, parts → HTML).
+// @klarlabs-studio/glossa-elements (SAFE_TAGS, parts → HTML).
 const markupFixture = "../testdata/markup.json"
 
 type markupCase struct {

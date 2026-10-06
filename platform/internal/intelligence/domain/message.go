@@ -8,7 +8,7 @@ import (
 
 	"github.com/agentable/go-intl/locale"
 	"github.com/agentable/go-intl/pluralrules"
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // PluralCategories returns locale's CLDR plural categories, cardinal or

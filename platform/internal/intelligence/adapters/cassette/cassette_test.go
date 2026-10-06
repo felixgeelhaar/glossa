@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/cassette"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/cassette"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 type echo struct {

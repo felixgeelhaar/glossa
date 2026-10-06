@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // fakeBranches is the Branches API as the CLI uses it (RFC 0004 §4.1):

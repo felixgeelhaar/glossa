@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
-	intelligencedomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	qualitycatalog "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/catalog"
-	qualitypg "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/sources"
+	intelligencedomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	qualitycatalog "go.klarlabs.de/glossa/platform/internal/quality/adapters/catalog"
+	qualitypg "go.klarlabs.de/glossa/platform/internal/quality/adapters/postgres"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/sources"
 )
 
 // A delivered unit's numbers come from the real Catalog, Localization

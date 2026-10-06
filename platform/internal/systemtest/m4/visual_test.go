@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The visual layer, for real (RFC 0005 §12.2).

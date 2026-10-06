@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
 )
 
 // ── Context ──────────────────────────────────────────────────────────

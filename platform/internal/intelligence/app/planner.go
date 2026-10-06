@@ -10,7 +10,7 @@ import (
 	agentdomain "go.klarlabs.de/agent/domain/agent"
 	agentapi "go.klarlabs.de/agent/interfaces/api"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // The translation agent runs RFC 0003 §3.2's phases on agent-go's

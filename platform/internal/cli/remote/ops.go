@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // Types the CLI reads, re-exported so commands don't import the

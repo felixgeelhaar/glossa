@@ -3,11 +3,11 @@ package cli
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
-	integration "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
+	integration "go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // One policy, two readers (RFC 0005 §4.2).

@@ -23,15 +23,15 @@ import (
 
 	"github.com/google/uuid"
 
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	integrationapp "go.klarlabs.de/glossa/platform/internal/integration/app"
+	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
+	releasedomain "go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // defaultBranch is the view every coverage number is of. The dashboard

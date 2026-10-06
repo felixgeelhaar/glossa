@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
 )
 
 // How project scope (RFC 0006 §4.1) reaches an operation.

@@ -21,7 +21,7 @@ import (
 // that adds an event without one fails here, before Publish would
 // refuse it at run time.
 
-const outboxImport = "github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+const outboxImport = "go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 
 // platformRoot is platform/, seen from this package's directory.
 const platformRoot = "../../.."

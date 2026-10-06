@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/postgres/qualitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/postgres/qualitysql"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // Quality's daily housekeeping, in storage (migration 0039): the

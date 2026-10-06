@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/felixgeelhaar/glossa/messageformat"
+	"go.klarlabs.de/glossa/messageformat"
 )
 
 // Release artifacts (runtimes/SPEC.md §1.2–§1.3).

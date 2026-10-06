@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
 )
 
 // The in-context surface is the contract's, not a second list kept

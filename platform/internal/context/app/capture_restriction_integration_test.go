@@ -8,8 +8,8 @@ import (
 	"image/png"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
 )
 
 // A screenshot is part of what translating a unit needs (RFC 0006

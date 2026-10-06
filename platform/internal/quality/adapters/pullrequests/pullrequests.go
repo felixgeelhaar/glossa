@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // Source is the part of Integration's GitHub service this reads.

@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
 )
 
 // The glossa.audit/v1 export (RFC 0006 §6.2; the file format is written

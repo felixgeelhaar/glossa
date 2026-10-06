@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 )
 
 func TestMigrationsAreReversibleAndIdempotent(t *testing.T) {

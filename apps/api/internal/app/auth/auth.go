@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/user"
 )
 
 // TokenIssuer signs claims into a compact JWT.

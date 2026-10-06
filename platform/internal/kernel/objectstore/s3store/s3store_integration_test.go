@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/objectstoretest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/objectstoretest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 func TestS3Store(t *testing.T) {

@@ -3,7 +3,7 @@ package checkpolicy_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // findings stands in for what a project has already found: two

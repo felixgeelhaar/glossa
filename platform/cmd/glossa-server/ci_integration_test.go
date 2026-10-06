@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/ghoidc/ghoidctest"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/ghoidc/ghoidctest"
 )
 
 // CI authenticating with GitHub Actions OIDC, end to end over HTTP

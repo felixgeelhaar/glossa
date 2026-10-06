@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"testing"
 
-	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
-	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	identityaudit "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/audit"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	auditpg "go.klarlabs.de/glossa/platform/internal/audit/adapters/postgres"
+	auditapp "go.klarlabs.de/glossa/platform/internal/audit/app"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	identityaudit "go.klarlabs.de/glossa/platform/internal/identity/adapters/audit"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // Sign-ins never reach the outbox, so Identity writes them to the audit

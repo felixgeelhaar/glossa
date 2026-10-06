@@ -7,7 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/metrics"
+	"go.klarlabs.de/glossa/platform/internal/release/adapters/metrics"
 )
 
 func TestActiveRolloutsIsAGaugeByState(t *testing.T) {

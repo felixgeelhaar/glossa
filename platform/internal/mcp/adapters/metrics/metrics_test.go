@@ -7,8 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/metrics"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/adapters/metrics"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 func TestSeries(t *testing.T) {

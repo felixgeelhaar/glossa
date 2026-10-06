@@ -8,11 +8,11 @@ import (
 	"slices"
 	"time"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
 	agentapi "go.klarlabs.de/agent/interfaces/api"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/prompts"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/prompts"
 )
 
 // PromptVersions pins the prompt templates a Translator uses.

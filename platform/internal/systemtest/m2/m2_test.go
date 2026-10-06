@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 // TestM2Exit is RFC 0003 §1's exit test: a partially translated catalog

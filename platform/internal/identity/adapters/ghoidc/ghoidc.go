@@ -27,8 +27,8 @@ import (
 
 	"github.com/klarlabs-studio/auth-go/oidc"
 
-	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // Config is the exchange's verifier configuration. The defaults are

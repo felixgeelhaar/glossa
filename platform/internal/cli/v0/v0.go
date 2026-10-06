@@ -31,8 +31,8 @@ import (
 
 	"go.klarlabs.de/fortify/retry"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // Client reads one v0.3 deployment.

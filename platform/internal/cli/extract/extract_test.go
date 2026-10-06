@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
 )
 
 func TestGlob(t *testing.T) {
@@ -105,7 +105,7 @@ func TestGoShapesBeyondTheFixtures(t *testing.T) {
 import (
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/runtimes/go"
+	"go.klarlabs.de/glossa/runtimes/go"
 )
 
 type Set[T any] struct{ l *glossa.Localizer }

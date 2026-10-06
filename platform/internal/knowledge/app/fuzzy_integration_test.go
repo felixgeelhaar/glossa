@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/app"
 )
 
 // seededTM is a small product catalog's approved en→de memory.

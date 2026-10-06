@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // tenantJSON is a tenant in --json output.

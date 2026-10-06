@@ -22,10 +22,10 @@ import (
 	"context"
 	"fmt"
 
-	intel "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	intel "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // Codes is the linguistic layer's vocabulary as the reviewer needs it.

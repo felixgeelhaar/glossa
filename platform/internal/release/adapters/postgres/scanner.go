@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/postgres/releasesql"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/release/adapters/postgres/releasesql"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
 )
 
 // Scanner implements app.Scanner in system scope: it reads only the

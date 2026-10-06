@@ -14,7 +14,7 @@ import (
 
 	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m3/fixture"
 )
 
 // loaderMarkers are what only the in-product editor's loader puts into a
@@ -73,7 +73,7 @@ func (s *scenario) scanBundles() {
 			t.Fatalf("scan %s: %v", root, err)
 		}
 		if scan.Files == 0 {
-			t.Fatalf("%s holds no files: run `pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`", root)
+			t.Fatalf("%s holds no files: run `pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`", root)
 		}
 		for m := range found {
 			scan.Found = append(scan.Found, m)

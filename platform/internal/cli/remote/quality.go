@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // CheckPolicy reads the project's check-policy document (RFC 0005 §4.2).

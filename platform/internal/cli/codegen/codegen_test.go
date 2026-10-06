@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/codegen"
+	"go.klarlabs.de/glossa/platform/internal/cli/codegen"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")
@@ -77,7 +77,7 @@ func TestTypeScriptGolden(t *testing.T) {
 }
 
 func TestGoGolden(t *testing.T) {
-	src, warnings, err := codegen.Go(entries(t), codegen.GoOptions{Package: "msg", Runtime: "github.com/felixgeelhaar/glossa/runtimes/go", Source: "locales/en.json"})
+	src, warnings, err := codegen.Go(entries(t), codegen.GoOptions{Package: "msg", Runtime: "go.klarlabs.de/glossa/runtimes/go", Source: "locales/en.json"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,8 +132,8 @@ func repoRoot(t *testing.T) string {
 }
 
 // TestGeneratedTypeScriptTypeChecks compiles the generated module and
-// each framework registration against the real @felixgeelhaar/glossa-vue and
-// @felixgeelhaar/glossa-react sources with tsc, plus a consumer whose @ts-expect-error
+// each framework registration against the real @klarlabs-studio/glossa-vue and
+// @klarlabs-studio/glossa-react sources with tsc, plus a consumer whose @ts-expect-error
 // lines prove missing and mistyped arguments fail at compile time.
 func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 	root := repoRoot(t)
@@ -166,9 +166,9 @@ func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 			write(registration, string(fw.render("messages.ts")))
 			write("consumer.ts", consumerTS+fw.consumer)
 			paths := map[string]string{
-				"@felixgeelhaar/glossa-" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
-				"@felixgeelhaar/glossa-runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
-				"@felixgeelhaar/glossa-elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
+				"@klarlabs-studio/glossa-" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
+				"@klarlabs-studio/glossa-runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
+				"@klarlabs-studio/glossa-elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
 			}
 			for k, v := range fw.paths {
 				paths[k] = v
@@ -223,9 +223,9 @@ messages.cart.checkout({ extra: 1 });
 
 const vueConsumerTS = `
 import { useTypedMessages } from "./glossa-vue.js";
-import { useGlossa } from "@felixgeelhaar/glossa-vue";
+import { useGlossa } from "@klarlabs-studio/glossa-vue";
 
-// The registration types @felixgeelhaar/glossa-vue's own t().
+// The registration types @klarlabs-studio/glossa-vue's own t().
 export function inSetup(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();
@@ -239,9 +239,9 @@ export function inSetup(): string {
 const reactConsumerTS = `
 import { createElement } from "react";
 import { useTypedMessages } from "./glossa-react.js";
-import { T, useGlossa } from "@felixgeelhaar/glossa-react";
+import { T, useGlossa } from "@klarlabs-studio/glossa-react";
 
-// The registration types @felixgeelhaar/glossa-react's own t() and <T>.
+// The registration types @klarlabs-studio/glossa-react's own t() and <T>.
 export function Component(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();
@@ -264,7 +264,7 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		t.Skip("builds a scratch module")
 	}
 	root := repoRoot(t)
-	src, _, err := codegen.Go(entries(t), codegen.GoOptions{Package: "msg", Runtime: "github.com/felixgeelhaar/glossa/runtimes/go", Source: "locales/en.json"})
+	src, _, err := codegen.Go(entries(t), codegen.GoOptions{Package: "msg", Runtime: "go.klarlabs.de/glossa/runtimes/go", Source: "locales/en.json"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,10 +284,10 @@ func TestGeneratedGoCompiles(t *testing.T) {
 	}
 	gosum, _ := os.ReadFile(filepath.Join(runtimeDir, "go.sum"))
 	// The runtime's own requirements, plus replaces to the repo checkout.
-	mod := strings.Replace(string(gomod), "module github.com/felixgeelhaar/glossa/runtimes/go", "module scratch", 1)
+	mod := strings.Replace(string(gomod), "module go.klarlabs.de/glossa/runtimes/go", "module scratch", 1)
 	mod = strings.ReplaceAll(mod, "=> ../../messageformat", "=> "+filepath.Join(root, "messageformat"))
-	mod += "\nrequire github.com/felixgeelhaar/glossa/runtimes/go v0.0.0\n" +
-		"replace github.com/felixgeelhaar/glossa/runtimes/go => " + runtimeDir + "\n"
+	mod += "\nrequire go.klarlabs.de/glossa/runtimes/go v0.0.0\n" +
+		"replace go.klarlabs.de/glossa/runtimes/go => " + runtimeDir + "\n"
 	write("go.mod", mod)
 	write("go.sum", string(gosum))
 	write("msg/messages.go", string(src))
@@ -298,7 +298,7 @@ import (
 	"fmt"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
 	"scratch/msg"
 )

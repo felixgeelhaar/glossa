@@ -7,7 +7,7 @@ import (
 )
 
 // The lexical web scan: the fallback for HTML, Vue, Astro, TS, JS and JSX
-// when @felixgeelhaar/glossa-unplugin doesn't run. It sees the call shapes, not the
+// when @klarlabs-studio/glossa-unplugin doesn't run. It sees the call shapes, not the
 // syntax around them, so unlike the plugin it doesn't skip comments.
 
 var (

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 // The audit side of the event registry (RFC 0006 §6.1, §11.1 rule 4):

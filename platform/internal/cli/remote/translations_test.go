@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // The bulk listing takes at most 20 locales a request: more are asked

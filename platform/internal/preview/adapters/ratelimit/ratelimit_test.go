@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/preview/adapters/ratelimit"
+	"go.klarlabs.de/glossa/platform/internal/preview/adapters/ratelimit"
 )
 
 func TestBurstThenRefusePerKey(t *testing.T) {

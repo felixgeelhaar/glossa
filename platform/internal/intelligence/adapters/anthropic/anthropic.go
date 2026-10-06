@@ -24,8 +24,8 @@ import (
 	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpjson"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/httpjson"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // DefaultBaseURL is the Claude API.

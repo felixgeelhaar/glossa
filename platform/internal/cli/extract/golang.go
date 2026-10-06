@@ -11,7 +11,7 @@ import (
 
 // runtimeImport is the Go runtime; its package name (glossa) isn't its
 // path's last element.
-const runtimeImport = "github.com/felixgeelhaar/glossa/runtimes/go"
+const runtimeImport = "go.klarlabs.de/glossa/runtimes/go"
 
 // scanGo parses a Go file and reports its `.T(…)` calls and typed
 // accessor calls. goNames maps accessor method names to keys.

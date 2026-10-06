@@ -1,8 +1,8 @@
-module github.com/felixgeelhaar/glossa/platform
+module go.klarlabs.de/glossa/platform
 
 go 1.26.5
 
-replace github.com/felixgeelhaar/glossa/messageformat => ../messageformat
+replace go.klarlabs.de/glossa/messageformat => ../messageformat
 
 // glossa-server links the Go runtime for one thing: MCP's
 // explain_delivery answers "why does this locale resolve this way"
@@ -10,13 +10,11 @@ replace github.com/felixgeelhaar/glossa/messageformat => ../messageformat
 // and the runtime cannot disagree about negotiation. The end-to-end
 // delivery test (cmd/glossa-server) also loads releases from
 // glossa-edge through it.
-replace github.com/felixgeelhaar/glossa/runtimes/go => ../runtimes/go
+replace go.klarlabs.de/glossa/runtimes/go => ../runtimes/go
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.74.0
 	github.com/felixgeelhaar/decisionkit v0.1.0
-	github.com/felixgeelhaar/glossa/messageformat v0.4.0
-	github.com/felixgeelhaar/glossa/runtimes/go v0.0.0-00010101000000-000000000000
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/uuid v1.6.0
@@ -34,6 +32,8 @@ require (
 	go.klarlabs.de/axi v1.5.0
 	go.klarlabs.de/bolt v1.7.0
 	go.klarlabs.de/fortify v1.10.0
+	go.klarlabs.de/glossa/messageformat v0.4.1
+	go.klarlabs.de/glossa/runtimes/go v0.0.0-00010101000000-000000000000
 	go.klarlabs.de/scout v1.15.3
 	go.klarlabs.de/statekit v1.13.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0

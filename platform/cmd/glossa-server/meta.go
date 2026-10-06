@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
 )
 
 // signInFacts is what GET /v1/meta asks Identity.

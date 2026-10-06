@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	"go.klarlabs.de/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 // testAuthSecret is base64 of 42 bytes.

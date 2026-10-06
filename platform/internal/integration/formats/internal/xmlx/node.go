@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 // XMLNamespace is the namespace of the xml: prefix (xml:lang, xml:space).

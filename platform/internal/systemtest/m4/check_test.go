@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The two spellings glossa.finding/v1 fixes.

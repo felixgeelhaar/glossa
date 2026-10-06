@@ -25,7 +25,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"go.klarlabs.de/fortify/circuitbreaker"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
 )
 
 // Config locates the bucket.

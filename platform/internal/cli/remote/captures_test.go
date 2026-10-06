@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 type receivedPart struct {

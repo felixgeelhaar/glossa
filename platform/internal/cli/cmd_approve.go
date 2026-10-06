@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // glossa approve and glossa deny (RFC 0006 §8): a person's decision on

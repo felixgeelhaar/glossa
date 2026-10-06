@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // The codes RFC 0006 wave 4 adds to Release's contract (api/openapi.yaml

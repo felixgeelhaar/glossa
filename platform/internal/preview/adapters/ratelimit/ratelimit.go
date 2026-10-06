@@ -7,8 +7,8 @@ package ratelimit
 import (
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/ratelimit"
-	"github.com/felixgeelhaar/glossa/platform/internal/preview/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/ratelimit"
+	"go.klarlabs.de/glossa/platform/internal/preview/app"
 )
 
 // Config is a token bucket per key: Rate tokens per Interval, up to

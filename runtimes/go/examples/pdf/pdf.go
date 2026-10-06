@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-pdf/fpdf"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 //go:embed fonts/*.ttf

@@ -4,10 +4,10 @@ import (
 	"slices"
 	"testing"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	intelligence "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	localization "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	intelligence "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	localization "go.klarlabs.de/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // TestTheVocabularyIsClosed pins the vocabulary to RFC 0006 §2.4,

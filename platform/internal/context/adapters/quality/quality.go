@@ -14,8 +14,8 @@ package quality
 import (
 	"context"
 
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // Port implements contextapp.Findings on Quality's service.

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 var t0 = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)

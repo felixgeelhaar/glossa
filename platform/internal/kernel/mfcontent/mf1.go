@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // ErrNoMF1 means a message has no ICU MessageFormat 1 form: it uses

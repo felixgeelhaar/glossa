@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
 )
 
 const sourceEN = `{

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // TMUnit is one stored translation unit.

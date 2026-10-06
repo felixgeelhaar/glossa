@@ -6,7 +6,7 @@ package msg
 import (
 	"context"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // Localizer renders a message by ID; *glossa.Localizer implements it.

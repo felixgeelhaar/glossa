@@ -3,9 +3,9 @@ package domain_test
 import (
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/domain"
 )
 
 func mf2(t *testing.T, src string) mf.Message {
