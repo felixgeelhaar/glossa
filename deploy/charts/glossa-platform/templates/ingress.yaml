@@ -5,7 +5,10 @@
 {{- $edge := include "gp.componentName" (dict "root" $ "component" "edge") -}}
 {{- $studio := include "gp.componentName" (dict "root" $ "component" "studio") -}}
 {{- $hosts := dict "studio" (include "gp.host.studio" .) "api" (include "gp.host.api" .) "cdn" (include "gp.host.cdn" .) -}}
-{{- range $key := list "studio" "api" "cdn" }}
+{{- $apiSeparate := include "gp.host.apiSeparate" . -}}
+{{- $keys := ternary (list "studio" "api" "cdn") (list "studio" "cdn") (not (empty $apiSeparate)) -}}
+{{- $auditKeysPath := "/.well-known/glossa-audit-keys.json" -}}
+{{- range $key := $keys }}
 {{- $tls := index $ing.tlsSecretNames $key | default (printf "%s-%s-tls" $fullname $key) }}
 {{- if $ing.certManager.enabled }}
 ---
@@ -60,7 +63,7 @@ spec:
     scheme: https
     permanent: true
 ---
-# http → https for all three hosts. ACME HTTP-01 challenges stay on http:
+# http → https for every host (once each). ACME HTTP-01 challenges stay on http:
 # cert-manager's solver routes them with a more specific rule.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -72,7 +75,7 @@ spec:
   entryPoints:
     - {{ $ing.entryPoints.web }}
   routes:
-    - match: (Host(`{{ $hosts.studio }}`) || Host(`{{ $hosts.api }}`) || Host(`{{ $hosts.cdn }}`)) && !PathPrefix(`/.well-known/acme-challenge/`)
+    - match: ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Host(`{{ index $hosts $k }}`){{ end }}) && !PathPrefix(`/.well-known/acme-challenge/`)
       kind: Rule
       middlewares:
         - name: {{ $fullname }}-https-redirect
@@ -83,7 +86,7 @@ spec:
 {{- end }}
 {{- /* Middlewares per host: HSTS, compression, then the operator's own. */}}
 {{- $mw := dict }}
-{{- range $key := list "studio" "api" "cdn" }}
+{{- range $key := $keys }}
 {{- $list := list }}
 {{- if $ing.hsts.enabled }}{{ $list = append $list (dict "name" (printf "%s-hsts" $fullname)) }}{{ end }}
 {{- if index $ing.compress $key }}{{ $list = append $list (dict "name" (printf "%s-compress" $fullname)) }}{{ end }}
@@ -113,6 +116,16 @@ spec:
       services:
         - name: {{ $server }}
           port: 8080
+    - match: Host(`{{ $hosts.studio }}`) && Path(`{{ $auditKeysPath }}`)
+      kind: Rule
+      priority: 100
+      {{- with $mw.studio }}
+      middlewares:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - name: {{ $server }}
+          port: 8080
     - match: Host(`{{ $hosts.studio }}`)
       kind: Rule
       priority: 10
@@ -125,8 +138,10 @@ spec:
           port: 8080
   tls:
     secretName: {{ $ing.tlsSecretNames.studio | default (printf "%s-studio-tls" $fullname) }}
+{{- if $apiSeparate }}
 ---
-# The public API. Only /v1: /livez, /readyz and /metrics stay in-cluster.
+# The public API on its own host. Only /v1 and the published audit keys:
+# /livez, /readyz and /metrics stay in-cluster.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -146,8 +161,18 @@ spec:
       services:
         - name: {{ $server }}
           port: 8080
+    - match: Host(`{{ $hosts.api }}`) && Path(`{{ $auditKeysPath }}`)
+      kind: Rule
+      {{- with $mw.api }}
+      middlewares:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - name: {{ $server }}
+          port: 8080
   tls:
     secretName: {{ $ing.tlsSecretNames.api | default (printf "%s-api-tls" $fullname) }}
+{{- end }}
 ---
 # Delivery. Only /v1 (manifests and artifacts).
 apiVersion: traefik.io/v1alpha1
