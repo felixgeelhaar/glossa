@@ -85,11 +85,18 @@ app.kubernetes.io/component: {{ .component }}
 {{/* ── Hosts and URLs ───────────────────────────────────────────── */}}
 
 {{- define "gp.host.studio" -}}
-{{- required "hosts.studio is required (e.g. app.<domain>)" .Values.hosts.studio -}}
+{{- required "hosts.studio is required (e.g. glossa.<domain>)" .Values.hosts.studio -}}
 {{- end -}}
 
+{{/* The public API host: hosts.api, or the Studio host when hosts.api is
+     empty (the API is then served under /v1 of Studio). */}}
 {{- define "gp.host.api" -}}
-{{- required "hosts.api is required (e.g. api.<domain>)" .Values.hosts.api -}}
+{{- .Values.hosts.api | default (include "gp.host.studio" .) -}}
+{{- end -}}
+
+{{/* "true" when the API has its own host, distinct from Studio's. */}}
+{{- define "gp.host.apiSeparate" -}}
+{{- if ne (include "gp.host.api" .) (include "gp.host.studio" .) }}true{{ end -}}
 {{- end -}}
 
 {{- define "gp.host.cdn" -}}

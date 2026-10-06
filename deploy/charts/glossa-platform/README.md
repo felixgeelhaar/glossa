@@ -16,10 +16,10 @@ The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
 
 ```text
                   ┌─────────────── traefik (websecure) ────────────────┐
-app.<domain>/v1/* │→ glossa-server :8080 ──→ Postgres (glossa_app, RLS) │
-app.<domain>/*    │→ studio        :8080     object storage (read-write)│
-api.<domain>/v1/* │→ glossa-server :8080     SMTP (optional)            │
-cdn.<domain>/v1/* │→ glossa-edge   :8081 ──→ object storage (read-only) │
+<studio>/v1/*     │→ glossa-server :8080 ──→ Postgres (glossa_app, RLS) │
+<studio>/*        │→ studio        :8080     object storage (read-write)│
+<api>/v1/* (opt.) │→ glossa-server :8080     SMTP (optional)            │
+<cdn>/v1/*        │→ glossa-edge   :8081 ──→ object storage (read-only) │
                   └─────────────────────────────────────────────────────┘
 database hooks (pre-install, or post-install with postgres.enabled; pre-upgrade):
   postgres-init (owner, database) → migrate (schema owner) → postgres-app-login (glossa_app LOGIN)
@@ -205,8 +205,8 @@ creates the database, so on the first install they run post-install (see
      pod-security.kubernetes.io/warn=restricted
    ```
 
-3. **DNS.** Point `hosts.studio`, `hosts.api` and `hosts.cdn` at the
-   ingress's public address. cert-manager's HTTP-01 challenge needs them
+3. **DNS.** Point `hosts.studio`, `hosts.cdn` and, if you set it,
+   `hosts.api` at the ingress's public address. cert-manager's HTTP-01 challenge needs them
    to resolve before the Certificates can be issued.
 4. **Database and roles** (Postgres 16).
    - **In-namespace (`postgres.enabled`, the Klarlabs pattern):** nothing
@@ -325,7 +325,9 @@ creates the database, so on the first install they run post-install (see
    that the edge's credentials read the bucket but cannot write or delete.
    With backups, run the first backup and the restore drill now rather
    than waiting for the weekend ([Backups](#backups)). `https://<studio>`
-   loads and signs in, `https://<api>/v1/…` answers,
+   loads and signs in, `https://<api>/v1/…` answers (`<api>` is `<studio>`
+   when `hosts.api` is empty), `https://<api>/.well-known/glossa-audit-keys.json`
+   returns the audit key set,
    `https://<cdn>/v1/<key>/production/manifest.json` answers 404 for an
    unknown key. `/metrics`, `/livez` and `/readyz` are not routed
    publicly.
@@ -736,7 +738,7 @@ The App's URLs:
 
 | Field on the App | Value |
 |---|---|
-| Webhook URL | `https://<hosts.api>/v1/integrations/github/webhooks` |
+| Webhook URL (API host: `hosts.api`, else `hosts.studio`) | `https://<API host>/v1/integrations/github/webhooks` |
 | Webhook secret | the same string as `GLOSSA_GITHUB_WEBHOOK_SECRET` in the Secret below |
 | Setup URL, and the OAuth callback URL | Studio, on `hosts.studio`: GitHub returns the person there with `state`, `installation_id`, `code` and `setup_action`, which Studio posts to `POST /v1/tenants/{tenant}/github/installations` to finish the install |
 
@@ -809,7 +811,7 @@ the same `Scope` → permissions the REST API derives. So:
   to a long-lived agent would widen it.
 - **writes need two locks**: the token must carry the `write` scope
   *and* the client must open the session asking for the write toolset
-  (`https://<hosts.api>/mcp?toolset=write`). A plain `/mcp` is a read
+  (`https://<API host>/mcp?toolset=write`). A plain `/mcp` is a read
   session, whatever the token could do.
 - **`admin` is not exposed, and there is no delete tool of any kind.**
   No member, token, connection or tenant management, and no AI provider
@@ -868,8 +870,8 @@ the value until it is set.
 
 | Value | Default | Meaning |
 |---|---|---|
-| `hosts.studio` | REQUIRED | Studio host (`app.<domain>`). Also `GLOSSA_STUDIO_URL`, default passkey RP ID and origin. |
-| `hosts.api` | REQUIRED | Public API host (`api.<domain>`), `/v1` only. |
+| `hosts.studio` | REQUIRED | Studio host (e.g. `glossa.<domain>`); with `hosts.api` empty it also serves the API under `/v1`. Also `GLOSSA_STUDIO_URL`, default passkey RP ID and origin. |
+| `hosts.api` | `""` | Optional separate API host (`api.<domain>`), `/v1` and `/.well-known/glossa-audit-keys.json` only. Empty: the API is `hosts.studio`, and no second route, Certificate or redirect entry is rendered. |
 | `hosts.cdn` | REQUIRED | glossa-edge host (`cdn.<domain>`), `/v1` only. |
 | `nameOverride` | `""` | `app.kubernetes.io/name` (default: chart name). |
 | `fullnameOverride` | `""` | Prefix of every resource name (default: release name). |

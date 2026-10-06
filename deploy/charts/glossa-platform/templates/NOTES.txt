@@ -1,7 +1,7 @@
 Glossa platform {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
 
   Studio        https://{{ .Values.hosts.studio }}
-  API           https://{{ .Values.hosts.api }}/v1
+  API           https://{{ include "gp.host.api" . }}/v1
   Delivery      https://{{ .Values.hosts.cdn }}/v1
 
 {{- if .Values.postgres.enabled }}

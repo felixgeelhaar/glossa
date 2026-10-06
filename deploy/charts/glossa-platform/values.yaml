@@ -8,13 +8,15 @@ nameOverride: ""
 fullnameOverride: ""
 
 ## ── Hostnames ─────────────────────────────────────────────────────
-## Klarlabs standard §4: app.<domain> for the product, api.<domain> for
-## the public API; cdn.<domain> for glossa-edge. REQUIRED, all three.
+## Studio and the public API share one host by default (the API under /v1,
+## so the session cookie stays first-party); cdn.<domain> is glossa-edge.
+## hosts.studio and hosts.cdn are REQUIRED; hosts.api is optional.
 hosts:
   # -- Studio. Its /v1 is routed to glossa-server, so the session cookie
   # stays first-party (studio/README.md).
   studio: ""
-  # -- The public /v1 API (CLI, API tokens) on glossa-server.
+  # -- OPTIONAL separate host for the public /v1 API (CLI, API tokens) on
+  # glossa-server. Empty: the API is served on hosts.studio under /v1.
   api: ""
   # -- glossa-edge: runtimes fetch manifests and artifacts here.
   cdn: ""
@@ -695,8 +697,10 @@ minio:
 ## ── Ingress (traefik IngressRoute + cert-manager) ─────────────────
 ## Routes:
 ##   https://<studio>/v1/*  → glossa-server     https://<studio>/*  → Studio
-##   https://<api>/v1/*     → glossa-server     (nothing else: /metrics and
-##   https://<cdn>/v1/*     → glossa-edge        the probes stay internal)
+##   https://<api>/v1/*     → glossa-server     (only when hosts.api is set)
+##   https://<studio|api>/.well-known/glossa-audit-keys.json → glossa-server
+##   https://<cdn>/v1/*     → glossa-edge        (/metrics and the probes
+##                                                stay internal)
 ingress:
   enabled: true
   entryPoints:
