@@ -1,6 +1,6 @@
 // Written by `go generate ./internal/systemtest/m3/...` — change the generator, not this file.
 import { createApp, h } from "vue";
-import { createGlossa } from "@felixgeelhaar/glossa-vue";
+import { createGlossa } from "@klarlabs-studio/glossa-vue";
 
 import "./styles.css";
 import { runtime } from "./runtime";

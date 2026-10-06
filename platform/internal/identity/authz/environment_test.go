@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // TestRequireInEnvironment pins approvals.decide on a release request

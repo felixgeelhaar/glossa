@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // TestHasReportedRunAgainstTheStore: the question the pull-request

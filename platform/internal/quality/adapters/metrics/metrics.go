@@ -23,8 +23,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // MaxCodes bounds the distinct codes one process labels findings with;

@@ -29,7 +29,7 @@ type VerifyConfig struct {
 	// Node is the node executable.
 	Node string
 	// FormatModule and RuntimeModule are the package directories of
-	// @felixgeelhaar/glossa-format and @felixgeelhaar/glossa-runtime, each with its
+	// @felixgeelhaar/glossa-format and @klarlabs-studio/glossa-runtime, each with its
 	// built dist/index.js.
 	FormatModule, RuntimeModule string
 	// EdgeURL, DeliveryKey and Environment are what the runtime loads

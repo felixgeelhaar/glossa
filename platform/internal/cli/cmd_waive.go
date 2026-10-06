@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa waive` (RFC 0005 §13 wave 6): accepting a finding, listing

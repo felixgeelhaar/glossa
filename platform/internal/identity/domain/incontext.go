@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // InContextGrantPrefix starts every in-context grant secret, so a leaked

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GlossaText, useGlossa } from "@felixgeelhaar/glossa-vue";
+import { GlossaText, useGlossa } from "@klarlabs-studio/glossa-vue";
 
 const props = defineProps<{ name: string }>();
 const { t, locale } = useGlossa();

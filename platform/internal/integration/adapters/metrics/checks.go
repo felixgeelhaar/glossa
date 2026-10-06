@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // Checks records the PR-check series of RFC 0004 §11: check latency

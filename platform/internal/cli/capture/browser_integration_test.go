@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture/capturetest"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
 )
 
 // Headless Chrome against the fixture app (capture/testdata/app): regions

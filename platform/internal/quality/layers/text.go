@@ -5,9 +5,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The literal text of a message, and how a finding points back into it.

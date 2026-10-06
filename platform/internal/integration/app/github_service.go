@@ -15,8 +15,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
 )
 
 // principalGitHub is the background principal the inbox worker acts as.
@@ -79,7 +79,7 @@ type GitHubService struct {
 
 // tracerName names the GitHub integration's spans' instrumentation
 // scope: one trace per check job (RFC 0004 §11).
-const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/integration"
+const tracerName = "go.klarlabs.de/glossa/platform/internal/integration"
 
 // NewGitHubService returns the service, or an error naming what is
 // missing.

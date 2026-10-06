@@ -3,9 +3,9 @@
  * fixture page: two runtimes (a German page and an Arabic island), a page
  * that renders with whichever `t()` it's given, and the capture session.
  */
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
-import "@felixgeelhaar/glossa-elements";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { BundledRelease, Runtime } from "@klarlabs-studio/glossa-runtime";
+import "@klarlabs-studio/glossa-elements";
 
 import { startCapture } from "../src/index.js";
 import type { CaptureSession, SessionCapture } from "../src/index.js";

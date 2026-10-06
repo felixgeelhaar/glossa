@@ -9,9 +9,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // cldrOrder is the order of CLDR plural categories.

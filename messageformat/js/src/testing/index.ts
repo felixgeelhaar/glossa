@@ -1,5 +1,5 @@
 // Test-only helpers for the vendored Unicode MessageFormat suite, shared by
-// every TypeScript implementation in the repo (`@felixgeelhaar/glossa-messageformat/testing`).
+// every TypeScript implementation in the repo (`@klarlabs-studio/glossa-messageformat/testing`).
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";

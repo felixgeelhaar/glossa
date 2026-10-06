@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
 )
 
 type fakeSource struct {

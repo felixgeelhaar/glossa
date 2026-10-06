@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
 )
 
 // selectionProject has a.new (missing in de), b.old (outdated) and

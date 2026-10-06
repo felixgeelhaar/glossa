@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // The linguistic layer's jobs (RFC 0005 §3.8, §13 wave 6).

@@ -2,7 +2,7 @@
  * Regenerates `messageformat/testdata/glossa/runtime-format.json` from the
  * reference formatter. Run through the package script:
  *
- *   pnpm --filter @felixgeelhaar/glossa-messageformat generate:runtime-format
+ *   pnpm --filter @klarlabs-studio/glossa-messageformat generate:runtime-format
  */
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";

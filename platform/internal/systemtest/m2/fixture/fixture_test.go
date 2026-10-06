@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tbx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tmx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/xliff"
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tbx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tmx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/xliff"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 const testdata = "../testdata"

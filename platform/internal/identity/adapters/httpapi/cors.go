@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
 )
 
 // CORS for the in-product editor (RFC 0004 §5.2, §5.3).

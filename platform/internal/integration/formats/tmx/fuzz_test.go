@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tmx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tmx"
 )
 
 // FuzzRead: any input is an error or units, never a panic, and units

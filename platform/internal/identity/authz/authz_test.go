@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 func principal(t *testing.T, tenant tenancy.ID, roles []string, locales []string) authz.Principal {

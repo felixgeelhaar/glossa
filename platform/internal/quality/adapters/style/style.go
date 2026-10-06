@@ -23,9 +23,9 @@ import (
 
 	"github.com/google/uuid"
 
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // Knowledge is the port this package adapts: Intelligence's own adapter

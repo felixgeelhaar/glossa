@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
 )
 
 // Vendors and groups (RFC 0006 §3.3, §4.3). Both are about who people

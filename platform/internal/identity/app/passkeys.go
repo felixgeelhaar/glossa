@@ -12,9 +12,9 @@ import (
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 // CeremonyTTL bounds a passkey ceremony; it matches auth-go's WebAuthn

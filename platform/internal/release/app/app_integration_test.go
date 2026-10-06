@@ -14,16 +14,16 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 var shop = map[string]string{

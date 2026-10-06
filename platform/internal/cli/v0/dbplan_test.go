@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
 )
 
 var (

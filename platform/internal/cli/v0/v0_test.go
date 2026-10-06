@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
 )
 
 func TestReviewStateMapping(t *testing.T) {

@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // A capture upload's visual findings (RFC 0005 §5, §13 wave 4). The

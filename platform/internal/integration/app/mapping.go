@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // The mapping between the exchange model (formats) and what the other

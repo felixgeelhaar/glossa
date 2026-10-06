@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 // ItemKind is what one result of an import is about.

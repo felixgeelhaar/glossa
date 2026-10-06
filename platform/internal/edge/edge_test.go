@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/edge"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/httpserver"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/edge"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/httpserver"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 const (

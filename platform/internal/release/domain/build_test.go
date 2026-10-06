@@ -13,12 +13,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 func model(t *testing.T, locale, mf1 string) json.RawMessage {

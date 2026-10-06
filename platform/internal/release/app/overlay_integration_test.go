@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
 )
 
 // RFC 0004 §4.2: environments other than a branch's build without the

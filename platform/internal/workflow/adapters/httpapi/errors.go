@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/kernel/idempotency"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // Problem codes Workflow adds, as documented in api/openapi.yaml. A code

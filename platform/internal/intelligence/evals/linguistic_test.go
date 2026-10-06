@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/cassette"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/evals"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/cassette"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/evals"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The linguistic layer's evals (RFC 0005 §3.8). They run the shipped

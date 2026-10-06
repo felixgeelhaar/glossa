@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // ProposalKind says what a branch proposes for a key.

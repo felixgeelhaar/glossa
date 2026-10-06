@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/formatstest"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tbx"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/formatstest"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tbx"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // Translations adapts Localization's application service to

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 func person() string { return "person:" + uuid.NewString() }

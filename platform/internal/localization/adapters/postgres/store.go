@@ -16,16 +16,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/adapters/postgres/localizationsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/localization/adapters/postgres/localizationsql"
+	"go.klarlabs.de/glossa/platform/internal/localization/app"
+	"go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // Transactor implements app.Transactor.

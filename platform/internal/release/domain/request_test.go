@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 func TestPublishRequestDebounces(t *testing.T) {

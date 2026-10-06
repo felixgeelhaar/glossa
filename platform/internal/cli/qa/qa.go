@@ -18,11 +18,11 @@
 package qa
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The policy and its vocabulary live in the kernel, because the Glossa

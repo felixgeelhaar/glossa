@@ -41,7 +41,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // ErrInvalidEvent is returned by Publish for an incomplete event.

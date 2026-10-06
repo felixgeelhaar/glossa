@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres/identitysql"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // CI tokens (RFC 0004 §6.3). Minted in the tenant the repository's Git

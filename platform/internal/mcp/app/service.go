@@ -25,8 +25,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // ErrRateLimited means the tenant called too many tools too fast. A
@@ -41,7 +41,7 @@ type Limiter interface {
 }
 
 // tracerName names MCP's spans' instrumentation scope.
-const tracerName = "github.com/felixgeelhaar/glossa/platform/internal/mcp"
+const tracerName = "go.klarlabs.de/glossa/platform/internal/mcp"
 
 // Service opens sessions and runs tool calls.
 type Service struct {

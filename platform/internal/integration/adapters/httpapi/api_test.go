@@ -3,7 +3,7 @@ package httpapi_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/httpapi"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/httpapi"
 )
 
 func TestFileRoutes(t *testing.T) {

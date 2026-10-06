@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with: { go-version: '1.26' }
-      - run: go install github.com/felixgeelhaar/glossa/platform/cmd/glossa@latest
+      - run: go install github.com/klarlabs-studio/glossa/platform/cmd/glossa@latest
       - uses: ./.github/actions/glossa
 ```
 
@@ -46,7 +46,7 @@ the workflow pins the version rather than the action choosing one.
 | `project` | The project's ID. Only needed when the repository feeds several projects (a monorepo with one Git connection per path); without it the exchange answers `ambiguous_project` and lists them. |
 | `application` | Which application the usages and captures belong to. Default: `glossa.yaml`'s `extract.application`. |
 | `token` | A Glossa API token, for a repository that is not connected or a server with no GitHub App. Leave empty to use OIDC. |
-| `usages` | A `glossa.usages/v1` document to upload (`@felixgeelhaar/glossa-unplugin` writes `.glossa/usages.json`). Empty: `glossa extract --upload` collects them instead. |
+| `usages` | A `glossa.usages/v1` document to upload (`@klarlabs-studio/glossa-unplugin` writes `.glossa/usages.json`). Empty: `glossa extract --upload` collects them instead. |
 | `capture` | `true` uploads screenshots with `glossa capture --upload`; needs a running preview (see `capture.base_url`). |
 | `preview-url` | Where CI deployed this branch's preview. Registered on the branch, so Studio and the pull request's comment can link to it. |
 | `working-directory` | The directory holding `glossa.yaml`. Default: the repository root. |

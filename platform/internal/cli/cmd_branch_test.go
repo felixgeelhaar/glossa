@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // The CI commands of RFC 0004 §6.3: glossa push --branch --pr,

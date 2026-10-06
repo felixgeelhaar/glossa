@@ -6,7 +6,7 @@ import (
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // TOTPEnrollment is a pending authenticator secret.

@@ -7,11 +7,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The branch overlay (RFC 0004 §4.1). A branch push proposes; only the

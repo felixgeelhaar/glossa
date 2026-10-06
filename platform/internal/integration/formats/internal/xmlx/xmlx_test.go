@@ -13,8 +13,8 @@ import (
 
 	"golang.org/x/text/encoding/unicode"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/xmlx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/xmlx"
 )
 
 // readTree decodes a whole document into a tree.

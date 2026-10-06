@@ -38,9 +38,9 @@ import (
 
 	"github.com/google/uuid"
 
-	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	intelligencedomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	intelligencedomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // Reviewer is the linguistic layer itself: it runs one batch of

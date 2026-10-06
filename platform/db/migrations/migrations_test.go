@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
-	"github.com/felixgeelhaar/glossa/platform/db/migrations"
+	"go.klarlabs.de/glossa/platform/db/migrations"
 )
 
 // TestTheStreamLoads is the cheapest guard there is on one migration

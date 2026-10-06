@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa check`'s exit codes are a contract CI branches on

@@ -1,10 +1,10 @@
-module github.com/felixgeelhaar/glossa/apierr/ginerr
+module go.klarlabs.de/glossa/apierr/ginerr
 
 go 1.26.3
 
 require (
-	github.com/felixgeelhaar/glossa/apierr v0.0.0-20260525132450-82112f021e1a
 	github.com/gin-gonic/gin v1.10.0
+	go.klarlabs.de/glossa/apierr v0.0.0-20260525132450-82112f021e1a
 )
 
 require (
@@ -36,4 +36,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/felixgeelhaar/glossa/apierr => ../
+replace go.klarlabs.de/glossa/apierr => ../

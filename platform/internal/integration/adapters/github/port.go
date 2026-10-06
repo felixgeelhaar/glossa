@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // Webhooks adapts the verifier and the typed events to Integration's

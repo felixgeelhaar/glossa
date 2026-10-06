@@ -150,7 +150,7 @@ export async function astroRun(c: FixtureCase): Promise<{ doc: UsagesDocument; p
     logLevel: "silent",
     vite: {
       resolve: {
-        alias: [{ find: "@felixgeelhaar/glossa-astro/server", replacement: join(here, "support", "glossa-astro-server.mjs") }],
+        alias: [{ find: "@klarlabs-studio/glossa-astro/server", replacement: join(here, "support", "glossa-astro-server.mjs") }],
       },
       plugins: [glossa.vite(options(c, { outDir: join(work, ".glossa") }))],
     },

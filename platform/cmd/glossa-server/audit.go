@@ -10,17 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 
-	auditapi "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/httpapi"
-	auditmetrics "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/metrics"
-	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
-	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	releasedomain "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	auditapi "go.klarlabs.de/glossa/platform/internal/audit/adapters/httpapi"
+	auditmetrics "go.klarlabs.de/glossa/platform/internal/audit/adapters/metrics"
+	auditpg "go.klarlabs.de/glossa/platform/internal/audit/adapters/postgres"
+	auditapp "go.klarlabs.de/glossa/platform/internal/audit/app"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	releasedomain "go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // newAudit wires the Audit context (RFC 0006 §6) and subscribes its

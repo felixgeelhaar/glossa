@@ -3,7 +3,7 @@ package checkpolicy_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // TestMostSpecific pins the shared precedence rule on its own, apart

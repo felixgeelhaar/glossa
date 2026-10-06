@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // These guards reject misuse before a connection is touched, so a nil

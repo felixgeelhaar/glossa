@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The visual layer (RFC 0005 §5): what a capture's probe pass measured
@@ -14,7 +14,7 @@ import (
 // The layer computes nothing itself. The measurements need live layout
 // — `scrollWidth`, `getComputedStyle`, `document.fonts.check()` — which
 // exists only while the page is open, so they are taken in the browser,
-// in the product's CI, by `@felixgeelhaar/glossa-capture`'s probe pass. What is left
+// in the product's CI, by `@klarlabs-studio/glossa-capture`'s probe pass. What is left
 // here is the part that must not live in a browser: the identity of a
 // finding (its fingerprint), where it is (the locus), and the rule that
 // decides when one may be believed.

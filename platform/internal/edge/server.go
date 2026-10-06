@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/httpserver"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/configured"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/httpserver"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/configured"
+	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
 )
 
 // Run is glossa-edge: it serves the delivery endpoints from the

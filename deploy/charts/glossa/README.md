@@ -1,6 +1,6 @@
 # Glossa Helm chart
 
-Production-leaning Helm chart for [Glossa](https://github.com/felixgeelhaar/glossa). Mirrors the Grafana / cert-manager publishing model — install from the OCI registry at `ghcr.io/felixgeelhaar/charts/glossa`, configure via `values.yaml`, point DNS at the ingress.
+Production-leaning Helm chart for [Glossa](https://github.com/klarlabs-studio/glossa). Mirrors the Grafana / cert-manager publishing model — install from the OCI registry at `ghcr.io/felixgeelhaar/charts/glossa`, configure via `values.yaml`, point DNS at the ingress.
 
 ## Install
 

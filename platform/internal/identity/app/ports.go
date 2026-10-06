@@ -7,9 +7,9 @@ import (
 
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // Store errors. Adapters translate their storage errors into these.

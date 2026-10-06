@@ -1,4 +1,4 @@
-module github.com/felixgeelhaar/glossa/messageformat
+module go.klarlabs.de/glossa/messageformat
 
 go 1.26.5
 

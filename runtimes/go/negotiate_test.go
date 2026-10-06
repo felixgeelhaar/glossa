@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 func TestResolveLocale(t *testing.T) {

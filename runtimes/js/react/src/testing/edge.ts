@@ -1,10 +1,10 @@
 /**
  * A fake `glossa-edge` (runtimes/SPEC.md §2) behind the runtime's transport,
- * test-only; the same fake @felixgeelhaar/glossa-runtime's contract tests use. It answers
+ * test-only; the same fake @klarlabs-studio/glossa-runtime's contract tests use. It answers
  * the manifest and artifact paths from whatever it was last told to serve,
  * and records every request.
  */
-import type { Manifest, Transport } from "@felixgeelhaar/glossa-runtime";
+import type { Manifest, Transport } from "@klarlabs-studio/glossa-runtime";
 
 export const EDGE = "https://edge.test";
 export const DELIVERY_KEY = "pk_test";

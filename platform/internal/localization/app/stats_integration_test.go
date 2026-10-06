@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/localization/app"
+	"go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 func TestTranslationStats(t *testing.T) {

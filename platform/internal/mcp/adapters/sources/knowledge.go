@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	knowledgeapp "github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	knowledge "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	knowledge "go.klarlabs.de/glossa/platform/internal/knowledge/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // Knowledge adapts Knowledge's application service to tools.Knowledge.

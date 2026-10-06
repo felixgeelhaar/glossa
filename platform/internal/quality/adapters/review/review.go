@@ -56,11 +56,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/linguistic"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/linguistic"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // Bounds on one batch (RFC 0005 §10).

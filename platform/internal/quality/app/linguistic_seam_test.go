@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/linguistic"
-	qualityreview "github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/review"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/linguistic"
+	qualityreview "go.klarlabs.de/glossa/platform/internal/quality/adapters/review"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The whole seam, end to end: a job asks for a scope, the batcher

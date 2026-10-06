@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // principalPublisher is the background principal that publishes due

@@ -7,10 +7,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/codegen"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/codegen"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 type extractFlags struct {

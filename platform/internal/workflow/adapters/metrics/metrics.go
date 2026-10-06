@@ -17,8 +17,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // The allowlisted label values.

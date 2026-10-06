@@ -6,8 +6,8 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
 )
 
 // ReadService is the read side of the trail (RFC 0006 §6.2): a tenant's

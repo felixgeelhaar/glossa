@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli"
 )
 
 const brotTMX = `<?xml version="1.0" encoding="UTF-8"?>

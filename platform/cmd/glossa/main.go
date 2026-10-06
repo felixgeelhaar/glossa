@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli"
 )
 
 // version is set at build time (-ldflags "-X main.version=…").

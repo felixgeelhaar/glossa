@@ -5,7 +5,7 @@
  * reference change only.
  */
 import { createContext } from "@lit/context";
-import type { Runtime } from "@felixgeelhaar/glossa-runtime";
+import type { Runtime } from "@klarlabs-studio/glossa-runtime";
 
 export interface GlossaContextValue {
   /** The provider's runtime; undefined while the provider isn't connected. */

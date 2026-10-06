@@ -1,5 +1,5 @@
 {
-  "name": "@felixgeelhaar/glossa-overlay",
+  "name": "@klarlabs-studio/glossa-overlay",
   "version": "0.4.0",
   "description": "Glossa's in-product editor (RFC 0004 §5): a Lit web component that finds the message under an Alt+click, shows its source, translation, history, terminology and AI suggestions, saves edits as ordinary translation revisions and previews them live through the runtime's override. Served from Studio to preview deployments, never imported by applications, never in production.",
   "type": "module",
@@ -33,16 +33,16 @@
   },
   "size-limit": [
     {
-      "name": "@felixgeelhaar/glossa-overlay, everything included (lit, @felixgeelhaar/glossa-capture; @felixgeelhaar/glossa-runtime is types only)",
+      "name": "@klarlabs-studio/glossa-overlay, everything included (lit, @klarlabs-studio/glossa-capture; @klarlabs-studio/glossa-runtime is types only)",
       "path": "dist/index.js",
       "limit": "16 KB"
     },
     {
-      "name": "@felixgeelhaar/glossa-overlay, own code (lit and @felixgeelhaar/glossa-capture excluded)",
+      "name": "@klarlabs-studio/glossa-overlay, own code (lit and @klarlabs-studio/glossa-capture excluded)",
       "path": "dist/index.js",
       "ignore": [
         "lit",
-        "@felixgeelhaar/glossa-capture"
+        "@klarlabs-studio/glossa-capture"
       ],
       "limit": "8.5 KB"
     },
@@ -53,18 +53,18 @@
     }
   ],
   "dependencies": {
-    "@felixgeelhaar/glossa-capture": "workspace:^",
+    "@klarlabs-studio/glossa-capture": "workspace:^",
     "lit": "3.3.3"
   },
   "peerDependencies": {
-    "@felixgeelhaar/glossa-runtime": "workspace:^"
+    "@klarlabs-studio/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
-    "@felixgeelhaar/glossa-elements": "workspace:*",
-    "@felixgeelhaar/glossa-messageformat": "workspace:*",
-    "@felixgeelhaar/glossa-runtime": "workspace:*",
-    "@felixgeelhaar/glossa-unplugin": "workspace:*",
+    "@klarlabs-studio/glossa-elements": "workspace:*",
+    "@klarlabs-studio/glossa-messageformat": "workspace:*",
+    "@klarlabs-studio/glossa-runtime": "workspace:*",
+    "@klarlabs-studio/glossa-unplugin": "workspace:*",
     "@playwright/test": "1.63.0",
     "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
@@ -81,7 +81,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/overlay"
   },
   "engines": {
@@ -91,6 +91,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/overlay#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/overlay#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }

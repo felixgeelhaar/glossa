@@ -7,7 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/metrics"
+	"go.klarlabs.de/glossa/platform/internal/audit/adapters/metrics"
 )
 
 func TestAuditSeriesMove(t *testing.T) {

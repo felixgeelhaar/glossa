@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 // Schemas of the artifacts a release writes (runtimes/SPEC.md §1, §8).

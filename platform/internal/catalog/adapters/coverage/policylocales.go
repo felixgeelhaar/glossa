@@ -3,9 +3,9 @@ package coverage
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	locapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
+	"go.klarlabs.de/glossa/platform/internal/catalog/app"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	locapp "go.klarlabs.de/glossa/platform/internal/localization/app"
 )
 
 // PolicyLocales implements app.ProjectLocales for exactly one caller:

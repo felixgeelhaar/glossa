@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1/apiconv"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 func errQuery(format string, args ...any) error {

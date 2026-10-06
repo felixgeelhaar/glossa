@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
-	releaseapp "github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	release "github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
+	releaseapp "go.klarlabs.de/glossa/platform/internal/release/app"
+	release "go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // Releases adapts Release's application service to tools.Releases: the

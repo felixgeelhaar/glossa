@@ -6,12 +6,12 @@ import (
 	"errors"
 	"testing"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
 	"github.com/google/uuid"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // ReportCheckRun against a real catalog and a real database: the part

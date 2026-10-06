@@ -13,16 +13,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	idpostgres "github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres"
-	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	widentity "github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	idpostgres "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	widentity "go.klarlabs.de/glossa/platform/internal/workflow/adapters/identity"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // workHarness is a tenant with Identity's real members, groups and

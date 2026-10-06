@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // The in-memory halves of the check (RFC 0004 §6.4): the queue the

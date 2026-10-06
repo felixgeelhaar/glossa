@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // Import and export jobs (RFC 0003 §6): the shapes, polling and errors

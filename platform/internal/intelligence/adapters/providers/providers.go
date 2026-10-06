@@ -18,12 +18,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/anthropic"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/gemini"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/openaicompat"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/resilient"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/anthropic"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/gemini"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/openaicompat"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/resilient"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // Config tunes the factory.

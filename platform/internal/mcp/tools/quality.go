@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"slices"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // FindingsListName is the findings tool's wire name.

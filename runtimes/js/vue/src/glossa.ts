@@ -14,7 +14,7 @@
  */
 import { computed, inject, shallowRef } from "vue";
 import type { App, ComputedRef, InjectionKey, ShallowRef } from "vue";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
 import type {
   Explanation,
   ManifestLocale,
@@ -22,7 +22,7 @@ import type {
   Runtime,
   RuntimeOptions,
   TranslateOptions,
-} from "@felixgeelhaar/glossa-runtime";
+} from "@klarlabs-studio/glossa-runtime";
 
 import { GlossaText } from "./glossa-text.js";
 
@@ -43,7 +43,7 @@ export type MessageValues = Record<string, unknown>;
 /**
  * Message ID → its values: the shape `glossa generate` emits. Register it once
  * to type every `useGlossa().t` call (see README):
- * `declare module "@felixgeelhaar/glossa-vue" { interface GlossaRegister { messages: Messages } }`.
+ * `declare module "@klarlabs-studio/glossa-vue" { interface GlossaRegister { messages: Messages } }`.
  */
 export interface GlossaRegister {}
 

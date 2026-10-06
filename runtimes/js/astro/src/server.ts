@@ -1,10 +1,10 @@
 /**
- * `@felixgeelhaar/glossa-astro/server`: messages in `.astro` components, rendered on the
+ * `@klarlabs-studio/glossa-astro/server`: messages in `.astro` components, rendered on the
  * server (at build time for static pages) with the build's release.
  *
  * ```astro
  * ---
- * import { getGlossa, alternates } from "@felixgeelhaar/glossa-astro/server";
+ * import { getGlossa, alternates } from "@klarlabs-studio/glossa-astro/server";
  * const { t, locale, dir } = getGlossa(Astro);
  * ---
  * <html lang={locale} dir={dir}>
@@ -14,8 +14,8 @@
  * ```
  */
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { Explanation, Part, Runtime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { Explanation, Part, Runtime } from "@klarlabs-studio/glossa-runtime";
 import config from "virtual:glossa/config";
 import release from "virtual:glossa/release";
 
@@ -42,7 +42,7 @@ export function runtimeFor(locale: string): Runtime {
 /** The request being rendered; islands rendered on the server read their runtime from it. */
 export const requestContext = new AsyncLocalStorage<{ locale: string; runtime: Runtime }>();
 
-// `@felixgeelhaar/glossa-astro/client`'s getRuntime() looks here first, so a Vue island
+// `@klarlabs-studio/glossa-astro/client`'s getRuntime() looks here first, so a Vue island
 // rendered on the server uses the page's runtime without importing Node code.
 (globalThis as Record<symbol, unknown>)[Symbol.for("glossa.astro.server")] = () =>
   requestContext.getStore()?.runtime ?? runtimeFor(config.routing.defaultLocale);

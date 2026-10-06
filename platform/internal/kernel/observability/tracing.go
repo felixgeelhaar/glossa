@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
 )
 
 // ShutdownFunc flushes and stops a telemetry provider.

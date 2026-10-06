@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 func TestSignInMethods(t *testing.T) {

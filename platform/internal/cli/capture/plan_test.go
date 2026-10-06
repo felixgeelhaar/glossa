@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
 )
 
 func load(t *testing.T, captureYAML string, files map[string]string) *config.Config {

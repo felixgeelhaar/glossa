@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	audit "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	audit "go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 // fakeAuditTrail is the audit API as RFC 0006 §6.2 shapes it, over a

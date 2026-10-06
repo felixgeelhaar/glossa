@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres/contextsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/context/adapters/postgres/contextsql"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // insertBatch bounds the rows one INSERT … unnest statement carries.

@@ -2,7 +2,7 @@
  * Locale routing aligned with Astro's i18n routing (`i18n.locales`,
  * `defaultLocale`, `routing.prefixDefaultLocale`): the default locale lives
  * at the root unless it's prefixed, every other locale under `/{path}/`.
- * Pure functions; `@felixgeelhaar/glossa-astro/server` binds them to the site's config.
+ * Pure functions; `@klarlabs-studio/glossa-astro/server` binds them to the site's config.
  */
 
 /** One locale the site renders: its BCP 47 code and its URL segment (the same unless Astro maps it). */

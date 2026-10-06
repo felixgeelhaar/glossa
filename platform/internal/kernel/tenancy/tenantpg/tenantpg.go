@@ -21,9 +21,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy/tenancysql"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy/tenancysql"
 )
 
 // ErrNotFound means the transaction's tenant has no row.

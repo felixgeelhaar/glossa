@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
 )
 
 func TestTimeoutsComeFromConfig(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
 )
 
 // A publish or promote into an environment that requires approvals is

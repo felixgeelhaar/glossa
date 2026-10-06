@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // Authenticator resolves a bearer credential to the caller MCP will act

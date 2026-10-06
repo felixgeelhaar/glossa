@@ -3,7 +3,7 @@ package checkpolicy_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // RFC 0005 §5.2's thresholds are the policy's, and they are the numbers

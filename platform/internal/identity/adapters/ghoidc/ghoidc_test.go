@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/ghoidc"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/ghoidc/ghoidctest"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/ghoidc"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/ghoidc/ghoidctest"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // The verifier stands between a CI job and a tenant's project, so these

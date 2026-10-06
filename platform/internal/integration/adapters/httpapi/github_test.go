@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 func TestWebhookPath(t *testing.T) {

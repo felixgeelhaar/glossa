@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The pull-request check under the policy document (RFC 0005 §4): the

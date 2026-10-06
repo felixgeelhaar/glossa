@@ -13,11 +13,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // notFound maps a context's own not-found errors onto MCP's. Anything

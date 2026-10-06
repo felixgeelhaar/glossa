@@ -42,7 +42,7 @@ package tbx
 import (
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 const (

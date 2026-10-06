@@ -21,7 +21,7 @@ missing; the steps after the first missing one are listed as *not reached*.
 | 12.3 | Release approvals | met | any pointer moves before the second approval as seen at the edge, or a rollback waits. |
 | 12.4 | Staged rollout across three runtimes | met | any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other. |
 | 12.5 | Audit export | met | a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks. |
-| 12.6 | v0.3 imports and renders the same | met | any rendering differs between v0.3's formatter and @felixgeelhaar/glossa-runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing. |
+| 12.6 | v0.3 imports and renders the same | met | any rendering differs between v0.3's formatter and @klarlabs-studio/glossa-runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing. |
 | 12.7 | Earlier exits hold | met | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
 
 ## The fixture
@@ -66,7 +66,7 @@ missing; the steps after the first missing one are listed as *not reached*.
 | ✅ | B: the second reviewer's approval makes it `approved`, by that reviewer in the revision log | held |
 | ✅ | both instances reached a final state, every action ran as a person, never as Workflow's principal | held |
 
-§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/felixgeelhaar/glossa/platform/internal/workflow/domain	0.283s
+§2.1's architecture test: --- PASS: TestTheVocabularyIsClosed (0.00s) / PASS / ok  	github.com/klarlabs-studio/glossa/platform/internal/workflow/domain	0.283s
 
 The transition logs:
 
@@ -362,7 +362,7 @@ Imported by --v0-db; **3150 renderings** of 300 keys in de/en/es: **51 differ on
 
 Known v0.3 defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrophe as opening a quoted run. Each row is in this category only because v0.3's own formatter, given the same text with its apostrophes requoted the ICU way, renders exactly the runtime's output.
 
-| Key | Locale | Arguments | v0.3's formatter | @felixgeelhaar/glossa-runtime |
+| Key | Locale | Arguments | v0.3's formatter | @klarlabs-studio/glossa-runtime |
 |---|---|---|---|---|
 | `copy.bare_101` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
 | `copy.bare_101` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |
@@ -421,8 +421,8 @@ M4's exit test passed in 96s.
 --- PASS: TestFixtureIsCurrent (0.11s)
 --- PASS: TestFixtureShape (0.00s)
 --- PASS: TestInterchangeFilesRead (0.03s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2	34.616s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.358s
+ok  	github.com/klarlabs-studio/glossa/platform/internal/systemtest/m2	34.616s
+ok  	github.com/klarlabs-studio/glossa/platform/internal/systemtest/m2/fixture	0.358s
 ```
 
 ### M3 — **passed** in 71s
@@ -431,15 +431,15 @@ ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture	0.3
 --- PASS: TestM3Exit (67.72s)
 --- PASS: TestFixtureIsCurrent (0.01s)
 --- PASS: TestFixtureShape (0.00s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3	68.175s
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m3/fixture	0.237s
+ok  	github.com/klarlabs-studio/glossa/platform/internal/systemtest/m3	68.175s
+ok  	github.com/klarlabs-studio/glossa/platform/internal/systemtest/m3/fixture	0.237s
 ```
 
 ### M4 — **passed** in 96s
 
 ```text
 --- PASS: TestM4Exit (93.91s)
-ok  	github.com/felixgeelhaar/glossa/platform/internal/systemtest/m4	94.305s
+ok  	github.com/klarlabs-studio/glossa/platform/internal/systemtest/m4	94.305s
 **8 of the 8 exit criteria hold.**
 | § | Criterion | Verdict |
 |---|---|---|

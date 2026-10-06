@@ -14,7 +14,7 @@ import (
 
 	"go.klarlabs.de/fortify/retry"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 const token = "glossa_api_0123456789012345678901234567890123456789abc"

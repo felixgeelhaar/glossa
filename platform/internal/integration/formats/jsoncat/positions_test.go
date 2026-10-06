@@ -3,8 +3,8 @@ package jsoncat_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/jsoncat"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/jsoncat"
 )
 
 func TestReadRecordsPositions(t *testing.T) {

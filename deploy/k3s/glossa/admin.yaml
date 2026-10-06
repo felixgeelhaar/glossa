@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
         - name: admin
-          image: ghcr.io/felixgeelhaar/glossa-admin:latest
+          image: ghcr.io/klarlabs-studio/glossa-admin:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

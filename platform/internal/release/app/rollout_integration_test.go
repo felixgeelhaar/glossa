@@ -13,16 +13,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	identitydomain "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/adapters/metrics"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	identitydomain "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/release/adapters/metrics"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // rolloutProject is production serving v1 and staging serving v2, which

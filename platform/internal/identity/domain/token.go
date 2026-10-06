@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // TokenPrefix starts every API token. It exists for secret scanners:

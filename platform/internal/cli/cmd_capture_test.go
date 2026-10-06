@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture"
 )
 
 // The command around the capture library, with the browser faked: each

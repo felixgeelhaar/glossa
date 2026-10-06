@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/domain"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // Projects implements app.Projects on Catalog's service.

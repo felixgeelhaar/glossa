@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // The read side of workflow instances (RFC 0006 §2.5), declared ahead of

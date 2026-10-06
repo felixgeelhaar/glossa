@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 type rateLimited struct{ wait time.Duration }

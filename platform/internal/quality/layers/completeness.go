@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // Completeness checks that every active message has a translation in

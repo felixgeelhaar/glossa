@@ -4,12 +4,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/idempotency"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/domain"
 )
 
 // problems maps Knowledge's errors to the codes documented in

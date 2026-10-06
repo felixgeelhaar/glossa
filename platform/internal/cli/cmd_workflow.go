@@ -17,7 +17,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // Workflows (RFC 0006 §2): an organisation's localization process as a

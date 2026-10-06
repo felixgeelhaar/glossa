@@ -7,11 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apierr/ginerr"
-	projectapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/project"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
+	"go.klarlabs.de/glossa/apierr/ginerr"
+	projectapp "go.klarlabs.de/glossa/apps/api/internal/app/project"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/project"
+	"go.klarlabs.de/glossa/apps/api/internal/errs"
 )
 
 type createProjectReq struct {

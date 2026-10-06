@@ -48,7 +48,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // locales are the fixture's locales.

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // Workflow and assignment types as the Workflow API serves them (RFC

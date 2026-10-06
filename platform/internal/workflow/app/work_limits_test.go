@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // RFC 0006 §9.6: at most 1,000 open assignments per assignee, at the

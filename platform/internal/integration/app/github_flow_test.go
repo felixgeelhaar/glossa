@@ -20,14 +20,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	identitydomain "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	identitydomain "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The GitHub install flow, the Git connections and the webhook inbox

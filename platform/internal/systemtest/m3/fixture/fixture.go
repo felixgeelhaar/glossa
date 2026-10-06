@@ -12,7 +12,7 @@
 //
 //	go generate ./internal/systemtest/m3/...
 //
-// and rebuild the app afterwards (`pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`).
+// and rebuild the app afterwards (`pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`).
 // TestFixtureIsCurrent fails when the committed files differ from what the
 // generator writes.
 package fixture
@@ -36,7 +36,7 @@ const Application = "shop"
 // Files of the fixture, relative to its directory.
 const (
 	FileFixture = "fixture.json"
-	// FileUsages is where @felixgeelhaar/glossa-unplugin writes the build's usages.
+	// FileUsages is where @klarlabs-studio/glossa-unplugin writes the build's usages.
 	FileUsages = "usages.json"
 	// DirPreview and DirProduction hold the two committed builds: the
 	// preview one the capture drives, and the production one the bundle

@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 func shot(route, image string) domain.CaptureInput {

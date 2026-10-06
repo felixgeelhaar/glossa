@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	audit "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	audit "go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 var auditTenant = uuid.MustParse("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")

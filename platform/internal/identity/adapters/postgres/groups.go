@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres/identitysql"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // restriction rebuilds a member's stored project scope, vendor and

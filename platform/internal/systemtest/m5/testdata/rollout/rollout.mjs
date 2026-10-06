@@ -1,4 +1,4 @@
-// The JS side of RFC 0006 §12.4: one @felixgeelhaar/glossa-runtime per installation
+// The JS side of RFC 0006 §12.4: one @klarlabs-studio/glossa-runtime per installation
 // id, each loading through a transport that serves the edge's real
 // answers (fetched once, then from memory), and the release each one
 // activated.
@@ -10,7 +10,7 @@
 // output: { "<installation id>": "<active release id>" | null, ... }
 //
 // The installation id and the switch that turns rollout support off are
-// @felixgeelhaar/glossa-runtime's `installationId` and `rollout` options (SPEC §1.4,
+// @klarlabs-studio/glossa-runtime's `installationId` and `rollout` options (SPEC §1.4,
 // RFC 0006 wave 2). `storage: null` keeps the runtime from persisting an id
 // of its own; the one given is used as is.
 import { readFileSync, writeFileSync } from "node:fs";

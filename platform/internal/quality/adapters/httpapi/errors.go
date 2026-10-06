@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/idempotency"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // problems maps Quality's errors to the codes documented in

@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 // syncNow writes an environment's manifest right after a pointer move

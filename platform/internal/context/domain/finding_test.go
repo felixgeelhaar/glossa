@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 // A capture's visual findings (RFC 0005 §5) on the way in: what the

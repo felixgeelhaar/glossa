@@ -1,14 +1,14 @@
 /**
  * The browser side of the overlay e2e tests: a preview deployment's page on
- * `@felixgeelhaar/glossa-runtime` and `@felixgeelhaar/glossa-elements`, bundled by esbuild and served
+ * `@klarlabs-studio/glossa-runtime` and `@klarlabs-studio/glossa-elements`, bundled by esbuild and served
  * from the app origin under a strict CSP. `RELEASE` and `CONFIG` are
  * prepended by the test. On `?glossa=edit` it loads the overlay from the
  * Studio origin and starts a session with a token, which is what the panel
  * tests need; the real loader and its guards are e2e/loader.spec.ts.
  */
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
-import "@felixgeelhaar/glossa-elements";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { BundledRelease, Runtime } from "@klarlabs-studio/glossa-runtime";
+import "@klarlabs-studio/glossa-elements";
 
 import type { Overlay, activate } from "../src/index.js";
 import { renderPage } from "../src/testing/page.js";

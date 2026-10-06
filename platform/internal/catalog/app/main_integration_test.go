@@ -8,14 +8,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/catalog/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/catalog/app"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 var env *dbtest.Env

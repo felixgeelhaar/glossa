@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // SignInAudit is where sign-in attempts are recorded: the Audit

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The exit criterion (RFC 0005 §12.3): the same commit, through the

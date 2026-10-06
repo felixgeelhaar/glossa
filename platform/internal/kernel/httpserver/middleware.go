@@ -7,7 +7,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 // recoverPanics turns a handler panic into a logged 500 so one bad

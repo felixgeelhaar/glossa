@@ -16,14 +16,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/observability"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	auditpg "go.klarlabs.de/glossa/platform/internal/audit/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/audit/app"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 var env *dbtest.Env

@@ -12,12 +12,12 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	contextpg "go.klarlabs.de/glossa/platform/internal/context/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 )
 
 func TestIngestUsagesResolvesKeysAndPublishesTheBuild(t *testing.T) {
@@ -31,7 +31,7 @@ func TestIngestUsagesResolvesKeysAndPublishesTheBuild(t *testing.T) {
 
 	b := got.Build
 	if got.Replayed || got.UnknownKeys != 1 || b.UsageCount != 3 || !b.OnDefaultBranch || b.ApplicationID != f.apps["web"] ||
-		b.Commit.String() != sha("9f2c1e7ab4") || b.Source != domain.SourcePlugin || b.Tool.Name != "@felixgeelhaar/glossa-unplugin" {
+		b.Commit.String() != sha("9f2c1e7ab4") || b.Source != domain.SourcePlugin || b.Tool.Name != "@klarlabs-studio/glossa-unplugin" {
 		t.Errorf("ingested = %+v", got)
 	}
 	if n := count(t, "SELECT count(*) FROM context_usages WHERE build_id = $1 AND message_id = $2", b.ID, f.ids["checkout.pay"]); n != 2 {

@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/text/unicode/bidi"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // The locale layer (RFC 0005 §3.4): locale correctness is more than

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
 )
 
 // Instances is the read side of workflow instances as the API serves it

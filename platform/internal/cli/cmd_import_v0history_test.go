@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
 )
 
 // The canary of RFC 0006 §12.5, applied to the history import: the

@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 func TestLocaleCoverage(t *testing.T) {

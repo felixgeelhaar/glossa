@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
 	"github.com/google/uuid"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	idomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	kdomain "github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
+	idomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	kdomain "go.klarlabs.de/glossa/platform/internal/knowledge/domain"
 )
 
 const sourceLocale = "de"

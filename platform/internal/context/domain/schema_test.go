@@ -11,7 +11,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 // The server validates an upload by the glossa.usages/v1 schema's rules
@@ -79,7 +79,7 @@ var deleted = struct{}{}
 var variants = []variant{
 	{"SHA-256 commit", []any{"commit"}, strings.Repeat("a", 64)},
 	{"dotfile directory and '...' segment", at(u0, "file"), ".storybook/.../preview.ts"},
-	{"scoped tool name and prerelease version", []any{"tool"}, map[string]any{"name": "@felixgeelhaar/glossa-unplugin", "version": "0.1.0-rc.1+build.5"}},
+	{"scoped tool name and prerelease version", []any{"tool"}, map[string]any{"name": "@klarlabs-studio/glossa-unplugin", "version": "0.1.0-rc.1+build.5"}},
 	{"nested branch name", []any{"branch"}, "renovate/vite-6.x"},
 	{"short commit", []any{"commit"}, "9f2c1e7"},
 	{"41-digit commit", []any{"commit"}, strings.Repeat("a", 41)},

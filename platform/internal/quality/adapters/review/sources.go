@@ -6,15 +6,15 @@ import (
 
 	"github.com/google/uuid"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalogdomain "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	intelligenceapp "github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/linguistic"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalogdomain "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/linguistic"
+	"go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // The ports, over the application services that own the data.

@@ -18,7 +18,7 @@ import (
 
 	"go.klarlabs.de/fortify/retry"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // MaxBatch is the server's limit for message-upserts and

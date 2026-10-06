@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // ErrInvalidIdempotencyKey means the key is empty, too long, or not

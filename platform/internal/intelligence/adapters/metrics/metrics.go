@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // Prometheus implements app.Metrics.

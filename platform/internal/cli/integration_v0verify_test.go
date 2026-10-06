@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0/v0test"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0/v0test"
 )
 
 // verifySeed adds a key with a bare apostrophe to the v0test seed.

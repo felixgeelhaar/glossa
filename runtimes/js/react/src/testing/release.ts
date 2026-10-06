@@ -3,7 +3,7 @@
  * Test-only.
  */
 import { createHash } from "node:crypto";
-import type { Artifact, BundledRelease, Manifest, Message, Pattern } from "@felixgeelhaar/glossa-runtime";
+import type { Artifact, BundledRelease, Manifest, Message, Pattern } from "@klarlabs-studio/glossa-runtime";
 
 import type { EdgeState } from "./edge.js";
 

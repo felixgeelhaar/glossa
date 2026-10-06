@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
 )
 
 const tok = "glossa_api_0123456789012345678901234567890123456789abc"

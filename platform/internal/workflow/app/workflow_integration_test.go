@@ -14,16 +14,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/identity"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/postgres"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/defaults"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/identity"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/postgres"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/workflow/defaults"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 var env *dbtest.Env

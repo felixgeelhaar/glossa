@@ -11,8 +11,8 @@ import { act, createElement as h } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root as ReactRoot } from "react-dom/client";
-import { memoryStorage } from "@felixgeelhaar/glossa-runtime";
-import type { RuntimeError } from "@felixgeelhaar/glossa-runtime";
+import { memoryStorage } from "@klarlabs-studio/glossa-runtime";
+import type { RuntimeError } from "@klarlabs-studio/glossa-runtime";
 
 import { GlossaProvider, T, createGlossa, useGlossa } from "./index.js";
 import type { Glossa, UseGlossa } from "./index.js";

@@ -6,8 +6,8 @@ package sources
 import (
 	"context"
 
-	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	integrationapp "github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
+	integrationapp "go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // GitRepositories adapts Integration's Git connections to Identity's

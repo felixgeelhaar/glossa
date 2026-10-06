@@ -27,7 +27,7 @@ import (
 	"strings"
 	"sync"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 type input struct {

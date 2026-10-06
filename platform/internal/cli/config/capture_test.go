@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
 )
 
 const withCapture = valid + `capture:

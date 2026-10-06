@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 func mustRoles(t *testing.T, rs ...string) domain.Roles {

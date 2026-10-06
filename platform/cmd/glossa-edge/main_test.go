@@ -25,9 +25,9 @@ func TestNoDatabaseInImportGraph(t *testing.T) {
 		t.Fatalf("go list: %v\n%s", err, out)
 	}
 	forbidden := []string{
-		"github.com/felixgeelhaar/glossa/platform/internal/kernel/db",
-		"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox",
-		"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy/tenantpg",
+		"go.klarlabs.de/glossa/platform/internal/kernel/db",
+		"go.klarlabs.de/glossa/platform/internal/kernel/outbox",
+		"go.klarlabs.de/glossa/platform/internal/kernel/tenancy/tenantpg",
 		"github.com/jackc/pgx",
 		"github.com/lib/pq",
 		"github.com/golang-migrate",

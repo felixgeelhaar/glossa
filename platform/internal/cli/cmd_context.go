@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 const contextUsage = `context push <file> [--source plugin|extract|runtime|capture]
 
-Uploads a glossa.usages/v1 document — @felixgeelhaar/glossa-unplugin's .glossa/usages.json, or
+Uploads a glossa.usages/v1 document — @klarlabs-studio/glossa-unplugin's .glossa/usages.json, or
 ` + "`glossa extract --json`" + `'s output — to the project's context builds (RFC 0004 §2).
 --source is the collector that wrote it: by default extract for a document whose tool is
 glossa, otherwise plugin. Uploading the same document again changes nothing.
@@ -57,12 +57,12 @@ func runContext(ctx context.Context, inv *invocation, args []string) error {
 	raw, err := os.ReadFile(file) //nolint:gosec // the user names the file
 	if err != nil {
 		return &Error{Exit: ExitUsage, Code: "file_unreadable", What: "can't read the usages document", Where: path, Why: err.Error(),
-			Fix: "build with @felixgeelhaar/glossa-unplugin (it writes .glossa/usages.json) or run `glossa extract --json > usages.json`"}
+			Fix: "build with @klarlabs-studio/glossa-unplugin (it writes .glossa/usages.json) or run `glossa extract --json > usages.json`"}
 	}
 	var head usagesHead
 	if err := json.Unmarshal(raw, &head); err != nil || head.Schema != "glossa.usages/v1" {
 		return &Error{Exit: ExitUsage, Code: "invalid_usages", What: "not a glossa.usages/v1 document", Where: path,
-			Why: "its schema member isn't glossa.usages/v1", Fix: "upload the file @felixgeelhaar/glossa-unplugin or `glossa extract --json` wrote"}
+			Why: "its schema member isn't glossa.usages/v1", Fix: "upload the file @klarlabs-studio/glossa-unplugin or `glossa extract --json` wrote"}
 	}
 	if *source == "" {
 		*source = sourceOf(head.Tool.Name)
@@ -82,7 +82,7 @@ func runContext(ctx context.Context, inv *invocation, args []string) error {
 }
 
 // sourceOf is the collector a document's tool names: glossa is
-// `glossa extract`; anything else (@felixgeelhaar/glossa-unplugin, @felixgeelhaar/glossa-astro) the
+// `glossa extract`; anything else (@klarlabs-studio/glossa-unplugin, @klarlabs-studio/glossa-astro) the
 // bundler plugin.
 func sourceOf(tool string) string {
 	if tool == "glossa" {

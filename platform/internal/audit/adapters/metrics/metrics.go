@@ -9,7 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/app"
+	"go.klarlabs.de/glossa/platform/internal/audit/app"
 )
 
 // outcomes are the allowlisted export job outcomes.

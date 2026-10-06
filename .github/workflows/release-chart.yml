@@ -7,7 +7,7 @@ name: Release Helm chart
 #   - workflow_dispatch     → manual publish for off-cycle pre-releases
 #
 # Consumers install with:
-#   helm install glossa oci://ghcr.io/felixgeelhaar/charts/glossa \
+#   helm install glossa oci://ghcr.io/klarlabs-studio/charts/glossa \
 #     --version <chart-version>
 
 on:

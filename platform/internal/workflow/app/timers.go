@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // Timers (RFC 0006 §2.3): no timer lives in a process. An action with a

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // Knowledge types the CLI reads (RFC 0003 §2), re-exported so commands

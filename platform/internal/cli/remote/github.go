@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // GitHub types as the Integration API serves them (RFC 0004 §6.1),

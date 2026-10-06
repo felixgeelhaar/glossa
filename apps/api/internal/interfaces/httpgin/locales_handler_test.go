@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
 )
 
 func TestFindLocale_MatchesCanonicalForms(t *testing.T) {

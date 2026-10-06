@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
 )
 
 // testAuthSecret is base64 of 42 bytes.

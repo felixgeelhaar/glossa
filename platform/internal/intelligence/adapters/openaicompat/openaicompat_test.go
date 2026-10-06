@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/openaicompat"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/openaicompat"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 func request() domain.CompletionRequest {

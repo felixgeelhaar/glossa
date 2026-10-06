@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
 )
 
 // Release requests and staged rollouts (RFC 0006 §5.1–§5.2) as

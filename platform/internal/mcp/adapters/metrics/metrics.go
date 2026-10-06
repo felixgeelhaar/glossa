@@ -14,8 +14,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // Transports are the transports a session can arrive on. Today there is

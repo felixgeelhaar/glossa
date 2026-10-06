@@ -22,7 +22,7 @@ import (
 
 	"go.klarlabs.de/fortify/retry"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 // Log writes mail to the log instead of sending it — links included, so

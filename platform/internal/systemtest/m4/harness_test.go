@@ -28,9 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 // testAuthSecret is base64 of 42 bytes.

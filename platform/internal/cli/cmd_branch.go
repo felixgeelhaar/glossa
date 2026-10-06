@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // Branches (RFC 0004 §4): what a feature branch proposes before it

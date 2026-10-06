@@ -11,10 +11,10 @@ import (
 	"strings"
 	"sync"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/prompts"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/prompts"
 )
 
 // The translation agent's tools (RFC 0003 §3.2). Each is bound to one job

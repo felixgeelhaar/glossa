@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // ContextUsage is a current usage as the Context API serves it (RFC 0004

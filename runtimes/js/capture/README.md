@@ -1,4 +1,4 @@
-# @felixgeelhaar/glossa-capture
+# @klarlabs-studio/glossa-capture
 
 Capture mode ([RFC 0004 §3.1](../../../docs/rfcs/0004-context.md)): finding
 which pixels of a page belong to which message, for screenshots in Studio's
@@ -7,9 +7,9 @@ which pixels of a page belong to which message, for screenshots in Studio's
 This package is **loaded only in a capture or editor session**. `glossa
 capture` injects it into the page it screenshots, and the overlay loader loads
 it in a preview session. Applications never import it, and nothing in
-`@felixgeelhaar/glossa-runtime`, `@felixgeelhaar/glossa-elements`, `@felixgeelhaar/glossa-vue` or `@felixgeelhaar/glossa-react`
+`@klarlabs-studio/glossa-runtime`, `@klarlabs-studio/glossa-elements`, `@klarlabs-studio/glossa-vue` or `@klarlabs-studio/glossa-react`
 imports it. That's why it is a package of its own rather than a
-`@felixgeelhaar/glossa-runtime/capture` entry: a production bundle can't reach it through
+`@klarlabs-studio/glossa-runtime/capture` entry: a production bundle can't reach it through
 any import an application makes, its test tooling (Playwright, ajv, esbuild)
 stays out of the runtime, and a test (`src/bundle.test.ts`) bundles an app on
 the runtime and every component package and checks that no capture code is in
@@ -17,8 +17,8 @@ it. The runtime only has the extension point, `onRender`, which costs under
 100 bytes.
 
 ```ts
-import { startCapture } from "@felixgeelhaar/glossa-capture";
-import { probe } from "@felixgeelhaar/glossa-capture/probes"; // optional: the visual probe pass
+import { startCapture } from "@klarlabs-studio/glossa-capture";
+import { probe } from "@klarlabs-studio/glossa-capture/probes"; // optional: the visual probe pass
 
 const session = startCapture(runtime, { probe }); // or [runtimeA, runtimeB] for islands
 // …the page re-renders with markers and host attributes…
@@ -132,9 +132,9 @@ finding here is written at `severity: "warning"`.
 **The pass is given to a session, never imported by it.** `collect()` is always
 reachable on the session object, so a static `import` of `./probes.js` in
 `session.ts` would put the probes in every bundle that starts a session —
-including `@felixgeelhaar/glossa-overlay`, the in-product editor served to end users, which
+including `@klarlabs-studio/glossa-overlay`, the in-product editor served to end users, which
 measures nothing. So `probe` lives behind its own entry point,
-`@felixgeelhaar/glossa-capture/probes`, and is handed to `startCapture(runtimes, { probe })`.
+`@klarlabs-studio/glossa-capture/probes`, and is handed to `startCapture(runtimes, { probe })`.
 `glossa capture`'s agent passes it and pays the ~1.2 kB; a session without it
 collects regions and reports `probes: []`. `src/bundle.test.ts` asserts both
 directions, and `pnpm size` budgets a session with the pass (4 kB, RFC 0005
@@ -161,13 +161,13 @@ Vue and Go-template usage.
 
 | | |
 |---|---|
-| `startCapture(runtimes, { probe? }) → CaptureSession` | Installs the hook on one runtime or several (they share one log). `probe` comes from `@felixgeelhaar/glossa-capture/probes`; without it a session reports no findings. |
+| `startCapture(runtimes, { probe? }) → CaptureSession` | Installs the hook on one runtime or several (they share one log). `probe` comes from `@klarlabs-studio/glossa-capture/probes`; without it a session reports no findings. |
 | `session.renders` | The render log: `{ id, locale, digest }`, a marker's index is a position in it. |
 | `session.errors` | What the session's runtimes put on their error channels, in order. |
 | `session.collect(root?, { baseline?, tolerance?, slack?, overlap?, max? }) → { renders, regions, probes, metrics }` | The capture script and the probe pass, over the document or a subtree. The thresholds come from the check policy; each defaults to RFC 0005 §5.2's number. |
 | `session.stop()` | Removes the hooks and strips the markers left in the document. Idempotent. |
 | `collectRegions(log, root?, onHost?)` | The capture script on its own, for a log kept elsewhere. |
-| `probe(capture, hosts, ctx, options?)` (`@felixgeelhaar/glossa-capture/probes`) | The probe pass on its own, over regions already collected. |
+| `probe(capture, hosts, ctx, options?)` (`@klarlabs-studio/glossa-capture/probes`) | The probe pass on its own, over regions already collected. |
 | `stripMarkers(root?)`, `strip(s)` | Remove markers from a DOM tree or a string. |
 | `mark(index, text)`, `ranges(s)`, `digest(values)` | The marker format and the values digest. |
 

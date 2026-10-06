@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
 )
 
 // ReleaseRef identifies the release a manifest describes.

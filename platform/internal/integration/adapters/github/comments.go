@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // StickyMarker is the hidden line that identifies Glossa's one comment on

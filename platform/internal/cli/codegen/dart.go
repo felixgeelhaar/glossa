@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // DartType is the Dart type of an argument's value. The Dart runtime's

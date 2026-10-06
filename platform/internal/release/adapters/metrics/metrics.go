@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/app"
+	"go.klarlabs.de/glossa/platform/internal/release/app"
 )
 
 // Prometheus implements app.RolloutMetrics.

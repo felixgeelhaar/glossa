@@ -52,7 +52,7 @@ app.kubernetes.io/component: {{ .component }}
      that must be reproducible cannot silently fall back to a tag. */}}
 {{- define "gp.image" -}}
 {{- $c := .component -}}
-{{- $repo := required (printf "%s.image.repository is required (e.g. felixgeelhaar/glossa-%s)" $c $c) .image.repository -}}
+{{- $repo := required (printf "%s.image.repository is required (e.g. klarlabs-studio/glossa-%s)" $c $c) .image.repository -}}
 {{- $tag := .image.tag | default .root.Chart.AppVersion -}}
 {{- if not $tag -}}
 {{- fail (printf "%s.image.tag is empty and the chart has no appVersion to fall back to" $c) -}}

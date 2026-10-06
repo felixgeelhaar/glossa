@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // CIToken is what the GitHub Actions exchange returns: a bearer

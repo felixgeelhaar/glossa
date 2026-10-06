@@ -226,7 +226,7 @@ Unchanged, and now documented as part of the contract (`0 ok · 1 check failed �
 
 **Visual QA runs where capture runs: in the product's CI** (RFC 0004 §3.2, §14.2). Glossa never navigates to a customer URL, needs no application credentials at rest and sees no production data. The same three reasons hold as in M3, and M4 adds a fourth: the checks below need **live layout**, not pixels. `scrollWidth`, `getClientRects()`, `getComputedStyle` and `document.fonts.check()` exist only while the page is open.
 
-So `@felixgeelhaar/glossa-capture` grows a **probe pass**: `session.collect()` today returns `{renders, regions}`, and gains `probes`, computed after the regions and before the screenshot. It uploads with the capture as findings (§9). The server validates and stores them; it re-measures nothing. The package's size budget rises from **3 kB to 4 kB** (brotli) and the bundle test that proves no capture code reaches an application build (`runtimes/js/capture/src/bundle.test.ts`) keeps holding — the probes ship where the markers already ship, in a session, and nowhere else.
+So `@klarlabs-studio/glossa-capture` grows a **probe pass**: `session.collect()` today returns `{renders, regions}`, and gains `probes`, computed after the regions and before the screenshot. It uploads with the capture as findings (§9). The server validates and stores them; it re-measures nothing. The package's size budget rises from **3 kB to 4 kB** (brotli) and the bundle test that proves no capture code reaches an application build (`runtimes/js/capture/src/bundle.test.ts`) keeps holding — the probes ship where the markers already ship, in a session, and nowhere else.
 
 ### 5.2 What it checks
 
@@ -445,7 +445,7 @@ Each slice is about an hour of agent work. At most one slice per wave edits `pla
 | 2 | Dart core 2: loader (memory → persisted → network → bundled → inline), isolate decode, atomic activation, SHA-256, Ed25519 + JCS; loading fixtures pass | no |
 | 2 | MCP read tools: `catalog_search`, `message_get`, `translation_get`, `usages_get`, `tm_search`, `term_lookup`, `style_rules`, `findings_list`, `explain_delivery` | no |
 | 3 | Policy API: per-project read and write, `dry_run` impact preview, version history, export and import | yes |
-| 3 | Visual probe pass in `@felixgeelhaar/glossa-capture`: `session.collect()` gains `probes` — clipping, overlap, line growth, RTL mirroring, glyphs, `explain()`-based untranslated and mixed locale, error-channel drain; fixtures, the 4 kB budget and the bundle test | no |
+| 3 | Visual probe pass in `@klarlabs-studio/glossa-capture`: `session.collect()` gains `probes` — clipping, overlap, line growth, RTL mirroring, glyphs, `explain()`-based untranslated and mixed locale, error-channel drain; fixtures, the 4 kB budget and the bundle test | no |
 | 3 | `glossa check` on the Quality library: layers, `--layer`, policy fetch and `.glossa/policy.json` cache, `--explain-policy`, exit codes 1–4 | no |
 | 3 | Dart Flutter layer: `GlossaText`, `parts()` with `safeTags`, `explain()`, error channel, asset-bundle layout; `glossa generate` Dart accessors | no |
 | 3 | MCP write tools: `message_upsert`, `translation_propose` (always to review), `locale_add`, `check_run`, `translate`; the two-lock write gate | no |

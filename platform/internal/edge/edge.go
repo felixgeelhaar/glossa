@@ -33,9 +33,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 // Cache-Control values (runtimes/SPEC.md §2).

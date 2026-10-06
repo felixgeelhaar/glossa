@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // APIError is a failed GitHub call. It matches one of the app.ErrGitHub*

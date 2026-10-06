@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // The vocabulary (RFC 0006 §2.4): a closed set of generic primitives the

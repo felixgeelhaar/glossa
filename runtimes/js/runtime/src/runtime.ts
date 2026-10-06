@@ -649,7 +649,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
   };
 
   // The page's runtimes, where `glossa capture` and the overlay loader
-  // (`@felixgeelhaar/glossa-runtime/dev`) find them (RFC 0004 §3.2, §5.1). Browsers only, so
+  // (`@klarlabs-studio/glossa-runtime/dev`) find them (RFC 0004 §3.2, §5.1). Browsers only, so
   // a server rendering per request keeps nothing. Production runtimes are
   // listed too: a capture session has to tell a production page from a page
   // without Glossa, and the loader checks every runtime's environment.

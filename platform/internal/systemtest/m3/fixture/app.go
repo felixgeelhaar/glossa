@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/messageformat"
+	"go.klarlabs.de/glossa/messageformat"
 )
 
 // generated is the banner every generated source file of the app
 // carries, so nobody edits one by hand. It deliberately avoids the
-// "Code generated … DO NOT EDIT." line: both @felixgeelhaar/glossa-unplugin and
+// "Code generated … DO NOT EDIT." line: both @klarlabs-studio/glossa-unplugin and
 // `glossa extract` skip files that carry it (that is how the output of
 // `glossa generate` stays out of the usages), and this application is
 // the one the exit test wants usages from.
@@ -151,7 +151,7 @@ const packageJSON = `{
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Brotwerk's shop: the M3 exit test's fixture application. Generated; built by ` + "`pnpm --filter @felixgeelhaar/glossa-unplugin build:m3`" + `, never installed."
+  "description": "Brotwerk's shop: the M3 exit test's fixture application. Generated; built by ` + "`pnpm --filter @klarlabs-studio/glossa-unplugin build:m3`" + `, never installed."
 }
 `
 
@@ -185,8 +185,8 @@ const runtimeTS = `// ` + generated + `
 // ?env= picks the manifest's environment (preview by default), which is
 // what the capture's production refusal and the overlay loader's guard
 // read.
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { Artifact, BundledRelease, Manifest, Message } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { Artifact, BundledRelease, Manifest, Message } from "@klarlabs-studio/glossa-runtime";
 
 import catalogs from "./catalogs.json";
 
@@ -234,7 +234,7 @@ const mountTS = `// ` + generated + `
 // the Vue tree, sharing the page's runtime.
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { GlossaProvider, createGlossa } from "@felixgeelhaar/glossa-react";
+import { GlossaProvider, createGlossa } from "@klarlabs-studio/glossa-react";
 
 import { runtime } from "../runtime";
 import { PayButton } from "./PayButton";
@@ -253,7 +253,7 @@ func mainTS(f *Fixture) string {
 	var b strings.Builder
 	b.WriteString("// " + generated + "\n")
 	b.WriteString(`import { createApp, h } from "vue";
-import { createGlossa } from "@felixgeelhaar/glossa-vue";
+import { createGlossa } from "@klarlabs-studio/glossa-vue";
 
 import "./styles.css";
 import { runtime } from "./runtime";
@@ -307,7 +307,7 @@ func sfc(f *Fixture, a area) string {
 	b.WriteString("<!-- " + generated + " -->\n")
 	b.WriteString("<script setup lang=\"ts\">\n")
 	if needsText {
-		b.WriteString("import { GlossaText } from \"@felixgeelhaar/glossa-vue\";\n")
+		b.WriteString("import { GlossaText } from \"@klarlabs-studio/glossa-vue\";\n")
 	}
 	if a.component == "CheckoutPage" {
 		b.WriteString("import { onBeforeUnmount, onMounted, ref } from \"vue\";\n\nimport { mountPayButton } from \"../islands/mount\";\n\nconst island = ref<HTMLElement | null>(null);\nlet unmount: (() => void) | undefined;\nonMounted(() => {\n  if (island.value) unmount = mountPayButton(island.value);\n});\nonBeforeUnmount(() => unmount?.());\n")
@@ -367,7 +367,7 @@ func island(f *Fixture, a area) string {
 	messages := messagesOf(f, a.file)
 	var b strings.Builder
 	b.WriteString("// " + generated + "\n")
-	b.WriteString("import { T, useGlossa } from \"@felixgeelhaar/glossa-react\";\n\nexport function PayButton() {\n  const { t } = useGlossa();\n  return (\n    <div className=\"island\">\n")
+	b.WriteString("import { T, useGlossa } from \"@klarlabs-studio/glossa-react\";\n\nexport function PayButton() {\n  const { t } = useGlossa();\n  return (\n    <div className=\"island\">\n")
 	for _, m := range messages {
 		switch m.Pattern {
 		case PatternPlural:
@@ -399,7 +399,7 @@ func messagesOf(f *Fixture, file string) []Message {
 // reads with go/ast, whose component is receipt.Render.
 func receiptGo(f *Fixture) string {
 	var b strings.Builder
-	b.WriteString("// " + generated + "\n//\n// Package receipt renders Brotwerk's receipt. It reuses the invoice\n// page's copy, so `glossa extract` reports a second, server-side usage\n// for those messages (RFC 0004 §2.1).\npackage receipt\n\nimport (\n\tglossa \"github.com/felixgeelhaar/glossa/runtimes/go\"\n)\n\n// Render writes the receipt's lines for one reader.\nfunc Render(l *glossa.Localizer) []string {\n\treturn []string{\n")
+	b.WriteString("// " + generated + "\n//\n// Package receipt renders Brotwerk's receipt. It reuses the invoice\n// page's copy, so `glossa extract` reports a second, server-side usage\n// for those messages (RFC 0004 §2.1).\npackage receipt\n\nimport (\n\tglossa \"go.klarlabs.de/glossa/runtimes/go\"\n)\n\n// Render writes the receipt's lines for one reader.\nfunc Render(l *glossa.Localizer) []string {\n\treturn []string{\n")
 	for _, m := range f.Messages {
 		for _, g := range m.Go {
 			if g.File == goCallsFile {

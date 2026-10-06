@@ -13,11 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1/apiconv"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/apiv1/apiconv"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
 )
 
 // API serves Context's operations.

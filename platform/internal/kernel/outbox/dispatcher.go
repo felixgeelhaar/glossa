@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // DispatcherConfig tunes delivery. Zero values are invalid except where
@@ -120,7 +120,7 @@ func NewDispatcher(store Store, reg *Registry, cfg DispatcherConfig, opts Dispat
 	if tp == nil {
 		tp = noop.NewTracerProvider()
 	}
-	d.tracer = tp.Tracer("github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox")
+	d.tracer = tp.Tracer("go.klarlabs.de/glossa/platform/internal/kernel/outbox")
 	d.metrics = newMetrics(opts.Registerer)
 	d.retry = retry.New[struct{}](retry.Config{
 		MaxAttempts:   cfg.InlineAttempts,

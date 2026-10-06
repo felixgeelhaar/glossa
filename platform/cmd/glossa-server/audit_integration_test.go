@@ -17,11 +17,11 @@ import (
 
 	"github.com/google/uuid"
 
-	auditpg "github.com/felixgeelhaar/glossa/platform/internal/audit/adapters/postgres"
-	auditapp "github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	auditdomain "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	auditpg "go.klarlabs.de/glossa/platform/internal/audit/adapters/postgres"
+	auditapp "go.klarlabs.de/glossa/platform/internal/audit/app"
+	auditdomain "go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The composition root wires the Audit context end to end: a sign-in

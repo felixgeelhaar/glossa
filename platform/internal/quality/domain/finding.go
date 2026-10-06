@@ -17,7 +17,7 @@
 package domain
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // Schema is the wire schema every finding names

@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa check` puts its run on the record (RFC 0005 §9,

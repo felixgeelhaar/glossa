@@ -18,7 +18,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // FileName is the project file the CLI looks for.
@@ -84,9 +84,9 @@ func ValidApplication(s string) bool { return applicationSlug.MatchString(s) }
 type Generate struct {
 	// TypeScript is the typed module (messages.ts).
 	TypeScript string `yaml:"typescript,omitempty" json:"typescript,omitempty"`
-	// Vue is the @felixgeelhaar/glossa-vue registration module; needs TypeScript.
+	// Vue is the @klarlabs-studio/glossa-vue registration module; needs TypeScript.
 	Vue string `yaml:"vue,omitempty" json:"vue,omitempty"`
-	// React is the @felixgeelhaar/glossa-react registration module; needs TypeScript.
+	// React is the @klarlabs-studio/glossa-react registration module; needs TypeScript.
 	React string `yaml:"react,omitempty" json:"react,omitempty"`
 	// Go is the typed Go file.
 	Go string `yaml:"go,omitempty" json:"go,omitempty"`
@@ -120,7 +120,7 @@ type Pull struct {
 }
 
 // DefaultGoRuntime is the import path of the Go runtime.
-const DefaultGoRuntime = "github.com/felixgeelhaar/glossa/runtimes/go"
+const DefaultGoRuntime = "go.klarlabs.de/glossa/runtimes/go"
 
 // DefaultDartRuntime is the import URI of the Dart runtime. A Flutter app
 // may point this at package:glossa_flutter, which re-exports it.
@@ -287,7 +287,7 @@ func (c *Config) PullPath(locale string) string {
 // Marshal renders the config as YAML with a short header.
 func (c *Config) Marshal() ([]byte, error) {
 	var b bytes.Buffer
-	b.WriteString("# Glossa project file: https://github.com/felixgeelhaar/glossa (platform/cmd/glossa)\n")
+	b.WriteString("# Glossa project file: https://go.klarlabs.de/glossa (platform/cmd/glossa)\n")
 	enc := yaml.NewEncoder(&b)
 	enc.SetIndent(2)
 	if err := enc.Encode(c); err != nil {

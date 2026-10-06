@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // Grading findings against the policy document (RFC 0005 §4).

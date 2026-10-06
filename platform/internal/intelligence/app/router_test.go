@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/memory"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/memory"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 type stubProvider struct {

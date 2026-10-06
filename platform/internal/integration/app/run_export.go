@@ -11,14 +11,14 @@ import (
 	"io"
 	"os"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/jsoncat"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tbx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/tmx"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/xliff"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/jsoncat"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tbx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/tmx"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/xliff"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // FailureNotRepresentable fails an export the format can't express with

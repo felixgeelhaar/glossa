@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://glossa.dev/schemas/usages/v1.json",
   "title": "Glossa usages v1: one build's message usages (RFC 0004 §2.2)",
-  "description": "Written by @felixgeelhaar/glossa-unplugin (.glossa/usages.json) and by `glossa extract`, uploaded by the CLI. One document is one build: one application at one commit. Usages are sorted by key, file, line, column (strings by Unicode code point); (file, line, column) is unique. Fixtures: runtimes/testdata/usages/.",
+  "description": "Written by @klarlabs-studio/glossa-unplugin (.glossa/usages.json) and by `glossa extract`, uploaded by the CLI. One document is one build: one application at one commit. Usages are sorted by key, file, line, column (strings by Unicode code point); (file, line, column) is unique. Fixtures: runtimes/testdata/usages/.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "application", "commit", "branch", "tool", "usages"],

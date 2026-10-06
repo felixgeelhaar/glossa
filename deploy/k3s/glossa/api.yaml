@@ -51,7 +51,7 @@ spec:
     spec:
       initContainers:
         - name: migrate
-          image: ghcr.io/felixgeelhaar/glossa-api:latest
+          image: ghcr.io/klarlabs-studio/glossa-api:latest
           imagePullPolicy: Always
           command:
             - /migrate
@@ -75,7 +75,7 @@ spec:
               memory: 128Mi
       containers:
         - name: api
-          image: ghcr.io/felixgeelhaar/glossa-api:latest
+          image: ghcr.io/klarlabs-studio/glossa-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

@@ -3,9 +3,9 @@ package po_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/po"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/po"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 func TestReadRecordsPositions(t *testing.T) {

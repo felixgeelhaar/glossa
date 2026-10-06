@@ -11,7 +11,7 @@ import (
 	"github.com/klarlabs-studio/auth-go/adapters/webauthn"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
 )
 
 // Config is the WebAuthn relying party.

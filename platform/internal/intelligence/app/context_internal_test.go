@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // These fakes implement only what message_context reads; the embedded

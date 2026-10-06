@@ -11,7 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // `glossa mcp` is a stdio proxy to glossa-server's /mcp endpoint

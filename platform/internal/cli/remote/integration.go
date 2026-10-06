@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // Integration types the CLI reads (RFC 0003 §5–§6), re-exported so

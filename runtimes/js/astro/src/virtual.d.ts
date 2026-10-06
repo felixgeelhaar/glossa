@@ -6,6 +6,6 @@ declare module "virtual:glossa/config" {
 
 // Server-only: the whole release the build renders with.
 declare module "virtual:glossa/release" {
-  const release: import("@felixgeelhaar/glossa-runtime").BundledRelease | null;
+  const release: import("@klarlabs-studio/glossa-runtime").BundledRelease | null;
   export default release;
 }

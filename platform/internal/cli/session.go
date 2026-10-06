@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 // tokenPattern is the shape of a Glossa API token (platform/README.md).

@@ -1,12 +1,12 @@
-# @felixgeelhaar/glossa-react
+# @klarlabs-studio/glossa-react
 
-Glossa for React 18.3+ and 19, on [`@felixgeelhaar/glossa-runtime`](../runtime): a
+Glossa for React 18.3+ and 19, on [`@klarlabs-studio/glossa-runtime`](../runtime): a
 provider, hooks and a `<T>` component. SSR-safe and hydration-safe through
 `useSyncExternalStore`.
 
 ```tsx
 import { createRoot } from "react-dom/client";
-import { GlossaProvider, createGlossa } from "@felixgeelhaar/glossa-react";
+import { GlossaProvider, createGlossa } from "@klarlabs-studio/glossa-react";
 
 const glossa = createGlossa({
   edge: "https://edge.example.com",
@@ -22,7 +22,7 @@ createRoot(document.getElementById("app")!).render(
 ```
 
 ```tsx
-import { T, useGlossa } from "@felixgeelhaar/glossa-react";
+import { T, useGlossa } from "@klarlabs-studio/glossa-react";
 
 export function App() {
   const { t, locale, dir, setLocales, availableLocales } = useGlossa();
@@ -71,12 +71,12 @@ and renders inline defaults.
 
 **`<T id values?>{default}</T>`** renders a message without a wrapper
 element. The children are the inline default, then the message ID. Safe MF2
-markup (`{#b}…{/b}`) becomes elements by the same rules as `@felixgeelhaar/glossa-elements`
+markup (`{#b}…{/b}`) becomes elements by the same rules as `@klarlabs-studio/glossa-elements`
 (attribute-free inline tags only); translation text is never rendered as HTML.
 
 **Capture mode** (RFC 0004 §3.1). While a capture or editor session has an
 `onRender` hook installed on the runtime (see
-[`@felixgeelhaar/glossa-capture`](../capture/README.md)), `<T>` wraps its content in a
+[`@klarlabs-studio/glossa-capture`](../capture/README.md)), `<T>` wraps its content in a
 `<span style="display: contents">` carrying `data-glossa-id` and
 `data-glossa-locale`, and `t()` strings carry the session's invisible markers.
 Both go away when the session ends. A normal page view, and server rendering,
@@ -110,7 +110,7 @@ To type every `useGlossa()` call and `<T id>` instead, register the map once.
 accessors (`m.cart.items({ count })`):
 
 ```ts
-declare module "@felixgeelhaar/glossa-react" {
+declare module "@klarlabs-studio/glossa-react" {
   interface GlossaRegister {
     messages: Messages;
   }
@@ -153,7 +153,7 @@ declare module "@felixgeelhaar/glossa-react" {
 
   ```ts
   // glossa pull --release latest --environment production --out src/glossa/release
-  import { createGlossa, type GlossaOptions } from "@felixgeelhaar/glossa-react";
+  import { createGlossa, type GlossaOptions } from "@klarlabs-studio/glossa-react";
   import manifest from "./glossa/release/manifest.json";
 
   // Vite: every artifact of the bundle, keyed by its SHA-256 (the file name).
@@ -169,7 +169,7 @@ declare module "@felixgeelhaar/glossa-react" {
   to persist the last good release, so the app starts with the last release
   it saw, then refreshes. Nothing to configure; pass `bundled` too for a first
   start offline. Catalogs too big for `localStorage` can persist in IndexedDB
-  instead (`storage: indexedDbStorage()` from `@felixgeelhaar/glossa-runtime/idb`).
+  instead (`storage: indexedDbStorage()` from `@klarlabs-studio/glossa-runtime/idb`).
 
 ## Size
 
@@ -177,5 +177,5 @@ Minified and brotli-compressed (`pnpm size`), React excluded:
 
 | Import | Size | Budget |
 |---|---|---|
-| `@felixgeelhaar/glossa-react` own code (incl. the shared markup rules) | 1.2 kB | 1.5 kB |
-| `@felixgeelhaar/glossa-react` with `@felixgeelhaar/glossa-runtime` | 7.1 kB | 8 kB |
+| `@klarlabs-studio/glossa-react` own code (incl. the shared markup rules) | 1.2 kB | 1.5 kB |
+| `@klarlabs-studio/glossa-react` with `@klarlabs-studio/glossa-runtime` | 7.1 kB | 8 kB |

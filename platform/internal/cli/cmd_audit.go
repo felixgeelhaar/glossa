@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	audit "github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	audit "go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 // The audit trail (RFC 0006 §6). `verify` and `csv` work offline on an

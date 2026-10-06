@@ -27,7 +27,7 @@
 //     read through; the text inside <sub> joins its code's native data.
 package tmx
 
-import "github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+import "go.klarlabs.de/glossa/platform/internal/integration/formats"
 
 const (
 	format = "tmx"

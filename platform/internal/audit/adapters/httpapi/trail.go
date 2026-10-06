@@ -13,13 +13,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiv1"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/idempotency"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/apiv1"
+	"go.klarlabs.de/glossa/platform/internal/audit/app"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/idempotency"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 // The read and export API (RFC 0006 §6.2, wave 5). Identity's Guard has

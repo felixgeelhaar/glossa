@@ -1,5 +1,5 @@
 {
-  "name": "@felixgeelhaar/glossa-unplugin",
+  "name": "@klarlabs-studio/glossa-unplugin",
   "version": "0.4.0",
   "description": "Glossa's bundler plugin for Vite, Rollup, webpack and esbuild: finds where every message is used (file, line, component, route) after the framework transforms and writes .glossa/usages.json for `glossa context push`; adds the in-product editor's loader to builds for a non-production Glossa environment, never to production ones. No network calls.",
   "type": "module",
@@ -41,14 +41,14 @@
     "build:m3": "node scripts/m3-fixture.mjs"
   },
   "dependencies": {
-    "@felixgeelhaar/glossa-runtime": "workspace:^",
+    "@klarlabs-studio/glossa-runtime": "workspace:^",
     "@jridgewell/trace-mapping": "0.3.31",
     "acorn": "8.18.0",
     "unplugin": "3.4.0"
   },
   "devDependencies": {
-    "@felixgeelhaar/glossa-react": "workspace:*",
-    "@felixgeelhaar/glossa-vue": "workspace:*",
+    "@klarlabs-studio/glossa-react": "workspace:*",
+    "@klarlabs-studio/glossa-vue": "workspace:*",
     "@types/node": "22.19.19",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -69,7 +69,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/unplugin"
   },
   "engines": {
@@ -79,6 +79,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/unplugin#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/unplugin#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }

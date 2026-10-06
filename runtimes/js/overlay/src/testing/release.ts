@@ -3,7 +3,7 @@
  * target) and the same messages seeded into the fake API. Test-only.
  */
 import { createHash } from "node:crypto";
-import type { Artifact, BundledRelease, Manifest, Message } from "@felixgeelhaar/glossa-runtime";
+import type { Artifact, BundledRelease, Manifest, Message } from "@klarlabs-studio/glossa-runtime";
 
 import type { FakeApi } from "./fake-api.js";
 import { parse } from "./fake-api.js";

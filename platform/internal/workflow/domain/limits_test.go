@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // The limits of RFC 0006 §9.6 that a definition carries, tested at the

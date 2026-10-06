@@ -373,9 +373,9 @@ export class GlossaAdmin extends LitElement {
       <footer class="colophon" role="contentinfo">
         <span>Glossa</span>
         <span>·</span>
-        <a href="https://github.com/felixgeelhaar/glossa" target="_blank" rel="noreferrer noopener">github</a>
+        <a href="https://github.com/klarlabs-studio/glossa" target="_blank" rel="noreferrer noopener">github</a>
         <span>·</span>
-        <a href="https://github.com/felixgeelhaar/glossa#readme" target="_blank" rel="noreferrer noopener">docs</a>
+        <a href="https://github.com/klarlabs-studio/glossa#readme" target="_blank" rel="noreferrer noopener">docs</a>
       </footer>
     `;
   }

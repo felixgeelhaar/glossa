@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
 )
 
 // Check names the first thing about an export that did not verify. The

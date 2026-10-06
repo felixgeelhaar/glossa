@@ -1,11 +1,11 @@
 /**
- * `@felixgeelhaar/glossa-runtime/idb`: IndexedDB storage for the persisted last-good
+ * `@klarlabs-studio/glossa-runtime/idb`: IndexedDB storage for the persisted last-good
  * release, for catalogs too large for `localStorage`. A separate entry, so
  * apps that don't use it don't ship it.
  *
  * ```ts
- * import { createRuntime } from "@felixgeelhaar/glossa-runtime";
- * import { indexedDbStorage } from "@felixgeelhaar/glossa-runtime/idb";
+ * import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+ * import { indexedDbStorage } from "@klarlabs-studio/glossa-runtime/idb";
  *
  * createRuntime({ …, storage: indexedDbStorage() });
  * ```

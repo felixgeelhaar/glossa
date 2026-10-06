@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
 )
 
 // GitHub's check-run limits.

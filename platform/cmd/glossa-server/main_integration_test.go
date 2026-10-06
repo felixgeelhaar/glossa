@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
 )
 
 // syncBuffer is a goroutine-safe log sink.

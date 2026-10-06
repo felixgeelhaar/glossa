@@ -10,7 +10,7 @@
  * nothing, doesn't, and `./probes.js` never enters its bundle. A static import
  * here would put it there, because `collect()` is always reachable.
  */
-import type { Render, Runtime, RuntimeError } from "@felixgeelhaar/glossa-runtime";
+import type { Render, Runtime, RuntimeError } from "@klarlabs-studio/glossa-runtime";
 
 import { hasMarkers, mark, strip } from "./markers.js";
 // Types only: erased at compile time, so this file's module graph stops here.
@@ -35,7 +35,7 @@ export interface SessionCapture extends Capture {
 export interface SessionOptions {
   /**
    * The visual probe pass (RFC 0005 §5). Import it as
-   * `import { probe } from "@felixgeelhaar/glossa-capture/probes"` and pass it here; a
+   * `import { probe } from "@klarlabs-studio/glossa-capture/probes"` and pass it here; a
    * session without one collects regions and reports no findings.
    */
   probe?: ProbePass;

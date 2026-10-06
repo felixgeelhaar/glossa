@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/metrics"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/metrics"
 )
 
 func TestGitHubCallsAreCountedByStatusWithTheRateLimit(t *testing.T) {

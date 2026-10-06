@@ -15,11 +15,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	authgo "github.com/klarlabs-studio/auth-go/domain"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres/identitysql"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 )
 
 // systemScope names Identity's tenantless transactions.

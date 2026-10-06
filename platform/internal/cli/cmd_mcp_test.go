@@ -13,12 +13,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	mcpgo "github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/mcpgo"
-	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	mcpdomain "github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	mcpgo "go.klarlabs.de/glossa/platform/internal/mcp/adapters/mcpgo"
+	mcpapp "go.klarlabs.de/glossa/platform/internal/mcp/app"
+	mcpdomain "go.klarlabs.de/glossa/platform/internal/mcp/domain"
 )
 
 // These tests run the proxy against a *real* glossa-server MCP

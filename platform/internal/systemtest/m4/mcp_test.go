@@ -12,7 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // MCP (RFC 0005 §12.6), against the same glossa-server, over the same

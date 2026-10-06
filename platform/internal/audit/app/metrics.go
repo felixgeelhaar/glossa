@@ -3,7 +3,7 @@ package app
 import (
 	"errors"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 // Metrics records the Audit context's operational numbers (RFC 0006

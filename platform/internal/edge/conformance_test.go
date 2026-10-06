@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 // edgeFixture is runtimes/testdata/edge/*.json (runtimes/SPEC.md §2).

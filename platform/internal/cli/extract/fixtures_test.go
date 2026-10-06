@@ -11,8 +11,8 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/codegen"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/cli/codegen"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
 )
 
 // fixtureCase is a runtimes/testdata/usages case's case.json.
@@ -39,7 +39,7 @@ func repoRoot() string {
 
 // TestUsageFixtures runs every shared usage fixture case that lists
 // `extract` and compares the document with expected.json exactly, tool
-// aside. The same suite runs against @felixgeelhaar/glossa-unplugin.
+// aside. The same suite runs against @klarlabs-studio/glossa-unplugin.
 func TestUsageFixtures(t *testing.T) {
 	dir := filepath.Join(repoRoot(), "runtimes", "testdata", "usages")
 	entries, err := os.ReadDir(dir)

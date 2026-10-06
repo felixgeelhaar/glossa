@@ -10,9 +10,9 @@
  * `data-glossa-redact`. The query selects the locale (`?lang=`) and the
  * manifest's environment (`?env=production` for the refusal test). Test-only.
  */
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { Artifact, BundledRelease, Manifest, Message } from "@felixgeelhaar/glossa-runtime";
-import "@felixgeelhaar/glossa-elements";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { Artifact, BundledRelease, Manifest, Message } from "@klarlabs-studio/glossa-runtime";
+import "@klarlabs-studio/glossa-elements";
 
 const msg = (text: string): Message => ({ type: "message", declarations: [], pattern: [text] });
 

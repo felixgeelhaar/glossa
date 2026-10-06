@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres/catalogsql"
-	"github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/catalog/adapters/postgres/catalogsql"
+	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
 )
 
 // ── branches ────────────────────────────────────────────────────────

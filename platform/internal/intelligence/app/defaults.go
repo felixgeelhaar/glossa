@@ -1,6 +1,6 @@
 package app
 
-import "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+import "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 
 // Default models when a tenant uses Anthropic (RFC 0003 §3.1). They are
 // configuration: tenants and projects override routing, and nothing in

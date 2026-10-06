@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/internal/formatstest"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/po"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/internal/formatstest"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/po"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 func readFile(t *testing.T, path string, opts po.ReadOptions) formats.Catalog {

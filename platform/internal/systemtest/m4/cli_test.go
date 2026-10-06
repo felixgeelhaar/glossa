@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/credentials"
+	"go.klarlabs.de/glossa/platform/internal/cli"
+	"go.klarlabs.de/glossa/platform/internal/cli/credentials"
 )
 
 // memStore is an in-memory credentials.Store: the exit test never

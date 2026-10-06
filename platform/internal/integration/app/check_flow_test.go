@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/integration/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // The Glossa PR check, end to end against the fake GitHub (RFC 0004

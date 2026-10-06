@@ -2,7 +2,7 @@
  * `<GlossaText id="cart.checkout">Zur Kasse</GlossaText>`: renders a message,
  * with the default slot as the inline default (runtimes/SPEC.md §3, step 5),
  * then the message ID. Safe MF2 markup becomes elements by the same rules as
- * `@felixgeelhaar/glossa-elements`; translation text is never rendered as HTML. No wrapper
+ * `@klarlabs-studio/glossa-elements`; translation text is never rendered as HTML. No wrapper
  * element: plain text renders as a text node.
  *
  * Capture mode (RFC 0004 §3.1): while a capture or editor session has an
@@ -13,8 +13,8 @@
  */
 import { defineComponent, h } from "vue";
 import type { PropType, VNodeChild } from "vue";
-import { markAttributes, partsToTree, resolveParts } from "@felixgeelhaar/glossa-elements/parts";
-import type { TreeNode } from "@felixgeelhaar/glossa-elements/parts";
+import { markAttributes, partsToTree, resolveParts } from "@klarlabs-studio/glossa-elements/parts";
+import type { TreeNode } from "@klarlabs-studio/glossa-elements/parts";
 
 import { useState } from "./glossa.js";
 

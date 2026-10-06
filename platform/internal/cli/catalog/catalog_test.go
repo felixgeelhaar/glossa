@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/catalog"
+	"go.klarlabs.de/glossa/platform/internal/cli/catalog"
 )
 
 func TestParseFlattensNestedAndFlatKeys(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/sealing"
+	"go.klarlabs.de/glossa/platform/internal/kernel/sealing"
 )
 
 func key(b byte) []byte { return bytes.Repeat([]byte{b}, 32) }

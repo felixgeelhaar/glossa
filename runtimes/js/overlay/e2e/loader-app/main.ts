@@ -1,12 +1,12 @@
 /**
  * The preview deployment the loader tests build with Vite and
- * `@felixgeelhaar/glossa-unplugin`: a page on `@felixgeelhaar/glossa-runtime` and `@felixgeelhaar/glossa-elements`
+ * `@klarlabs-studio/glossa-unplugin`: a page on `@klarlabs-studio/glossa-runtime` and `@klarlabs-studio/glossa-elements`
  * whose bundled release and Glossa environment the test defines. Nothing
  * here knows about the overlay — the plugin adds its loader.
  */
-import "@felixgeelhaar/glossa-elements";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { BundledRelease, Runtime } from "@felixgeelhaar/glossa-runtime";
+import "@klarlabs-studio/glossa-elements";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { BundledRelease, Runtime } from "@klarlabs-studio/glossa-runtime";
 
 /** Both from the test's Vite `define`. */
 declare const GLOSSA_ENVIRONMENT: string;

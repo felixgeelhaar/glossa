@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 // Defaults init writes.
@@ -46,8 +46,8 @@ func runInit(ctx context.Context, inv *invocation, args []string) error {
 	fs.StringVar(&f.sourceLocale, "source-locale", "", "the project's source locale (read from the server when a token is available)")
 	fs.StringVar(&f.catalogs, "catalogs", "", "catalog file pattern (default "+defaultCatalogs+")")
 	fs.StringVar(&f.ts, "typescript", "", "where `generate` writes the TypeScript module")
-	fs.StringVar(&f.vue, "vue", "", "where `generate` writes the @felixgeelhaar/glossa-vue registration")
-	fs.StringVar(&f.react, "react", "", "where `generate` writes the @felixgeelhaar/glossa-react registration")
+	fs.StringVar(&f.vue, "vue", "", "where `generate` writes the @klarlabs-studio/glossa-vue registration")
+	fs.StringVar(&f.react, "react", "", "where `generate` writes the @klarlabs-studio/glossa-react registration")
 	fs.StringVar(&f.goOut, "go", "", "where `generate` writes the Go accessors")
 	fs.StringVar(&f.dartOut, "dart", "", "where `generate` writes the Dart accessors")
 	fs.BoolVar(&f.force, "force", false, "overwrite an existing glossa.yaml")

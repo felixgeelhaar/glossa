@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres/identitysql"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // Device sign-in (RFC 0006 §7.2, migration 0054): system scope only, as

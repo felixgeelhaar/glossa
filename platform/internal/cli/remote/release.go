@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
 )
 
 // ReleaseService is release.Service over the generated /v1 client:

@@ -7,16 +7,20 @@ attributes and slot-as-default behaviour. What changes is where the provider
 gets its messages: the delivery plane (a signed, cached release from the
 edge) instead of the v0.3 API.
 
-## 1. Swap the dependency
+## 1. Rename the package
+
+The new elements package is a rename, not a new product: v0.3 shipped as
+`@felixgeelhaar/glossa-elements` (0.3.x), this line ships as
+`@klarlabs-studio/glossa-elements` (0.4.0).
 
 ```diff
-- "@felixgeelhaar/glossa-elements": "^0.2.0",
-+ "@felixgeelhaar/glossa-elements": "…",
+- "@felixgeelhaar/glossa-elements": "^0.3.0",
++ "@klarlabs-studio/glossa-elements": "^0.4.0",
 ```
 
 ```diff
 - import "@felixgeelhaar/glossa-elements";
-+ import "@felixgeelhaar/glossa-elements";
++ import "@klarlabs-studio/glossa-elements";
 ```
 
 ## 2. Change the provider's attributes
@@ -79,12 +83,12 @@ Vue treats `key` as its own vnode key and never renders it as an attribute,
 so a `<glossa-text key="…">` in a `.vue` template has no message ID in the
 DOM and shows only its inline default, with v0.3 as well as now. Rename the
 attribute to `message` there (a mechanical `key=` → `message=` on `glossa-*`
-tags in `.vue` files), or switch to `<GlossaText id>` from `@felixgeelhaar/glossa-vue`.
+tags in `.vue` files), or switch to `<GlossaText id>` from `@klarlabs-studio/glossa-vue`.
 `.astro` files and plain HTML keep `key`.
 
 ## Static pages (Astro)
 
-With `@felixgeelhaar/glossa-astro`, `<glossa-*>` elements are rendered at build time, so the
+With `@klarlabs-studio/glossa-astro`, `<glossa-*>` elements are rendered at build time, so the
 static HTML is already translated and the elements take over without a
 flicker. Inside Vue components, keep telling Vue that `glossa-*` tags are
 custom elements (`compilerOptions.isCustomElement`), as with v0.3.

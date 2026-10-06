@@ -23,7 +23,7 @@ import { overlayConfig, overlayPlugin } from "./overlay.js";
 import type { Node } from "./scan.js";
 import type { UsagesDocument } from "./usage.js";
 
-export const PLUGIN_NAME = "@felixgeelhaar/glossa-unplugin";
+export const PLUGIN_NAME = "@klarlabs-studio/glossa-unplugin";
 export const TOOL_VERSION = (createRequire(import.meta.url)("../package.json") as { version: string }).version;
 
 const SCRIPT = /\.(?:[cm]?[jt]sx?|vue|astro)$/;

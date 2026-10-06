@@ -6,8 +6,8 @@ package identity
 import (
 	"slices"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
 )
 
 // Permissions implements app.Permissions over domain.AllPermissions.

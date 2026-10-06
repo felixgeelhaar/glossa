@@ -30,8 +30,8 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/context/domain"
 )
 
 // maxBytesPerPixel is what the widest decoded pixel takes (16-bit RGBA).

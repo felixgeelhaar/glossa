@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
 )
 
 // Quality adapts Quality's application service to tools.Quality. It

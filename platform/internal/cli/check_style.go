@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa check`'s effective style guides (RFC 0005 §3.2).

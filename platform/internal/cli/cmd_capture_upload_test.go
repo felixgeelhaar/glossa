@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	contextdomain "github.com/felixgeelhaar/glossa/platform/internal/context/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	contextdomain "go.klarlabs.de/glossa/platform/internal/context/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // What `glossa capture --upload` carries to the server (RFC 0005 §5.1).

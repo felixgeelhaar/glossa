@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // newExampleClient loads the catalogs in testdata/bundle, as a binary

@@ -16,8 +16,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
 )
 
 // `glossa policy` (RFC 0005 §13 wave 6): the check policy as a file.

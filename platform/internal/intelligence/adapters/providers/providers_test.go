@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/providers"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/providers"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // A tenant can't point a provider at the deployment's own network: the

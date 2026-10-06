@@ -1,6 +1,6 @@
 // Package capture is `glossa capture` (RFC 0004 §3.2): it opens each
 // page of the capture plan in headless Chrome with scout, finds where the
-// page rendered its messages with the capture agent of @felixgeelhaar/glossa-capture,
+// page rendered its messages with the capture agent of @klarlabs-studio/glossa-capture,
 // and takes a full-page screenshot, into one glossa.captures/v1 document.
 //
 // Capture runs where the app already runs, in the product's CI, against a
@@ -19,7 +19,7 @@ import (
 
 	"go.klarlabs.de/scout/agent"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
 )
 
 // MaxCaptures is the most captures one build holds (RFC 0004 §10).

@@ -3,9 +3,9 @@ package qa
 import (
 	"strconv"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/style"
 )
 
 // The terminal's side of the effective style guide.

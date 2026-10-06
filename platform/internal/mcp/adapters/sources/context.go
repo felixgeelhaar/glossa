@@ -5,10 +5,10 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	catalog "github.com/felixgeelhaar/glossa/platform/internal/catalog/domain"
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	catalog "go.klarlabs.de/glossa/platform/internal/catalog/domain"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // Usages adapts the Context context to tools.UsageReader. Neighbours

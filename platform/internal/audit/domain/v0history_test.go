@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/audit/domain"
+	"go.klarlabs.de/glossa/platform/internal/audit/domain"
 )
 
 func sum(s string) string {

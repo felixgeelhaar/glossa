@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/jcs"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/jcs"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 // fixtureSalt is runtimes/testdata/rollout/cohorts.json's salt.

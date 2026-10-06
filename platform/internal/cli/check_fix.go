@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/catalog"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/cli/catalog"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
 )
 
 // `glossa check --fix` (RFC 0005 §13 wave 6): applying the structured

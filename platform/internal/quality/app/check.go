@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // ErrNoSnapshot means this deployment cannot read a project as the

@@ -1,12 +1,12 @@
 /**
- * `@felixgeelhaar/glossa-astro/client`: the page's one runtime, shared by every island and
+ * `@klarlabs-studio/glossa-astro/client`: the page's one runtime, shared by every island and
  * `<glossa-provider>` on it. It starts from the release slice the page
  * inlined (so the first render matches the server's HTML) and then refreshes
  * from the edge like any browser runtime. On the server, during an island's
  * render, it's the request's runtime instead.
  */
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-import type { Runtime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+import type { Runtime } from "@klarlabs-studio/glossa-runtime";
 import config from "virtual:glossa/config";
 
 import type { InlineRelease } from "./page.js";

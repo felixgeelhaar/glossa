@@ -3,7 +3,7 @@
 // the Vue tree, sharing the page's runtime.
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { GlossaProvider, createGlossa } from "@felixgeelhaar/glossa-react";
+import { GlossaProvider, createGlossa } from "@klarlabs-studio/glossa-react";
 
 import { runtime } from "../runtime";
 import { PayButton } from "./PayButton";

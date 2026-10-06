@@ -1,6 +1,6 @@
 # `@felixgeelhaar/glossa-sdk`
 
-Framework-agnostic HTTP client + in-memory bundle cache + SSE subscription for [Glossa](https://github.com/felixgeelhaar/glossa). Runs in Node and browsers. ~400 LOC, ~10 KB unpacked, zero non-stdlib deps.
+Framework-agnostic HTTP client + in-memory bundle cache + SSE subscription for [Glossa](https://github.com/klarlabs-studio/glossa). Runs in Node and browsers. ~400 LOC, ~10 KB unpacked, zero non-stdlib deps.
 
 ```bash
 pnpm add @felixgeelhaar/glossa-sdk

@@ -1,7 +1,7 @@
 package domain
 
 import (
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // AdaptVariables returns a copy of target, a TM unit's translation,

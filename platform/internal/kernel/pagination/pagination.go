@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 const (

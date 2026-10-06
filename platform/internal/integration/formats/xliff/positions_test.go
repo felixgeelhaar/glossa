@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats/xliff"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats/xliff"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 )
 
 const positioned = `<?xml version="1.0" encoding="UTF-8"?>

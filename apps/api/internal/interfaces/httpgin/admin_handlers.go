@@ -12,13 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apierr/ginerr"
-	authapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/auth"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/audit"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/user"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/errs"
+	"go.klarlabs.de/glossa/apierr/ginerr"
+	authapp "go.klarlabs.de/glossa/apps/api/internal/app/auth"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/audit"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/project"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/user"
+	"go.klarlabs.de/glossa/apps/api/internal/errs"
 )
 
 // ─── Locales ─────────────────────────────────────────────────────

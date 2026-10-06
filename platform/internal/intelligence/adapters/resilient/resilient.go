@@ -16,7 +16,7 @@ import (
 	"go.klarlabs.de/fortify/retry"
 	"go.klarlabs.de/fortify/timeout"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // Config tunes the wrapper. Zero values take the defaults.

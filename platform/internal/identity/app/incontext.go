@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // The in-product editor's credential (RFC 0004 §5.2).

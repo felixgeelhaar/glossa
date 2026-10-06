@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/domain"
 )
 
 // Reader is the narrow, read-only view of Knowledge that the

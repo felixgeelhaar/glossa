@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
 )
 
 // v0.3's text: two keys with bare apostrophes (v0.3's known defect),

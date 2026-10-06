@@ -16,12 +16,12 @@ import (
 	"testing"
 	"time"
 
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/edge"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
-	"github.com/felixgeelhaar/glossa/platform/internal/release/releasetest"
+	"go.klarlabs.de/glossa/platform/internal/edge"
+	"go.klarlabs.de/glossa/platform/internal/kernel/config"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	"go.klarlabs.de/glossa/platform/internal/release/releasetest"
 )
 
 const bucket = "glossa-e2e"

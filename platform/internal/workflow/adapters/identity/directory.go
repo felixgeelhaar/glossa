@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	identityapp "github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/app"
-	workflow "github.com/felixgeelhaar/glossa/platform/internal/workflow/domain"
+	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/workflow/app"
+	workflow "go.klarlabs.de/glossa/platform/internal/workflow/domain"
 )
 
 // TenantReader runs a read on Identity's tenant store, joining the

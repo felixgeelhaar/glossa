@@ -5,14 +5,14 @@
 # security headers.
 #
 # Build from the repository root (Studio is a pnpm workspace member and
-# imports @felixgeelhaar/glossa-messageformat from messageformat/js):
+# imports @klarlabs-studio/glossa-messageformat from messageformat/js):
 #
 #   docker build -f studio/Dockerfile -t glossa-studio .
 #
 # The build fetches @klarlabs-studio/ui from its public repository at the
 # commit pinned in studio/package.json#klarlabsUi (studio/README.md,
 # "Design system"), so it needs network access and git. It also builds
-# @felixgeelhaar/glossa-overlay (with @felixgeelhaar/glossa-runtime and @felixgeelhaar/glossa-capture), whose bundle
+# @klarlabs-studio/glossa-overlay (with @klarlabs-studio/glossa-runtime and @klarlabs-studio/glossa-capture), whose bundle
 # Studio serves at /overlay/v1/overlay.js (RFC 0004 §5.1).
 #
 # Runtime configuration (no rebuild): GLOSSA_STUDIO_* variables are
@@ -51,7 +51,7 @@ COPY runtimes/js/runtime/ runtimes/js/runtime/
 COPY runtimes/js/capture/ runtimes/js/capture/
 COPY runtimes/js/overlay/ runtimes/js/overlay/
 COPY studio/ studio/
-RUN pnpm --filter @felixgeelhaar/glossa-messageformat build && pnpm --filter "@felixgeelhaar/glossa-overlay..." build
+RUN pnpm --filter @klarlabs-studio/glossa-messageformat build && pnpm --filter "@klarlabs-studio/glossa-overlay..." build
 # `build` links the design system first (scripts/klarlabs-ui.mjs), then runs
 # vite build. The Vite manifest is tooling, not something to serve.
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \
@@ -65,9 +65,9 @@ ARG REVISION=unknown
 ARG CREATED=""
 LABEL org.opencontainers.image.title="glossa-studio" \
       org.opencontainers.image.description="Glossa Studio: the web app for translators, developers and localization managers." \
-      org.opencontainers.image.source="https://github.com/felixgeelhaar/glossa" \
-      org.opencontainers.image.url="https://github.com/felixgeelhaar/glossa/tree/main/studio" \
-      org.opencontainers.image.documentation="https://github.com/felixgeelhaar/glossa/blob/main/studio/README.md" \
+      org.opencontainers.image.source="https://go.klarlabs.de/glossa" \
+      org.opencontainers.image.url="https://go.klarlabs.de/glossa/tree/main/studio" \
+      org.opencontainers.image.documentation="https://go.klarlabs.de/glossa/blob/main/studio/README.md" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="Klarlabs" \
       org.opencontainers.image.version="${VERSION}" \

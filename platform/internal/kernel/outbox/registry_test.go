@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 )
 
 var noop = outbox.HandlerFunc(func(context.Context, outbox.Delivery) error { return nil })

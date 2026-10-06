@@ -1,6 +1,6 @@
 # `@felixgeelhaar/glossa-cli`
 
-Build-time tooling for [Glossa](https://github.com/felixgeelhaar/glossa). Walks a source tree, extracts translation keys, syncs them with the API, and pulls bundles to disk for build-time baking. ~620 LOC.
+Build-time tooling for [Glossa](https://github.com/klarlabs-studio/glossa). Walks a source tree, extracts translation keys, syncs them with the API, and pulls bundles to disk for build-time baking. ~620 LOC.
 
 ```bash
 pnpm add -D @felixgeelhaar/glossa-cli

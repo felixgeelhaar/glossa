@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/release"
+	"go.klarlabs.de/glossa/platform/internal/cli/release"
 )
 
 // Release requests (RFC 0006 §5.1): a publish or promote into an

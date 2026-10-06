@@ -4,7 +4,7 @@
  * checked in a real browser by the CLI's integration test.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { createRuntime } from "@felixgeelhaar/glossa-runtime";
+import { createRuntime } from "@klarlabs-studio/glossa-runtime";
 
 import { REDACT, install } from "./agent.js";
 import { hasMarkers } from "./markers.js";

@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/config"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/extract"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	qualityapp "github.com/felixgeelhaar/glossa/platform/internal/quality/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture"
+	"go.klarlabs.de/glossa/platform/internal/cli/config"
+	"go.klarlabs.de/glossa/platform/internal/cli/extract"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	qualityapp "go.klarlabs.de/glossa/platform/internal/quality/app"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // `glossa capture --check` (RFC 0005 §13 wave 4): capture and check in

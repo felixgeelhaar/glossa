@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/prompts"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/prompts"
 )
 
 func fullData() prompts.Data {

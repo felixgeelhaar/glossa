@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // maxResponse bounds a provider answer we are willing to read.

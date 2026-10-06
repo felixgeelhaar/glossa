@@ -6,7 +6,7 @@
 package receipt
 
 import (
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 )
 
 // Render writes the receipt's lines for one reader.

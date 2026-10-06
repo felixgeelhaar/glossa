@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 var t0 = time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)

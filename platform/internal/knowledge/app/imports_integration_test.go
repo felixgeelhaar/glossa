@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/knowledge/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/app"
+	"go.klarlabs.de/glossa/platform/internal/knowledge/domain"
 )
 
 func TestImportTMUnitsAddsOnceAndLookupsFindThem(t *testing.T) {

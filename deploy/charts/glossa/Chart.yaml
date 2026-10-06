@@ -4,9 +4,9 @@ description: Self-hosted, multi-tenant translation management — REST API + SSE
 type: application
 version: 0.1.1
 appVersion: "0.1.0"
-home: https://github.com/felixgeelhaar/glossa
+home: https://github.com/klarlabs-studio/glossa
 sources:
-  - https://github.com/felixgeelhaar/glossa
+  - https://github.com/klarlabs-studio/glossa
 keywords:
   - translation-management
   - i18n
@@ -17,7 +17,7 @@ keywords:
 maintainers:
   - name: Felix Geelhaar
     url: https://github.com/felixgeelhaar
-icon: https://github.com/felixgeelhaar/glossa/raw/main/docs/icon.png
+icon: https://github.com/klarlabs-studio/glossa/raw/main/docs/icon.png
 annotations:
   artifacthub.io/license: MIT
   artifacthub.io/category: integration-delivery

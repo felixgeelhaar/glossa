@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/workflow/adapters/httpapi"
+	"go.klarlabs.de/glossa/platform/internal/workflow/adapters/httpapi"
 )
 
 func TestCreateAssignmentPath(t *testing.T) {

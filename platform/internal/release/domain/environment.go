@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/delivery"
+	"go.klarlabs.de/glossa/platform/internal/release/delivery"
 )
 
 // Errors.

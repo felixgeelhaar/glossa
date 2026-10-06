@@ -15,7 +15,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
 )
 
 // GitHub records one collector set for the GitHub App's HTTP calls.

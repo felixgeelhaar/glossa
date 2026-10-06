@@ -30,7 +30,7 @@
 # image.requireDigest on, so an unpinned image fails the render.
 #
 #   kubectl create namespace glossa-platform   # + the PodSecurity labels (README.md)
-#   gh run download --repo felixgeelhaar/glossa <run-id> -n values-images
+#   gh run download --repo klarlabs-studio/glossa <run-id> -n values-images
 #   helm upgrade --install glossa-platform deploy/charts/glossa-platform \
 #     --namespace glossa-platform -f deploy/charts/glossa-platform/examples/values-klarlabs.yaml \
 #     -f values-images.yaml --timeout 15m

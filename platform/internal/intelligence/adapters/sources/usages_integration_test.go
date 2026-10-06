@@ -13,18 +13,18 @@ import (
 
 	"github.com/google/uuid"
 
-	catalogpg "github.com/felixgeelhaar/glossa/platform/internal/catalog/adapters/postgres"
-	catalogapp "github.com/felixgeelhaar/glossa/platform/internal/catalog/app"
-	contextcatalog "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/catalog"
-	contextpg "github.com/felixgeelhaar/glossa/platform/internal/context/adapters/postgres"
-	contextapp "github.com/felixgeelhaar/glossa/platform/internal/context/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/sources"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db/dbtest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
+	catalogpg "go.klarlabs.de/glossa/platform/internal/catalog/adapters/postgres"
+	catalogapp "go.klarlabs.de/glossa/platform/internal/catalog/app"
+	contextcatalog "go.klarlabs.de/glossa/platform/internal/context/adapters/catalog"
+	contextpg "go.klarlabs.de/glossa/platform/internal/context/adapters/postgres"
+	contextapp "go.klarlabs.de/glossa/platform/internal/context/app"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/sources"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db/dbtest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
 )
 
 var env *dbtest.Env
@@ -73,7 +73,7 @@ func TestUsagesPortReadsCurrentUsagesAndCoLocatedMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := `{"schema":"glossa.usages/v1","application":"web","commit":"` + strings.Repeat("a", 40) + `","branch":"main",
-	  "tool":{"name":"@felixgeelhaar/glossa-unplugin","version":"0.1.0"},"usages":[
+	  "tool":{"name":"@klarlabs-studio/glossa-unplugin","version":"0.1.0"},"usages":[
 	  {"key":"checkout.pay","file":"src/Pay.vue","line":3,"column":5,"component":"Pay","route":"/checkout","kind":"t"},
 	  {"key":"checkout.total","file":"src/Pay.vue","line":9,"column":5,"component":"Pay","route":"/checkout","kind":"t"},
 	  {"key":"nav.home","file":"index.html","line":1,"column":5,"kind":"element"}]}`

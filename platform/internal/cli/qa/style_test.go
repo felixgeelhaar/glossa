@@ -3,9 +3,9 @@ package qa_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
 )
 
 func ptr[T any](v T) *T { return &v }

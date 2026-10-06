@@ -8,7 +8,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/felixgeelhaar/glossa/messageformat"
+	"go.klarlabs.de/glossa/messageformat"
 )
 
 // An activated release and how one is assembled (runtimes/SPEC.md §3):

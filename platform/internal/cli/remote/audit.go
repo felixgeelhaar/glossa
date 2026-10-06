@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/apiclient"
+	"go.klarlabs.de/glossa/platform/internal/apiclient"
 )
 
 // The tenant's audit trail and its export jobs (RFC 0006 §6.2).

@@ -3,8 +3,8 @@ package layers_test
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // The source layer (RFC 0005 §3.5): problematic source copy, before

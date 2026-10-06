@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox/outboxsql"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox/outboxsql"
 )
 
 // Publish records e in tx, the same tenant-scoped transaction as the

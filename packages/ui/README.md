@@ -1,6 +1,6 @@
 # `@felixgeelhaar/glossa-ui`
 
-Lit primitives + design tokens that power the [Glossa](https://github.com/felixgeelhaar/glossa) admin SPA. Light / dark / system theming via CSS custom properties; form-associated where it matters (works inside native `<form>`). ~1100 LOC, ~75 KB unpacked.
+Lit primitives + design tokens that power the [Glossa](https://github.com/klarlabs-studio/glossa) admin SPA. Light / dark / system theming via CSS custom properties; form-associated where it matters (works inside native `<form>`). ~1100 LOC, ~75 KB unpacked.
 
 ```bash
 pnpm add @felixgeelhaar/glossa-ui

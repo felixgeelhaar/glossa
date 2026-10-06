@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/capture/capturetest"
+	"go.klarlabs.de/glossa/platform/internal/cli/capture/capturetest"
 )
 
 // glossa capture end to end: headless Chrome against the fixture app

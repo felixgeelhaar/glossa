@@ -3,8 +3,8 @@ package style_test
 import (
 	"testing"
 
-	inteldomain "github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/adapters/style"
+	inteldomain "go.klarlabs.de/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/adapters/style"
 )
 
 // The line RFC 0005 §3.2 draws, drawn here: the mechanical fields cross

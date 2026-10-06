@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	apikeyapp "github.com/felixgeelhaar/glossa/apps/api/internal/app/apikey"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/analytics"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/apikey"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/project"
+	apikeyapp "go.klarlabs.de/glossa/apps/api/internal/app/apikey"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/analytics"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/apikey"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/project"
 )
 
 // ErrInvalidTenantID is the belt-and-suspender guard. Authenticated

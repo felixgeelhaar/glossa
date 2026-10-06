@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/release/domain"
+	"go.klarlabs.de/glossa/platform/internal/release/domain"
 )
 
 var reviewers = domain.ApprovalParty{Role: "reviewer"}

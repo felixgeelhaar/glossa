@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/objectstore/s3store/s3test"
+	"go.klarlabs.de/glossa/platform/internal/kernel/objectstore/s3store/s3test"
 )
 
 // Release approvals and staged rollouts end to end (RFC 0006 §5, §12.3,

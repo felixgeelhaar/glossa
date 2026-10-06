@@ -8,16 +8,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/authz/authztest"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/bcp47"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/mfcontent"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/outbox"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	localizationapp "github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	localizationdomain "github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/adapters/sources"
-	mcpapp "github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	"go.klarlabs.de/glossa/platform/internal/identity/authz/authztest"
+	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
+	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
+	localizationdomain "go.klarlabs.de/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/adapters/sources"
+	mcpapp "go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // The seam between MCP's `translation_propose` and Localization's

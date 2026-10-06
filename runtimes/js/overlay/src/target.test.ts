@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mark } from "@felixgeelhaar/glossa-capture";
-import type { LoggedRender } from "@felixgeelhaar/glossa-capture";
+import { mark } from "@klarlabs-studio/glossa-capture";
+import type { LoggedRender } from "@klarlabs-studio/glossa-capture";
 
 import { locate } from "./target.js";
 

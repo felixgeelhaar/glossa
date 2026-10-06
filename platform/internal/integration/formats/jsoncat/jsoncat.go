@@ -18,7 +18,7 @@
 package jsoncat
 
 import (
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/formats"
+	"go.klarlabs.de/glossa/platform/internal/integration/formats"
 )
 
 // Layout is the shape of a catalog file.

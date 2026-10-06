@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/remote"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/v0"
+	"go.klarlabs.de/glossa/platform/internal/cli/remote"
+	"go.klarlabs.de/glossa/platform/internal/cli/v0"
 )
 
 // importV0DB is `glossa import --from v0 --v0-db DSN` (RFC 0006 §7.2):

@@ -3,7 +3,7 @@ package domain
 import (
 	"fmt"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/identity/domain"
 )
 
 // Toolset is the set of tools a session registered. It is the *second*

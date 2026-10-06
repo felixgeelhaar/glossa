@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/adapters/postgres/identitysql"
-	"github.com/felixgeelhaar/glossa/platform/internal/identity/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/db"
+	"go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres/identitysql"
+	"go.klarlabs.de/glossa/platform/internal/identity/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 )
 
 // InCurrentTenant runs fn on Identity's tenant store inside the tenant

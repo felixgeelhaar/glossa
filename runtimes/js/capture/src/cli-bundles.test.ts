@@ -15,7 +15,7 @@ describe("glossa capture's embedded scripts", () => {
       const stale = (await checkedIn(b)) !== fresh;
       expect(
         stale,
-        "out of date: run `pnpm -r --filter @felixgeelhaar/glossa-capture... build && pnpm --filter @felixgeelhaar/glossa-capture build:cli`",
+        "out of date: run `pnpm -r --filter @klarlabs-studio/glossa-capture... build && pnpm --filter @klarlabs-studio/glossa-capture build:cli`",
       ).toBe(false);
     });
   }

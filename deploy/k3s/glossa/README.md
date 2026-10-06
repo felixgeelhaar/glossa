@@ -1,6 +1,6 @@
 # Glossa — k3s deployment
 
-Reference manifests for self-hosting Glossa on a k3s cluster behind Traefik. Mirrors the layout the public `ghcr.io/felixgeelhaar/glossa-*` container images expect.
+Reference manifests for self-hosting Glossa on a k3s cluster behind Traefik. Mirrors the layout the public `ghcr.io/klarlabs-studio/glossa-*` container images expect.
 
 ## Prerequisites
 
@@ -41,9 +41,9 @@ After the rollout settles, the admin SPA is live at <https://glossa.kraftsport-c
 ```bash
 TAG=v0.1.2
 kubectl -n glossa set image deploy/api \
-  api=ghcr.io/felixgeelhaar/glossa-api:$TAG \
-  migrate=ghcr.io/felixgeelhaar/glossa-api:$TAG
-kubectl -n glossa set image deploy/admin admin=ghcr.io/felixgeelhaar/glossa-admin:$TAG
+  api=ghcr.io/klarlabs-studio/glossa-api:$TAG \
+  migrate=ghcr.io/klarlabs-studio/glossa-api:$TAG
+kubectl -n glossa set image deploy/admin admin=ghcr.io/klarlabs-studio/glossa-admin:$TAG
 kubectl -n glossa rollout status deploy/api  --timeout=180s
 kubectl -n glossa rollout status deploy/admin --timeout=120s
 # Rollback if the rollout fails:

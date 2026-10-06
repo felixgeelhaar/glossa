@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
-	glossa "github.com/felixgeelhaar/glossa/runtimes/go"
+	mf "go.klarlabs.de/glossa/messageformat"
+	glossa "go.klarlabs.de/glossa/runtimes/go"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/systemtest/m2/fixture"
+	"go.klarlabs.de/glossa/platform/internal/systemtest/m2/fixture"
 )
 
 // maxReviewShare is the M2 exit bar: people review at most this share of

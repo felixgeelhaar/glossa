@@ -1,7 +1,7 @@
 {
-  "name": "@felixgeelhaar/glossa-elements",
+  "name": "@klarlabs-studio/glossa-elements",
   "version": "0.4.0",
-  "description": "Glossa's web components on @felixgeelhaar/glossa-runtime: <glossa-provider>, <glossa-text|rich|plural|select> and <glossa-selector>, compatible with the v0.3 element API.",
+  "description": "Glossa's web components on @klarlabs-studio/glossa-runtime: <glossa-provider>, <glossa-text|rich|plural|select> and <glossa-selector>, compatible with the v0.3 element API.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -37,31 +37,31 @@
   },
   "size-limit": [
     {
-      "name": "@felixgeelhaar/glossa-elements, everything included (lit, @lit/context, @felixgeelhaar/glossa-runtime)",
+      "name": "@klarlabs-studio/glossa-elements, everything included (lit, @lit/context, @klarlabs-studio/glossa-runtime)",
       "path": "dist/index.js",
       "limit": "15.3 KB"
     },
     {
-      "name": "@felixgeelhaar/glossa-elements, own code (lit, @lit/context and @felixgeelhaar/glossa-runtime excluded)",
+      "name": "@klarlabs-studio/glossa-elements, own code (lit, @lit/context and @klarlabs-studio/glossa-runtime excluded)",
       "path": "dist/index.js",
       "ignore": [
         "lit",
         "@lit/context",
-        "@felixgeelhaar/glossa-runtime"
+        "@klarlabs-studio/glossa-runtime"
       ],
       "limit": "3.5 KB"
     },
     {
-      "name": "@felixgeelhaar/glossa-elements/ssr (@felixgeelhaar/glossa-runtime excluded)",
+      "name": "@klarlabs-studio/glossa-elements/ssr (@klarlabs-studio/glossa-runtime excluded)",
       "path": "dist/ssr.js",
       "ignore": [
-        "@felixgeelhaar/glossa-runtime"
+        "@klarlabs-studio/glossa-runtime"
       ],
       "limit": "1.75 KB"
     }
   ],
   "dependencies": {
-    "@felixgeelhaar/glossa-runtime": "workspace:^",
+    "@klarlabs-studio/glossa-runtime": "workspace:^",
     "@lit/context": "1.1.6",
     "lit": "3.3.3"
   },
@@ -77,7 +77,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/elements"
   },
   "engines": {
@@ -87,6 +87,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/elements#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/elements#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }

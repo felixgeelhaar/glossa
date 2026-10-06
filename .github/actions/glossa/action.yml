@@ -48,7 +48,7 @@ inputs:
   usages:
     description: >-
       A `glossa.usages/v1` document to upload, such as
-      @felixgeelhaar/glossa-unplugin's `.glossa/usages.json`. Empty: `glossa extract
+      @klarlabs-studio/glossa-unplugin's `.glossa/usages.json`. Empty: `glossa extract
       --upload` collects the usages instead.
     required: false
     default: ''
@@ -84,7 +84,7 @@ runs:
         # choosing one.
         if ! command -v glossa >/dev/null 2>&1; then
           echo "::error::glossa is not on PATH. Install the CLI before this action" \
-               "(a release binary, or 'go install github.com/felixgeelhaar/glossa/platform/cmd/glossa@<version>')."
+               "(a release binary, or 'go install github.com/klarlabs-studio/glossa/platform/cmd/glossa@<version>')."
           exit 1
         fi
         if [ -n "${GLOSSA_TOKEN}" ]; then

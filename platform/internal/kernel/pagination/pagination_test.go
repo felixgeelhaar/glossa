@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/pagination"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/problem"
+	"go.klarlabs.de/glossa/platform/internal/kernel/pagination"
+	"go.klarlabs.de/glossa/platform/internal/kernel/problem"
 )
 
 func ptr[T any](v T) *T { return &v }

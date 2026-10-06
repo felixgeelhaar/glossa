@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/apps/api/internal/db"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/domain/locale"
-	"github.com/felixgeelhaar/glossa/apps/api/internal/infra/sqlcadapter"
+	"go.klarlabs.de/glossa/apps/api/internal/db"
+	"go.klarlabs.de/glossa/apps/api/internal/domain/locale"
+	"go.klarlabs.de/glossa/apps/api/internal/infra/sqlcadapter"
 )
 
 // Migration 0006 widened locales.code to 35 characters. Tags longer

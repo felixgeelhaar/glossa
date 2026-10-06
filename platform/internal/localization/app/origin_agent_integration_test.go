@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/felixgeelhaar/glossa/platform/db/migrations"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/localization/domain"
+	"go.klarlabs.de/glossa/platform/db/migrations"
+	"go.klarlabs.de/glossa/platform/internal/localization/app"
+	"go.klarlabs.de/glossa/platform/internal/localization/domain"
 )
 
 // `agent` against a real Postgres (migration 0032): that the value

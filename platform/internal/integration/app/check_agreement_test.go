@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/qa"
-	"github.com/felixgeelhaar/glossa/platform/internal/cli/snapshot"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/checkpolicy"
-	quality "github.com/felixgeelhaar/glossa/platform/internal/quality/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/quality/layers"
+	"go.klarlabs.de/glossa/platform/internal/cli/qa"
+	"go.klarlabs.de/glossa/platform/internal/cli/snapshot"
+	"go.klarlabs.de/glossa/platform/internal/integration/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/checkpolicy"
+	quality "go.klarlabs.de/glossa/platform/internal/quality/domain"
+	"go.klarlabs.de/glossa/platform/internal/quality/layers"
 )
 
 // Two surfaces, one verdict (RFC 0005 §12.3).

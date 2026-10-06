@@ -6,7 +6,7 @@ import (
 	"go/token"
 	"strings"
 
-	mf "github.com/felixgeelhaar/glossa/messageformat"
+	mf "go.klarlabs.de/glossa/messageformat"
 )
 
 // GoType is the Go type of an argument's value.

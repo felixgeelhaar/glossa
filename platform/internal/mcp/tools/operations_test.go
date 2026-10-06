@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // fakeOps stands in for Workflow and Release's read sides. A project

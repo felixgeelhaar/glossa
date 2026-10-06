@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github"
-	"github.com/felixgeelhaar/glossa/platform/internal/integration/adapters/github/githubtest"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github"
+	"go.klarlabs.de/glossa/platform/internal/integration/adapters/github/githubtest"
 )
 
 var hookSecret = []byte("whsec-test-only")

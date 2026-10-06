@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/adapters/httpjson"
-	"github.com/felixgeelhaar/glossa/platform/internal/intelligence/domain"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/adapters/httpjson"
+	"go.klarlabs.de/glossa/platform/internal/intelligence/domain"
 )
 
 // Config configures the adapter.

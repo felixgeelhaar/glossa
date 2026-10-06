@@ -31,12 +31,12 @@ const CAPTURE = [/\u2063|\\u2063/, /getClientRects/, /startCapture|collectRegion
 const PROBES = /glossa\.finding\/v1|untranslated-on-screen|text-clipped/;
 
 describe("tree-shaking", () => {
-  it("an app on @felixgeelhaar/glossa-runtime and the components has no capture code", async () => {
+  it("an app on @klarlabs-studio/glossa-runtime and the components has no capture code", async () => {
     const js = await bundle(`
-      import { createRuntime } from "@felixgeelhaar/glossa-runtime";
-      import { GlossaText } from "@felixgeelhaar/glossa-elements";
-      import { createGlossa as vue, GlossaText as VueText } from "@felixgeelhaar/glossa-vue";
-      import { createGlossa as react, T } from "@felixgeelhaar/glossa-react";
+      import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+      import { GlossaText } from "@klarlabs-studio/glossa-elements";
+      import { createGlossa as vue, GlossaText as VueText } from "@klarlabs-studio/glossa-vue";
+      import { createGlossa as react, T } from "@klarlabs-studio/glossa-react";
       const rt = createRuntime({ locales: "de" });
       console.log(rt.t("x"), GlossaText, vue({ runtime: rt }), VueText, react({ runtime: rt }), T);
     `);
@@ -45,28 +45,28 @@ describe("tree-shaking", () => {
   });
 
   it("the capture package tree-shakes: markers alone don't pull in the capture script", async () => {
-    const js = await bundle(`import { strip } from "@felixgeelhaar/glossa-capture"; console.log(strip("x"));`);
+    const js = await bundle(`import { strip } from "@klarlabs-studio/glossa-capture"; console.log(strip("x"));`);
     expect(js).not.toMatch(/getClientRects|onRender/);
-    const all = await bundle(`import { startCapture } from "@felixgeelhaar/glossa-capture"; console.log(startCapture);`);
+    const all = await bundle(`import { startCapture } from "@klarlabs-studio/glossa-capture"; console.log(startCapture);`);
     expect(all).toMatch(/getClientRects/);
   });
 
   /**
    * The probe pass is given to a session, never imported by it, so a bundle
-   * that measures nothing — `@felixgeelhaar/glossa-overlay`, the in-product editor served to
+   * that measures nothing — `@klarlabs-studio/glossa-overlay`, the in-product editor served to
    * end users — doesn't carry it (RFC 0005 §5.1).
    */
   it("a session without the probe pass leaves ./probes out; asking for it brings it in", async () => {
     const session = await bundle(`
-      import { startCapture } from "@felixgeelhaar/glossa-capture";
+      import { startCapture } from "@klarlabs-studio/glossa-capture";
       console.log(startCapture([]).collect());
     `);
     expect(session).toMatch(/getClientRects/); // the capture script is there…
     expect(session).not.toMatch(PROBES); // …the probes aren't.
 
     const probing = await bundle(`
-      import { startCapture } from "@felixgeelhaar/glossa-capture";
-      import { probe } from "@felixgeelhaar/glossa-capture/probes";
+      import { startCapture } from "@klarlabs-studio/glossa-capture";
+      import { probe } from "@klarlabs-studio/glossa-capture/probes";
       console.log(startCapture([], { probe }).collect());
     `);
     expect(probing).toMatch(PROBES);
@@ -77,7 +77,7 @@ describe("tree-shaking", () => {
  * Both budgets, from the one `size-limit` block of package.json: RFC 0005
  * §5.1's 4 kB for a session **with** the probe pass, which is what `glossa
  * capture` runs, and the unchanged 3 kB for a session **without** it, which is
- * what `@felixgeelhaar/glossa-overlay` pulls in. The measurement is `size-limit`, the same
+ * what `@klarlabs-studio/glossa-overlay` pulls in. The measurement is `size-limit`, the same
  * tool every runtime package's `pnpm size` runs — one place to change a
  * budget, and no second mechanism to disagree with it. Run as a test because
  * `pnpm -r test` is what CI runs for these packages; it needs `dist/`, exactly

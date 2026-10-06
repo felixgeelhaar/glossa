@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	identity "github.com/felixgeelhaar/glossa/platform/internal/identity/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/kernel/tenancy"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/app"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/domain"
-	"github.com/felixgeelhaar/glossa/platform/internal/mcp/tools"
+	identity "go.klarlabs.de/glossa/platform/internal/identity/domain"
+	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
+	"go.klarlabs.de/glossa/platform/internal/mcp/app"
+	"go.klarlabs.de/glossa/platform/internal/mcp/domain"
+	"go.klarlabs.de/glossa/platform/internal/mcp/tools"
 )
 
 // The fakes below stand in for the write side of the contexts, and they

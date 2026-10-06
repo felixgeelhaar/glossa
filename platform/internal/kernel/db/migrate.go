@@ -11,7 +11,7 @@ import (
 	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
-	"github.com/felixgeelhaar/glossa/platform/db/migrations"
+	"go.klarlabs.de/glossa/platform/db/migrations"
 )
 
 // Migrator applies the embedded migrations. It must connect as the

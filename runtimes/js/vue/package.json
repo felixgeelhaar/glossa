@@ -1,7 +1,7 @@
 {
-  "name": "@felixgeelhaar/glossa-vue",
+  "name": "@klarlabs-studio/glossa-vue",
   "version": "0.4.0",
-  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @felixgeelhaar/glossa-runtime.",
+  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @klarlabs-studio/glossa-runtime.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -25,16 +25,16 @@
   },
   "size-limit": [
     {
-      "name": "@felixgeelhaar/glossa-vue, own code (vue and @felixgeelhaar/glossa-runtime excluded)",
+      "name": "@klarlabs-studio/glossa-vue, own code (vue and @klarlabs-studio/glossa-runtime excluded)",
       "path": "dist/index.js",
       "ignore": [
         "vue",
-        "@felixgeelhaar/glossa-runtime"
+        "@klarlabs-studio/glossa-runtime"
       ],
       "limit": "1.5 KB"
     },
     {
-      "name": "@felixgeelhaar/glossa-vue with @felixgeelhaar/glossa-runtime (vue excluded)",
+      "name": "@klarlabs-studio/glossa-vue with @klarlabs-studio/glossa-runtime (vue excluded)",
       "path": "dist/index.js",
       "ignore": [
         "vue"
@@ -46,8 +46,8 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@felixgeelhaar/glossa-elements": "workspace:^",
-    "@felixgeelhaar/glossa-runtime": "workspace:^"
+    "@klarlabs-studio/glossa-elements": "workspace:^",
+    "@klarlabs-studio/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "11.2.0",
@@ -62,7 +62,7 @@
   "author": "Felix Geelhaar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/felixgeelhaar/glossa.git",
+    "url": "git+https://github.com/klarlabs-studio/glossa.git",
     "directory": "runtimes/js/vue"
   },
   "engines": {
@@ -72,6 +72,6 @@
     "access": "public",
     "provenance": true
   },
-  "homepage": "https://github.com/felixgeelhaar/glossa/tree/main/runtimes/js/vue#readme",
-  "bugs": "https://github.com/felixgeelhaar/glossa/issues"
+  "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/vue#readme",
+  "bugs": "https://github.com/klarlabs-studio/glossa/issues"
 }
