@@ -126,6 +126,19 @@ spec:
       services:
         - name: {{ $server }}
           port: 8080
+    {{- if and $.Values.server.mcp.enabled (empty $apiSeparate) }}
+    # MCP (RFC 0005 §7) lives on the API host; here that is the Studio host.
+    - match: Host(`{{ $hosts.studio }}`) && PathPrefix(`/mcp`)
+      kind: Rule
+      priority: 100
+      {{- with $mw.studio }}
+      middlewares:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - name: {{ $server }}
+          port: 8080
+    {{- end }}
     - match: Host(`{{ $hosts.studio }}`)
       kind: Rule
       priority: 10
@@ -170,6 +183,17 @@ spec:
       services:
         - name: {{ $server }}
           port: 8080
+    {{- if $.Values.server.mcp.enabled }}
+    - match: Host(`{{ $hosts.api }}`) && PathPrefix(`/mcp`)
+      kind: Rule
+      {{- with $mw.api }}
+      middlewares:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - name: {{ $server }}
+          port: 8080
+    {{- end }}
   tls:
     secretName: {{ $ing.tlsSecretNames.api | default (printf "%s-api-tls" $fullname) }}
 {{- end }}
