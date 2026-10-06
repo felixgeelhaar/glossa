@@ -17,6 +17,12 @@ set -euo pipefail
 log() { printf 'postgres-dump: %s\n' "$*"; }
 fail() { printf 'postgres-dump: ERROR: %s\n' "$*" >&2; exit 1; }
 
+# 0. Wait for the server. A new pod's first connections can be refused
+#    for a moment while the network policy for it is programmed (k3s);
+#    giving up on the first one fails a night's backup for nothing.
+for _ in $(seq 1 30); do pg_isready -q -t 2 && break; sleep 1; done
+pg_isready -q -t 2 || fail "Postgres at $PGHOST:$PGPORT does not answer"
+
 # 1. pg_dump must be the server's major version. A newer pg_dump writes
 #    settings an older server cannot parse (pg_dump 17 emits
 #    `SET transaction_timeout`, unknown to 16), so its dump restores ZERO
