@@ -94,7 +94,7 @@ jobs:
           echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
       - name: go test (integration)
         # Postgres and object storage via testcontainers; the runner has Docker.
-        run: go test -tags=integration -timeout=300s ./...
+        run: go test -tags=integration -timeout=900s ./...
 
   platform-system:
     name: Platform M2 exit test

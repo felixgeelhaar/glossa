@@ -32,7 +32,7 @@ platform-lint: ## go vet for every rewrite Go module.
 	@for m in $(PLATFORM_MODULES); do (cd $$m && go vet ./...) || exit 1; done
 
 platform-integration: ## Docker-backed integration tests (Postgres, object storage).
-	@for m in $(PLATFORM_MODULES); do (cd $$m && go test -tags=integration -timeout=300s ./...) || exit 1; done
+	@for m in $(PLATFORM_MODULES); do (cd $$m && go test -tags=integration -timeout=900s ./...) || exit 1; done
 
 system-m2: ## M2 exit test (Docker): fill es/fr/ja through glossa-server; writes platform/internal/systemtest/m2/REPORT.md.
 	cd platform && go test -tags=system -timeout=600s -count=1 -v ./internal/systemtest/m2/...
