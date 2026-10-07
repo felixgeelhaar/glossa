@@ -86,6 +86,8 @@ func commands() []command {
 		{"policy", "The check policy: show, diff (impact preview), export, import", runPolicy},
 		{"status", "Show translation coverage per locale, or --quality for the seven numbers", runStatus},
 		{"diff", "Compare local catalogs with the server", runDiff},
+		{"projects", "List the tenant's projects; create one (--name --slug --source-locale)", runProjects},
+		{"tenants", "List the tenants the credential can act in", runTenants},
 		{"locales", "List the project's locales", runLocales},
 		{"messages", "List the project's messages", runMessages},
 		{"namespaces", "List the project's namespaces with their message counts", runNamespaces},

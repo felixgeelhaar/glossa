@@ -87,6 +87,17 @@ func (c *Client) Projects(ctx context.Context, tenant string) ([]Project, error)
 	})
 }
 
+// CreateProject creates a project. The Idempotency-Key makes a retried
+// request return the project the first one created.
+func (c *Client) CreateProject(ctx context.Context, tenant, slug, name, sourceLocale, idempotencyKey string) (Project, error) {
+	r, err := c.api.CreateProjectWithResponse(idempotent(ctx), tenant, &apiclient.CreateProjectParams{IdempotencyKey: optional(idempotencyKey)},
+		apiclient.CreateProject{Slug: slug, Name: name, SourceLocale: sourceLocale})
+	if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects", tenant)); err != nil {
+		return Project{}, err
+	}
+	return *r.JSON201, nil
+}
+
 // ErrProjectNotFound means no project has the slug or ID.
 type ErrProjectNotFound struct{ Ref, Tenant string }
 

@@ -25,7 +25,7 @@ it.
 ```yaml
 version: 1
 server: https://glossa.example.com
-tenant: 0192…              # optional: the API token's own tenant
+tenant: acme                # optional: a tenant slug or ID (default: the API token's own tenant)
 project: brotwerk          # slug or ID
 source_locale: de          # init reads it from the server
 syntax: mf1                # local catalogs: mf1 (ICU, default) or mf2
@@ -180,6 +180,8 @@ Colors appear only on a terminal (and never with `NO_COLOR`).
 | `policy` | The check policy as a file: `show`, `diff --file policy.yaml` (the impact preview — how many stored findings change severity and how many open pull requests would newly fail, per rule — storing nothing), `export [--file]`, `import --file [--grace-days n] [--dry-run]`. `--file -` is stdin or stdout. |
 | `status` | Coverage per locale: translated, approved, needs review, draft, outdated, missing. One request: the server's `translation-stats`. `--offline` counts the local catalogs. `--quality` prints the seven numbers of RFC 0005 §8 instead — the same ones the dashboard shows — with `--locale`, `--environment` and `--since`. |
 | `diff` | Local catalogs vs the server by canonical model (so MF1 spelling changes aren't changes). `--exit-code`. |
+| `projects list` / `projects create --name N --slug S --source-locale L [--locales de,en] [--idempotency-key K]` | The configured tenant's projects (id, slug, name, source locale, locales); create one (`createProject` with an Idempotency-Key, then `addLocale` for the extra locales) and print its ID. Needs `catalog.read` / `catalog.write`. An existing slug exits 3 (`slug_taken`); if adding a locale fails the project exists and the error says so. |
+| `tenants` | Every tenant the credential can act in (`listTenants`: a person's active memberships, a token's own tenant): id, slug, name, kind. `tenant` in glossa.yaml takes a slug or an ID; with none and several tenants, commands fail with `tenant_ambiguous` and list them in `fix`. |
 | `locales`, `messages`, `namespaces` | Lists. `messages --prefix --namespace --missing-in --outdated-in --state active\|obsolete\|all`; `namespaces`: each namespace with its active and obsolete message counts (`GET …/namespaces`) |
 | `import --format xliff\|json\|po\|tmx\|tbx <file>` | Imports an interchange file through the server's import jobs: a dry run unless `--apply` (merge) or `--overwrite`; conflicts and invalid items as `file:line:column` (see *Import and export*). |
 | `export --format xliff\|json\|tmx\|tbx` | Exports through the server's export jobs and downloads the file, checked against its SHA-256. `-o`, `--unzip`, `--job` (see *Import and export*). |
@@ -457,6 +459,9 @@ with `schema`. New fields may be added; existing ones keep their meaning.
 | `glossa.cli.status.quality/v1` | `{project_id, environment, locale?, since, computed_at, cached, run: {…} \| null, numbers: {coverage?, findings?, ai?, queue?, context?, lead_time?, checks?, by_layer?}, locales: [{code, direction, is_source, coverage?, findings?, ai?, queue?, lead_time?, layers: [{layer, available, checked, unavailable?, findings?}]}], unmeasured: [{number, reason}]}` — **every number is optional, and an absent one means nobody measured it**, never 0; `unmeasured` says why |
 | `glossa.cli.diff/v1` | `{source: {locale, added, changed: [{key, local, server}], removed, unchanged}, translations: [same], identical}` |
 | `glossa.cli.locales/v1` | `{locales: [{code, direction, is_source}], fallback}` |
+| `glossa.cli.projects.list/v1` | `{tenant, projects: [{id, slug, name, source_locale, locales}]}` |
+| `glossa.cli.projects.create/v1` | `{tenant, project: {id, slug, name, source_locale, locales}, locales_added}` |
+| `glossa.cli.tenants/v1` | `{tenants: [{id, slug, name, kind}]}` |
 | `glossa.cli.messages/v1` | `{messages: [{key, namespace, state, source_revision, text, syntax, arguments: [{name, type}], description?}]}` |
 | `glossa.cli.namespaces/v1` | `{namespaces: [{name, active_messages, obsolete_messages}]}` (by name) |
 | `glossa.cli.import/v1` | `{from, source: {url, project} \| {db, tenant, project, project_name, default_locale}, dry_run, locales_added, summary: {message: {status: n}, translation: {status: n}}, items: [{kind, key, locale, status, v0_status?, state?, downgraded?, reason?, error?, description?, origin_detail?}], restore?, locales?, invitations?: [{v0_user_id, email, roles, locales, v0_role, v0_locales, v0_created_at, status, reason?, member_id?}], audit_entries?, history?: {sent, recorded, existing}, not_carried?, warnings?}` (`--from v0`; the optional members come from `--v0-db`; an invitation's `status` is `planned`, `held`, or with `--invite` `invited`, `exists` or `failed`; `history` is `--history`'s) |
