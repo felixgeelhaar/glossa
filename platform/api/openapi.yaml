@@ -6863,7 +6863,7 @@ paths:
       description: |
         The body is one `glossa.usages/v1` document: where one
         application's messages are used at one commit, as
-        `@klarlabs-studio/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
+        `@klarlabs-studio/glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
         write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
         It is validated by the schema's rules — members it doesn't define
         are ignored within v1, anything else it refuses is
@@ -6896,7 +6896,7 @@ paths:
           in: query
           required: true
           description: >-
-            The collector that wrote the document: `plugin` (@klarlabs-studio/glossa-unplugin), `extract` (`glossa extract`),
+            The collector that wrote the document: `plugin` (@klarlabs-studio/glossa/unplugin), `extract` (`glossa extract`),
             `runtime` (capture and editor sessions) or `capture` (`glossa capture`).
           schema: { $ref: "#/components/schemas/ContextSource" }
       requestBody:
@@ -13915,7 +13915,7 @@ components:
       type: object
       required: [name, version]
       properties:
-        name: { type: string, maxLength: 214, description: "A package name: `@klarlabs-studio/glossa-unplugin`, `glossa`." }
+        name: { type: string, maxLength: 214, description: "A package name: `@klarlabs-studio/glossa/unplugin`, `glossa`." }
         version: { type: string, maxLength: 256, description: A semantic version. }
     UsagesDocument:
       type: object

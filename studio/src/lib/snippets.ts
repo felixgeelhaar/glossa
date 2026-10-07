@@ -87,7 +87,7 @@ function jsKeys(keys: SnippetInput["publicKeys"], indent: string): string {
 }
 
 function runtime(i: SnippetInput): string {
-  return `import { createRuntime } from "@klarlabs-studio/glossa-runtime";
+  return `import { createRuntime } from "@klarlabs-studio/glossa";
 
 const glossa = createRuntime({
   edge: ${q(i.edge)},
@@ -101,7 +101,7 @@ console.log(glossa.t("app.title", {}, { default: "My app" }));`;
 
 function vue(i: SnippetInput): string {
   return `import { createApp } from "vue";
-import { createGlossa } from "@klarlabs-studio/glossa-vue";
+import { createGlossa } from "@klarlabs-studio/glossa/vue";
 import App from "./App.vue";
 
 createApp(App)
@@ -120,7 +120,7 @@ const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 function elements(i: SnippetInput): string {
   const keys = i.publicKeys.length ? `\n  public-keys="${attr(i.publicKeys.map((k) => `${k.keyId}:${k.key}`).join(","))}"` : "";
   return `<script type="module">
-  import "@klarlabs-studio/glossa-elements";
+  import "@klarlabs-studio/glossa/elements";
 </script>
 
 <glossa-provider
@@ -163,9 +163,9 @@ ${parse}\tclient, err := glossa.New(glossa.Config{
 
 export function snippets(i: SnippetInput): Snippet[] {
   return [
-    { id: "runtime", label: "JavaScript", install: "npm install @klarlabs-studio/glossa-runtime", language: "ts", code: runtime(i) },
-    { id: "vue", label: "Vue", install: "npm install @klarlabs-studio/glossa-vue", language: "ts", code: vue(i) },
-    { id: "elements", label: "Web components", install: "npm install @klarlabs-studio/glossa-elements", language: "html", code: elements(i) },
+    { id: "runtime", label: "JavaScript", install: "npm install @klarlabs-studio/glossa", language: "ts", code: runtime(i) },
+    { id: "vue", label: "Vue", install: "npm install @klarlabs-studio/glossa vue", language: "ts", code: vue(i) },
+    { id: "elements", label: "Web components", install: "npm install @klarlabs-studio/glossa", language: "html", code: elements(i) },
     { id: "go", label: "Go", install: "go get github.com/klarlabs-studio/glossa/runtimes/go", language: "go", code: go(i) },
   ];
 }

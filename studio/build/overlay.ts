@@ -1,8 +1,8 @@
 /**
  * Studio serves the in-product editor (RFC 0004 §5.1, the delivery layer).
- * `@klarlabs-studio/glossa-overlay`'s bundle is published at `/overlay/v1/overlay.js`, with
+ * `@klarlabs-studio/glossa/overlay`'s bundle is published at `/overlay/v1/overlay.js`, with
  * `/overlay/v1/overlay.json` (`{ version, integrity }`) beside it. Preview
- * deployments pin that `integrity` in their build (`@klarlabs-studio/glossa-unplugin`), the
+ * deployments pin that `integrity` in their build (`@klarlabs-studio/glossa/unplugin`), the
  * browser checks it, and `crossorigin="anonymous"` means the response needs
  * CORS — which the image's nginx adds for this path only
  * (`studio/docker/templates/conf.d/studio.conf.template`).
@@ -18,7 +18,7 @@ export const OVERLAY_JS = `${OVERLAY_DIR}/overlay.js`;
 export const OVERLAY_JSON = `${OVERLAY_DIR}/overlay.json`;
 
 export interface OverlayRelease {
-  /** `@klarlabs-studio/glossa-overlay`'s version. */
+  /** `@klarlabs-studio/glossa`'s version (the overlay ships inside it). */
   version: string;
   /** SRI hash of the exact bytes served at `/overlay/v1/overlay.js`. */
   integrity: string;
@@ -34,9 +34,9 @@ export interface OverlayAssets {
 /** The overlay bundle from the installed package, and the hash that pins it. */
 export function overlayAssets(): OverlayAssets {
   const require = createRequire(import.meta.url);
-  const script = readFileSync(require.resolve("@klarlabs-studio/glossa-overlay/bundle"));
+  const script = readFileSync(require.resolve("@klarlabs-studio/glossa/overlay/bundle"));
   const { version } = JSON.parse(
-    readFileSync(require.resolve("@klarlabs-studio/glossa-overlay/package.json"), "utf8"),
+    readFileSync(require.resolve("@klarlabs-studio/glossa/package.json"), "utf8"),
   ) as { version: string };
   const release: OverlayRelease = {
     version,

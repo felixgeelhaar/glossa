@@ -39,7 +39,7 @@ func repoRoot() string {
 
 // TestUsageFixtures runs every shared usage fixture case that lists
 // `extract` and compares the document with expected.json exactly, tool
-// aside. The same suite runs against @klarlabs-studio/glossa-unplugin.
+// aside. The same suite runs against @klarlabs-studio/glossa/unplugin.
 func TestUsageFixtures(t *testing.T) {
 	dir := filepath.Join(repoRoot(), "runtimes", "testdata", "usages")
 	entries, err := os.ReadDir(dir)

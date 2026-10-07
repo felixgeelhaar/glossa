@@ -4704,7 +4704,7 @@ export interface paths {
          * Upload a build's usages (glossa context push)
          * @description The body is one `glossa.usages/v1` document: where one
          *     application's messages are used at one commit, as
-         *     `@klarlabs-studio/glossa-unplugin` (`.glossa/usages.json`) and `glossa extract`
+         *     `@klarlabs-studio/glossa/unplugin` (`.glossa/usages.json`) and `glossa extract`
          *     write it (schema: `runtimes/testdata/schemas/usages.v1.schema.json`).
          *     It is validated by the schema's rules — members it doesn't define
          *     are ignored within v1, anything else it refuses is
@@ -9984,7 +9984,7 @@ export interface components {
          */
         UsageKind: "t" | "component" | "element" | "accessor" | "template";
         UsagesTool: {
-            /** @description A package name: `@klarlabs-studio/glossa-unplugin`, `glossa`. */
+            /** @description A package name: `@klarlabs-studio/glossa/unplugin`, `glossa`. */
             name: string;
             /** @description A semantic version. */
             version: string;
@@ -18381,7 +18381,7 @@ export interface operations {
     createContextBuild: {
         parameters: {
             query: {
-                /** @description The collector that wrote the document: `plugin` (@klarlabs-studio/glossa-unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
+                /** @description The collector that wrote the document: `plugin` (@klarlabs-studio/glossa/unplugin), `extract` (`glossa extract`), `runtime` (capture and editor sessions) or `capture` (`glossa capture`). */
                 source: components["schemas"]["ContextSource"];
             };
             header?: never;

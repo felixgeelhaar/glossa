@@ -4,7 +4,7 @@
  * the translation editor with live preview, structural QA from the
  * server, review actions and the revision history.
  */
-import type { Message as MF2 } from "@klarlabs-studio/glossa-messageformat";
+import type { Message as MF2 } from "@klarlabs-studio/glossa/messageformat";
 import type { TermFinding, TermRecognition } from "../api/knowledge-schemas";
 import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from "vue";
 import { messages as messagesApi, preview as previewApi, translations } from "../api/endpoints";

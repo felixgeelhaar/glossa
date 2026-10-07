@@ -107,7 +107,7 @@ there passes through untouched.
 - **Live preview**: source and translation rendered with editable sample
   values, and one-click samples for every plural category of the *target*
   language (Arabic gets zero/one/two/few/many/other). It uses the reference
-  formatter (`@klarlabs-studio/glossa-messageformat`), loaded lazily. MF2 text is parsed as
+  formatter (`@klarlabs-studio/glossa/messageformat`), loaded lazily. MF2 text is parsed as
   you type. **MF1 is parsed only by the server** — RFC 0002 §5 keeps exactly
   one MF1 converter, in Go — so MF1 text goes to `POST /v1/message-previews`
   as you type (250 ms after the last keystroke; the latest request wins; the
@@ -146,7 +146,7 @@ there passes through untouched.
 
 ```sh
 pnpm install
-pnpm --filter @klarlabs-studio/glossa-messageformat build       # Studio imports its build
+pnpm --filter "@klarlabs-studio/glossa..." build       # Studio imports its build
 pnpm --filter @glossa/studio ui:link            # the design system, see below
 # run glossa-server on :8080 (platform/README.md; GLOSSA_STUDIO_URL defaults to http://localhost:5173)
 pnpm --filter @glossa/studio dev                # http://localhost:5173, /v1 proxied to GLOSSA_API_URL
@@ -169,7 +169,7 @@ requests carry `X-CSRF-Token` from the session.
 
 ### The in-product editor Studio serves
 
-Studio publishes [`@klarlabs-studio/glossa-overlay`](../runtimes/js/overlay/README.md) at
+Studio publishes [`@klarlabs-studio/glossa/overlay`](../runtimes/js/overlay/README.md) at
 **`/overlay/v1/overlay.js`**, with **`/overlay/v1/overlay.json`**
 (`{ version, integrity }`) beside it ([RFC 0004
 §5.1](../docs/rfcs/0004-context.md)). `build/overlay.ts` is the Vite plugin
@@ -177,7 +177,7 @@ that copies the package's bundle and hashes it; `vite dev` and `vite preview`
 serve the same two files, so a preview deployment can point at a local Studio.
 
 A preview deployment of a product pins that `integrity` in its own build
-(`@klarlabs-studio/glossa-unplugin`'s `studio` option) and loads the script cross-origin with
+(`@klarlabs-studio/glossa/unplugin`'s `studio` option) and loads the script cross-origin with
 `crossorigin="anonymous"`, so the image's nginx answers this path — and only
 this path — with `Access-Control-Allow-Origin: *` and
 `Cross-Origin-Resource-Policy: cross-origin`, without the same-origin headers
@@ -391,7 +391,7 @@ every response checked by zod.
 - **Release detail**: per-locale messages and outdated counts, the diff to
   its parent, artifacts, manifest digest.
 - **Delivery keys** (project settings): a new key is shown in full once,
-  with a copy button and snippets for `@klarlabs-studio/glossa-runtime`, `@klarlabs-studio/glossa-vue`,
+  with a copy button and snippets for `@klarlabs-studio/glossa`, `@klarlabs-studio/glossa/vue`,
   `<glossa-provider>` and the Go runtime, pinned to the project's active
   signing keys; the list shows keys masked; revoke asks first and says
   what runtimes will see.

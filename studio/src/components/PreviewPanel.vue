@@ -4,7 +4,7 @@
  * Plural arguments get one-click samples for every plural category of the
  * *target* language, so a translator sees each form their language needs.
  */
-import type { Message } from "@klarlabs-studio/glossa-messageformat";
+import type { Message } from "@klarlabs-studio/glossa/messageformat";
 import { computed, onMounted, reactive, shallowRef, watch } from "vue";
 import type { Argument } from "../api/schemas";
 import { loadFormatter, renderPreview, type Preview } from "../lib/preview";

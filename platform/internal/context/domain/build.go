@@ -24,7 +24,7 @@ type Source string
 
 // Sources.
 const (
-	// SourcePlugin is @klarlabs-studio/glossa-unplugin's .glossa/usages.json.
+	// SourcePlugin is @klarlabs-studio/glossa/unplugin's .glossa/usages.json.
 	SourcePlugin Source = "plugin"
 	// SourceExtract is `glossa extract --upload`.
 	SourceExtract Source = "extract"

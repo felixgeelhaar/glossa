@@ -332,9 +332,9 @@ func (s *scenario) renderBothWays(project string, keys []v03Key, srv *v03Server,
 		return fmt.Errorf("the edge never served the import's release (it served %s)", served)
 	}
 	formatDir := filepath.Join(repoRoot(), "packages", "format")
-	runtimeDir := filepath.Join(repoRoot(), "runtimes", "js", "runtime")
-	for _, d := range []string{formatDir, runtimeDir} {
-		if _, err := os.Stat(filepath.Join(d, "dist", "index.js")); err != nil {
+	runtimeDir := filepath.Join(repoRoot(), "runtimes", "js", "glossa")
+	for d, entry := range map[string]string{formatDir: "dist/index.js", runtimeDir: "dist/runtime/index.js"} {
+		if _, err := os.Stat(filepath.Join(d, filepath.FromSlash(entry))); err != nil {
 			return fmt.Errorf("%s is not built: `make system-m5` builds it", strings.TrimPrefix(d, repoRoot()+"/"))
 		}
 	}
