@@ -55,8 +55,11 @@ spec:
         {{- include "gp.containerSecurityContext" . | nindent 8 }}
       env:
         {{- include "gp.minio.mcEnv" . | nindent 8 }}
+      # Not the bootstrap Job's 128Mi: `mc pipe` buffers multipart upload
+      # parts, and the test was killed (137) at its first write.
       resources:
-        {{- toYaml $v.bootstrap.resources | nindent 8 }}
+        requests: { cpu: 50m, memory: 64Mi }
+        limits: { memory: 256Mi }
       volumeMounts:
         - name: tmp
           mountPath: /tmp
