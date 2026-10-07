@@ -20,6 +20,10 @@ mc alias set server "$MINIO_URL" "$RW_ACCESS_KEY" "$RW_SECRET_KEY" --api S3v4 --
 mc alias set edge "$MINIO_URL" "$RO_ACCESS_KEY" "$RO_SECRET_KEY" --api S3v4 --path on >/dev/null 2>&1 ||
   fail "glossa-edge's credentials are rejected by mc (secret key shorter than 8 characters?)"
 
+# A new pod's first connections can be refused for a moment while its
+# network policy is programmed (k3s): wait for MinIO before judging it.
+for _ in $(seq 1 30); do mc ls "edge/$BUCKET/" >/dev/null 2>&1 && break; sleep 1; done
+
 dir="$BUCKET/${OBJECT_PREFIX:+$OBJECT_PREFIX/}.glossa-helm-test"
 probe="$dir/${HOSTNAME:-pod}-$RANDOM"
 body="glossa helm test $RANDOM"
