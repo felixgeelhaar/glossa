@@ -337,7 +337,7 @@ func (inv *invocation) decideUnit(ctx context.Context, p *project, a approveArgs
 	if len(list) == 0 {
 		return &Error{Exit: ExitNetwork, Code: "approval_not_found", What: fmt.Sprintf("nothing waits for approval on %s@%s", key, l),
 			Why: "the unit has no pending approval: its workflow has not asked for one, or it was already decided",
-			Fix: "`glossa approve` lists what waits; `glossa workflow instances --message " + key + "` shows where its workflow stands"}
+			Fix: "`glossa approve` lists what waits; `glossa workflow instances --message " + key + "` shows where its workflow stands; to review the translation yourself: `glossa translations review " + key + "@" + l + " --state approved`"}
 	}
 	// Only the newest approval of a unit takes decisions.
 	return inv.decideApproval(ctx, p, a, list[len(list)-1].Id)
