@@ -279,7 +279,7 @@ func checkGoldenFile(t *testing.T, path string, got []byte) {
 }
 
 // A document gap is a place where a golden holds go-intl's output and
-// CLDR (ICU, and so @klarlabs-studio/glossa-runtime) renders something else: the gaps of
+// CLDR (ICU, and so @klarlabs-studio/glossa) renders something else: the gaps of
 // messageformat/README.md ("Engine gaps") that runtime_format_test.go
 // skips. The goldens record what the Go runtime renders today; this list
 // makes every divergence in them explicit. TestDocumentKnownGaps detects

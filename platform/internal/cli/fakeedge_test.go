@@ -125,9 +125,9 @@ func jsModules(t *testing.T) (format, runtime string) {
 	}
 	root, _ := filepath.Abs(filepath.Join("..", "..", ".."))
 	format = orDefault(os.Getenv("GLOSSA_V0_FORMAT_MODULE"), filepath.Join(root, "packages", "format"))
-	runtime = orDefault(os.Getenv("GLOSSA_RUNTIME_MODULE"), filepath.Join(root, "runtimes", "js", "runtime"))
-	for _, d := range []string{format, runtime} {
-		if _, err := os.Stat(filepath.Join(d, "dist", "index.js")); err != nil {
+	runtime = orDefault(os.Getenv("GLOSSA_RUNTIME_MODULE"), filepath.Join(root, "runtimes", "js", "glossa"))
+	for d, entry := range map[string]string{format: "dist/index.js", runtime: "dist/runtime/index.js"} {
+		if _, err := os.Stat(filepath.Join(d, filepath.FromSlash(entry))); err != nil {
 			t.Skipf("%s is not built (set GLOSSA_V0_FORMAT_MODULE and GLOSSA_RUNTIME_MODULE, or build it)", d)
 		}
 	}

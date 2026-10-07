@@ -1,5 +1,5 @@
 // Written by `go generate ./internal/systemtest/m3/...` — change the generator, not this file.
-import { T, useGlossa } from "@klarlabs-studio/glossa-react";
+import { T, useGlossa } from "@klarlabs-studio/glossa/react";
 
 export function PayButton() {
   const { t } = useGlossa();

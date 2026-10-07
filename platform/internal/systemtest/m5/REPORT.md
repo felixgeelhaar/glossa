@@ -21,7 +21,7 @@ missing; the steps after the first missing one are listed as *not reached*.
 | 12.3 | Release approvals | met | any pointer moves before the second approval as seen at the edge, or a rollback waits. |
 | 12.4 | Staged rollout across three runtimes | met | any runtime disagrees with the generator on any id, the share is outside 9–11 %, or an aborted installation stays on the candidate. Runtimes are compared with the generator, never with each other. |
 | 12.5 | Audit export | met | a call the harness recorded has no entry (compared with the harness's own log, not the outbox), an entry has the wrong actor, a tampered export verifies, or a canary leaks. |
-| 12.6 | v0.3 imports and renders the same | met | any rendering differs between v0.3's formatter and @klarlabs-studio/glossa-runtime (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing. |
+| 12.6 | v0.3 imports and renders the same | met | any rendering differs between v0.3's formatter and @klarlabs-studio/glossa (two implementations that share no code) other than by v0.3's known apostrophe defect, which is reported with its count and every row, or a carried field is missing. |
 | 12.7 | Earlier exits hold | met | any earlier exit criterion fails. A failure here blocks the M5 verdict whatever 12.1–12.6 say. |
 
 ## The fixture
@@ -362,7 +362,7 @@ Imported by --v0-db; **3150 renderings** of 300 keys in de/en/es: **51 differ on
 
 Known v0.3 defect (`v0_bare_apostrophe`): v0.3's formatter reads a bare apostrophe as opening a quoted run. Each row is in this category only because v0.3's own formatter, given the same text with its apostrophes requoted the ICU way, renders exactly the runtime's output.
 
-| Key | Locale | Arguments | v0.3's formatter | @klarlabs-studio/glossa-runtime |
+| Key | Locale | Arguments | v0.3's formatter | @klarlabs-studio/glossa |
 |---|---|---|---|---|
 | `copy.bare_101` | de | `map[name:Ada]` | "Gehts gut, {name}?" | "Geht's gut, Ada?" |
 | `copy.bare_101` | en | `map[name:Ada]` | "Dont wait, {name}" | "Don't wait, Ada" |

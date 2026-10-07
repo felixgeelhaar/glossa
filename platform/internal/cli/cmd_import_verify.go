@@ -31,7 +31,7 @@ func (v *verifyFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&v.environment, "environment", "", "--verify: the environment whose release the runtime loads")
 	fs.StringVar(&v.keyEnv, "delivery-key-env", "GLOSSA_DELIVERY_KEY", "--verify: environment variable holding a delivery key for it")
 	fs.StringVar(&v.formatModule, "format-module", "", "--verify: the @felixgeelhaar/glossa-format package directory (default: found from here)")
-	fs.StringVar(&v.runtimeModule, "runtime-module", "", "--verify: the @klarlabs-studio/glossa-runtime package directory (default: found from here)")
+	fs.StringVar(&v.runtimeModule, "runtime-module", "", "--verify: the @klarlabs-studio/glossa package directory (default: found from here)")
 	fs.StringVar(&v.node, "node", "node", "--verify: the Node.js (22 or later) to render with")
 }
 
@@ -60,7 +60,7 @@ type verifyJSON struct {
 // importV0Verify is `glossa import --from v0 --verify` (RFC 0006 §7.3):
 // it reads v0.3's text — from a restored backup (--v0-db) or the v0.3
 // API (--v0-url) — and renders every key in every locale twice, with
-// v0.3's own formatter and with @klarlabs-studio/glossa-runtime over the release the
+// v0.3's own formatter and with @klarlabs-studio/glossa over the release the
 // edge serves, comparing the outputs. It writes nothing anywhere. Exit
 // 0 when every rendering matches or differs only by v0.3's known
 // apostrophe defect (reported and counted), 1 on any other difference.
@@ -191,10 +191,10 @@ func (inv *invocation) verifyConfig(vf verifyFlags) (v0.VerifyConfig, error) {
 			Fix: "create one with `glossa release keys create <name>` and export " + vf.keyEnv}
 	}
 	var err error
-	if cfg.FormatModule, err = findModule(inv.env.Dir, vf.formatModule, "@felixgeelhaar/glossa-format", "packages/format"); err != nil {
+	if cfg.FormatModule, err = findModule(inv.env.Dir, vf.formatModule, "@felixgeelhaar/glossa-format", "packages/format", "dist/index.js"); err != nil {
 		return cfg, err
 	}
-	if cfg.RuntimeModule, err = findModule(inv.env.Dir, vf.runtimeModule, "@klarlabs-studio/glossa-runtime", "runtimes/js/runtime"); err != nil {
+	if cfg.RuntimeModule, err = findModule(inv.env.Dir, vf.runtimeModule, "@klarlabs-studio/glossa", "runtimes/js/glossa", "dist/runtime/index.js"); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
@@ -203,8 +203,9 @@ func (inv *invocation) verifyConfig(vf verifyFlags) (v0.VerifyConfig, error) {
 // findModule finds a built JS package: the flag's directory, else the
 // nearest node_modules/<pkg> from dir upwards, else <repoPath> of a
 // Glossa checkout dir is inside. The directory must be the package
-// (its package.json names it) and hold its built dist/index.js.
-func findModule(dir, flagValue, pkg, repoPath string) (string, error) {
+// (its package.json names it) and hold its built entry (for
+// @klarlabs-studio/glossa the runtime's, dist/runtime/index.js).
+func findModule(dir, flagValue, pkg, repoPath, entry string) (string, error) {
 	var candidates []string
 	if flagValue != "" {
 		if !filepath.IsAbs(flagValue) {
@@ -230,9 +231,9 @@ func findModule(dir, flagValue, pkg, repoPath string) (string, error) {
 		if json.Unmarshal(raw, &meta) != nil || meta.Name != pkg {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(c, "dist", "index.js")); err != nil {
+		if _, err := os.Stat(filepath.Join(c, filepath.FromSlash(entry))); err != nil {
 			return "", &Error{Exit: ExitUsage, Code: "module_not_built", What: pkg + " is not built", Where: c,
-				Fix: "build it (`pnpm --filter " + pkg + " build`), or point --" + moduleFlag(pkg) + " at a built copy"}
+				Fix: "build it (`pnpm --filter " + pkg + "... build`), or point --" + moduleFlag(pkg) + " at a built copy"}
 		}
 		return c, nil
 	}
@@ -242,7 +243,7 @@ func findModule(dir, flagValue, pkg, repoPath string) (string, error) {
 }
 
 func moduleFlag(pkg string) string {
-	if pkg == "@klarlabs-studio/glossa-runtime" {
+	if pkg == "@klarlabs-studio/glossa" {
 		return "runtime-module"
 	}
 	return "format-module"

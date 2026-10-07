@@ -2,12 +2,9 @@
 /**
  * Capture code never reaches a production bundle (RFC 0004 §5.1): an app
  * built on the runtime and every component package contains none of it, and
- * the capture package itself tree-shakes. And what does ship stays inside the
- * package's size budget (RFC 0005 §5.1).
+ * the capture package itself tree-shakes.
+ * The size budgets (RFC 0005 §5.1) are measured on @klarlabs-studio/glossa/capture, in the umbrella package.
  */
-import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "esbuild";
 
@@ -71,39 +68,4 @@ describe("tree-shaking", () => {
     `);
     expect(probing).toMatch(PROBES);
   });
-});
-
-/**
- * Both budgets, from the one `size-limit` block of package.json: RFC 0005
- * §5.1's 4 kB for a session **with** the probe pass, which is what `glossa
- * capture` runs, and the unchanged 3 kB for a session **without** it, which is
- * what `@klarlabs-studio/glossa-overlay` pulls in. The measurement is `size-limit`, the same
- * tool every runtime package's `pnpm size` runs — one place to change a
- * budget, and no second mechanism to disagree with it. Run as a test because
- * `pnpm -r test` is what CI runs for these packages; it needs `dist/`, exactly
- * as the tree-shaking tests above do.
- */
-describe("the size budgets", () => {
-  it("a session fits 3 kB brotli, and 4 kB with the probe pass", () => {
-    const pkg = join(import.meta.dirname, "..");
-    const bin = join(dirname(createRequire(import.meta.url).resolve("size-limit/package.json")), "bin.js");
-    // Non-zero exit (over budget, or no dist/) throws with size-limit's own report.
-    //
-    // NO_COLOR because size-limit bolds the numbers when it thinks the
-    // terminal wants colour, which GitHub Actions does: the bytes then read
-    // `Size limit: \u001b[1m4 kB`, and matching the plain string fails on a
-    // run whose budgets are all green. Strip anything that survives anyway,
-    // so the assertions below are about sizes and never about formatting.
-    const raw = execFileSync(process.execPath, [bin], {
-      cwd: pkg,
-      encoding: "utf8",
-      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
-    });
-    // eslint-disable-next-line no-control-regex
-    const report = raw.replace(/\u001b\[[0-9;]*m/g, "");
-    expect(report).toContain("Size limit: 4 kB");
-    expect(report).toContain("Size limit: 3 kB");
-    expect(report).not.toMatch(/exceeded/);
-    expect(report.match(/Size:\s+[\d.]+ kB with all dependencies, minified and brotlied/g)).toHaveLength(2);
-  }, 120_000);
 });

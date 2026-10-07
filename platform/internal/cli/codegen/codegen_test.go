@@ -132,8 +132,8 @@ func repoRoot(t *testing.T) string {
 }
 
 // TestGeneratedTypeScriptTypeChecks compiles the generated module and
-// each framework registration against the real @klarlabs-studio/glossa-vue and
-// @klarlabs-studio/glossa-react sources with tsc, plus a consumer whose @ts-expect-error
+// each framework registration against the real @klarlabs-studio/glossa/vue and
+// @klarlabs-studio/glossa/react sources with tsc, plus a consumer whose @ts-expect-error
 // lines prove missing and mistyped arguments fail at compile time.
 func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 	root := repoRoot(t)
@@ -165,10 +165,18 @@ func TestGeneratedTypeScriptTypeChecks(t *testing.T) {
 			write("messages.ts", string(ts))
 			write(registration, string(fw.render("messages.ts")))
 			write("consumer.ts", consumerTS+fw.consumer)
+			// The registration names the published package (@klarlabs-studio/glossa/vue); the
+			// sources it is built from name each other by their workspace names. Both resolve here.
+			runtimeSrc := filepath.Join(js, "runtime", "src", "index.ts")
+			partsSrc := filepath.Join(js, "elements", "src", "parts.ts")
+			frameworkSrc := filepath.Join(js, fw.name, "src", "index.ts")
 			paths := map[string]string{
-				"@klarlabs-studio/glossa-" + fw.name:     filepath.Join(js, fw.name, "src", "index.ts"),
-				"@klarlabs-studio/glossa-runtime":        filepath.Join(js, "runtime", "src", "index.ts"),
-				"@klarlabs-studio/glossa-elements/parts": filepath.Join(js, "elements", "src", "parts.ts"),
+				"@klarlabs-studio/glossa/" + fw.name:     frameworkSrc,
+				"@klarlabs-studio/glossa-" + fw.name:     frameworkSrc,
+				"@klarlabs-studio/glossa":                runtimeSrc,
+				"@klarlabs-studio/glossa-runtime":        runtimeSrc,
+				"@klarlabs-studio/glossa/elements/parts": partsSrc,
+				"@klarlabs-studio/glossa-elements/parts": partsSrc,
 			}
 			for k, v := range fw.paths {
 				paths[k] = v
@@ -223,9 +231,9 @@ messages.cart.checkout({ extra: 1 });
 
 const vueConsumerTS = `
 import { useTypedMessages } from "./glossa-vue.js";
-import { useGlossa } from "@klarlabs-studio/glossa-vue";
+import { useGlossa } from "@klarlabs-studio/glossa/vue";
 
-// The registration types @klarlabs-studio/glossa-vue's own t().
+// The registration types @klarlabs-studio/glossa/vue's own t().
 export function inSetup(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();
@@ -239,9 +247,9 @@ export function inSetup(): string {
 const reactConsumerTS = `
 import { createElement } from "react";
 import { useTypedMessages } from "./glossa-react.js";
-import { T, useGlossa } from "@klarlabs-studio/glossa-react";
+import { T, useGlossa } from "@klarlabs-studio/glossa/react";
 
-// The registration types @klarlabs-studio/glossa-react's own t() and <T>.
+// The registration types @klarlabs-studio/glossa/react's own t() and <T>.
 export function Component(): string {
   const m = useTypedMessages();
   const { t: typed } = useGlossa();

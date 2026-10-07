@@ -8,7 +8,8 @@
 import { readFileSync } from "node:fs";
 import { build } from "esbuild";
 
-const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+// The overlay ships as @klarlabs-studio/glossa/overlay: the umbrella's version is its version.
+const pkg = JSON.parse(readFileSync(new URL("../../glossa/package.json", import.meta.url), "utf8"));
 
 await build({
   entryPoints: [new URL("../src/standalone.ts", import.meta.url).pathname],

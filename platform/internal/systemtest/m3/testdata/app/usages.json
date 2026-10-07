@@ -4,7 +4,7 @@
   "commit": "3c1a5f70b28d4e96a1f0c7b4d8e2a95630fb47c1",
   "branch": "main",
   "tool": {
-    "name": "@klarlabs-studio/glossa-unplugin",
+    "name": "@klarlabs-studio/glossa",
     "version": "0.4.0"
   },
   "usages": [

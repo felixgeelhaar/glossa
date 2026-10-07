@@ -1,6 +1,6 @@
 // Package extract finds message usages in source code and writes them as
 // a glossa.usages/v1 document (RFC 0004 §2.1, §2.2). It is the collector
-// for Go and for anything built without @klarlabs-studio/glossa-unplugin:
+// for Go and for anything built without @klarlabs-studio/glossa/unplugin:
 //
 //   - Go files are parsed with go/parser: `.T(…)` method calls
 //     (Client.T(ctx, "…"), Localizer.T("…"), client.For(…).T("…")) and
@@ -13,7 +13,7 @@
 //
 // Only literal keys count: a message key has to be a string literal at
 // the call site. The shared fixture suite in runtimes/testdata/usages is
-// the contract, and @klarlabs-studio/glossa-unplugin passes the same one.
+// the contract, and @klarlabs-studio/glossa/unplugin passes the same one.
 package extract
 
 import (

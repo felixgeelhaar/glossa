@@ -21,7 +21,7 @@ CI) and 48: regenerate with both before committing a new case. An
 implementation that can't reproduce a case keeps a skip list with the reason
 and the upstream gap, never a workaround: the Go runtime's is
 `runtimeFormatSkips` in `runtimes/go/runtime_format_test.go` (go-intl's percent
-pattern and `minimumGroupingDigits` gaps); `@klarlabs-studio/glossa-runtime` has none.
+pattern and `minimumGroupingDigits` gaps); `@klarlabs-studio/glossa` has none.
 
 ## MF1 → MF2 conversion rules
 

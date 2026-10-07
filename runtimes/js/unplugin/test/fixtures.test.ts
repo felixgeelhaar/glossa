@@ -34,7 +34,7 @@ describe("usage fixtures", () => {
     it(`${astro ? "astro build" : "vite build"} writes the expected usages`, async () => {
       const { doc } = astro ? await astroRun(c) : await viteRun(c);
       expect(schemaErrors(doc)).toEqual([]);
-      expect(doc.tool.name).toBe("@klarlabs-studio/glossa-unplugin");
+      expect(doc.tool.name).toBe("@klarlabs-studio/glossa");
       expect(comparable(doc)).toEqual(comparable(c.expected));
     });
   });

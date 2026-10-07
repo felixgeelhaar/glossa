@@ -111,7 +111,7 @@ glossa/
 ├── packages/
 │   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
 │   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
-│   ├── elements/               # @klarlabs-studio/glossa-elements — Lit web components
+│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components (v0.3)
 │   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
 │   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
 ├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases

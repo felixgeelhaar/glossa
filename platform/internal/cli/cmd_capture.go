@@ -387,7 +387,7 @@ func envTrue(v string) bool {
 var refusalFixes = map[string]string{
 	"production_page":     "point capture.base_url (or --base-url) at a preview deployment with fixture data",
 	"environment_unknown": "make sure the page activates its release (a preview or development manifest) when it loads",
-	"no_runtime":          "capture pages that render with @klarlabs-studio/glossa-runtime (t() or its components)",
+	"no_runtime":          "capture pages that render with @klarlabs-studio/glossa (t() or its components)",
 	"locale_mismatch":     "check capture.locale: the page must pick the locale from the query parameter, cookie or URL the plan sets",
 }
 

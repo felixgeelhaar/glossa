@@ -1,6 +1,7 @@
 name: Release packages
 
-# Publishes the `@klarlabs-studio/glossa-*` (and v0.3 `@felixgeelhaar/glossa-*`) npm packages.
+# Publishes the one `@klarlabs-studio/glossa` npm package (RFC 0002 Amendment 1: the nine rewritten
+# JS packages ship as its subpath exports) and v0.3's `@felixgeelhaar/glossa-*` packages.
 #
 # Flow:
 #   1. PR lands on `main` with a `.changeset/*.md` file describing
@@ -22,9 +23,9 @@ name: Release packages
 #   publish of a new name is made once by hand, or the entry is
 #   created on the "Publishing access" page before it exists):
 #     v0.3 line (unchanged): glossa-format, glossa-sdk, glossa-ui, glossa-cli
-#     RFC 0002 rewrite (0.4.0): glossa-messageformat, glossa-runtime,
-#       glossa-elements (0.3.x -> 0.4.0), glossa-vue, glossa-react,
-#       glossa-astro, glossa-unplugin, glossa-capture, glossa-overlay
+#     RFC 0002 rewrite (0.4.0): @klarlabs-studio/glossa (only; the nine
+#       source packages under runtimes/js and messageformat/js are
+#       private, and `changeset publish` skips private packages)
 #   A version already on npm is skipped, so a package whose version
 #   was set to 0.4.0 by hand is published without a changeset.
 #   Setup-node + pnpm exchange the workflow's OIDC token for a

@@ -7,5 +7,18 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@felixgeelhaar/glossa-admin", "@glossa/studio", "@glossa/react-test-react-18"]
+  "ignore": [
+    "@felixgeelhaar/glossa-admin",
+    "@glossa/studio",
+    "@glossa/react-test-react-18",
+    "@klarlabs-studio/glossa-runtime",
+    "@klarlabs-studio/glossa-elements",
+    "@klarlabs-studio/glossa-vue",
+    "@klarlabs-studio/glossa-react",
+    "@klarlabs-studio/glossa-astro",
+    "@klarlabs-studio/glossa-unplugin",
+    "@klarlabs-studio/glossa-capture",
+    "@klarlabs-studio/glossa-overlay",
+    "@klarlabs-studio/glossa-messageformat"
+  ]
 }

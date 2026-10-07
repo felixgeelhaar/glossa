@@ -43,20 +43,26 @@ export const outputs = ["usages.json", "usages.branch.json", "built/preview", "b
  * `pnpm -r lint` and `pnpm -r test` never see it.
  */
 function aliases() {
+  // [what the app imports, what resolves it here]. The app names the published package
+  // (@klarlabs-studio/glossa/...); this build uses the sources it is assembled from, which name
+  // each other by their workspace names, so both spellings land on the same files.
   const names = [
-    "vue",
-    "react",
-    "react-dom",
-    "react-dom/client",
-    "react/jsx-runtime",
-    "react/jsx-dev-runtime",
-    "@klarlabs-studio/glossa-runtime",
-    "@klarlabs-studio/glossa-vue",
-    "@klarlabs-studio/glossa-react",
+    ["vue"],
+    ["react"],
+    ["react-dom"],
+    ["react-dom/client"],
+    ["react/jsx-runtime"],
+    ["react/jsx-dev-runtime"],
+    ["@klarlabs-studio/glossa", "@klarlabs-studio/glossa-runtime"],
+    ["@klarlabs-studio/glossa/vue", "@klarlabs-studio/glossa-vue"],
+    ["@klarlabs-studio/glossa/react", "@klarlabs-studio/glossa-react"],
+    ["@klarlabs-studio/glossa-runtime"],
+    ["@klarlabs-studio/glossa-vue"],
+    ["@klarlabs-studio/glossa-react"],
   ];
-  return names.map((name) => ({
+  return names.map(([name, source = name]) => ({
     find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
-    replacement: fileURLToPath(import.meta.resolve(name)),
+    replacement: fileURLToPath(import.meta.resolve(source)),
   }));
 }
 

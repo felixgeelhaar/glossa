@@ -1,5 +1,5 @@
 ---
-import { getGlossa } from "@klarlabs-studio/glossa-astro/server";
+import { getGlossa } from "@klarlabs-studio/glossa/astro/server";
 export const getStaticPaths = () => [{ params: { slug: "hello" } }];
 const { t } = getGlossa(Astro);
 ---

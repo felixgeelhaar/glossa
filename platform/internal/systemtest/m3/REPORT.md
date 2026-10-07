@@ -11,7 +11,7 @@ pull request, or from the browser; the test fails when an exit criterion does no
   `fr` and `ja`: 65 labels, 36 rendered by `<GlossaText>`/`<T>`, 13 plurals, 25 with a `$name`, 11 in a placeholder
   attribute, 11 with markup.
 - A **Vite + Vue** app over 11 source files and **8 routes**, with **one React island** (`PayButton.tsx`) on
-  `/kasse`, built by `@klarlabs-studio/glossa-unplugin`. A Go receipt renderer and its `text/template` reuse 15 of the same
+  `/kasse`, built by `@klarlabs-studio/glossa/unplugin`. A Go receipt renderer and its `text/template` reuse 15 of the same
   messages, which is what `glossa extract` reads.
 - `glossa push --translations` created 150 messages and 600 translations.
 
@@ -33,7 +33,7 @@ Three uploads for one commit (`3c1a5f7`):
 
 | Collector | Source | Usages | Unknown keys |
 |---|---|---|---|
-| `@klarlabs-studio/glossa-unplugin` (the Vite build) | `plugin` | 150 | 0 |
+| `@klarlabs-studio/glossa/unplugin` (the Vite build) | `plugin` | 150 | 0 |
 | `glossa extract` (Go and templates) | `extract` | 15 | 0 |
 | `glossa capture` (headless Chrome) | `capture` | 32 captures | 0 |
 

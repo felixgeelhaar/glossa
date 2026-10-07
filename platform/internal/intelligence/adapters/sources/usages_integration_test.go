@@ -73,7 +73,7 @@ func TestUsagesPortReadsCurrentUsagesAndCoLocatedMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := `{"schema":"glossa.usages/v1","application":"web","commit":"` + strings.Repeat("a", 40) + `","branch":"main",
-	  "tool":{"name":"@klarlabs-studio/glossa-unplugin","version":"0.1.0"},"usages":[
+	  "tool":{"name":"@klarlabs-studio/glossa","version":"0.1.0"},"usages":[
 	  {"key":"checkout.pay","file":"src/Pay.vue","line":3,"column":5,"component":"Pay","route":"/checkout","kind":"t"},
 	  {"key":"checkout.total","file":"src/Pay.vue","line":9,"column":5,"component":"Pay","route":"/checkout","kind":"t"},
 	  {"key":"nav.home","file":"index.html","line":1,"column":5,"kind":"element"}]}`

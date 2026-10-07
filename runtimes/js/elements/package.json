@@ -1,7 +1,8 @@
 {
   "name": "@klarlabs-studio/glossa-elements",
   "version": "0.4.0",
-  "description": "Glossa's web components on @klarlabs-studio/glossa-runtime: <glossa-provider>, <glossa-text|rich|plural|select> and <glossa-selector>, compatible with the v0.3 element API.",
+  "private": true,
+  "description": "PRIVATE source package of @klarlabs-studio/glossa (RFC 0002 Amendment 1): not published; its build output ships as a subpath of the umbrella. Glossa's web components on @klarlabs-studio/glossa-runtime: <glossa-provider>, <glossa-text|rich|plural|select> and <glossa-selector>, compatible with the v0.3 element API.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -32,44 +33,16 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit -p tsconfig.test.json",
-    "size": "size-limit"
+    "lint": "tsc --noEmit -p tsconfig.test.json"
   },
-  "size-limit": [
-    {
-      "name": "@klarlabs-studio/glossa-elements, everything included (lit, @lit/context, @klarlabs-studio/glossa-runtime)",
-      "path": "dist/index.js",
-      "limit": "15.3 KB"
-    },
-    {
-      "name": "@klarlabs-studio/glossa-elements, own code (lit, @lit/context and @klarlabs-studio/glossa-runtime excluded)",
-      "path": "dist/index.js",
-      "ignore": [
-        "lit",
-        "@lit/context",
-        "@klarlabs-studio/glossa-runtime"
-      ],
-      "limit": "3.5 KB"
-    },
-    {
-      "name": "@klarlabs-studio/glossa-elements/ssr (@klarlabs-studio/glossa-runtime excluded)",
-      "path": "dist/ssr.js",
-      "ignore": [
-        "@klarlabs-studio/glossa-runtime"
-      ],
-      "limit": "1.75 KB"
-    }
-  ],
   "dependencies": {
     "@klarlabs-studio/glossa-runtime": "workspace:^",
     "@lit/context": "1.1.6",
     "lit": "3.3.3"
   },
   "devDependencies": {
-    "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
     "jsdom": "25.0.1",
-    "size-limit": "11.2.0",
     "typescript": "5.9.3",
     "vitest": "4.1.0"
   },
@@ -82,10 +55,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
   },
   "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/elements#readme",
   "bugs": "https://github.com/klarlabs-studio/glossa/issues"

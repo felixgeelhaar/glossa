@@ -1,9 +1,9 @@
-# @klarlabs-studio/glossa-unplugin
+# @klarlabs-studio/glossa/unplugin
 
 Finds where every message is used in a web build: file, line, column,
 component and route. One core on [`unplugin`](https://github.com/unjs/unplugin)
 serves Vite, Rollup, webpack and esbuild; Astro gets it from
-[`@klarlabs-studio/glossa-astro`](../astro). The build writes `.glossa/usages.json`
+[`@klarlabs-studio/glossa/astro`](../astro). The build writes `.glossa/usages.json`
 (`glossa.usages/v1`, [RFC 0004 §2](../../../docs/rfcs/0004-context.md)) and
 `glossa context push .glossa/usages.json` uploads it. That's how a
 translator learns where a string appears.
@@ -17,7 +17,7 @@ credentials, and builds stay reproducible.
 // vite.config.ts
 import { readFileSync } from "node:fs";
 import vue from "@vitejs/plugin-vue";
-import glossa from "@klarlabs-studio/glossa-unplugin/vite";
+import glossa from "@klarlabs-studio/glossa/unplugin/vite";
 
 export default defineConfig({
   plugins: [
@@ -37,7 +37,7 @@ export default defineConfig({
   "schema": "glossa.usages/v1",
   "application": "web",
   "commit": "9f2c1e7…", "branch": "feat/checkout-copy",
-  "tool": { "name": "@klarlabs-studio/glossa-unplugin", "version": "0.1.0" },
+  "tool": { "name": "@klarlabs-studio/glossa", "version": "0.1.0" },
   "usages": [
     { "key": "checkout.pay", "file": "src/checkout/PaymentFooter.vue", "line": 42, "column": 9,
       "component": "PaymentFooter", "kind": "t" }
@@ -45,8 +45,8 @@ export default defineConfig({
 }
 ```
 
-The other bundlers import from `@klarlabs-studio/glossa-unplugin/rollup`,
-`@klarlabs-studio/glossa-unplugin/webpack` and `@klarlabs-studio/glossa-unplugin/esbuild`.
+The other bundlers import from `@klarlabs-studio/glossa/unplugin/rollup`,
+`@klarlabs-studio/glossa/unplugin/webpack` and `@klarlabs-studio/glossa/unplugin/esbuild`.
 
 ## Options
 
@@ -126,7 +126,7 @@ last overwrites it, so give each its own `outDir` and push both.
 Translators edit a running preview of the product through the overlay
 ([RFC 0004 §5](../../../docs/rfcs/0004-context.md)), which Studio serves.
 A build for a preview environment gets a small loader for it
-([`@klarlabs-studio/glossa-runtime/dev`](../runtime/README.md#glossaruntimedev-the-overlay-loader));
+([`@klarlabs-studio/glossa/dev`](../runtime/README.md#glossaruntimedev-the-overlay-loader));
 a production build never does. Three layers keep it out of production:
 
 1. **Build time (this plugin).** The loader is added only when
@@ -165,7 +165,7 @@ list themselves on the page, so it finds them whenever it runs):
 | Bundler | How |
 |---|---|
 | Vite | A `<script type="module">` for `virtual:glossa/overlay-loader` at the top of every HTML entry, bundled like your own scripts: no inline code for a CSP to allow. Works in `vite dev` too. |
-| Astro | [`@klarlabs-studio/glossa-astro`](../astro/README.md) imports it in a page script. |
+| Astro | [`@klarlabs-studio/glossa/astro`](../astro/README.md) imports it in a page script. |
 | Rollup, Rolldown | An import appended to every entry module (appended, so no line moves). |
 | webpack | A global entry, which webpack adds to every entrypoint. |
 | esbuild | `inject`. |

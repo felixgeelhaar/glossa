@@ -36,7 +36,7 @@ const Application = "shop"
 // Files of the fixture, relative to its directory.
 const (
 	FileFixture = "fixture.json"
-	// FileUsages is where @klarlabs-studio/glossa-unplugin writes the build's usages.
+	// FileUsages is where @klarlabs-studio/glossa/unplugin writes the build's usages.
 	FileUsages = "usages.json"
 	// DirPreview and DirProduction hold the two committed builds: the
 	// preview one the capture drives, and the production one the bundle

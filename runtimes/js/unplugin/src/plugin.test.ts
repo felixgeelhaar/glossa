@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { build } from "vite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { glossa, scannable, TOOL_VERSION } from "./plugin.js";
+import { glossa, scannable, TOOL_NAME, TOOL_VERSION } from "./plugin.js";
 import type { GlossaPluginOptions } from "./options.js";
 
 const SHA = "0123456789abcdef0123456789abcdef01234567";
@@ -54,7 +54,7 @@ describe("the plugin", () => {
       application: "shop",
       commit: SHA,
       branch: "feat/cart",
-      tool: { name: "@klarlabs-studio/glossa-unplugin", version: TOOL_VERSION },
+      tool: { name: TOOL_NAME, version: TOOL_VERSION },
       usages: [{ key: "cart.title", file: "src/main.ts", line: 2, column: 21, kind: "t" }],
     });
     expect(existsSync(join(root, "dist", ".glossa"))).toBe(false);

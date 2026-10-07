@@ -2,7 +2,7 @@
 """Check the usage fixture suite and the shared schemas (RFC 0004 §2.1–§3.3, RFC 0005 §2.1).
 
 Unlike the runtime fixtures, `usages/*/expected.json` are written by hand:
-they are the contract that @klarlabs-studio/glossa-unplugin and `glossa extract` must both
+they are the contract that @klarlabs-studio/glossa/unplugin and `glossa extract` must both
 meet. This script keeps them honest:
 
 - the schemas — usages.v1, captures.v1 and finding.v1 — are valid JSON
@@ -117,7 +117,7 @@ USAGE_VARIANTS = [
     # (valid?, why, path, value)
     (True, "SHA-256 commit", ["commit"], "a" * 64),
     (True, "dotfile directory and '...' segment", U + ["file"], ".storybook/.../preview.ts"),
-    (True, "scoped tool name and prerelease version", ["tool"], {"name": "@klarlabs-studio/glossa-unplugin", "version": "0.1.0-rc.1+build.5"}),
+    (True, "scoped tool name and prerelease version", ["tool"], {"name": "@klarlabs-studio/glossa", "version": "0.1.0-rc.1+build.5"}),
     (True, "nested branch name", ["branch"], "renovate/vite-6.x"),
     (False, "short commit", ["commit"], "9f2c1e7"),
     (False, "uppercase commit", ["commit"], "A" * 40),

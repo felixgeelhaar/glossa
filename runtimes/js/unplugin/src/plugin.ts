@@ -24,6 +24,8 @@ import type { Node } from "./scan.js";
 import type { UsagesDocument } from "./usage.js";
 
 export const PLUGIN_NAME = "@klarlabs-studio/glossa-unplugin";
+/** What usages documents name as their producer: the npm package, which ships this plugin as its `unplugin` subpath. */
+export const TOOL_NAME = "@klarlabs-studio/glossa";
 export const TOOL_VERSION = (createRequire(import.meta.url)("../package.json") as { version: string }).version;
 
 const SCRIPT = /\.(?:[cm]?[jt]sx?|vue|astro)$/;
@@ -113,7 +115,7 @@ function usagesPlugin(options: GlossaPluginOptions, meta: UnpluginContextMeta): 
       application: build.application!,
       commit: build.commit!,
       branch: build.branch!,
-      tool: { name: PLUGIN_NAME, version: TOOL_VERSION },
+      tool: { name: TOOL_NAME, version: TOOL_VERSION },
       usages: collector.usages(),
     };
     const out = outDir();

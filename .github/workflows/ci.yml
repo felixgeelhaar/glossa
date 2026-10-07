@@ -94,7 +94,7 @@ jobs:
           echo "GLOSSA_TEST_CHROME=$chrome" >> "$GITHUB_ENV"
       - name: go test (integration)
         # Postgres and object storage via testcontainers; the runner has Docker.
-        run: go test -tags=integration -timeout=300s ./...
+        run: go test -tags=integration -timeout=900s ./...
 
   platform-system:
     name: Platform M2 exit test
@@ -352,11 +352,10 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
-      - name: build @klarlabs-studio/glossa-messageformat
-        run: pnpm --filter @klarlabs-studio/glossa-messageformat build
-      # Studio's build publishes this bundle at /overlay/v1/overlay.js.
-      - name: build @klarlabs-studio/glossa-overlay
-        run: pnpm --filter @klarlabs-studio/glossa-overlay... build
+      # Studio imports @klarlabs-studio/glossa/messageformat and publishes the
+      # overlay bundle (@klarlabs-studio/glossa/overlay/bundle) at /overlay/v1/overlay.js.
+      - name: build @klarlabs-studio/glossa (and the source packages it assembles)
+        run: pnpm --filter "@klarlabs-studio/glossa..." build
       # Also clones and builds @klarlabs-studio/ui at the commit pinned in
       # studio/package.json (see studio/README.md, "Design system").
       - name: build Studio

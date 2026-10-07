@@ -153,18 +153,12 @@ importers:
       '@astrojs/vue':
         specifier: 7.0.3
         version: 7.0.3(@types/node@22.19.19)(astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(vue@3.5.43(typescript@5.9.3))(yaml@2.9.1)
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
       astro:
         specifier: 7.3.3
         version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -192,9 +186,6 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
@@ -219,9 +210,6 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -244,24 +232,100 @@ importers:
         specifier: 3.3.3
         version: 3.3.3
     devDependencies:
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
       jsdom:
         specifier: 25.0.1
         version: 25.0.1
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
       vitest:
         specifier: 4.1.0
         version: 4.1.0(@types/node@22.19.19)(happy-dom@20.14.5)(jsdom@25.0.1)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
+
+  runtimes/js/glossa:
+    dependencies:
+      '@jridgewell/trace-mapping':
+        specifier: 0.3.31
+        version: 0.3.31
+      '@lit/context':
+        specifier: 1.1.6
+        version: 1.1.6
+      '@messageformat/icu-messageformat-1':
+        specifier: 0.12.0
+        version: 0.12.0
+      acorn:
+        specifier: 8.18.0
+        version: 8.18.0
+      lit:
+        specifier: 3.3.3
+        version: 3.3.3
+      messageformat:
+        specifier: 4.0.0
+        version: 4.0.0
+      unplugin:
+        specifier: 3.4.0
+        version: 3.4.0(esbuild@0.28.2)(rolldown@1.2.9)(rollup@4.63.4)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(webpack@5.111.1(esbuild@0.28.2)(lightningcss@1.33.0))
+      zod:
+        specifier: ^4.1.0
+        version: 4.6.5
+    devDependencies:
+      '@klarlabs-studio/glossa-astro':
+        specifier: workspace:*
+        version: link:../astro
+      '@klarlabs-studio/glossa-capture':
+        specifier: workspace:*
+        version: link:../capture
+      '@klarlabs-studio/glossa-elements':
+        specifier: workspace:*
+        version: link:../elements
+      '@klarlabs-studio/glossa-messageformat':
+        specifier: workspace:*
+        version: link:../../../messageformat/js
+      '@klarlabs-studio/glossa-overlay':
+        specifier: workspace:*
+        version: link:../overlay
+      '@klarlabs-studio/glossa-react':
+        specifier: workspace:*
+        version: link:../react
+      '@klarlabs-studio/glossa-runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@klarlabs-studio/glossa-unplugin':
+        specifier: workspace:*
+        version: link:../unplugin
+      '@klarlabs-studio/glossa-vue':
+        specifier: workspace:*
+        version: link:../vue
+      '@size-limit/preset-small-lib':
+        specifier: 11.2.0
+        version: 11.2.0(size-limit@11.2.0)
+      '@types/node':
+        specifier: 22.19.19
+        version: 22.19.19
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      astro:
+        specifier: 7.3.3
+        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.19.19)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      size-limit:
+        specifier: 11.2.0
+        version: 11.2.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vue:
+        specifier: 3.5.43
+        version: 3.5.43(typescript@5.9.3)
 
   runtimes/js/overlay:
     dependencies:
@@ -290,9 +354,6 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
@@ -305,9 +366,6 @@ importers:
       jsdom:
         specifier: 25.0.1
         version: 25.0.1
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -330,9 +388,6 @@ importers:
         specifier: workspace:^
         version: link:../runtime
     devDependencies:
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
@@ -351,9 +406,6 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -387,9 +439,6 @@ importers:
       '@klarlabs-studio/glossa-messageformat':
         specifier: workspace:*
         version: link:../../../messageformat/js
-      '@size-limit/preset-small-lib':
-        specifier: ^11.0.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
@@ -399,9 +448,6 @@ importers:
       jsdom:
         specifier: 25.0.1
         version: 25.0.1
-      size-limit:
-        specifier: ^11.0.0
-        version: 11.2.0
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -485,18 +531,12 @@ importers:
         specifier: workspace:^
         version: link:../runtime
     devDependencies:
-      '@size-limit/preset-small-lib':
-        specifier: 11.2.0
-        version: 11.2.0(size-limit@11.2.0)
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
       jsdom:
         specifier: 25.0.1
         version: 25.0.1
-      size-limit:
-        specifier: 11.2.0
-        version: 11.2.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -509,9 +549,9 @@ importers:
 
   studio:
     dependencies:
-      '@klarlabs-studio/glossa-messageformat':
+      '@klarlabs-studio/glossa':
         specifier: workspace:*
-        version: link:../messageformat/js
+        version: link:../runtimes/js/glossa
       '@klarlabs-studio/ui':
         specifier: link:.klarlabs-ui
         version: link:.klarlabs-ui
@@ -537,9 +577,6 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@klarlabs-studio/glossa-overlay':
-        specifier: workspace:*
-        version: link:../runtimes/js/overlay
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
@@ -9494,6 +9531,18 @@ snapshots:
       pathe: 2.0.3
       picomatch: 4.0.7
 
+  unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.9)(rollup@4.63.4)(vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(webpack@5.111.1(esbuild@0.28.2)(lightningcss@1.33.0)):
+    dependencies:
+      '@jridgewell/remapping': 2.3.5
+      picomatch: 4.0.7
+      webpack-virtual-modules: 0.6.2
+    optionalDependencies:
+      esbuild: 0.28.2
+      rolldown: 1.2.9
+      rollup: 4.63.4
+      vite: 6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+      webpack: 5.111.1(esbuild@0.28.2)(lightningcss@1.33.0)
+
   unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.9)(rollup@4.63.4)(vite@8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(webpack@5.111.1(esbuild@0.28.2)(lightningcss@1.33.0)):
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -9592,6 +9641,24 @@ snapshots:
       vite: 8.3.0(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
     transitivePeerDependencies:
       - supports-color
+
+  vite@6.4.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1):
+    dependencies:
+      esbuild: 0.25.12
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
+      postcss: 8.5.26
+      rollup: 4.60.4
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 22.19.19
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      lightningcss: 1.33.0
+      terser: 5.51.2
+      tsx: 4.23.13
+      yaml: 2.9.1
+    optional: true
 
   vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1):
     dependencies:

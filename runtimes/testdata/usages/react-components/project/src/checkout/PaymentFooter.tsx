@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { T, useGlossa } from "@klarlabs-studio/glossa-react";
+import { T, useGlossa } from "@klarlabs-studio/glossa/react";
 
 export function PaymentFooter({ total }: { total: number }) {
   const { t } = useGlossa();

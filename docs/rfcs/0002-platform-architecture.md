@@ -117,12 +117,12 @@ resolve locale (RFC 4647 lookup over a pluggable resolver chain)
 
 | Runtime | Package | Shape |
 |---|---|---|
-| **JS core** | `@klarlabs-studio/glossa-runtime` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Budgets (brotli): interpreter only 4 kB (3.1 kB measured), full runtime 6.5 kB (5.99 kB measured), IndexedDB storage 0.5 kB. For comparison, intl-messageformat alone is about 8 kB. |
-| **Vue** | `@klarlabs-studio/glossa-vue` | Plugin + `useMessages()` + typed accessors. SSR-safe. |
-| **Astro** | `@klarlabs-studio/glossa-astro` | Integration: build-time catalogs for static pages, runtime for islands. |
-| **Web components** | `@klarlabs-studio/glossa-elements` | `<glossa-text>` and friends on top of the core. Continues v0.3 elements. |
+| **JS core** | `@klarlabs-studio/glossa` | Framework-agnostic. Formatter, loader, cache, resolver, `explain`. Budgets (brotli): interpreter only 4 kB (3.1 kB measured), full runtime 6.5 kB (5.99 kB measured), IndexedDB storage 0.5 kB. For comparison, intl-messageformat alone is about 8 kB. |
+| **Vue** | `@klarlabs-studio/glossa/vue` | Plugin + `useMessages()` + typed accessors. SSR-safe. |
+| **Astro** | `@klarlabs-studio/glossa/astro` | Integration: build-time catalogs for static pages, runtime for islands. |
+| **Web components** | `@klarlabs-studio/glossa/elements` | `<glossa-text>` and friends on top of the core. Continues v0.3 elements. |
 | **Go** | `github.com/klarlabs-studio/glossa/runtime/go` | `glossa.T(ctx, msg, args)`, `net/http` middleware for locale resolution, typed accessors via codegen. |
-| **React** | `@klarlabs-studio/glossa-react` | Hooks + typed accessors. |
+| **React** | `@klarlabs-studio/glossa/react` | Hooks + typed accessors. |
 | **Flutter/Dart** | `glossa` (pub.dev) | Same contract. For Pet Medical's mobile app. |
 | **Swift, Kotlin** | later | Same contract. They come when a dogfood product ships a native app. |
 
@@ -130,7 +130,7 @@ The **SDK priority order comes from the dogfood survey (§12)**, not from this t
 
 **Typed messages** (intent §10): `glossa generate` emits per-language typed accessors (`messages.checkout.pay({ amount })` in TS, `msg.CheckoutPay(amount)` in Go) from the catalog's argument metadata. Missing or mistyped arguments fail at compile time.
 
-**Compiler and extraction** (intent §32): a bundler plugin (`@klarlabs-studio/glossa-unplugin` for Vite, Rollup, webpack and esbuild) records usages with file, line and component, tree-shakes unused messages and splits chunks per route. The Go extractor uses `go/ast`. Both report to the Context context.
+**Compiler and extraction** (intent §32): a bundler plugin (`@klarlabs-studio/glossa/unplugin` for Vite, Rollup, webpack and esbuild) records usages with file, line and component, tree-shakes unused messages and splits chunks per route. The Go extractor uses `go/ast`. Both report to the Context context.
 
 ## 9. Surfaces
 
@@ -256,26 +256,36 @@ glossa/
 
 ## 16. Open questions
 
-- **Package naming.** Decided in Amendment 1 below: npm scope `@klarlabs-studio/glossa-*`, Go module path `go.klarlabs.de/glossa`.
+- **Package naming.** Decided in Amendment 1 below: one npm package, `@klarlabs-studio/glossa`, with subpath exports; Go module path `go.klarlabs.de/glossa`.
 - **Glossa's place in the product standard.** Is Glossa a SaaS product (full standard: marketing domain, `app.`/`api.` split, beta labeling, billing) or OSS infrastructure with a managed offering later? That decides §9's site scope and billing.
 
-## Amendment 1: npm package naming (2026-10-04)
+## Amendment 1: npm package naming and packaging (2026-10-04, amended 2026-10-07)
 
-**Decision (owner).** Glossa moves entirely under Klarlabs before anything is published to npm (decision 2026-10-06, superseding the 2026-10-04 decision to publish under `@felixgeelhaar/glossa-*` first). The rewritten JavaScript packages publish under the `@klarlabs-studio/glossa-*` scope; the Go module path is `go.klarlabs.de/glossa` (this closes the open question); images are published under `ghcr.io/klarlabs-studio`; the repository is `klarlabs-studio/glossa`. v0.3 stays `@felixgeelhaar/*` (`glossa-sdk`, `glossa-ui`, `glossa-cli`, `glossa-format`, and v0.3's `glossa-elements` 0.3.x) on branch `release/v0.3`.
+**Decision (owner).** Glossa moves entirely under Klarlabs before anything is published to npm (decision 2026-10-06, superseding the 2026-10-04 decision to publish under `@felixgeelhaar/glossa-*` first). The rewritten JavaScript packages publish as **one** npm package, `@klarlabs-studio/glossa`, with subpath exports (decision 2026-10-07, amending the first version of this amendment, which published nine `@klarlabs-studio/glossa-*` packages; nothing had reached npm yet); the Go module path is `go.klarlabs.de/glossa` (this closes the open question); images are published under `ghcr.io/klarlabs-studio`; the repository is `klarlabs-studio/glossa`. v0.3 stays `@felixgeelhaar/*` (`glossa-sdk`, `glossa-ui`, `glossa-cli`, `glossa-format`, and v0.3's `glossa-elements` 0.3.x) on branch `release/v0.3`.
 
-| Workspace path | Package | Version |
+| Workspace path (a private source package) | Import it as | Package version |
 |---|---|---|
-| `messageformat/js` | `@klarlabs-studio/glossa-messageformat` | 0.4.0 |
-| `runtimes/js/runtime` | `@klarlabs-studio/glossa-runtime` | 0.4.0 |
-| `runtimes/js/elements` | `@klarlabs-studio/glossa-elements` | 0.4.0 |
-| `runtimes/js/vue` | `@klarlabs-studio/glossa-vue` | 0.4.0 |
-| `runtimes/js/react` | `@klarlabs-studio/glossa-react` | 0.4.0 |
-| `runtimes/js/astro` | `@klarlabs-studio/glossa-astro` | 0.4.0 |
-| `runtimes/js/unplugin` | `@klarlabs-studio/glossa-unplugin` | 0.4.0 |
-| `runtimes/js/capture` | `@klarlabs-studio/glossa-capture` | 0.4.0 |
-| `runtimes/js/overlay` | `@klarlabs-studio/glossa-overlay` | 0.4.0 |
+| `runtimes/js/runtime` | `@klarlabs-studio/glossa` (also `/idb`, `/dev`) | 0.4.0 |
+| `runtimes/js/elements` | `@klarlabs-studio/glossa/elements` (`/ssr`, `/parts`) | 0.4.0 |
+| `runtimes/js/vue` | `@klarlabs-studio/glossa/vue` | 0.4.0 |
+| `runtimes/js/react` | `@klarlabs-studio/glossa/react` | 0.4.0 |
+| `runtimes/js/astro` | `@klarlabs-studio/glossa/astro` (`/server`, `/client`, `/vue`, `/elements`, `/middleware`) | 0.4.0 |
+| `runtimes/js/unplugin` | `@klarlabs-studio/glossa/unplugin` (`/vite`, `/rollup`, `/webpack`, `/esbuild`) | 0.4.0 |
+| `runtimes/js/capture` | `@klarlabs-studio/glossa/capture` (`/probes`) | 0.4.0 |
+| `runtimes/js/overlay` | `@klarlabs-studio/glossa/overlay` (`/bundle`, the served bundle) | 0.4.0 |
+| `messageformat/js` | `@klarlabs-studio/glossa/messageformat` (`/testing`) | 0.4.0 |
+| `runtimes/js/glossa` | **`@klarlabs-studio/glossa`**: the one published package, assembled from the nine above | 0.4.0 |
+
+**One package, many subpaths (2026-10-07).**
+
+- **Layout.** The nine source packages stay where they are, with their own tests and tsc builds, and are `private` (their names are internal workspace names, `@klarlabs-studio/glossa-runtime` and so on). `runtimes/js/glossa` is the only publishable package. Its build (`scripts/build.mjs`) copies each package's compiled `dist/` to `dist/<subpath>/` and rewrites every reference to a sibling package (`@klarlabs-studio/glossa-runtime` becomes `@klarlabs-studio/glossa`, `glossa-astro/vue` becomes `@klarlabs-studio/glossa/astro/vue`, and so on) in `.js` and `.d.ts` files. Each source's `exports` map is carried over 1:1 under its prefix; the build fails if the umbrella's map drifts from the sources' maps, if an export target is missing, or if a sibling reference survives.
+- **Why rewrite instead of bundling.** The published files are still the unbundled modules the sources compile to, so tree-shaking, side-effect flags and the size budgets behave as before, and nothing is inlined twice. Because every cross-subpath import is the package's own specifier, a consumer resolves exactly one copy of the runtime, and the custom elements and the Lit context are defined once. Two places that name their own package folder are patched explicitly and asserted (Vite's `ssr.noExternal` and `optimizeDeps.exclude` list the package, now `@klarlabs-studio/glossa`; the plugin's tool version reads the umbrella's `package.json`); the overlay loader is resolved by `import.meta.resolve`, which finds `@klarlabs-studio/glossa/dev` in both layouts.
+- **Dependencies.** The union of the nine packages' dependencies (`lit`, `@lit/context`, `acorn`, `unplugin`, `@jridgewell/trace-mapping`, `@messageformat/icu-messageformat-1`, `messageformat`, `zod`); `vue`, `react` and `astro` are optional peers (`peerDependenciesMeta.optional`).
+- **Budgets** are unchanged and measured on the umbrella's subpath entries (`.size-limit.mjs`; `pnpm test` runs them). Importing `@klarlabs-studio/glossa` pulls in no Lit, Vue, React or capture code (checked by `scripts/verify.mjs`).
+- **Trade-offs accepted.** One install downloads every dependency of every subpath (Lit and the MessageFormat parser included) even for an app that uses only the runtime; bundles are unaffected, because only imported modules are bundled, and the frameworks stay optional. In exchange: one name to publish, one trusted-publisher entry, one version, no skew between packages that must share one runtime instance, and one `pnpm add`. A change to any subpath releases the whole package, and the subpaths cannot be versioned apart.
+- **Tool name.** `usages.json` names `@klarlabs-studio/glossa` as its producer (the schema's tool name is an npm package name, which a subpath is not).
 
 - **`@glossa/studio`** keeps its name: it is an app that is never published (`private`), so it has no scope to move.
-- **`glossa-elements` is a package rename.** v0.3 published `@felixgeelhaar/glossa-elements` 0.3.x; the new package is `@klarlabs-studio/glossa-elements` 0.4.0, so the names no longer collide and §12.1's migration is a package rename plus the provider's attribute changes. v0.3's `packages/elements` and `apps/admin` (which depends on it) left the pnpm workspace on `main`; 0.3.x maintenance continues on branch `release/v0.3`. Since the names no longer collide they could return to the workspace; that is not done here.
-- **Rename mechanics (done).** The scope string appeared in `package.json` names and dependency edges, import specifiers, tsconfig paths, size-limit names, CI filters and the CLI's printed hints; all were replaced in one pass. Each package needs a trusted-publisher entry for owner `klarlabs-studio`.
+- **`glossa-elements` is a package rename.** v0.3 published `@felixgeelhaar/glossa-elements` 0.3.x; the replacement is the `@klarlabs-studio/glossa/elements` subpath of `@klarlabs-studio/glossa` 0.4.0, so the names no longer collide and §12.1's migration is a package rename plus the provider's attribute changes. v0.3's `packages/elements` and `apps/admin` (which depends on it) left the pnpm workspace on `main`; 0.3.x maintenance continues on branch `release/v0.3`. Since the names no longer collide they could return to the workspace; that is not done here.
+- **Rename mechanics (done).** The scope string appeared in `package.json` names and dependency edges, import specifiers, tsconfig paths, size-limit names, CI filters and the CLI's printed hints; all were replaced in one pass. Only `@klarlabs-studio/glossa` needs a trusted-publisher entry for owner `klarlabs-studio`.
 - **Go module path.** `go.klarlabs.de/glossa/<module>`; runtime and messageformat are tagged `messageformat/vX.Y.Z` and `runtimes/go/vX.Y.Z`.

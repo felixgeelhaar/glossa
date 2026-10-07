@@ -618,7 +618,7 @@ def edge_fixtures():
 # ── Safe markup (formatted parts → HTML) ────────────────────────────────
 
 # Inline, attribute-free phrasing elements a translation may produce. The
-# single source of truth: @klarlabs-studio/glossa-elements' SAFE_TAGS and the Go runtime's
+# single source of truth: @klarlabs-studio/glossa/elements' SAFE_TAGS and the Go runtime's
 # safeTags are tested against this list.
 SAFE_TAGS = ("b strong i em u s small mark sub sup code kbd samp var abbr cite dfn q "
              "del ins bdi span br wbr").split()
@@ -643,7 +643,7 @@ def markup_fixture():
         return {"description": description, "parts": parts, "html": html}
 
     return {
-        "$comment": "Formatted parts -> HTML, the rules of @klarlabs-studio/glossa-elements/parts and the Go runtime's HTML/th. "
+        "$comment": "Formatted parts -> HTML, the rules of @klarlabs-studio/glossa/elements/parts and the Go runtime's HTML/th. "
                     "`safeTags`: the only markup names that become elements; `voidTags`: the safe tags rendered "
                     "without children or a closing tag. Markup options are always dropped. Text is escaped "
                     "(& < >). Unsafe markup keeps just its content. Unclosed markup closes at the end; a close "

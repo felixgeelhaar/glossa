@@ -9,6 +9,12 @@
 !runtimes/js/runtime/
 !runtimes/js/capture/
 !runtimes/js/overlay/
+!runtimes/js/elements/
+!runtimes/js/vue/
+!runtimes/js/react/
+!runtimes/js/astro/
+!runtimes/js/unplugin/
+!runtimes/js/glossa/
 !studio/
 **/node_modules/
 **/dist/

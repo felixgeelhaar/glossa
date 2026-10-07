@@ -1,7 +1,8 @@
 {
   "name": "@klarlabs-studio/glossa-capture",
   "version": "0.4.0",
-  "description": "Glossa's capture mode (RFC 0004 §3.1): an onRender hook that marks t() strings with invisible markers, and the capture script that turns marked text, attributes and component hosts into regions for glossa capture. Loaded only in capture and editor sessions, never by applications.",
+  "private": true,
+  "description": "PRIVATE source package of @klarlabs-studio/glossa (RFC 0002 Amendment 1): not published; its build output ships as a subpath of the umbrella. Glossa's capture mode (RFC 0004 §3.1): an onRender hook that marks t() strings with invisible markers, and the capture script that turns marked text, attributes and component hosts into regions for glossa capture. Loaded only in capture and editor sessions, never by applications.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -26,28 +27,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "playwright test",
-    "lint": "tsc --noEmit -p tsconfig.test.json",
-    "size": "size-limit"
+    "lint": "tsc --noEmit -p tsconfig.test.json"
   },
-  "size-limit": [
-    {
-      "name": "a capture session WITH the visual probe pass, what `glossa capture` runs (RFC 0005 §5.1's 4 kB)",
-      "path": [
-        "dist/index.js",
-        "dist/probes.js"
-      ],
-      "import": {
-        "dist/index.js": "{ startCapture }",
-        "dist/probes.js": "{ probe }"
-      },
-      "limit": "4 KB"
-    },
-    {
-      "name": "a session WITHOUT it, what @klarlabs-studio/glossa-overlay pulls in (@klarlabs-studio/glossa-runtime is types only)",
-      "path": "dist/index.js",
-      "limit": "3 KB"
-    }
-  ],
   "peerDependencies": {
     "@klarlabs-studio/glossa-runtime": "workspace:^"
   },
@@ -57,7 +38,6 @@
     "@klarlabs-studio/glossa-runtime": "workspace:*",
     "@klarlabs-studio/glossa-vue": "workspace:*",
     "@playwright/test": "1.63.0",
-    "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -66,7 +46,6 @@
     "jsdom": "25.0.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "size-limit": "11.2.0",
     "typescript": "5.9.3",
     "vitest": "4.1.0",
     "vue": "3.5.43"
@@ -80,10 +59,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
   },
   "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/capture#readme",
   "bugs": "https://github.com/klarlabs-studio/glossa/issues"
