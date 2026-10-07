@@ -27,7 +27,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@klarlabs-studio/glossa-messageformat": "workspace:*",
+    "@klarlabs-studio/glossa": "workspace:*",
     "@klarlabs-studio/ui": "link:.klarlabs-ui",
     "lit": "3.3.3",
     "mermaid": "12.1.0",
@@ -38,7 +38,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
-    "@klarlabs-studio/glossa-overlay": "workspace:*",
     "@playwright/test": "1.63.0",
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "22.20.4",

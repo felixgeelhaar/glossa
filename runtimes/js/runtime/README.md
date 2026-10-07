@@ -1,4 +1,4 @@
-# @klarlabs-studio/glossa-runtime
+# @klarlabs-studio/glossa
 
 Glossa's JavaScript runtime. It implements the
 [runtime and delivery contract](../../SPEC.md): it loads a signed release from
@@ -9,7 +9,7 @@ WebCrypto only and has no dependencies. Framework adapters (Vue, React, web
 components) build on it.
 
 ```ts
-import { createRuntime, resolveLocales, navigatorLanguages } from "@klarlabs-studio/glossa-runtime";
+import { createRuntime, resolveLocales, navigatorLanguages } from "@klarlabs-studio/glossa";
 
 const glossa = createRuntime({
   edge: "https://edge.example.com",
@@ -38,7 +38,7 @@ to the inline default, then to the message ID. Everything else is optional.
 | `locales` | `navigator.languages` | Requested locales, most preferred first. Canonicalized (`en_us` → `en-US`, `iw` → `he`). |
 | `bundled` | none | `{ manifest, artifacts }` from `glossa pull --release`, artifacts keyed by SHA-256. Renders synchronously at construction and is the last resort offline. |
 | `publicKeys` | none | `[{ keyId, key }]`, base64url raw Ed25519. When set, manifests without a valid signature are rejected. |
-| `storage` | `webStorage()` in browsers | Where last-good persists. `memoryStorage()`, `indexedDbStorage()` from `@klarlabs-studio/glossa-runtime/idb`, your own `{ get, set }`, or `null` for none. |
+| `storage` | `webStorage()` in browsers | Where last-good persists. `memoryStorage()`, `indexedDbStorage()` from `@klarlabs-studio/glossa/idb`, your own `{ get, set }`, or `null` for none. |
 | `transport` | `fetch` | Any `(url, { headers }) → Promise<{ status, headers.get, text() }>`. |
 | `refreshInterval` | `300000` | Background manifest refresh in ms; `0` turns it off. The default timer is `unref`'d, so it never keeps a server process alive. |
 | `timer` | `setInterval` | `(tick, ms) → cancel`, for tests or custom scheduling. |
@@ -62,9 +62,9 @@ The `Runtime`:
 | `refresh() → Promise` | Revalidates now. Concurrent calls share one request. |
 | `ready` | Settles after the first load. Never rejects. |
 | `subscribe(fn)`, `onError(fn)` | Both return an unsubscribe function. Listener exceptions are contained. |
-| `onRender(hook) → unsubscribe` | Capture and editor sessions only (RFC 0004 §3.1): `hook({ id, locale, values, output })` sees every `t()` render and may return a string that replaces the output. Adding or removing a hook notifies subscribers, so the page re-renders. See [`@klarlabs-studio/glossa-capture`](../capture/README.md). |
+| `onRender(hook) → unsubscribe` | Capture and editor sessions only (RFC 0004 §3.1): `hook({ id, locale, values, output })` sees every `t()` render and may return a string that replaces the output. Adding or removing a hook notifies subscribers, so the page re-renders. See [`@klarlabs-studio/glossa/capture`](../capture/README.md). |
 | `hooked` | Whether an `onRender` hook is installed. Components add `data-glossa-id`/`data-glossa-locale` to their host element only then. |
-| `override(id, locale, model?) → boolean` | The in-product editor's live preview (RFC 0004 §5.3), never in production: renders `model` (an MF2 data-model message, as the API parsed it) for `id` in `locale` through `t()`, `parts()` and `explain()`, until it's called without `model`. The locale must be on the active fallback chain to show. Notifies subscribers, so the page re-renders. Returns `false` and changes nothing when the runtime's `environment` is `production`. See [`@klarlabs-studio/glossa-overlay`](../overlay/README.md). |
+| `override(id, locale, model?) → boolean` | The in-product editor's live preview (RFC 0004 §5.3), never in production: renders `model` (an MF2 data-model message, as the API parsed it) for `id` in `locale` through `t()`, `parts()` and `explain()`, until it's called without `model`. The locale must be on the active fallback chain to show. Notifies subscribers, so the page re-renders. Returns `false` and changes nothing when the runtime's `environment` is `production`. See [`@klarlabs-studio/glossa/overlay`](../overlay/README.md). |
 | `environment` | The active manifest's `environment` (`undefined` until a release is active). `glossa capture` refuses a page that reports `production`. |
 | `dispose()` | Stops the timer and the visibility listener and drops listeners. |
 | `dispose()` | Stops the timer and the visibility listener, drops listeners, and takes the runtime off the page's list (below). |
@@ -78,11 +78,11 @@ too — the loader checks every runtime's `environment` before it does anything,
 and a capture session has to tell a production page from a page without
 Glossa.
 
-## `@klarlabs-studio/glossa-runtime/dev`: the overlay loader
+## `@klarlabs-studio/glossa/dev`: the overlay loader
 
 The in-product editor's loader ([RFC 0004
 §5.1](../../../docs/rfcs/0004-context.md)). **Applications don't import it**:
-[`@klarlabs-studio/glossa-unplugin`](../unplugin/README.md) injects it into builds whose
+[`@klarlabs-studio/glossa/unplugin`](../unplugin/README.md) injects it into builds whose
 Glossa `environment` isn't `production`, and a production build never
 contains it. On the page it does nothing until someone asks for the editor
 with `?glossa=edit` in the URL or Alt+Shift+E (which also ends the session).
@@ -115,7 +115,7 @@ generated — so a stale answer, a second popup's answer, or any other
 
 It adds no inline script, evaluates no strings and creates no frame, so the
 preview CSP in
-[`@klarlabs-studio/glossa-overlay`](../overlay/README.md#csp-for-preview-deployments) is all
+[`@klarlabs-studio/glossa/overlay`](../overlay/README.md#csp-for-preview-deployments) is all
 it needs — `frame-src` included: the flow is a popup, never an iframe.
 
 `glossa capture` uses the same page-wide list: it puts the array in place
@@ -188,7 +188,7 @@ The source locale is always the implicit last step. `lookupLocale`
 The interpreter is usable on its own:
 
 ```ts
-import { format, formatToParts } from "@klarlabs-studio/glossa-runtime";
+import { format, formatToParts } from "@klarlabs-studio/glossa";
 
 format(message, "de", { count: 3 }); // "3 neue Nachrichten"
 formatToParts(message, "de", { count: 3 }); // text, number, markup, bidiIsolation, fallback parts
@@ -248,7 +248,7 @@ What it implements:
   expected output from the reference formatter. No skips, on the CLDR of every
   supported Node version.
 
-The tests need `@klarlabs-studio/glossa-messageformat` built first
+The tests need `@klarlabs-studio/glossa/messageformat` built first
 (`pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build`).
 
 ## Size
@@ -261,8 +261,8 @@ line is what an app that imports only that pays:
 | `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
 | `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.58 kB | 6.8 kB |
 | `{ createRuntime, resolveLocales, acceptLanguage }` | 6.75 kB | 6.8 kB |
-| `@klarlabs-studio/glossa-runtime/idb` | 0.26 kB | 0.5 kB |
-| `@klarlabs-studio/glossa-runtime/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
+| `@klarlabs-studio/glossa/idb` | 0.26 kB | 0.5 kB |
+| `@klarlabs-studio/glossa/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
 
 RFC 0002 §8 set 4 kB for the whole JS core. The interpreter alone fits it; the
 contract's loader, SHA-256 and Ed25519 verification, JCS, the fallback graph,

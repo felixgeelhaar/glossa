@@ -153,7 +153,7 @@ describe("astro build with glossa()", () => {
       application: "astro-fixture",
       commit: COMMIT,
       branch: "feat/astro-usages",
-      tool: { name: "@klarlabs-studio/glossa-unplugin" },
+      tool: { name: "@klarlabs-studio/glossa" },
     });
     const at = (u: { key: string; file: string; line: number; column: number; kind: string; route?: string; component?: string }) =>
       `${u.key} ${u.file}:${u.line}:${u.column} ${u.kind} ${u.component ?? "-"} ${u.route ?? "-"}`;

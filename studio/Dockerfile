@@ -5,15 +5,17 @@
 # security headers.
 #
 # Build from the repository root (Studio is a pnpm workspace member and
-# imports @klarlabs-studio/glossa-messageformat from messageformat/js):
+# imports @klarlabs-studio/glossa/messageformat, built from messageformat/js and the other
+# source packages of runtimes/js that the umbrella package assembles):
 #
 #   docker build -f studio/Dockerfile -t glossa-studio .
 #
 # The build fetches @klarlabs-studio/ui from its public repository at the
 # commit pinned in studio/package.json#klarlabsUi (studio/README.md,
 # "Design system"), so it needs network access and git. It also builds
-# @klarlabs-studio/glossa-overlay (with @klarlabs-studio/glossa-runtime and @klarlabs-studio/glossa-capture), whose bundle
-# Studio serves at /overlay/v1/overlay.js (RFC 0004 §5.1).
+# @klarlabs-studio/glossa (its overlay bundle,
+# @klarlabs-studio/glossa/overlay/bundle, is what Studio serves at
+# /overlay/v1/overlay.js, RFC 0004 §5.1).
 #
 # Runtime configuration (no rebuild): GLOSSA_STUDIO_* variables are
 # rendered into /config.json and the CSP at container start; see
@@ -39,8 +41,14 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY messageformat/js/package.json messageformat/js/
 COPY runtimes/js/runtime/package.json runtimes/js/runtime/
+COPY runtimes/js/elements/package.json runtimes/js/elements/
+COPY runtimes/js/vue/package.json runtimes/js/vue/
+COPY runtimes/js/react/package.json runtimes/js/react/
+COPY runtimes/js/astro/package.json runtimes/js/astro/
+COPY runtimes/js/unplugin/package.json runtimes/js/unplugin/
 COPY runtimes/js/capture/package.json runtimes/js/capture/
 COPY runtimes/js/overlay/package.json runtimes/js/overlay/
+COPY runtimes/js/glossa/package.json runtimes/js/glossa/
 COPY studio/package.json studio/
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
@@ -48,10 +56,17 @@ RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \
 
 COPY messageformat/js/ messageformat/js/
 COPY runtimes/js/runtime/ runtimes/js/runtime/
+COPY runtimes/js/elements/ runtimes/js/elements/
+COPY runtimes/js/vue/ runtimes/js/vue/
+COPY runtimes/js/react/ runtimes/js/react/
+COPY runtimes/js/astro/ runtimes/js/astro/
+COPY runtimes/js/unplugin/ runtimes/js/unplugin/
 COPY runtimes/js/capture/ runtimes/js/capture/
 COPY runtimes/js/overlay/ runtimes/js/overlay/
+COPY runtimes/js/glossa/ runtimes/js/glossa/
 COPY studio/ studio/
-RUN pnpm --filter @klarlabs-studio/glossa-messageformat build && pnpm --filter "@klarlabs-studio/glossa-overlay..." build
+# The umbrella assembles dist/ from its nine source packages, which build first.
+RUN pnpm --filter "@klarlabs-studio/glossa..." build
 # `build` links the design system first (scripts/klarlabs-ui.mjs), then runs
 # vite build. The Vite manifest is tooling, not something to serve.
 RUN --mount=type=cache,id=glossa-pnpm-store,target=/pnpm/store \

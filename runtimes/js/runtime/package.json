@@ -1,7 +1,8 @@
 {
   "name": "@klarlabs-studio/glossa-runtime",
   "version": "0.4.0",
-  "description": "Glossa's JS runtime: release loader, locale resolver, explain and a minimal MessageFormat 2 interpreter over precompiled messages, on Intl and WebCrypto only.",
+  "private": true,
+  "description": "PRIVATE source package of @klarlabs-studio/glossa (RFC 0002 Amendment 1): not published; its build output ships as a subpath of the umbrella. Glossa's JS runtime: release loader, locale resolver, explain and a minimal MessageFormat 2 interpreter over precompiled messages, on Intl and WebCrypto only.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -29,46 +30,13 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit -p tsconfig.test.json",
-    "size": "size-limit"
+    "lint": "tsc --noEmit -p tsconfig.test.json"
   },
-  "size-limit": [
-    {
-      "name": "interpreter: { format, formatToParts }",
-      "path": "dist/index.js",
-      "import": "{ format, formatToParts }",
-      "limit": "4 KB"
-    },
-    {
-      "name": "runtime: { createRuntime }",
-      "path": "dist/index.js",
-      "import": "{ createRuntime }",
-      "limit": "6.8 KB"
-    },
-    {
-      "name": "runtime + resolver chain",
-      "path": "dist/index.js",
-      "import": "{ createRuntime, resolveLocales, acceptLanguage }",
-      "limit": "6.8 KB"
-    },
-    {
-      "name": "@klarlabs-studio/glossa-runtime/idb",
-      "path": "dist/idb.js",
-      "limit": "0.5 KB"
-    },
-    {
-      "name": "@klarlabs-studio/glossa-runtime/dev, the overlay loader and its popup sign-in (never in production builds)",
-      "path": "dist/dev.js",
-      "limit": "1.9 KB"
-    }
-  ],
   "devDependencies": {
     "@klarlabs-studio/glossa-messageformat": "workspace:*",
-    "@size-limit/preset-small-lib": "^11.0.0",
     "@types/node": "^22.0.0",
     "fake-indexeddb": "6.2.5",
     "jsdom": "25.0.1",
-    "size-limit": "^11.0.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.0"
   },
@@ -81,10 +49,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
   },
   "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/runtime#readme",
   "bugs": "https://github.com/klarlabs-studio/glossa/issues"

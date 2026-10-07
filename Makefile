@@ -41,16 +41,14 @@ system-m3: ## M3 exit test (Docker + Chrome): context, the PR flow, the overlay 
 	cd platform && go test -tags=system -timeout=900s -count=1 -v ./internal/systemtest/m3/...
 
 system-m4-studio: ## Build Studio so the M4 exit test can open its quality view (RFC 0005 §12.8).
-	pnpm --filter @klarlabs-studio/glossa-messageformat build
-	pnpm --filter @klarlabs-studio/glossa-overlay... build
+	pnpm --filter "@klarlabs-studio/glossa..." build
 	pnpm --filter @glossa/studio build
 	pnpm --filter @glossa/studio exec playwright install chromium
 
 system-m4: system-m4-studio ## M4 exit test (Docker + Chrome + Dart + a built Studio): RFC 0005 §12's eight criteria; writes platform/internal/systemtest/m4/REPORT.md.
 	cd platform && go test -tags=system -timeout=2700s -count=1 -v ./internal/systemtest/m4/...
 
-system-m5-deps: system-m4-studio ## Build what the M5 exit test renders and rolls out with: @klarlabs-studio/glossa-runtime, v0.3's formatter, the Dart runtime's packages.
-	pnpm --filter @klarlabs-studio/glossa-runtime build
+system-m5-deps: system-m4-studio ## Build what the M5 exit test renders and rolls out with: @klarlabs-studio/glossa, v0.3's formatter, the Dart runtime's packages.
 	pnpm --filter @felixgeelhaar/glossa-format build
 	cd runtimes/dart && dart pub get
 

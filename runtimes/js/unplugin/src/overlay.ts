@@ -15,8 +15,8 @@
  * - esbuild: `inject`, which adds it to every entry point.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isProduction } from "@klarlabs-studio/glossa-runtime/dev";
 import type { OverlayLoaderConfig } from "@klarlabs-studio/glossa-runtime/dev";
 import type { UnpluginContextMeta, UnpluginOptions } from "unplugin";
@@ -128,8 +128,8 @@ function read(file: string): string {
  * every application that uses the plugin.
  */
 export function loaderModule(config: OverlayLoaderConfig): string {
-  const runtime = dirname(createRequire(import.meta.url).resolve("@klarlabs-studio/glossa-runtime/package.json"));
-  const dist = join(runtime, "dist");
+  // Where the package that ships the loader keeps it: the file's own folder holds its relative imports.
+  const dist = dirname(fileURLToPath(import.meta.resolve("@klarlabs-studio/glossa-runtime/dev")));
   const parts: string[] = [];
   const dev = read(join(dist, "dev.js")).replace(RELATIVE_IMPORT, (_line, file: string) => {
     parts.push(read(join(dist, file)));

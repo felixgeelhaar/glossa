@@ -1,7 +1,8 @@
 {
   "name": "@klarlabs-studio/glossa-vue",
   "version": "0.4.0",
-  "description": "Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @klarlabs-studio/glossa-runtime.",
+  "private": true,
+  "description": "PRIVATE source package of @klarlabs-studio/glossa (RFC 0002 Amendment 1): not published; its build output ships as a subpath of the umbrella. Glossa for Vue 3.5+: a plugin, reactive useGlossa()/useMessages() composables and <GlossaText>, SSR- and hydration-safe, on @klarlabs-studio/glossa-runtime.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -20,28 +21,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit -p tsconfig.test.json",
-    "size": "size-limit"
+    "lint": "tsc --noEmit -p tsconfig.test.json"
   },
-  "size-limit": [
-    {
-      "name": "@klarlabs-studio/glossa-vue, own code (vue and @klarlabs-studio/glossa-runtime excluded)",
-      "path": "dist/index.js",
-      "ignore": [
-        "vue",
-        "@klarlabs-studio/glossa-runtime"
-      ],
-      "limit": "1.5 KB"
-    },
-    {
-      "name": "@klarlabs-studio/glossa-vue with @klarlabs-studio/glossa-runtime (vue excluded)",
-      "path": "dist/index.js",
-      "ignore": [
-        "vue"
-      ],
-      "limit": "8 KB"
-    }
-  ],
   "peerDependencies": {
     "vue": "^3.5.0"
   },
@@ -50,10 +31,8 @@
     "@klarlabs-studio/glossa-runtime": "workspace:^"
   },
   "devDependencies": {
-    "@size-limit/preset-small-lib": "11.2.0",
     "@types/node": "22.19.19",
     "jsdom": "25.0.1",
-    "size-limit": "11.2.0",
     "typescript": "5.9.3",
     "vitest": "4.1.0",
     "vue": "3.5.43"
@@ -67,10 +46,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
   },
   "homepage": "https://github.com/klarlabs-studio/glossa/tree/main/runtimes/js/vue#readme",
   "bugs": "https://github.com/klarlabs-studio/glossa/issues"

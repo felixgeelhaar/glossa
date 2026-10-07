@@ -1,11 +1,11 @@
-# @klarlabs-studio/glossa-messageformat
+# @klarlabs-studio/glossa/messageformat
 
 Glossa's MessageFormat kernel for **tooling**: Studio preview, the bundler
 plugin, import and export. It's a thin Glossa API over the reference
 implementation ([`messageformat`](https://github.com/messageformat/messageformat)
 v4 and `@messageformat/icu-messageformat-1`, pinned to exact versions).
 
-Browsers don't get this package. They get `@klarlabs-studio/glossa-runtime`, which interprets
+Browsers don't get this package. They get `@klarlabs-studio/glossa`, which interprets
 the same data model without a parser.
 
 ## The data model is the contract
@@ -19,7 +19,7 @@ implementation's in-memory model differs slightly (`functionRef` instead of
 convert between the two.
 
 ```ts
-import { format, parseMF1, parseMF2, stringify, validateMessage } from "@klarlabs-studio/glossa-messageformat";
+import { format, parseMF1, parseMF2, stringify, validateMessage } from "@klarlabs-studio/glossa/messageformat";
 
 const msg = parseMF2(".input {$count :number} .match $count one {{One file}} * {{{$count} files}}");
 stringify(msg); // back to MF2 syntax
