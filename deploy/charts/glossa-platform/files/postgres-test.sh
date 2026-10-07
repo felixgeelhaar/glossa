@@ -16,6 +16,10 @@ pass() { printf 'ok   %s\n' "$*"; }
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 q() { psql -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 
+# A new pod's first connections can be refused for a moment while its
+# network policy is programmed (k3s): wait for the server before judging it.
+for _ in $(seq 1 30); do pg_isready -q -t 2 && break; sleep 1; done
+
 me=$(q -c 'SELECT current_user' 2>&1) || fail "glossa_app cannot connect to $PGHOST/$PGDATABASE: $me"
 [[ $me == glossa_app ]] || fail "connected as $me, not glossa_app"
 pass "glossa_app connects to $PGDATABASE"
