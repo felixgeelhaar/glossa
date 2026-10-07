@@ -101,6 +101,7 @@ func commands() []command {
 		{"style", "Show the effective style guide; edit one from YAML", runStyle},
 		{"translate", "Fill locales with AI suggestions", runTranslate},
 		{"review", "Review AI suggestions: list, accept, reject", runReview},
+		{"translations", "Review translations: review key@locale --state approved|rejected|draft|needs_review", runTranslations},
 		{"workflow", "Lint, push, pull and bind workflow definitions; list instances and their log", runWorkflow},
 		{"assignments", "My work: list, show, accept, complete, decline; create assignments", runAssignments},
 		{"approve", "Approve a release request or a translation (a person's session); list what waits", runApprove},

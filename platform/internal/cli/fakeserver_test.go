@@ -53,6 +53,7 @@ type fakeServer struct {
 	audit        *fakeAuditImports
 	trail        *fakeAuditTrail
 	appr         *fakeApprovals
+	rv           *fakeReviews
 	requests     []string
 }
 
@@ -131,6 +132,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	f.routeAuditImports(mux, p)
 	f.routeAuditTrail(mux)
 	f.routeApprovals(mux, p)
+	f.routeReviews(mux, p)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" "+r.Header.Get("Idempotency-Key"))
