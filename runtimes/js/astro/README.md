@@ -93,6 +93,44 @@ const { t, locale, dir } = getGlossa(Astro);
   only prerendered with `prerender: "all"`. For streamed pages, use
   `getGlossa()` and Vue components instead.
 
+## Unit tests, and libraries outside Astro
+
+`/astro/client` and `/astro/server` import `virtual:glossa/config`, which only exists inside an Astro
+build. Two ways to keep that out of your way:
+
+**Test the code that imports them** with `@klarlabs-studio/glossa/astro/testing`. Add its Vite plugin
+to `vitest.config.ts`; no `vi.mock`, no alias, no `server.deps.inline` by hand:
+
+```ts
+import { defineConfig } from "vitest/config";
+import { glossaAstroTesting } from "@klarlabs-studio/glossa/astro/testing";
+
+export default defineConfig({ plugins: [glossaAstroTesting()] });
+```
+
+The plugin serves `virtual:glossa/config` (an inert stub: no edge, no key, English, `environment:
+"test"`) and `virtual:glossa/release` (`null`), and has Vitest process the package instead of loading
+it as an external. `getRuntime()` then works under Node (no `document`) and renders inline defaults.
+`glossaAstroTesting(overrides, release)` changes the stub config, or gives server-side code a
+`BundledRelease`; `stubConfig` is exported too. The package's own `test/unit-fixture.test.ts` is a
+helper that calls `getRuntime()`, tested this way.
+
+**Write shared helpers and libraries without `/astro/client`** with
+`@klarlabs-studio/glossa/astro/translate`. It imports no virtual module and no Astro code:
+
+```ts
+import { t } from "@klarlabs-studio/glossa/astro/translate";
+
+export const saveLabel = () => t("form.save", "Speichern");
+```
+
+`t(id, fallback, values?)` renders with the request's runtime on the server, or the page's in the
+browser (`getRuntime()` publishes it, which every island, provider and elements page already does),
+and returns `fallback` as written when there is none (tests, scripts). `has(id)`, `currentRuntime()`
+and `provideRuntime(runtime)` (for tests and hosts with their own runtime) are there too. A library
+that must not depend on globals at all takes a `Runtime` (or `{ t }`) as a parameter, which needs no
+Astro anywhere.
+
 ## Tests
 
 `pnpm test` runs the pure parts (routing, page rendering, streaming inline,
@@ -109,6 +147,6 @@ would.
 ## Size
 
 `@klarlabs-studio/glossa/astro/client`, the only part of this package that ships to
-browsers, is 0.56 kB brotli without the runtime (budget 0.75 kB). Islands also
+browsers, is 0.60 kB brotli without the runtime (budget 0.75 kB). Islands also
 load `@klarlabs-studio/glossa/vue` (1.2 kB) and the runtime (6 kB); elements load
 `@klarlabs-studio/glossa/elements`.

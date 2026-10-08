@@ -31,6 +31,14 @@
     "./middleware": {
       "types": "./dist/middleware.d.ts",
       "import": "./dist/middleware.js"
+    },
+    "./testing": {
+      "types": "./dist/test-support.d.ts",
+      "import": "./dist/test-support.js"
+    },
+    "./translate": {
+      "types": "./dist/translate.d.ts",
+      "import": "./dist/translate.js"
     }
   },
   "files": [

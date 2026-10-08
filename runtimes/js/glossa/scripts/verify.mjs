@@ -20,7 +20,7 @@ for (const [key, value] of Object.entries(pkg.exports)) {
 }
 if (failures.length) fail();
 
-const NODE_SAFE = [".", "./idb", "./apierr", "./dev", "./elements/ssr", "./messageformat", "./messageformat/testing", "./capture/probes"];
+const NODE_SAFE = [".", "./idb", "./apierr", "./dev", "./astro/translate", "./astro/testing", "./elements/ssr", "./messageformat", "./messageformat/testing", "./capture/probes"];
 const loaded = {};
 for (const key of NODE_SAFE) {
   const specifier = key === "." ? pkg.name : `${pkg.name}/${key.slice(2)}`;

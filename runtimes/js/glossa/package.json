@@ -85,6 +85,14 @@
       "types": "./dist/astro/middleware.d.ts",
       "import": "./dist/astro/middleware.js"
     },
+    "./astro/testing": {
+      "types": "./dist/astro/test-support.d.ts",
+      "import": "./dist/astro/test-support.js"
+    },
+    "./astro/translate": {
+      "types": "./dist/astro/translate.d.ts",
+      "import": "./dist/astro/translate.js"
+    },
     "./unplugin": {
       "types": "./dist/unplugin/index.d.ts",
       "import": "./dist/unplugin/index.js"
