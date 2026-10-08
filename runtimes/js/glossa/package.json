@@ -1,6 +1,6 @@
 {
   "name": "@klarlabs-studio/glossa",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Glossa for JavaScript, in one package: the runtime, web components, Vue, React and Astro bindings, the usages bundler plugin, capture, the in-product editor and the MessageFormat kernel, as subpath exports.",
   "keywords": [
     "i18n",
