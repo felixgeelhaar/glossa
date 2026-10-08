@@ -19,25 +19,28 @@ implementation's in-memory model differs slightly (`functionRef` instead of
 convert between the two.
 
 ```ts
-import { format, parseMF1, parseMF2, stringify, validateMessage } from "@klarlabs-studio/glossa/messageformat";
+import { format, parseMF2, stringify, validateMessage } from "@klarlabs-studio/glossa/messageformat";
 
 const msg = parseMF2(".input {$count :number} .match $count one {{One file}} * {{{$count} files}}");
 stringify(msg); // back to MF2 syntax
 format(msg, "en", { count: 1234 }); // "1,234 files", through the reference formatter
 
-parseMF1("{count, plural, one {# Datei} other {# Dateien}}", "de"); // same model
 validateMessage(JSON.parse(artifactJson)); // zod shape check + data model errors
 ```
 
 | Function | Does |
 |---|---|
 | `parseMF2(src)` | MF2 syntax → data model. Throws `MessageSyntaxError` / `MessageDataModelError`. |
-| `parseMF1(src, locale)` | ICU MF1 → data model; `locale` decides which plural keys are valid. Throws `MF1SyntaxError`. |
 | `stringify(message)` | Data model → MF2 syntax. |
 | `format` / `formatToParts(message, locale, values?, opts?)` | Reference formatter with the draft (`:currency`, `:date`, …) and `mf1:` functions enabled. Never throws; errors go to `opts.onError`. |
 | `validateMessage(value)` / `isMessage(value)` / `messageSchema` | Runtime validation with zod, proven equivalent to the JSON Schema in tests. |
 
 ## MF1 → MF2
+
+This package has no MF1 parser. ICU MF1 is parsed on the server, by the Go
+module's `ParseMF1(src, locale)` in
+[`go.klarlabs.de/glossa/messageformat`](../mf1.go), and messages reach the
+browser as the data model. The mapping it applies:
 
 MF1 maps onto **standard** MF2 functions wherever one is equivalent
 (`:number`, `:integer`, `:percent`, `:currency currency=…`, `:unit`,
@@ -49,7 +52,7 @@ matched on `$n` and plural categories on `$n_offset`, and `#` pointing at
 (`number, currency` without a code, notations and scales, date skeletons,
 `spellout`, `duration`, …). The MF1 argument type and style stay on the
 expression as `@mf1:argType` / `@mf1:argStyle` attributes for export. The full
-table is in [`src/mf1.ts`](./src/mf1.ts).
+table is in [`mf1.go`](../mf1.go).
 
 Date and time options follow the current spec (LDML 48: `length`, `fields`,
 `precision`, `timeZoneStyle`), which the vendored conformance suite tests,
