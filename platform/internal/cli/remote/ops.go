@@ -303,8 +303,8 @@ func (c *Client) TranslationStats(ctx context.Context, s Scope) (TranslationStat
 // Results come back in item order.
 func (c *Client) UpsertMessages(ctx context.Context, s Scope, items []MessageUpsertItem) ([]MessageUpsertResult, error) {
 	var out []MessageUpsertResult
-	for start := 0; start < len(items); start += MaxBatch {
-		batch := items[start:min(start+MaxBatch, len(items))]
+	for size, start := batchSize(), 0; start < len(items); start += size {
+		batch := items[start:min(start+size, len(items))]
 		r, err := c.api.UpsertMessagesWithResponse(idempotent(ctx), s.Tenant, s.Project, apiclient.MessageUpsert{Items: batch})
 		if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/message-upserts", s.Tenant, s.Project)); err != nil {
 			return out, err
@@ -318,8 +318,8 @@ func (c *Client) UpsertMessages(ctx context.Context, s Scope, items []MessageUps
 // batches of MaxBatch. Results come back in item order.
 func (c *Client) ImportTranslations(ctx context.Context, s Scope, items []TranslationImportItem) ([]TranslationImportRes, error) {
 	var out []TranslationImportRes
-	for start := 0; start < len(items); start += MaxBatch {
-		batch := items[start:min(start+MaxBatch, len(items))]
+	for size, start := batchSize(), 0; start < len(items); start += size {
+		batch := items[start:min(start+size, len(items))]
 		r, err := c.api.ImportTranslationsWithResponse(idempotent(ctx), s.Tenant, s.Project, apiclient.TranslationImport{Items: batch})
 		if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/translation-imports", s.Tenant, s.Project)); err != nil {
 			return out, err
