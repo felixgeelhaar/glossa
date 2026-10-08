@@ -32,6 +32,11 @@ name: Release packages
 #   short-lived publish token at runtime. Provenance + signature
 #   are attached automatically.
 #
+# Second registry: @klarlabs-studio/glossa is also published to GitHub
+#   Packages (npm.pkg.github.com) by the last step, with the job's
+#   GITHUB_TOKEN (`packages: write`), because Klarlabs repos route the whole
+#   @klarlabs-studio scope there. An already-published version is tolerated.
+#
 # First publish of a NEW package name (before a trusted publisher can exist):
 #   from the package directory, with a fresh one-time code,
 #     pnpm publish --access public --no-git-checks --provenance=false --otp=<code>
@@ -60,6 +65,7 @@ permissions:
   contents: write   # let the action open the version PR
   pull-requests: write
   id-token: write   # required for npm publish --provenance
+  packages: write   # publish @klarlabs-studio/glossa to GitHub Packages
 
 concurrency:
   group: release-packages-${{ github.ref }}
@@ -115,3 +121,32 @@ jobs:
           # No NPM_TOKEN: auth happens via npm trusted publishing.
           # The runner exchanges its OIDC token for a short-lived
           # publish credential automatically when no token is set.
+
+      # @klarlabs-studio/glossa is also published to GitHub Packages. Klarlabs
+      # product repos route the whole `@klarlabs-studio` scope to
+      # npm.pkg.github.com (for @klarlabs-studio/ui), and a scope resolves to
+      # one registry, so without this a plain install there 404s (#80). Runs
+      # on every push to main and is idempotent: a version already on
+      # GitHub Packages is skipped. No provenance: GitHub Packages does not
+      # take npm attestations; the npmjs publish above carries them.
+      - name: Publish @klarlabs-studio/glossa to GitHub Packages
+        working-directory: runtimes/js/glossa
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          npmrc="$RUNNER_TEMP/gpr.npmrc"
+          # shellcheck disable=SC2016  # npm expands ${NODE_AUTH_TOKEN}, not the shell
+          printf '%s\n' \
+            '@klarlabs-studio:registry=https://npm.pkg.github.com' \
+            '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "$npmrc"
+          export NPM_CONFIG_USERCONFIG="$npmrc"
+          if out=$(pnpm publish --no-git-checks --provenance=false --registry https://npm.pkg.github.com 2>&1); then
+            echo "$out"
+          elif echo "$out" | grep -Eiq 'cannot publish over|previously published|already exists|E409'; then
+            echo "$out"
+            echo "This version is already on GitHub Packages; nothing to do."
+          else
+            echo "$out"
+            exit 1
+          fi

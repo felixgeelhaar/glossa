@@ -9,6 +9,38 @@ npm install @klarlabs-studio/glossa
 npm install vue      # only for /vue (and /astro/vue); react and astro likewise
 ```
 
+### Registries
+
+The package is published to two registries, with the same version and contents:
+
+| Registry | Use when | Auth |
+|---|---|---|
+| npmjs.org (`https://registry.npmjs.org`), the default | Your repo has no `@klarlabs-studio` registry setting. | None. Published with provenance. |
+| GitHub Packages (`https://npm.pkg.github.com`) | Your `.npmrc` already routes `@klarlabs-studio` there (for `@klarlabs-studio/ui`). | A token with `read:packages`. |
+
+npm and pnpm send a whole scope to **one** registry, so a repo that sets
+`@klarlabs-studio:registry=https://npm.pkg.github.com` for `@klarlabs-studio/ui`
+gets `@klarlabs-studio/glossa` from there too. Per-repo `.npmrc` options:
+
+```ini
+# A. The scope already goes to GitHub Packages (the Klarlabs default): nothing to
+#    change except authentication. Both packages install from one registry.
+@klarlabs-studio:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+
+# B. Everything from npmjs.org: drop the scope line (and publish
+#    @klarlabs-studio/ui there too, or install it with option C).
+#    No .npmrc entry is needed for @klarlabs-studio/glossa.
+
+# C. Keep the scope on GitHub Packages and take this one package from npmjs.org:
+#    one install with a flag, no .npmrc change (the lockfile then records npmjs).
+#    npm install @klarlabs-studio/glossa --@klarlabs-studio:registry=https://registry.npmjs.org
+#    This also redirects @klarlabs-studio/ui for that command, so install the two separately.
+```
+
+With option A a fresh `npm install` and `npm ci` both work. A `404` from
+`npm.pkg.github.com` means the token is missing or lacks `read:packages`.
+
 ```ts
 import { createRuntime } from "@klarlabs-studio/glossa";
 import { createGlossa, GlossaText } from "@klarlabs-studio/glossa/vue";
