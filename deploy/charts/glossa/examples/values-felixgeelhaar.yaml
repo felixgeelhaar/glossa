@@ -1,0 +1,52 @@
+# Values of the `glossa` release in namespace `glossa` (glossa.felixgeelhaar.de).
+#
+# Captured from `helm get values -n glossa glossa` on 2026-10-08: the release
+# had been installed with ad-hoc values that no repository held. Everything
+# below matches the cluster, except postgres.resources.requests.memory, which
+# went 128Mi -> 192Mi (it peaked at 156Mi, 2026-10-03..08). That one change
+# was applied with `kubectl set resources`.
+#
+# The api and admin Deployments are no longer Helm's: rollops (.rollops/api.yaml,
+# .rollops/admin.yaml) set their images, so the v0.2.0 tags below are stale.
+# On 2026-10-08 they ran glossa-api/glossa-admin 0.3.1, admin serving on port 80.
+#
+# Do NOT `helm upgrade` from main with this file as-is. Chart 0.1.1 on main
+# carries the non-root hardening (11ef79e, e2334c2) this release never received:
+# admin moves to port 8080 and postgres gains a restricted securityContext, and
+# the Helm image tags would fight rollops' images.
+
+admin:
+  image:
+    tag: v0.2.0
+  replicas: 1
+api:
+  corsOrigins:
+  - https://kraftsport-coach.de
+  - https://brotwerk.felixgeelhaar.de
+  - https://pet-medical.de
+  - https://www.pet-medical.de
+  image:
+    tag: v0.2.0
+  replicas: 1
+image:
+  registry: ghcr.io
+ingress:
+  certManager:
+    clusterIssuer: letsencrypt-prod
+    enabled: true
+  className: traefik
+  hosts:
+  - host: glossa.felixgeelhaar.de
+    tls:
+      secretName: glossa-felixgeelhaar-de-tls
+  httpsRedirect: true
+  wwwRedirect: false
+postgres:
+  image:
+    repository: postgres
+  mode: bundled
+  storage:
+    size: 5Gi
+  resources:
+    requests:
+      memory: 192Mi
