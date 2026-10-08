@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -74,25 +75,43 @@ type WritePolicy struct {
 	Flow           ReviewFlow
 }
 
-// StateOnWrite returns the state for new text. requested is what the
-// writer asked for (nil: the policy's default); canReview says whether
-// they hold the review permission for the locale. New text never keeps
-// an earlier approval: it is re-decided here.
-func (p WritePolicy) StateOnWrite(requested *ReviewState, canReview bool) (ReviewState, error) {
+// StateOnWrite returns the state for new text and whether landing there
+// is a self-review. requested is what the writer asked for (nil: the
+// policy's default); canReview says whether they hold the review
+// permission for the locale. New text never keeps an earlier approval:
+// it is re-decided here.
+//
+// A person who writes text and asks for it approved is approving their
+// own work (RFC 0006 §15 Q6, amended 2026-10-08): when anyone else could
+// review the locale (othersCanReview) it lands as needs_review instead,
+// and when no one could it lands approved, marked as a self-review.
+// Imports (OriginImport) and writes by tokens are not subject to it.
+func (p WritePolicy) StateOnWrite(requested *ReviewState, canReview bool, w Write, othersCanReview bool) (ReviewState, bool, error) {
 	if requested == nil {
 		if p.ReviewRequired {
-			return StateNeedsReview, nil
+			return StateNeedsReview, false, nil
 		}
-		return StateApproved, nil
+		return StateApproved, false, nil
 	}
 	switch s := *requested; {
 	case s == StateRejected:
-		return "", ErrWriteCannotReject
+		return "", false, ErrWriteCannotReject
 	case p.Flow.NeedsReviewer(s) && p.ReviewRequired && !canReview:
-		return "", ErrReviewForbidden
+		return "", false, ErrReviewForbidden
+	case s == StateApproved && p.ReviewRequired && canReview && selfApproves(w.Provenance):
+		if othersCanReview {
+			return StateNeedsReview, false, nil
+		}
+		return s, true, nil
 	default:
-		return s, nil
+		return s, false, nil
 	}
+}
+
+// selfApproves reports whether a write with provenance p is a person
+// approving the text they just wrote.
+func selfApproves(p Provenance) bool {
+	return strings.HasPrefix(p.By, "person:") && p.Origin != OriginImport
 }
 
 // Origin says how a translation revision came to be (intent §22).
@@ -175,8 +194,12 @@ type Revision struct {
 	Provenance     Provenance
 	SourceRevision int
 	// Findings are the structural QA warnings the text had when written.
-	Findings  []mf.Finding
-	CreatedAt time.Time
+	Findings []mf.Finding
+	// SelfReview marks a review decision made by the author of the text
+	// it decided, which is allowed only when no one else could review
+	// (RFC 0006 §15 Q6, amended 2026-10-08).
+	SelfReview bool
+	CreatedAt  time.Time
 }
 
 // Translation is one message's current text in one locale. Whether it
@@ -219,18 +242,20 @@ type Write struct {
 }
 
 // NewTranslation creates the first revision of message's text in locale.
-func NewTranslation(project, message uuid.UUID, locale bcp47.Tag, w Write, policy WritePolicy, canReview bool, now time.Time) (Translation, Revision, error) {
+func NewTranslation(project, message uuid.UUID, locale bcp47.Tag, w Write, policy WritePolicy, canReview, othersCanReview bool, now time.Time) (Translation, Revision, error) {
 	if err := w.QA.Gate(); err != nil {
 		return Translation{}, Revision{}, err
 	}
-	state, err := policy.StateOnWrite(w.State, canReview)
+	state, self, err := policy.StateOnWrite(w.State, canReview, w, othersCanReview)
 	if err != nil {
 		return Translation{}, Revision{}, err
 	}
 	t := Translation{
 		ID: NewTranslationID(), ProjectID: project, MessageID: message, Locale: locale, CreatedAt: now,
 	}
-	return t, t.apply(KindContent, w.Content, state, w.Provenance, w.SourceRevision, w.QA.Warnings, now), nil
+	rev := t.apply(KindContent, w.Content, state, w.Provenance, w.SourceRevision, w.QA.Warnings, now)
+	rev.SelfReview = self
+	return t, rev, nil
 }
 
 // Revise records new text. Text with the same model, made against the
@@ -238,7 +263,7 @@ func NewTranslation(project, message uuid.UUID, locale bcp47.Tag, w Write, polic
 // different review state — then it is a review decision. Re-submitting
 // unchanged text against a newer source revision is a content revision:
 // it confirms the text still fits and clears "outdated".
-func (t *Translation) Revise(w Write, policy WritePolicy, canReview bool, now time.Time) (Revision, bool, error) {
+func (t *Translation) Revise(w Write, policy WritePolicy, canReview, othersCanReview bool, now time.Time) (Revision, bool, error) {
 	if err := w.QA.Gate(); err != nil {
 		return Revision{}, false, err
 	}
@@ -246,35 +271,43 @@ func (t *Translation) Revise(w Write, policy WritePolicy, canReview bool, now ti
 		if w.State == nil || *w.State == t.State {
 			return Revision{}, false, nil
 		}
-		rev, err := t.Review(*w.State, w.Provenance.By, policy.Flow, canReview, now)
+		rev, err := t.Review(*w.State, w.Provenance.By, policy.Flow, canReview, othersCanReview, now)
 		return rev, err == nil, err
 	}
-	state, err := policy.StateOnWrite(w.State, canReview)
+	state, self, err := policy.StateOnWrite(w.State, canReview, w, othersCanReview)
 	if err != nil {
 		return Revision{}, false, err
 	}
-	return t.apply(KindContent, w.Content, state, w.Provenance, w.SourceRevision, w.QA.Warnings, now), true, nil
+	rev := t.apply(KindContent, w.Content, state, w.Provenance, w.SourceRevision, w.QA.Warnings, now)
+	rev.SelfReview = self
+	return rev, true, nil
 }
 
 // Review moves the translation to state to, as a review decision by by.
-func (t *Translation) Review(to ReviewState, by string, flow ReviewFlow, canReview bool, now time.Time) (Revision, error) {
+// othersCanReview says whether anyone besides by could review this
+// translation's locale in its project: the author of the text never
+// approves or rejects it then; otherwise they may, and the revision is
+// marked as a self-review.
+func (t *Translation) Review(to ReviewState, by string, flow ReviewFlow, canReview, othersCanReview bool, now time.Time) (Revision, error) {
 	if !flow.Allows(t.State, to) {
 		return Revision{}, fmt.Errorf("%w: %s → %s", ErrTransition, t.State, to)
 	}
 	if flow.NeedsReviewer(to) && !canReview {
 		return Revision{}, ErrReviewForbidden
 	}
-	if t.isOwnText(to, by) {
+	own := t.isOwnText(to, by)
+	if own && othersCanReview {
 		return Revision{}, ErrOwnText
 	}
 	// The text's provenance stays; the log entry names the reviewer.
 	prov := Provenance{Origin: t.Origin, Detail: json.RawMessage(`{}`), By: by}
 	rev := t.apply(KindReview, t.Content, to, prov, t.SourceRevision, t.Warnings, now)
+	rev.SelfReview = own
 	return rev, nil
 }
 
-// isOwnText is four-eyes (RFC 0006 §15 Q6): approving or rejecting is
-// refused for the principal who wrote the current text. Imports carry
+// isOwnText reports the four-eyes case (RFC 0006 §15 Q6): approving or
+// rejecting by the principal who wrote the current text. Imports carry
 // the importer, not an author, so they stay open to review.
 func (t Translation) isOwnText(to ReviewState, by string) bool {
 	if to != StateApproved && to != StateRejected {

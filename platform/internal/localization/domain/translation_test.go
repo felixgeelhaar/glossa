@@ -51,7 +51,7 @@ func state(s domain.ReviewState) *domain.ReviewState { return &s }
 
 func newTranslation(t *testing.T, policy domain.WritePolicy) (domain.Translation, domain.Revision) {
 	t.Helper()
-	tr, rev, err := domain.NewTranslation(uuid.New(), uuid.New(), de, write(t, "Jetzt bezahlen", 1), policy, false, t0)
+	tr, rev, err := domain.NewTranslation(uuid.New(), uuid.New(), de, write(t, "Jetzt bezahlen", 1), policy, false, true, t0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestStateOnWrite(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tc.policy.StateOnWrite(tc.requested, tc.canReview)
+			got, _, err := tc.policy.StateOnWrite(tc.requested, tc.canReview, write(t, "Jetzt bezahlen", 1), false)
 			if !errors.Is(err, tc.err) || got != tc.want {
 				t.Errorf("= %q, %v; want %q, %v", got, err, tc.want, tc.err)
 			}
@@ -108,7 +108,7 @@ func TestOutdatedIsDerivedFromSourceRevision(t *testing.T) {
 	}
 	// Confirming the same text against revision 2 is a content revision
 	// and makes it current.
-	rev, changed, err := tr.Revise(write(t, "Jetzt bezahlen", 2), reviewing, false, t0)
+	rev, changed, err := tr.Revise(write(t, "Jetzt bezahlen", 2), reviewing, false, true, t0)
 	if err != nil || !changed || rev.Kind != domain.KindContent || rev.SourceRevision != 2 || tr.Outdated(2) {
 		t.Errorf("confirm against r2: changed=%v err=%v rev=%+v", changed, err, rev)
 	}
@@ -117,13 +117,13 @@ func TestOutdatedIsDerivedFromSourceRevision(t *testing.T) {
 func TestRevisionNumbering(t *testing.T) {
 	tr, _ := newTranslation(t, trusting)
 	for i, text := range []string{"Bezahlen", "Zahlen", "Kaufen"} {
-		rev, changed, err := tr.Revise(write(t, text, 1), trusting, false, t0)
+		rev, changed, err := tr.Revise(write(t, text, 1), trusting, false, true, t0)
 		if err != nil || !changed || rev.Number != i+2 || tr.Revision != i+2 {
 			t.Fatalf("revision %d: %+v %v %v", i+2, rev, changed, err)
 		}
 	}
 	// Same text, same source revision, no state request: nothing.
-	if _, changed, _ := tr.Revise(write(t, "Kaufen", 1), trusting, false, t0); changed || tr.Revision != 4 {
+	if _, changed, _ := tr.Revise(write(t, "Kaufen", 1), trusting, false, true, t0); changed || tr.Revision != 4 {
 		t.Error("an identical write appended a revision")
 	}
 }
@@ -131,10 +131,10 @@ func TestRevisionNumbering(t *testing.T) {
 // New text invalidates an earlier approval.
 func TestNewTextResetsApproval(t *testing.T) {
 	tr, _ := newTranslation(t, reviewing)
-	if _, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, t0); err != nil {
+	if _, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, true, t0); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := tr.Revise(write(t, "Bezahlen", 1), reviewing, false, t0); err != nil {
+	if _, _, err := tr.Revise(write(t, "Bezahlen", 1), reviewing, false, true, t0); err != nil {
 		t.Fatal(err)
 	}
 	if tr.State != domain.StateNeedsReview {
@@ -144,10 +144,10 @@ func TestNewTextResetsApproval(t *testing.T) {
 
 func TestReview(t *testing.T) {
 	tr, _ := newTranslation(t, reviewing)
-	if _, err := tr.Review(domain.StateApproved, "person:tr", reviewing.Flow, false, t0); !errors.Is(err, domain.ErrReviewForbidden) {
+	if _, err := tr.Review(domain.StateApproved, "person:tr", reviewing.Flow, false, true, t0); !errors.Is(err, domain.ErrReviewForbidden) {
 		t.Errorf("translator approving: %v", err)
 	}
-	rev, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, t0)
+	rev, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, true, t0)
 	if err != nil || rev.Kind != domain.KindReview || rev.Number != 2 || tr.State != domain.StateApproved {
 		t.Fatalf("review: %+v %v", rev, err)
 	}
@@ -155,13 +155,13 @@ func TestReview(t *testing.T) {
 	if tr.Origin != domain.OriginHuman || tr.By != "person:1" || rev.Provenance.By != "person:rev" {
 		t.Errorf("provenance after review: %+v / %+v", tr, rev.Provenance)
 	}
-	if _, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, t0); !errors.Is(err, domain.ErrTransition) {
+	if _, err := tr.Review(domain.StateApproved, "person:rev", reviewing.Flow, true, true, t0); !errors.Is(err, domain.ErrTransition) {
 		t.Errorf("approving twice: %v", err)
 	}
 	// A state change requested through a write of the same text is a review.
 	rev, changed, err := tr.Revise(domain.Write{
 		Content: tr.Content, Provenance: human(t), SourceRevision: 1, State: state(domain.StateDraft),
-	}, reviewing, false, t0)
+	}, reviewing, false, true, t0)
 	if err != nil || !changed || rev.Kind != domain.KindReview || tr.State != domain.StateDraft {
 		t.Errorf("state change via write: %+v %v %v", rev, changed, err)
 	}
@@ -228,7 +228,7 @@ func TestStructuralQAGate(t *testing.T) {
 		t.Errorf("missing argument: %+v", r)
 	}
 	if _, _, err := domain.NewTranslation(uuid.New(), uuid.New(), de,
-		domain.Write{Content: missing, Provenance: human(t), SourceRevision: 1, QA: r}, reviewing, true, t0); !errors.As(err, &qa) {
+		domain.Write{Content: missing, Provenance: human(t), SourceRevision: 1, QA: r}, reviewing, true, true, t0); !errors.As(err, &qa) {
 		t.Errorf("NewTranslation accepted an incompatible text: %v", err)
 	}
 
@@ -239,7 +239,7 @@ func TestStructuralQAGate(t *testing.T) {
 		t.Errorf("max length: %+v", r)
 	}
 	tr, rev, err := domain.NewTranslation(uuid.New(), uuid.New(), de,
-		domain.Write{Content: long, Provenance: human(t), SourceRevision: 1, QA: r}, reviewing, false, t0)
+		domain.Write{Content: long, Provenance: human(t), SourceRevision: 1, QA: r}, reviewing, false, true, t0)
 	if err != nil || len(tr.Warnings) != 1 || len(rev.Findings) != 1 {
 		t.Errorf("warnings not kept: %v %+v", err, tr.Warnings)
 	}

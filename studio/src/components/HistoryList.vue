@@ -21,6 +21,7 @@ function detail(d: Record<string, unknown>): string {
         <strong>{{ s.revision(r.revision) }}</strong>
         <span class="pill pill-neutral">{{ s.kind[r.kind] }}</span>
         <span class="pill" :class="`pill-${stateTone(r.state)}`">{{ s.stateLabel[r.state] }}</span>
+        <span v-if="r.self_review" class="pill pill-warn" data-testid="self-review">{{ s.selfApproved }}</span>
         <span class="muted">{{ r.origin }}</span>
       </div>
       <p v-if="r.kind === 'content'" class="text" :lang="lang" :dir="dir">{{ r.text }}</p>

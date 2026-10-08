@@ -66,7 +66,8 @@ provenance stay. Approving and rejecting need translations.review for the locale
 states translations.write. The unit is read first and the review is made against what was
 read (If-Match); when it changed in between, it is read again and tried once more.
 Each unit is reported; the exit code is 4 when some were reviewed and some not.
-You can't approve or reject text you wrote yourself (own_text): ask another reviewer.`
+You can't approve or reject text you wrote yourself while another reviewer exists for the
+locale (own_text): ask them. Without one, you may, and the history records a self-approval.`
 
 type translationUnit struct{ key, locale string }
 
@@ -218,8 +219,8 @@ func (inv *invocation) reviewError(err error, u translationUnit, from, state, st
 			"use a credential that has it, or ask an owner", u.locale)
 	case ae.Status == 403 && ae.Code == "own_text":
 		e.What = fmt.Sprintf("you may not %s %s: you wrote its current text", strings.TrimSuffix(state, "d"), u)
-		e.Why = "four-eyes: an author never approves or rejects their own work (own_text)"
-		e.Fix = "ask another reviewer to review it; moving it to draft or needs_review is still yours"
+		e.Why = "four-eyes: an author never approves or rejects their own work when someone else could review it (own_text)"
+		e.Fix = "another reviewer exists for this locale — ask them; moving it to draft or needs_review is still yours"
 	case ae.Status == 409 && ae.Code == "invalid_transition":
 		e.What = fmt.Sprintf("%s can't move from %s to %s", u, orDefault(from, "its state"), state)
 		e.Why = orDefault(ae.Detail, "the review state machine does not allow it (invalid_transition)")

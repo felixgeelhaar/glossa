@@ -197,6 +197,47 @@ describe("TranslationEditor", () => {
     w.unmount();
   });
 
+  it("lets a solo author approve their own text when the server says no one else could review", async () => {
+    api.get.mockResolvedValue({ value: translation({ review_by_author_allowed: true }), etag: '"e1"' });
+    api.review.mockResolvedValue({ value: translation({ state: "approved", revision: 2, review_by_author_allowed: true }), etag: '"e2"' });
+    const w = mount(TranslationEditor, {
+      props: { tenant: "t", project, message, locale: de, source: en, grant: grantFor({ roles: ["owner"], locales: [] }), selfId: "me" },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    expect(w.findAll("button").map((b) => b.text())).toContain("Approve");
+    expect(w.find("[data-testid=own-text-hint]").exists()).toBe(false);
+    await w.findAll("button").find((b) => b.text() === "Approve")?.trigger("click");
+    await flushPromises();
+    expect(api.review).toHaveBeenCalledWith(expect.anything(), "approved", '"e1"');
+    w.unmount();
+  });
+
+  it("offers Save & approve only while self-approval is allowed", async () => {
+    for (const [allowed, offered] of [[false, false], [true, true]] as const) {
+      api.get.mockResolvedValue({ value: translation({ review_by_author_allowed: allowed }), etag: '"e1"' });
+      const w = mount(TranslationEditor, {
+        props: { tenant: "t", project, message, locale: de, source: en, grant: grantFor({ roles: ["owner"], locales: [] }), selfId: "me" },
+        attachTo: document.body,
+      });
+      await flushPromises();
+      expect(w.findAll("button").some((b) => b.text().startsWith("Save & approve"))).toBe(offered);
+      w.unmount();
+    }
+  });
+
+  it("says so when a Save & approve landed as needs review", async () => {
+    api.get.mockResolvedValue(null);
+    api.put.mockResolvedValue({ value: translation({ state: "needs_review" }), etag: '"e1"' });
+    const w = mountEditor();
+    await flushPromises();
+    (w.vm as unknown as { setDraft: (t: string, s: "mf1") => void }).setDraft("Hallo, {name}!", "mf1");
+    await (w.vm as unknown as { save: (a?: boolean) => Promise<void> }).save(true);
+    await flushPromises();
+    expect(w.get("[data-testid=editor-status]").text()).toContain("Another reviewer has to approve it");
+    w.unmount();
+  });
+
   it("keeps imported text reviewable by the person who imported it", async () => {
     api.get.mockResolvedValue({ value: translation({ origin: "import" }), etag: '"e1"' });
     const w = mount(TranslationEditor, {

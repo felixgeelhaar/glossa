@@ -22,7 +22,7 @@ import type {
   TranslationRevision,
 } from "../api/schemas";
 import { loadFormatter, MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS, parseMF2 } from "../lib/preview";
-import { isOwnText, reviewActions, stateTone } from "../lib/review";
+import { isOwnText, offersSaveApprove, reviewActions, stateTone } from "../lib/review";
 import { highlight } from "../lib/terms";
 import { keyLabel } from "../lib/shortcuts";
 import { allowsFor, type Grant } from "../session/permissions";
@@ -163,7 +163,7 @@ async function save(approve = false): Promise<void> {
     const r = await translations.put(path.value, body, etag.value);
     adopt(r.value, r.etag);
     draft.value = r.value.text;
-    notice.value = approve ? s.approved : s.saved;
+    notice.value = approve ? (r.value.state === "approved" ? s.approved : s.savedForReview) : s.saved;
     emit("changed", r.value);
     if (tab.value === "history") await loadHistory();
   } catch (e) {
@@ -450,7 +450,7 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
           <button type="button" class="btn btn-primary" :disabled="!canWrite || busy" @click="save(false)">
             {{ s.save }} <span class="kbd-hint">{{ keyLabel("Mod") }}{{ keyLabel("Enter").split(" ")[0] }}</span>
           </button>
-          <button v-if="canReview" type="button" class="btn btn-ok" :disabled="!canWrite || busy" @click="save(true)">
+          <button v-if="offersSaveApprove(canReview, translation)" type="button" class="btn btn-ok" :disabled="!canWrite || busy" @click="save(true)">
             {{ s.saveApprove }} <span class="kbd-hint">{{ keyLabel("Mod") }}{{ keyLabel("Shift") }}{{ keyLabel("Enter").split(" ")[0] }}</span>
           </button>
           <span class="spacer" />

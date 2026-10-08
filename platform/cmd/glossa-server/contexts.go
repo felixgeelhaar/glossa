@@ -29,6 +29,7 @@ import (
 	contextdomain "go.klarlabs.de/glossa/platform/internal/context/domain"
 	"go.klarlabs.de/glossa/platform/internal/identity/adapters/ghoidc"
 	identitymetrics "go.klarlabs.de/glossa/platform/internal/identity/adapters/metrics"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
 	identitysources "go.klarlabs.de/glossa/platform/internal/identity/adapters/sources"
 	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
 	"go.klarlabs.de/glossa/platform/internal/identity/authz"
@@ -59,6 +60,7 @@ import (
 	knowledgeapp "go.klarlabs.de/glossa/platform/internal/knowledge/app"
 	catalogport "go.klarlabs.de/glossa/platform/internal/localization/adapters/catalog"
 	localizationapi "go.klarlabs.de/glossa/platform/internal/localization/adapters/httpapi"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	localizationpg "go.klarlabs.de/glossa/platform/internal/localization/adapters/postgres"
 	localizationapp "go.klarlabs.de/glossa/platform/internal/localization/app"
 	mcpsources "go.klarlabs.de/glossa/platform/internal/mcp/adapters/sources"
@@ -329,7 +331,8 @@ func buildContexts(
 func newContexts(pool *pgxpool.Pool, events *outbox.Registry, deps contextDeps) (contexts, error) {
 	uow := db.NewUnitOfWork(pool)
 	catalog := catalogapp.New(catalogpg.NewTransactor(uow), catalogapp.WithScanner(catalogpg.NewScanner(uow)))
-	localization := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(catalog))
+	localization := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(catalog),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	translationPort := coverage.New(localization)
 	catalog.SetCoverage(translationPort)
 	catalog.SetImpact(translationPort)

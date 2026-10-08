@@ -6915,7 +6915,16 @@ type ProjectTranslation struct {
 
 	// Outdated `source_revision < current_source_revision`.
 	Outdated bool `json:"outdated"`
-	Revision int  `json:"revision"`
+
+	// ReviewByAuthorAllowed Present only when the caller holds `translations.review` for
+	// the locale. `true`: no one else could review it, so the caller
+	// may approve or reject text they wrote, or write it as approved
+	// (recorded as a self-review). `false`: someone else must
+	// (`own_text`), and a write asking for `approved` lands as
+	// `needs_review`. Only the single-message translation list, and
+	// the responses of a write and a review, carry it.
+	ReviewByAuthorAllowed *bool `json:"review_by_author_allowed,omitempty"`
+	Revision              int   `json:"revision"`
 
 	// SourceRevision The source revision the text was made against.
 	SourceRevision int         `json:"source_revision"`
@@ -8659,7 +8668,16 @@ type Translation struct {
 
 	// Outdated `source_revision < current_source_revision`.
 	Outdated bool `json:"outdated"`
-	Revision int  `json:"revision"`
+
+	// ReviewByAuthorAllowed Present only when the caller holds `translations.review` for
+	// the locale. `true`: no one else could review it, so the caller
+	// may approve or reject text they wrote, or write it as approved
+	// (recorded as a self-review). `false`: someone else must
+	// (`own_text`), and a write asking for `approved` lands as
+	// `needs_review`. Only the single-message translation list, and
+	// the responses of a write and a review, carry it.
+	ReviewByAuthorAllowed *bool `json:"review_by_author_allowed,omitempty"`
+	Revision              int   `json:"revision"`
 
 	// SourceRevision The source revision the text was made against.
 	SourceRevision int         `json:"source_revision"`
@@ -8720,14 +8738,19 @@ type TranslationRevision struct {
 	Author string `json:"author"`
 
 	// CreatedAt RFC 3339, UTC.
-	CreatedAt      Timestamp               `json:"created_at"`
-	Findings       []QAFinding             `json:"findings"`
-	Kind           TranslationRevisionKind `json:"kind"`
-	Origin         Origin                  `json:"origin"`
-	OriginDetail   map[string]interface{}  `json:"origin_detail"`
-	Revision       int                     `json:"revision"`
-	SourceRevision int                     `json:"source_revision"`
-	State          ReviewState             `json:"state"`
+	CreatedAt    Timestamp               `json:"created_at"`
+	Findings     []QAFinding             `json:"findings"`
+	Kind         TranslationRevisionKind `json:"kind"`
+	Origin       Origin                  `json:"origin"`
+	OriginDetail map[string]interface{}  `json:"origin_detail"`
+	Revision     int                     `json:"revision"`
+
+	// SelfReview The author approved or rejected their own text because no one
+	// else could review it (RFC 0006 §15 Q6). No text is stored with
+	// the flag.
+	SelfReview     bool        `json:"self_review"`
+	SourceRevision int         `json:"source_revision"`
+	State          ReviewState `json:"state"`
 
 	// Syntax Authoring syntax: ICU MessageFormat 1 or Unicode MessageFormat 2.
 	Syntax Syntax `json:"syntax"`
@@ -15592,8 +15615,15 @@ type ClientInterface interface {
 	// `findings`; warnings are stored and returned. New text gets the
 	// project's review policy (`needs_review` when review is required,
 	// else `approved`) unless `state` asks otherwise; approving needs
-	// `translations.review` for the locale. Unchanged text is no new
-	// revision. Creating takes no `If-Match`; changing needs the
+	// `translations.review` for the locale. A person asking for
+	// `approved` on text they just wrote approves their own work (RFC
+	// 0006 §15 Q6): while another active member could review the
+	// locale, the text lands as `needs_review` (the response's `state`
+	// says so; imports and token writes are exempt); when no one else
+	// could, it lands approved and the revision is marked
+	// `self_review`. Unchanged text is no new
+	// revision (asking a different state for it is a review, with the
+	// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 	// current `ETag` (`428` without it). Needs `translations.write` for
 	// the locale. Problem codes: `locale_not_found` (404),
 	// `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -15616,8 +15646,15 @@ type ClientInterface interface {
 	// `findings`; warnings are stored and returned. New text gets the
 	// project's review policy (`needs_review` when review is required,
 	// else `approved`) unless `state` asks otherwise; approving needs
-	// `translations.review` for the locale. Unchanged text is no new
-	// revision. Creating takes no `If-Match`; changing needs the
+	// `translations.review` for the locale. A person asking for
+	// `approved` on text they just wrote approves their own work (RFC
+	// 0006 §15 Q6): while another active member could review the
+	// locale, the text lands as `needs_review` (the response's `state`
+	// says so; imports and token writes are exempt); when no one else
+	// could, it lands approved and the revision is marked
+	// `self_review`. Unchanged text is no new
+	// revision (asking a different state for it is a review, with the
+	// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 	// current `ETag` (`428` without it). Needs `translations.write` for
 	// the locale. Problem codes: `locale_not_found` (404),
 	// `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -15653,9 +15690,13 @@ type ClientInterface interface {
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
 	// states `translations.write`. An author never approves their own
-	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-	// wrote is refused with `own_text` (403); imported text is not
-	// authored by the reviewer and stays reviewable. Problem codes:
+	// work when someone else could review it (RFC 0006 §15 Q6): while
+	// another active member holds `translations.review` for the locale
+	// in this project, approving or rejecting the text the caller wrote
+	// is refused with `own_text` (403). When no one else could review,
+	// the author may; the `review` revision is then marked
+	// `self_review`. Imported text is not authored by the reviewer and
+	// stays reviewable. Problem codes:
 	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
 	// (409), `invalid_state` (400).
 	//
@@ -15670,9 +15711,13 @@ type ClientInterface interface {
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
 	// states `translations.write`. An author never approves their own
-	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-	// wrote is refused with `own_text` (403); imported text is not
-	// authored by the reviewer and stays reviewable. Problem codes:
+	// work when someone else could review it (RFC 0006 §15 Q6): while
+	// another active member holds `translations.review` for the locale
+	// in this project, approving or rejecting the text the caller wrote
+	// is refused with `own_text` (403). When no one else could review,
+	// the author may; the `review` revision is then marked
+	// `self_review`. Imported text is not authored by the reviewer and
+	// stays reviewable. Problem codes:
 	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
 	// (409), `invalid_state` (400).
 	//
@@ -23991,8 +24036,15 @@ func (c *Client) GetTranslation(ctx context.Context, tenant TenantPath, project 
 // `findings`; warnings are stored and returned. New text gets the
 // project's review policy (`needs_review` when review is required,
 // else `approved`) unless `state` asks otherwise; approving needs
-// `translations.review` for the locale. Unchanged text is no new
-// revision. Creating takes no `If-Match`; changing needs the
+// `translations.review` for the locale. A person asking for
+// `approved` on text they just wrote approves their own work (RFC
+// 0006 §15 Q6): while another active member could review the
+// locale, the text lands as `needs_review` (the response's `state`
+// says so; imports and token writes are exempt); when no one else
+// could, it lands approved and the revision is marked
+// `self_review`. Unchanged text is no new
+// revision (asking a different state for it is a review, with the
+// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 // current `ETag` (`428` without it). Needs `translations.write` for
 // the locale. Problem codes: `locale_not_found` (404),
 // `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -24025,8 +24077,15 @@ func (c *Client) PutTranslationWithBody(ctx context.Context, tenant TenantPath, 
 // `findings`; warnings are stored and returned. New text gets the
 // project's review policy (`needs_review` when review is required,
 // else `approved`) unless `state` asks otherwise; approving needs
-// `translations.review` for the locale. Unchanged text is no new
-// revision. Creating takes no `If-Match`; changing needs the
+// `translations.review` for the locale. A person asking for
+// `approved` on text they just wrote approves their own work (RFC
+// 0006 §15 Q6): while another active member could review the
+// locale, the text lands as `needs_review` (the response's `state`
+// says so; imports and token writes are exempt); when no one else
+// could, it lands approved and the revision is marked
+// `self_review`. Unchanged text is no new
+// revision (asking a different state for it is a review, with the
+// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 // current `ETag` (`428` without it). Needs `translations.write` for
 // the locale. Problem codes: `locale_not_found` (404),
 // `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -24082,9 +24141,13 @@ func (c *Client) ListUnitAISuggestions(ctx context.Context, tenant TenantPath, p
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
 // states `translations.write`. An author never approves their own
-// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-// wrote is refused with `own_text` (403); imported text is not
-// authored by the reviewer and stays reviewable. Problem codes:
+// work when someone else could review it (RFC 0006 §15 Q6): while
+// another active member holds `translations.review` for the locale
+// in this project, approving or rejecting the text the caller wrote
+// is refused with `own_text` (403). When no one else could review,
+// the author may; the `review` revision is then marked
+// `self_review`. Imported text is not authored by the reviewer and
+// stays reviewable. Problem codes:
 // `review_forbidden` (403), `own_text` (403), `invalid_transition`
 // (409), `invalid_state` (400).
 //
@@ -24109,9 +24172,13 @@ func (c *Client) ReviewTranslationWithBody(ctx context.Context, tenant TenantPat
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
 // states `translations.write`. An author never approves their own
-// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-// wrote is refused with `own_text` (403); imported text is not
-// authored by the reviewer and stays reviewable. Problem codes:
+// work when someone else could review it (RFC 0006 §15 Q6): while
+// another active member holds `translations.review` for the locale
+// in this project, approving or rejecting the text the caller wrote
+// is refused with `own_text` (403). When no one else could review,
+// the author may; the `review` revision is then marked
+// `self_review`. Imported text is not authored by the reviewer and
+// stays reviewable. Problem codes:
 // `review_forbidden` (403), `own_text` (403), `invalid_transition`
 // (409), `invalid_state` (400).
 //
@@ -48587,8 +48654,15 @@ type ClientWithResponsesInterface interface {
 	// `findings`; warnings are stored and returned. New text gets the
 	// project's review policy (`needs_review` when review is required,
 	// else `approved`) unless `state` asks otherwise; approving needs
-	// `translations.review` for the locale. Unchanged text is no new
-	// revision. Creating takes no `If-Match`; changing needs the
+	// `translations.review` for the locale. A person asking for
+	// `approved` on text they just wrote approves their own work (RFC
+	// 0006 §15 Q6): while another active member could review the
+	// locale, the text lands as `needs_review` (the response's `state`
+	// says so; imports and token writes are exempt); when no one else
+	// could, it lands approved and the revision is marked
+	// `self_review`. Unchanged text is no new
+	// revision (asking a different state for it is a review, with the
+	// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 	// current `ETag` (`428` without it). Needs `translations.write` for
 	// the locale. Problem codes: `locale_not_found` (404),
 	// `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -48611,8 +48685,15 @@ type ClientWithResponsesInterface interface {
 	// `findings`; warnings are stored and returned. New text gets the
 	// project's review policy (`needs_review` when review is required,
 	// else `approved`) unless `state` asks otherwise; approving needs
-	// `translations.review` for the locale. Unchanged text is no new
-	// revision. Creating takes no `If-Match`; changing needs the
+	// `translations.review` for the locale. A person asking for
+	// `approved` on text they just wrote approves their own work (RFC
+	// 0006 §15 Q6): while another active member could review the
+	// locale, the text lands as `needs_review` (the response's `state`
+	// says so; imports and token writes are exempt); when no one else
+	// could, it lands approved and the revision is marked
+	// `self_review`. Unchanged text is no new
+	// revision (asking a different state for it is a review, with the
+	// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 	// current `ETag` (`428` without it). Needs `translations.write` for
 	// the locale. Problem codes: `locale_not_found` (404),
 	// `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -48650,9 +48731,13 @@ type ClientWithResponsesInterface interface {
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
 	// states `translations.write`. An author never approves their own
-	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-	// wrote is refused with `own_text` (403); imported text is not
-	// authored by the reviewer and stays reviewable. Problem codes:
+	// work when someone else could review it (RFC 0006 §15 Q6): while
+	// another active member holds `translations.review` for the locale
+	// in this project, approving or rejecting the text the caller wrote
+	// is refused with `own_text` (403). When no one else could review,
+	// the author may; the `review` revision is then marked
+	// `self_review`. Imported text is not authored by the reviewer and
+	// stays reviewable. Problem codes:
 	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
 	// (409), `invalid_state` (400).
 	//
@@ -48667,9 +48752,13 @@ type ClientWithResponsesInterface interface {
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
 	// states `translations.write`. An author never approves their own
-	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-	// wrote is refused with `own_text` (403); imported text is not
-	// authored by the reviewer and stays reviewable. Problem codes:
+	// work when someone else could review it (RFC 0006 §15 Q6): while
+	// another active member holds `translations.review` for the locale
+	// in this project, approving or rejecting the text the caller wrote
+	// is refused with `own_text` (403). When no one else could review,
+	// the author may; the `review` revision is then marked
+	// `self_review`. Imported text is not authored by the reviewer and
+	// stays reviewable. Problem codes:
 	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
 	// (409), `invalid_state` (400).
 	//
@@ -75742,8 +75831,15 @@ func (c *ClientWithResponses) GetTranslationWithResponse(ctx context.Context, te
 // `findings`; warnings are stored and returned. New text gets the
 // project's review policy (`needs_review` when review is required,
 // else `approved`) unless `state` asks otherwise; approving needs
-// `translations.review` for the locale. Unchanged text is no new
-// revision. Creating takes no `If-Match`; changing needs the
+// `translations.review` for the locale. A person asking for
+// `approved` on text they just wrote approves their own work (RFC
+// 0006 §15 Q6): while another active member could review the
+// locale, the text lands as `needs_review` (the response's `state`
+// says so; imports and token writes are exempt); when no one else
+// could, it lands approved and the revision is marked
+// `self_review`. Unchanged text is no new
+// revision (asking a different state for it is a review, with the
+// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 // current `ETag` (`428` without it). Needs `translations.write` for
 // the locale. Problem codes: `locale_not_found` (404),
 // `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -75772,8 +75868,15 @@ func (c *ClientWithResponses) PutTranslationWithBodyWithResponse(ctx context.Con
 // `findings`; warnings are stored and returned. New text gets the
 // project's review policy (`needs_review` when review is required,
 // else `approved`) unless `state` asks otherwise; approving needs
-// `translations.review` for the locale. Unchanged text is no new
-// revision. Creating takes no `If-Match`; changing needs the
+// `translations.review` for the locale. A person asking for
+// `approved` on text they just wrote approves their own work (RFC
+// 0006 §15 Q6): while another active member could review the
+// locale, the text lands as `needs_review` (the response's `state`
+// says so; imports and token writes are exempt); when no one else
+// could, it lands approved and the revision is marked
+// `self_review`. Unchanged text is no new
+// revision (asking a different state for it is a review, with the
+// rule of `reviewTranslation`). Creating takes no `If-Match`; changing needs the
 // current `ETag` (`428` without it). Needs `translations.write` for
 // the locale. Problem codes: `locale_not_found` (404),
 // `source_locale` (409), `invalid_message`, `invalid_state`,
@@ -75823,9 +75926,13 @@ func (c *ClientWithResponses) ListUnitAISuggestionsWithResponse(ctx context.Cont
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
 // states `translations.write`. An author never approves their own
-// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-// wrote is refused with `own_text` (403); imported text is not
-// authored by the reviewer and stays reviewable. Problem codes:
+// work when someone else could review it (RFC 0006 §15 Q6): while
+// another active member holds `translations.review` for the locale
+// in this project, approving or rejecting the text the caller wrote
+// is refused with `own_text` (403). When no one else could review,
+// the author may; the `review` revision is then marked
+// `self_review`. Imported text is not authored by the reviewer and
+// stays reviewable. Problem codes:
 // `review_forbidden` (403), `own_text` (403), `invalid_transition`
 // (409), `invalid_state` (400).
 //
@@ -75846,9 +75953,13 @@ func (c *ClientWithResponses) ReviewTranslationWithBodyWithResponse(ctx context.
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
 // states `translations.write`. An author never approves their own
-// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
-// wrote is refused with `own_text` (403); imported text is not
-// authored by the reviewer and stays reviewable. Problem codes:
+// work when someone else could review it (RFC 0006 §15 Q6): while
+// another active member holds `translations.review` for the locale
+// in this project, approving or rejecting the text the caller wrote
+// is refused with `own_text` (403). When no one else could review,
+// the author may; the `review` revision is then marked
+// `self_review`. Imported text is not authored by the reviewer and
+// stays reviewable. Problem codes:
 // `review_forbidden` (403), `own_text` (403), `invalid_transition`
 // (409), `invalid_state` (400).
 //

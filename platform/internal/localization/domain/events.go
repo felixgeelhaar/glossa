@@ -44,6 +44,9 @@ type TranslationEvent struct {
 	State          string `json:"state"`
 	Origin         string `json:"origin"`
 	By             string `json:"by"`
+	// SelfReview is set when the decision was the author's own on their
+	// own text (no one else could review). It names no text.
+	SelfReview bool `json:"self_review,omitempty"`
 }
 
 // TranslationEventOf builds the payload for t's latest revision.

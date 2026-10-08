@@ -21,6 +21,33 @@ import (
 type TranslationView struct {
 	domain.Translation
 	CurrentSourceRevision int
+	// ReviewByAuthorAllowed is set only when the caller could review the
+	// translation's locale: true when no one else could, so the caller
+	// may approve or reject text they wrote, and save text as approved
+	// (recorded as a self-review); false when someone else must. Nil
+	// otherwise.
+	ReviewByAuthorAllowed *bool
+}
+
+// annotate sets ReviewByAuthorAllowed on the views the caller could review.
+func (s *Service) annotate(ctx context.Context, project uuid.UUID, vs ...*TranslationView) error {
+	p, ok := authz.From(ctx)
+	if !ok {
+		return nil
+	}
+	me := p.Actor.String()
+	for _, v := range vs {
+		if !allowedForIn(ctx, authz.TranslationsReview, v.Locale, project) {
+			continue
+		}
+		others, err := s.othersCanReview(ctx, project, v.Locale, me)
+		if err != nil {
+			return err
+		}
+		allowed := !others
+		v.ReviewByAuthorAllowed = &allowed
+	}
+	return nil
 }
 
 // Outdated reports whether the source moved on since the text was made.
@@ -82,7 +109,10 @@ func (s *Service) GetTranslation(ctx context.Context, project uuid.UUID, key, lo
 		v = view(row)
 		return err
 	})
-	return v, err
+	if err != nil {
+		return v, err
+	}
+	return v, s.annotate(ctx, project, &v)
 }
 
 // ListTranslations lists a message's translations by locale; an
@@ -110,6 +140,11 @@ func (s *Service) ListTranslations(ctx context.Context, project uuid.UUID, key s
 		return nil, nil, err
 	}
 	items, next := pagination.Trim(rows, page, func(v TranslationView) string { return v.Locale.String() })
+	for i := range items {
+		if err := s.annotate(ctx, project, &items[i]); err != nil {
+			return nil, nil, err
+		}
+	}
 	return items, next, nil
 }
 
@@ -135,6 +170,9 @@ type writeCmd struct {
 	locale    bcp47.Tag
 	write     domain.Write
 	canReview bool
+	// othersCanReview is set only for a write that asks for approval or
+	// rejection: whether anyone but the writer could review the locale.
+	othersCanReview bool
 	// ifMatch applies the create-or-replace rule when enforce is set.
 	ifMatch *int
 	enforce bool
@@ -193,10 +231,14 @@ func (s *Service) prepare(ctx context.Context, p ProjectInfo, msg SourceMessage,
 	if err := w.QA.Gate(); err != nil {
 		return writeCmd{}, err
 	}
-	return writeCmd{
-		project: p, msg: msg, locale: locale, write: w,
-		canReview: allowedFor(ctx, authz.TranslationsReview, locale),
-	}, nil
+	canReview := allowedFor(ctx, authz.TranslationsReview, locale)
+	others := false
+	if canReview && origin != domain.OriginImport && w.State != nil && (*w.State == domain.StateApproved || *w.State == domain.StateRejected) {
+		if others, err = s.othersCanReview(ctx, p.ID, locale, by); err != nil {
+			return writeCmd{}, err
+		}
+	}
+	return writeCmd{project: p, msg: msg, locale: locale, write: w, canReview: canReview, othersCanReview: others}, nil
 }
 
 // PutTranslation creates or revises a message's translation in a
@@ -250,7 +292,10 @@ func (s *Service) PutTranslation(ctx context.Context, project uuid.UUID, key, lo
 		v, status = TranslationView{Translation: t, CurrentSourceRevision: msg.Revision}, stat
 		return nil
 	})
-	return v, status, err
+	if err != nil {
+		return v, status, err
+	}
+	return v, status, s.annotate(ctx, project, &v)
 }
 
 // requireLocale checks that the project translates into locale.
@@ -313,7 +358,7 @@ type writeOutcome struct {
 // memory, without storing anything.
 func (s *Service) decide(cmd writeCmd, policy domain.WritePolicy, t domain.Translation, found bool) (writeOutcome, error) {
 	if !found {
-		t, rev, err := domain.NewTranslation(cmd.project.ID, cmd.msg.ID, cmd.locale, cmd.write, policy, cmd.canReview, s.now())
+		t, rev, err := domain.NewTranslation(cmd.project.ID, cmd.msg.ID, cmd.locale, cmd.write, policy, cmd.canReview, cmd.othersCanReview, s.now())
 		if err != nil {
 			return writeOutcome{}, err
 		}
@@ -328,7 +373,7 @@ func (s *Service) decide(cmd writeCmd, policy domain.WritePolicy, t domain.Trans
 		}
 	}
 	expected := t.Revision
-	rev, changed, err := t.Revise(cmd.write, policy, cmd.canReview, s.now())
+	rev, changed, err := t.Revise(cmd.write, policy, cmd.canReview, cmd.othersCanReview, s.now())
 	if err != nil || !changed {
 		return writeOutcome{t: t, status: WriteUnchanged}, err
 	}
@@ -347,6 +392,13 @@ func (s *Service) record(ctx context.Context, st Store, t domain.Translation, re
 	return st.Publish(ctx, revisionEvent(t, rev))
 }
 
+// eventOf is the payload for rev of t.
+func eventOf(t domain.Translation, rev domain.Revision) domain.TranslationEvent {
+	e := domain.TranslationEventOf(t, rev.Provenance.By)
+	e.SelfReview = rev.SelfReview
+	return e
+}
+
 // revisionEvent announces rev of t.
 func revisionEvent(t domain.Translation, rev domain.Revision) outbox.Event {
 	typ := domain.EventTranslationRevised
@@ -355,7 +407,7 @@ func revisionEvent(t domain.Translation, rev domain.Revision) outbox.Event {
 	}
 	return outbox.Event{
 		Type: typ, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
-		Actor: outbox.Actor(rev.Provenance.By), Payload: domain.TranslationEventOf(t, rev.Provenance.By),
+		Actor: outbox.Actor(rev.Provenance.By), Payload: eventOf(t, rev),
 	}
 }
 
@@ -381,6 +433,13 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 		return TranslationView{}, err
 	}
 	canReview := allowedForIn(ctx, authz.TranslationsReview, tag, project)
+	others := false
+	if canReview && (to == domain.StateApproved || to == domain.StateRejected) {
+		// Asked before the transaction: the port reads Identity in its own.
+		if others, err = s.othersCanReview(ctx, project, tag, by); err != nil {
+			return TranslationView{}, err
+		}
+	}
 	var v TranslationView
 	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		t, found, err := st.LockTranslation(ctx, msg.ID, tag)
@@ -393,7 +452,7 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 		if t.Revision != ifMatch {
 			return ErrPreconditionFailed
 		}
-		rev, err := t.Review(to, by, s.flow, canReview, s.now())
+		rev, err := t.Review(to, by, s.flow, canReview, others, s.now())
 		if err != nil {
 			return err
 		}
@@ -403,7 +462,10 @@ func (s *Service) ReviewTranslation(ctx context.Context, project uuid.UUID, key,
 		v = TranslationView{Translation: t, CurrentSourceRevision: msg.Revision}
 		return s.record(ctx, st, t, rev)
 	})
-	return v, err
+	if err != nil {
+		return v, err
+	}
+	return v, s.annotate(ctx, project, &v)
 }
 
 // TranslationRevisions lists a translation's log, newest first.

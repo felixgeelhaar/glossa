@@ -97,7 +97,7 @@ func TestTranslationsReviewProblemCodes(t *testing.T) {
 
 	srv.rv.problems["cart.items@ja"] = fakeProblem{403, "own_text"}
 	doc = wantError(t, w, ExitNetwork, "own_text", "translations", "review", "cart.items@ja", "--state", "approved")
-	if !strings.Contains(doc.Error.Message, "you wrote its current text") || !strings.Contains(doc.Error.Fix, "ask another reviewer") {
+	if !strings.Contains(doc.Error.Message, "you wrote its current text") || !strings.Contains(doc.Error.Fix, "another reviewer exists for this locale") {
 		t.Errorf("own text = %+v", doc.Error)
 	}
 

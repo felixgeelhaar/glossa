@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOwnText, reviewActions, stateTone } from "./review";
+import { isOwnText, offersSaveApprove, reviewActions, stateTone } from "./review";
 
 describe("stateTone", () => {
   it("maps review states to tones", () => {
@@ -33,5 +33,19 @@ describe("isOwnText", () => {
     expect(isOwnText({ author: "person:me", origin: "import" }, "me")).toBe(false);
     expect(isOwnText({ author: "person:me", origin: "human" }, undefined)).toBe(false);
     expect(isOwnText(null, "me")).toBe(false);
+  });
+  it("lets the author review when the server says no one else could", () => {
+    expect(isOwnText({ author: "person:me", origin: "human", review_by_author_allowed: true }, "me")).toBe(false);
+    expect(isOwnText({ author: "person:me", origin: "human", review_by_author_allowed: false }, "me")).toBe(true);
+  });
+});
+
+describe("offersSaveApprove", () => {
+  it("is offered to reviewers unless the server said someone else must approve", () => {
+    expect(offersSaveApprove(false, null)).toBe(false);
+    expect(offersSaveApprove(true, null)).toBe(true);
+    expect(offersSaveApprove(true, {})).toBe(true);
+    expect(offersSaveApprove(true, { review_by_author_allowed: true })).toBe(true);
+    expect(offersSaveApprove(true, { review_by_author_allowed: false })).toBe(false);
   });
 });

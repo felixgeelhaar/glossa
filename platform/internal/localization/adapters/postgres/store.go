@@ -370,7 +370,7 @@ func (s *store) AppendRevision(ctx context.Context, r domain.Revision) error {
 		TranslationID: r.TranslationID.UUID(), Revision: int32Of(r.Number), Kind: string(r.Kind),
 		Syntax: string(r.Content.Syntax), Text: r.Content.Text, Model: r.Content.ModelJSON(), State: string(r.State),
 		Origin: string(r.Provenance.Origin), OriginDetail: r.Provenance.Detail, Author: r.Provenance.By,
-		SourceRevision: int32Of(r.SourceRevision), Findings: findingsJSON(r.Findings), CreatedAt: r.CreatedAt,
+		SourceRevision: int32Of(r.SourceRevision), Findings: findingsJSON(r.Findings), SelfReview: r.SelfReview, CreatedAt: r.CreatedAt,
 	}))
 }
 
@@ -416,7 +416,7 @@ func (s *store) Revisions(ctx context.Context, t domain.TranslationID, before, l
 		}
 		out = append(out, domain.Revision{
 			TranslationID: t, Number: int(r.Revision), Kind: domain.RevisionKind(r.Kind), Content: c,
-			State: domain.ReviewState(r.State), SourceRevision: int(r.SourceRevision), Findings: findings,
+			State: domain.ReviewState(r.State), SourceRevision: int(r.SourceRevision), Findings: findings, SelfReview: r.SelfReview,
 			Provenance: domain.Provenance{Origin: domain.Origin(r.Origin), Detail: r.OriginDetail, By: r.Author},
 			CreatedAt:  r.CreatedAt.UTC(),
 		})

@@ -75,4 +75,5 @@ type LocalizationTranslationRevision struct {
 	SourceRevision int32
 	Findings       json.RawMessage
 	CreatedAt      time.Time
+	SelfReview     bool
 }
