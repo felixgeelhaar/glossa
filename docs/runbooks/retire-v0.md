@@ -27,13 +27,14 @@ One folder per project (`evidence/<project>/`, outside the repository; never com
 
 ## 1. Freeze writes on v0.3
 
-v0.3 has no read-only mode. Take away every way to write and keep reads on, because the product reads from v0.3 until step 7.
+v0.3 has no read-only mode, neither in the UI nor in the API. Take away every way to write that no product needs, and keep reads on, because the product reads from v0.3 until step 7.
 
-1. Stop the editing UI: `kubectl -n glossa scale deploy/admin --replicas=0`.
-2. In v0.3, list the project's API keys and revoke every `write` key; `read` keys stay. Record the labels, not the keys.
-3. Tell the project's translators the freeze has started. Anything written to v0.3 afterwards is not carried over.
+1. Stop the editing UI (the freeze itself): `kubectl -n glossa scale deploy/admin --replicas=0`. Reads keep working.
+2. In v0.3, list the project's API keys **with `last_used_at`**. Record label, scope and last use, never the key. **Do not revoke a key yet if a product reads with it.** Products do not always have a `read` key: a marketing site may read with a `write` key (Pet Medical's did, used the day of the freeze), and an app may hold several `write` keys (`Client`, `Deployment`) in recent use. Revoke a `write` key now only when no product reads with it (not used recently, and absent from every product's configuration). Every other key stays until step 9, after the product has switched to the edge.
+3. Pause script-driven writes by hand: because the API has no read-only mode, a `write` key in CI (for example `npx glossa push`) still writes. Find those jobs (search the products' pipelines for the key, `glossa push` and `glossa-cli`) and disable them.
+4. Tell the project's translators the freeze has started. Anything written to v0.3 afterwards is not carried over.
 
-Rollback: `kubectl -n glossa scale deploy/admin --replicas=1` and re-issue the write keys. Nothing has left v0.3.
+Rollback: `kubectl -n glossa scale deploy/admin --replicas=1`, re-enable the paused jobs and re-issue any key you revoked. Nothing has left v0.3.
 
 ## 2. Back up and restore, with the restore marker
 
@@ -71,6 +72,8 @@ glossa import --from v0 --v0-db "postgres://postgres@localhost/$RESTORE_DB" \
 
 `--invite` sends the planned invitations (needs the `admin` scope; they can only be accepted once the platform sends mail, RFC 0006 §1.3). Exit 4 means some items failed: read them, fix, re-run (idempotent).
 
+If the project does not exist on the platform yet, create it first: `glossa projects create --name "<name>" --slug <v0 slug> --source-locale <l> [--locales de,en]` (`glossa projects list` shows what exists; an existing slug exits 3). `glossa tenants` lists the organisations, and `GLOSSA_TENANT` accepts a slug. For a large project the server may answer a full batch slower than the CLI waits: set `GLOSSA_BATCH_SIZE` (1 to 500, default 500) lower, or `GLOSSA_HTTP_TIMEOUT` (a Go duration such as `2m`, default 30s) higher, and re-run; the import is idempotent.
+
 Then, **as an owner**:
 
 ```sh
@@ -95,6 +98,8 @@ glossa release keys create verify --environments staging         # a delivery ke
 
 `staging` ships approved text only. Text that arrived `needs_review` (the importer downgrades an approved value where the project requires review and a token cannot approve) is not shipped, falls back, and shows as a mismatch in step 6: review and approve it first.
 
+**Approve what v0.3 served.** v0.3 served translations that were still in review, so the people using the product saw them. The platform ships approved text only, so any such translation that stays `needs_review` makes the product's text change at the switch. List what the import left in review (`glossa status`, the `--dry-run` per-status counts) and approve the ones v0.3 served: `glossa translations review <key>@<locale> … --state approved` (needs `translations.review` for the locale). Text v0.3 did not serve stays in review.
+
 Rollback: `glossa release rollback --environment staging`. No product reads staging.
 
 ## 6. Prove it renders the same: `--verify`
@@ -107,6 +112,10 @@ glossa import --from v0 --v0-db "postgres://postgres@localhost/$RESTORE_DB" \
 ```
 
 `--verify` imports and writes nothing. It renders every key in every locale twice, with v0.3's own formatter and with `@klarlabs-studio/glossa` over the release the edge serves, using the same generated arguments (each plural at 0, 1, 2, 5, 21 and its exact keys; each select key plus a catch-all value). `--node`, `--format-module` and `--runtime-module` point it at other builds.
+
+**Pass `--format-module` and `--runtime-module` explicitly** (the package directories of `@felixgeelhaar/glossa-format` and `@klarlabs-studio/glossa`, both built) whenever you do not run from a Glossa checkout. They are flags only: the CLI reads no environment variable for them (only `GLOSSA_DELIVERY_KEY`, or the variable `--delivery-key-env` names, and `GLOSSA_EDGE`), and the working-directory search that finds them by default fails under some setups (`module_not_found`, exit 2). Example: `--format-module ~/glossa/packages/format --runtime-module ~/glossa/runtimes/js/glossa`.
+
+**Before you trust the comparison, check what users really saw.** A mismatch or match only says the platform renders what v0.3's formatter produced. If a product's Content-Security-Policy blocked v0.3 (its script or its API origin missing from `script-src` or `connect-src`), users never saw v0.3 text, only the product's fallbacks, and "same as v0.3" is not "same as before". Check each product's CSP actually allowed v0.3 (browser console, or the policy header) before assuming users saw v0.3 text, and add the edge origin (`https://cdn.glossa.klarlabs.de`) to `connect-src` before step 7.
 
 Reading `glossa.cli.import-verify/v1`:
 
@@ -140,13 +149,13 @@ Daily: `glossa release environments` (what production serves), the product's and
 
 ## 9. Retire the project on v0.3
 
-After 14 clean days, and only when **no product reads this project from v0.3** (check the `api` deployment's access log for the slug): leave the step 1 freeze in place (admin at 0, no write keys). Delete nothing yet. Revoke the verify key: `glossa release keys revoke verify`.
+After 14 clean days, and only when **no product reads this project from v0.3** (check the `api` deployment's access log for the slug): leave the step 1 freeze in place (admin at 0, script-driven writes paused). Now **revoke the rest of the project's v0.3 keys**, the `write` keys step 1 kept because a product read with them and the `read` keys, using the `last_used_at` list: each should show no use since the product switched. A key still in use means something still reads v0.3: find it before revoking. Delete nothing else yet. Revoke the verify key: `glossa release keys revoke verify`.
 
 Rollback: point the product back at v0.3 (step 7's rollback). Nothing is lost.
 
 ## 10. After the last project (owner only)
 
-1. Archive a final v0.3 dump (step 2's command) for one year, immutable; keep its SHA-256 with the evidence.
+1. Confirm no v0.3 API key is left unrevoked in any project (step 9), then archive a final v0.3 dump (step 2's command) for one year, immutable; keep its SHA-256 with the evidence.
 2. `kubectl -n glossa scale deploy/api deploy/admin --replicas=0` and leave it for 30 days.
 3. Remove the IngressRoute and the DNS record for `glossa.felixgeelhaar.de`; delete the `glossa` namespace.
 4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`).

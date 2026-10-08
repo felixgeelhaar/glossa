@@ -44,8 +44,8 @@ app.kubernetes.io/component: {{ .component }}
 {{/* One of Glossa's own images.
      (dict "root" $ "component" "server" "image" .Values.server.image)
 
-     The tag defaults to .Chart.AppVersion, which is the version
-     .github/workflows/release-platform.yml publishes. A digest, when
+     The tag defaults to v<appVersion>, the tag Kiln pushes for a
+     release (.kiln.yaml). A digest, when
      set, is appended as @sha256:… and is what actually gets pulled; the
      tag stays for readability. With image.requireDigest the chart
      refuses to render an unpinned Glossa image at all, so a deployment
@@ -53,7 +53,7 @@ app.kubernetes.io/component: {{ .component }}
 {{- define "gp.image" -}}
 {{- $c := .component -}}
 {{- $repo := required (printf "%s.image.repository is required (e.g. klarlabs-studio/glossa-%s)" $c $c) .image.repository -}}
-{{- $tag := .image.tag | default .root.Chart.AppVersion -}}
+{{- $tag := .image.tag | default (printf "v%s" .root.Chart.AppVersion) -}}
 {{- if not $tag -}}
 {{- fail (printf "%s.image.tag is empty and the chart has no appVersion to fall back to" $c) -}}
 {{- end -}}

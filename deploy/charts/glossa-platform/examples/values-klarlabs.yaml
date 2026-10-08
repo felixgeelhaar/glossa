@@ -53,7 +53,7 @@ hosts:
 commonLabels:
   klarlabs.de/product: glossa
 
-# Images: appVersion (0.4.0) tags. The empty digests are placeholders so
+# Images: the v<appVersion> tags. The empty digests are placeholders so
 # this file renders on its own in CI — a deployment overlays the release
 # run's values-images.yaml, which fills all three and requires them
 # (README.md, "Cutting a release" and "Deploying with RollOps").
