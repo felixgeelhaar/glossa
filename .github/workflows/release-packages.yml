@@ -32,6 +32,15 @@ name: Release packages
 #   short-lived publish token at runtime. Provenance + signature
 #   are attached automatically.
 #
+# First publish of a NEW package name (before a trusted publisher can exist):
+#   from the package directory, with a fresh one-time code,
+#     pnpm publish --access public --no-git-checks --provenance=false --otp=<code>
+#   --provenance=false because publishConfig.provenance is true and only
+#   CI can attest (NPM_CONFIG_PROVENANCE does not override publishConfig);
+#   --otp because a non-interactive shell cannot finish the browser 2FA.
+#   A 404 on publish means "not authenticated", not "missing org". Then add
+#   the trusted publisher above. Full steps: docs/releasing.md.
+#
 # Requires:
 #   - `id-token: write` permission on this workflow (declared below).
 #   - pnpm >= 10.6 (action-setup@v4 already pulls a recent enough
