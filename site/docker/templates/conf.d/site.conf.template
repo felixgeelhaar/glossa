@@ -4,7 +4,7 @@
 server {
   listen 8080;
   server_name _;
-  root /usr/share/nginx/html;
+  root /usr/share/glossa-site;
   absolute_redirect off;
 
   include /tmp/nginx/snippets/security-headers.conf;

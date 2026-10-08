@@ -19,7 +19,7 @@
     "build": "node ../studio/scripts/klarlabs-ui.mjs && astro-check && astro build",
     "preview": "astro preview",
     "lint": "astro-check",
-    "test": "node ../studio/scripts/klarlabs-ui.mjs && astro build && node --test test/"
+    "test": "node ../studio/scripts/klarlabs-ui.mjs && astro build && node --test test/dist.test.mjs"
   },
   "dependencies": {
     "@klarlabs-studio/ui": "link:../studio/.klarlabs-ui",

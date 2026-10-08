@@ -58,8 +58,9 @@ LABEL org.opencontainers.image.title="glossa-site" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}"
 
-USER root
-RUN rm -f /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
+# Served from its own directory, so the base image's default page and
+# server block (never loaded: nginx.conf includes only /tmp/nginx/conf.d)
+# need no root-owned cleanup.
 USER 101
 
 # Rendered by the image's /docker-entrypoint.d/20-envsubst-on-templates.sh
@@ -72,7 +73,7 @@ ENV NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/templates \
 COPY site/docker/nginx.conf /etc/nginx/nginx.conf
 COPY site/docker/templates/ /etc/nginx/templates/
 COPY --chmod=0755 site/docker/05-glossa-runtime-dir.sh /docker-entrypoint.d/
-COPY --from=build /repo/site/dist/ /usr/share/nginx/html/
+COPY --from=build /repo/site/dist/ /usr/share/glossa-site/
 
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
