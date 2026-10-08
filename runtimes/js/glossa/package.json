@@ -33,6 +33,10 @@
       "types": "./dist/runtime/idb.d.ts",
       "import": "./dist/runtime/idb.js"
     },
+    "./apierr": {
+      "types": "./dist/runtime/apierr.d.ts",
+      "import": "./dist/runtime/apierr.js"
+    },
     "./dev": {
       "types": "./dist/runtime/dev.d.ts",
       "import": "./dist/runtime/dev.js"

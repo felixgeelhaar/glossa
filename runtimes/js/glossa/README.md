@@ -54,6 +54,7 @@ import glossa from "@klarlabs-studio/glossa/unplugin/vite";
 |---|---|---|
 | `@klarlabs-studio/glossa` | The runtime: release loader, locale resolver, `explain`, a MessageFormat 2 interpreter over precompiled messages. Only `Intl` and WebCrypto. | [runtime](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/runtime/README.md) |
 | `/idb` | IndexedDB storage for the persisted last-good release. | [runtime](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/runtime/README.md) |
+| `/apierr` | `resolveApiError(runtime, body)`: an `apierr` error envelope (Go `apierr` module) into localized text; `apiErrorMessage` gives the key and arguments. | [runtime](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/runtime/README.md), [MIGRATION](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/elements/MIGRATION.md) |
 | `/dev` | The in-product editor's loader; never in production builds. | [runtime](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/runtime/README.md) |
 | `/elements` | `<glossa-provider>`, `<glossa-text\|rich\|plural\|select>`, `<glossa-selector>`. Also `/elements/ssr` and `/elements/parts`. | [elements](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/elements/README.md), [MIGRATION](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/elements/MIGRATION.md) |
 | `/vue` | Vue 3.5+ plugin, composables and `<GlossaText>`. | [vue](https://github.com/klarlabs-studio/glossa/blob/main/runtimes/js/vue/README.md) |

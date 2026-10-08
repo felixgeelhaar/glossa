@@ -36,7 +36,12 @@ const checks = [
     "limit": "0.5 KB"
   },
   {
-    "name": "@klarlabs-studio/glossa/dev, the overlay loader and its popup sign-in (never in production builds)",
+    "name": "@klarlabs-studio/glossa/apierr (parse an apierr envelope, resolve it with a runtime)",
+    "path": "dist/runtime/apierr.js",
+    "limit": "0.5 KB"
+  },
+  {
+    "name": "@klarlabs-studio/glossa/dev,the overlay loader and its popup sign-in (never in production builds)",
     "path": "dist/runtime/dev.js",
     "limit": "1.9 KB"
   },

@@ -80,6 +80,27 @@ too — the loader checks every runtime's `environment` before it does anything,
 and a capture session has to tell a production page from a page without
 Glossa.
 
+## `@klarlabs-studio/glossa/apierr`: API errors
+
+The client side of the Go `apierr` module. A Glossa-aware backend answers a failed request with
+`{ "error": { "code", "message", "key", "params", "status" } }`; `key` is a message id and `params`
+its arguments.
+
+```ts
+import { resolveApiError, apiErrorMessage } from "@klarlabs-studio/glossa/apierr";
+
+const res = await fetch("/api/signup", { method: "POST", body });
+if (!res.ok) toast(resolveApiError(glossa, await res.json().catch(() => null)));
+```
+
+| Export | |
+|---|---|
+| `resolveApiError(runtime, body, { unknown? }) → string` | `runtime.t(key, params)` when the release has `key` (`runtime.has`), else the server's English `message`, else `unknown` (default `"Unknown error"`). Takes the envelope, the bare payload, or a pre-apierr `{ "error": "text" }`. Never throws. |
+| `apiErrorMessage(body) → { id, args, fallback } or null` | The message key, its arguments and the English fallback, for callers that format themselves (a typed accessor, `<glossa-text>`, a toast component). |
+| `parseApiError(body) → ApiErrorPayload or null` | The normalised `{ code, message, key, params?, status }`. |
+
+Any `Runtime` works (`getRuntime()` from `/astro/client`, the Vue and React ones).
+
 ## `@klarlabs-studio/glossa/dev`: the overlay loader
 
 The in-product editor's loader ([RFC 0004
