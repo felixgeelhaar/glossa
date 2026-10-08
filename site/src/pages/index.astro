@@ -273,8 +273,8 @@ glossa check --json</code></pre>
 
 createApp(App).use(
   createGlossa({"{"}
-    edge: <span class="s">"https://edge.example.com"</span>,
-    deliveryKey: <span class="s">"pk_7Hc2…"</span>,
+    edge: <span class="s">"https://cdn.glossa.klarlabs.de"</span>,
+    deliveryKey: <span class="s">"glossa_pk_…"</span>,
     locales: <span class="s">"de"</span>,
   {"}"}),
 );
@@ -286,7 +286,7 @@ t(<span class="s">"cart.items"</span>, {"{"} count: 3 {"}"});</code></pre>
           <figure class="snippet">
             <figcaption>Go</figcaption>
 <pre class="code" tabindex="0"><code>client, err := glossa.<span class="f">New</span>(glossa.Config{"{"}
-    EdgeURL:     <span class="s">"https://edge.example.com"</span>,
+    EdgeURL:     <span class="s">"https://cdn.glossa.klarlabs.de"</span>,
     DeliveryKey: deliveryKey,
     Environment: <span class="s">"production"</span>,
     PublicKeys:  []glossa.PublicKey{"{"}signingKey{"}"},
