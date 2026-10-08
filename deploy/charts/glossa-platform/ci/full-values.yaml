@@ -56,6 +56,9 @@ studio:
     digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
   runtimeConfig:
     cspConnectSrc: https://cdn.example.com
+site:
+  image:
+    digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
 database:
   app:
     secretName: glossa-db-app

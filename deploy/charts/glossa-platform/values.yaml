@@ -25,7 +25,7 @@ hosts:
 image:
   registry: ghcr.io
   pullPolicy: IfNotPresent
-  # -- Refuse to render unless server, edge and studio are each pinned by
+  # -- Refuse to render unless server, edge, studio and (when enabled) site are each pinned by
   # digest. A release run emits the three digests it published as a values
   # file that sets this and the digests together, so a deployment either
   # pins exactly what CI built or fails loudly (README.md, "Cutting a
@@ -285,6 +285,33 @@ studio:
     environment: production
     # -- GLOSSA_STUDIO_CSP_CONNECT_SRC: extra connect-src origins, space separated.
     cspConnectSrc: ""
+  extraEnv: []
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+## ── Site ──────────────────────────────────────────────────────────
+## The landing page (site/). Served at the exact "/" of hosts.studio and its
+## /_astro/ assets; Studio keeps every other path, its home at /app.
+site:
+  # -- Deploy the landing page. Off: Studio's host sends "/" to Studio, which
+  # redirects to /app.
+  enabled: true
+  image:
+    repository: klarlabs-studio/glossa-site
+    tag: ""
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
   extraEnv: []
   pdb:
     enabled: true
@@ -811,6 +838,7 @@ networkPolicy:
     edge: []
     postgres: []
     studio: []
+    site: []
     minio: []
   # -- Extra egress rules (NetworkPolicyEgressRule) per component.
   extraEgress:

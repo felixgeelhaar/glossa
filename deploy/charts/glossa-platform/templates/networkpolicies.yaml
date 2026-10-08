@@ -88,6 +88,27 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   egress: []
+{{- if .Values.site.enabled }}
+---
+# Site: static files. In from the ingress controller; no egress at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gp.componentName" (dict "root" $ "component" "site") }}
+  labels:
+    {{- include "gp.componentLabels" (dict "root" $ "component" "site") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gp.selectorLabels" (dict "root" $ "component" "site") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- include "gp.np.fromIngressController" (dict "root" $ "port" 8080) | nindent 4 }}
+    {{- with $np.extraIngress.site }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress: []
+{{- end }}
 {{- if .Values.minio.enabled }}
 ---
 # MinIO: S3 (9000) in from glossa-server, glossa-edge, the bootstrap Job,
