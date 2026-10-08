@@ -16,9 +16,9 @@
   },
   "scripts": {
     "dev": "node ../studio/scripts/klarlabs-ui.mjs && astro dev",
-    "build": "node ../studio/scripts/klarlabs-ui.mjs && astro check && astro build",
+    "build": "node ../studio/scripts/klarlabs-ui.mjs && astro-check && astro build",
     "preview": "astro preview",
-    "lint": "astro check",
+    "lint": "astro-check",
     "test": "node --test test/"
   },
   "dependencies": {
