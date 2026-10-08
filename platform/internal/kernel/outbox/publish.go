@@ -33,6 +33,40 @@ func Publish(ctx context.Context, tx *db.TenantTx, e Event) (uuid.UUID, error) {
 	return row.ID, nil
 }
 
+// PublishAll records events in tx in one statement, in order: the bulk
+// form of Publish for writes that raise many events at once (a bulk
+// upsert raises one or more per message, #77). Every event is validated
+// first; none is recorded unless all are. It returns their IDs.
+func PublishAll(ctx context.Context, tx *db.TenantTx, events []Event) ([]uuid.UUID, error) {
+	if len(events) == 0 {
+		return nil, nil
+	}
+	p := outboxsql.InsertOutboxEventsParams{TenantID: tx.Tenant().UUID()}
+	ids := make([]uuid.UUID, len(events))
+	for i, e := range events {
+		if err := e.Validate(); err != nil {
+			return nil, err
+		}
+		row, err := insertParams(ctx, tx, e)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = row.ID
+		p.Ids = append(p.Ids, row.ID)
+		p.EventTypes = append(p.EventTypes, row.EventType)
+		p.AggregateTypes = append(p.AggregateTypes, row.AggregateType)
+		p.AggregateIds = append(p.AggregateIds, row.AggregateID)
+		p.Actors = append(p.Actors, row.Actor)
+		p.Payloads = append(p.Payloads, row.Payload)
+		p.TraceContexts = append(p.TraceContexts, row.TraceContext)
+		p.OccurredAts = append(p.OccurredAts, row.OccurredAt)
+	}
+	if err := outboxsql.New(tx).InsertOutboxEvents(ctx, p); err != nil {
+		return nil, fmt.Errorf("outbox: publish %d events (%s, …): %w", len(events), events[0].Type, err)
+	}
+	return ids, nil
+}
+
 func insertParams(ctx context.Context, tx *db.TenantTx, e Event) (outboxsql.InsertOutboxEventParams, error) {
 	id := e.ID
 	if id == uuid.Nil {

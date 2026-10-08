@@ -272,6 +272,86 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (i
 	return result.RowsAffected(), nil
 }
 
+const insertMessages = `-- name: InsertMessages :execrows
+
+INSERT INTO catalog_messages (id, tenant_id, project_id, key, namespace, description, max_length,
+                              state, source_syntax, source_text, source_model, arguments, markup,
+                              source_revision, version, created_by, created_at, updated_at)
+SELECT u.id, app_current_tenant(), u.project_id, u.key, u.namespace, u.description, nullif(u.max_length, 0),
+       u.state, u.source_syntax, u.source_text, u.source_model, u.arguments, u.markup,
+       u.source_revision, u.version, u.created_by, u.created_at, u.updated_at
+FROM (SELECT unnest($1::uuid[]) AS id,
+        unnest($2::uuid[]) AS project_id,
+        unnest($3::text[]) AS key,
+        unnest($4::text[]) AS namespace,
+        unnest($5::text[]) AS description,
+        unnest($6::int[]) AS max_length,
+        unnest($7::text[]) AS state,
+        unnest($8::text[]) AS source_syntax,
+        unnest($9::text[]) AS source_text,
+        unnest($10::jsonb[]) AS source_model,
+        unnest($11::jsonb[]) AS arguments,
+        unnest($12::jsonb[]) AS markup,
+        unnest($13::int[]) AS source_revision,
+        unnest($14::int[]) AS version,
+        unnest($15::text[]) AS created_by,
+        unnest($16::timestamptz[]) AS created_at,
+        unnest($17::timestamptz[]) AS updated_at) AS u
+ON CONFLICT (id) DO NOTHING
+`
+
+type InsertMessagesParams struct {
+	Ids             []uuid.UUID
+	ProjectIds      []uuid.UUID
+	Keys            []string
+	Namespaces      []string
+	Descriptions    []string
+	MaxLengths      []int32
+	States          []string
+	SourceSyntaxes  []string
+	SourceTexts     []string
+	SourceModels    []json.RawMessage
+	Arguments       []json.RawMessage
+	Markups         []json.RawMessage
+	SourceRevisions []int32
+	Versions        []int32
+	CreatedBys      []string
+	CreatedAts      []time.Time
+	UpdatedAts      []time.Time
+}
+
+// ── bulk writes ────────────────────────────────────────────────────
+// A bulk upsert writes all its rows in one statement per table instead
+// of one round trip per message (#77). Each takes parallel arrays, one
+// element per row. max_lengths uses 0 for "no limit": the column only
+// admits 1..100000.
+// ON CONFLICT (id) as in InsertMessage.
+func (q *Queries) InsertMessages(ctx context.Context, arg InsertMessagesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertMessages,
+		arg.Ids,
+		arg.ProjectIds,
+		arg.Keys,
+		arg.Namespaces,
+		arg.Descriptions,
+		arg.MaxLengths,
+		arg.States,
+		arg.SourceSyntaxes,
+		arg.SourceTexts,
+		arg.SourceModels,
+		arg.Arguments,
+		arg.Markups,
+		arg.SourceRevisions,
+		arg.Versions,
+		arg.CreatedBys,
+		arg.CreatedAts,
+		arg.UpdatedAts,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertSourceRevision = `-- name: InsertSourceRevision :exec
 INSERT INTO catalog_source_revisions (tenant_id, message_id, revision, syntax, text, model, author, created_at)
 VALUES (app_current_tenant(), $1, $2, $3, $4,
@@ -297,6 +377,41 @@ func (q *Queries) InsertSourceRevision(ctx context.Context, arg InsertSourceRevi
 		arg.Model,
 		arg.Author,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertSourceRevisions = `-- name: InsertSourceRevisions :exec
+INSERT INTO catalog_source_revisions (tenant_id, message_id, revision, syntax, text, model, author, created_at)
+SELECT app_current_tenant(), u.message_id, u.revision, u.syntax, u.text, u.model, u.author, u.created_at
+FROM (SELECT unnest($1::uuid[]) AS message_id,
+        unnest($2::int[]) AS revision,
+        unnest($3::text[]) AS syntax,
+        unnest($4::text[]) AS text,
+        unnest($5::jsonb[]) AS model,
+        unnest($6::text[]) AS author,
+        unnest($7::timestamptz[]) AS created_at) AS u
+`
+
+type InsertSourceRevisionsParams struct {
+	MessageIds []uuid.UUID
+	Revisions  []int32
+	Syntaxes   []string
+	Texts      []string
+	Models     []json.RawMessage
+	Authors    []string
+	CreatedAts []time.Time
+}
+
+func (q *Queries) InsertSourceRevisions(ctx context.Context, arg InsertSourceRevisionsParams) error {
+	_, err := q.db.Exec(ctx, insertSourceRevisions,
+		arg.MessageIds,
+		arg.Revisions,
+		arg.Syntaxes,
+		arg.Texts,
+		arg.Models,
+		arg.Authors,
+		arg.CreatedAts,
 	)
 	return err
 }
@@ -645,6 +760,74 @@ func (q *Queries) UpdateMessage(ctx context.Context, arg UpdateMessageParams) (i
 		arg.UpdatedAt,
 		arg.ID,
 		arg.ExpectedVersion,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateMessages = `-- name: UpdateMessages :execrows
+UPDATE catalog_messages m
+SET key = u.key, namespace = u.namespace, description = u.description, max_length = nullif(u.max_length, 0),
+    state = u.state, source_syntax = u.source_syntax, source_text = u.source_text,
+    source_model = u.source_model, arguments = u.arguments, markup = u.markup,
+    source_revision = u.source_revision, version = u.version, updated_at = u.updated_at
+FROM (SELECT unnest($1::uuid[]) AS id,
+        unnest($2::text[]) AS key,
+        unnest($3::text[]) AS namespace,
+        unnest($4::text[]) AS description,
+        unnest($5::int[]) AS max_length,
+        unnest($6::text[]) AS state,
+        unnest($7::text[]) AS source_syntax,
+        unnest($8::text[]) AS source_text,
+        unnest($9::jsonb[]) AS source_model,
+        unnest($10::jsonb[]) AS arguments,
+        unnest($11::jsonb[]) AS markup,
+        unnest($12::int[]) AS source_revision,
+        unnest($13::int[]) AS version,
+        unnest($14::timestamptz[]) AS updated_at,
+        unnest($15::int[]) AS expected_version) AS u
+WHERE m.id = u.id AND m.version = u.expected_version
+`
+
+type UpdateMessagesParams struct {
+	Ids              []uuid.UUID
+	Keys             []string
+	Namespaces       []string
+	Descriptions     []string
+	MaxLengths       []int32
+	States           []string
+	SourceSyntaxes   []string
+	SourceTexts      []string
+	SourceModels     []json.RawMessage
+	Arguments        []json.RawMessage
+	Markups          []json.RawMessage
+	SourceRevisions  []int32
+	Versions         []int32
+	UpdatedAts       []time.Time
+	ExpectedVersions []int32
+}
+
+// Each row only if its stored version is still the expected one; the
+// caller compares the count with the number of rows.
+func (q *Queries) UpdateMessages(ctx context.Context, arg UpdateMessagesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateMessages,
+		arg.Ids,
+		arg.Keys,
+		arg.Namespaces,
+		arg.Descriptions,
+		arg.MaxLengths,
+		arg.States,
+		arg.SourceSyntaxes,
+		arg.SourceTexts,
+		arg.SourceModels,
+		arg.Arguments,
+		arg.Markups,
+		arg.SourceRevisions,
+		arg.Versions,
+		arg.UpdatedAts,
+		arg.ExpectedVersions,
 	)
 	if err != nil {
 		return 0, err

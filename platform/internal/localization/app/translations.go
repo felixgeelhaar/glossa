@@ -283,37 +283,60 @@ func (s *Service) write(ctx context.Context, st Store, cmd writeCmd) (domain.Tra
 			return domain.Translation{}, "", err
 		}
 	}
+	o, err := s.decide(cmd, policy, t, found)
+	if err != nil || o.rev == nil {
+		return o.t, o.status, err
+	}
+	if o.created {
+		err = st.InsertTranslation(ctx, o.t)
+	} else {
+		err = st.UpdateTranslation(ctx, o.t, o.expected)
+	}
+	if err != nil {
+		return domain.Translation{}, "", err
+	}
+	return o.t, o.status, s.record(ctx, st, o.t, *o.rev)
+}
+
+// writeOutcome is what a write does to a translation: rev is nil when
+// it leaves it unchanged; otherwise the translation is created, or
+// updated from revision expected, and rev appended.
+type writeOutcome struct {
+	t        domain.Translation
+	status   WriteStatus
+	rev      *domain.Revision
+	created  bool
+	expected int
+}
+
+// decide applies cmd to the stored translation t (found false: none) in
+// memory, without storing anything.
+func (s *Service) decide(cmd writeCmd, policy domain.WritePolicy, t domain.Translation, found bool) (writeOutcome, error) {
 	if !found {
 		t, rev, err := domain.NewTranslation(cmd.project.ID, cmd.msg.ID, cmd.locale, cmd.write, policy, cmd.canReview, s.now())
 		if err != nil {
-			return domain.Translation{}, "", err
+			return writeOutcome{}, err
 		}
-		if err := st.InsertTranslation(ctx, t); err != nil {
-			return domain.Translation{}, "", err
-		}
-		return t, WriteCreated, s.record(ctx, st, t, rev)
+		return writeOutcome{t: t, status: WriteCreated, rev: &rev, created: true}, nil
 	}
 	if cmd.keepApproved && t.State == domain.StateApproved {
 		if !t.Content.SameModel(cmd.write.Content) {
-			return t, "", ErrApprovedConflict
+			return writeOutcome{t: t}, ErrApprovedConflict
 		}
 		if cmd.write.State != nil && *cmd.write.State != domain.StateApproved {
-			return t, WriteUnchanged, nil
+			return writeOutcome{t: t, status: WriteUnchanged}, nil
 		}
 	}
 	expected := t.Revision
 	rev, changed, err := t.Revise(cmd.write, policy, cmd.canReview, s.now())
 	if err != nil || !changed {
-		return t, WriteUnchanged, err
-	}
-	if err := st.UpdateTranslation(ctx, t, expected); err != nil {
-		return domain.Translation{}, "", err
+		return writeOutcome{t: t, status: WriteUnchanged}, err
 	}
 	status := WriteRevised
 	if rev.Kind == domain.KindReview {
 		status = WriteReviewed
 	}
-	return t, status, s.record(ctx, st, t, rev)
+	return writeOutcome{t: t, status: status, rev: &rev, expected: expected}, nil
 }
 
 // record appends a revision and publishes its event.
@@ -321,14 +344,19 @@ func (s *Service) record(ctx context.Context, st Store, t domain.Translation, re
 	if err := st.AppendRevision(ctx, rev); err != nil {
 		return err
 	}
+	return st.Publish(ctx, revisionEvent(t, rev))
+}
+
+// revisionEvent announces rev of t.
+func revisionEvent(t domain.Translation, rev domain.Revision) outbox.Event {
 	typ := domain.EventTranslationRevised
 	if rev.Kind == domain.KindReview {
 		typ = domain.EventTranslationReviewed
 	}
-	return st.Publish(ctx, outbox.Event{
+	return outbox.Event{
 		Type: typ, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
 		Actor: outbox.Actor(rev.Provenance.By), Payload: domain.TranslationEventOf(t, rev.Provenance.By),
-	})
+	}
 }
 
 // ReviewTranslation moves a translation to state as a review decision

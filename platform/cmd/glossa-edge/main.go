@@ -15,10 +15,10 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
 
 	"go.klarlabs.de/glossa/platform/internal/edge"
+	"go.klarlabs.de/glossa/platform/internal/kernel/buildinfo"
 	"go.klarlabs.de/glossa/platform/internal/kernel/config"
 	"go.klarlabs.de/glossa/platform/internal/kernel/observability"
 )
@@ -50,23 +50,9 @@ func run(ctx context.Context, args []string, lookup config.LookupFunc, stdout io
 		return err
 	}
 	logger := observability.NewLogger(stdout, cfg.LogLevel)
-	logger.InfoContext(ctx, "glossa-edge starting", slog.String("version", version()), slog.String("config", cfg.String()))
+	logger.InfoContext(ctx, "glossa-edge starting", slog.String("version", version()), slog.String("revision", buildinfo.Revision()), slog.String("config", cfg.String()))
 	return edge.Run(ctx, cfg, logger, version(), nil)
 }
 
-// version reports the module version or VCS revision from build info.
-func version() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "unknown"
-	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
-		return v
-	}
-	for _, s := range info.Settings {
-		if s.Key == "vcs.revision" && len(s.Value) >= 12 {
-			return s.Value[:12]
-		}
-	}
-	return "devel"
-}
+// version is the build's release version (see kernel/buildinfo).
+func version() string { return buildinfo.Version() }

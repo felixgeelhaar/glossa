@@ -7,6 +7,7 @@ import (
 	"go.klarlabs.de/glossa/platform/internal/catalog/domain"
 	"go.klarlabs.de/glossa/platform/internal/identity/authz"
 	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 )
 
 // MaxBatch bounds a bulk request.
@@ -58,6 +59,11 @@ type UpsertResult struct {
 // It is idempotent: pushing the same catalog twice changes nothing the
 // second time. Items fail individually (invalid key or source, duplicate
 // key in the batch, stale base revision) without failing the batch.
+//
+// The items are decided in memory against one locked read of the
+// existing messages, and the writes go out in one statement per table
+// and one outbox insert for all events (#77): a full batch costs a
+// handful of round trips, not several per message.
 func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, items []UpsertItem) ([]UpsertResult, error) {
 	by, err := authorIn(ctx, authz.CatalogWrite, project.UUID())
 	if err != nil {
@@ -78,13 +84,16 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 			return err
 		}
 		results = make([]UpsertResult, len(items))
-		var changed []domain.Message
+		var (
+			changed []domain.Message
+			w       upsertWrites
+		)
 		for i, it := range prepared {
 			if it.err != nil {
 				results[i] = UpsertResult{Key: items[i].Key, Status: UpsertFailed, Error: it.err}
 				continue
 			}
-			res, err := s.upsertOne(ctx, st, p, it, existing, by)
+			res, err := s.upsertOne(p, it, existing, by, &w)
 			if err != nil {
 				return err
 			}
@@ -96,6 +105,9 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 			}
 			results[i] = res
 		}
+		if err := w.flush(ctx, st); err != nil {
+			return err
+		}
 		if err := settleProposals(ctx, st, changed); err != nil {
 			return err
 		}
@@ -105,6 +117,30 @@ func (s *Service) UpsertMessages(ctx context.Context, project domain.ProjectID, 
 		return s.projection.MessagesChanged(ctx, changed)
 	})
 	return results, err
+}
+
+// upsertWrites collects a bulk upsert's writes, in item order, so they
+// go out as one statement per table (see Store's bulk writes).
+type upsertWrites struct {
+	inserts   []MessageInsert
+	updates   []MessageUpdate
+	revisions []domain.SourceRevision
+	events    []outbox.Event
+}
+
+// flush writes everything collected. New messages go first: their
+// source revisions reference them.
+func (w *upsertWrites) flush(ctx context.Context, st Store) error {
+	if err := st.InsertMessages(ctx, w.inserts); err != nil {
+		return err
+	}
+	if err := st.UpdateMessages(ctx, w.updates); err != nil {
+		return err
+	}
+	if err := st.AppendSourceRevisions(ctx, w.revisions); err != nil {
+		return err
+	}
+	return st.PublishAll(ctx, w.events)
 }
 
 type preparedItem struct {
@@ -176,8 +212,10 @@ func (it preparedItem) details(base domain.Details) (domain.Details, *ItemError)
 	return d, nil
 }
 
-func (s *Service) upsertOne(ctx context.Context, st Store, p domain.Project, it preparedItem,
-	existing map[domain.MessageKey]domain.Message, by domain.Author,
+// upsertOne decides one item against the locked existing messages and
+// adds its writes to w.
+func (s *Service) upsertOne(p domain.Project, it preparedItem,
+	existing map[domain.MessageKey]domain.Message, by domain.Author, w *upsertWrites,
 ) (UpsertResult, error) {
 	res := UpsertResult{Key: it.Key}
 	m, found := existing[it.key]
@@ -186,7 +224,7 @@ func (s *Service) upsertOne(ctx context.Context, st Store, p domain.Project, it 
 			res.Status, res.Error = UpsertFailed, &ItemError{Code: "source_revision_conflict", Detail: "the message doesn't exist"}
 			return res, nil
 		}
-		return s.createFromUpsert(ctx, st, p, it, by)
+		return s.createFromUpsert(p, it, by, w)
 	}
 	if it.BaseRevision != nil && *it.BaseRevision != m.Revision {
 		res.Status, res.Error = UpsertFailed, &ItemError{Code: "source_revision_conflict",
@@ -212,37 +250,27 @@ func (s *Service) upsertOne(ctx context.Context, st Store, p domain.Project, it 
 	if !activated && !reactivated && !detailsChanged && !revised {
 		return res, nil
 	}
-	if err := st.UpdateMessage(ctx, m, expected); err != nil {
-		return res, err
-	}
+	w.updates = append(w.updates, MessageUpdate{Message: m, Expected: expected})
 	if activated || reactivated {
 		typ := domain.EventMessageReactivated
 		if activated {
 			typ = domain.EventMessageActivated
 		}
-		if err := st.Publish(ctx, messageEvent(typ, m, by)); err != nil {
-			return res, err
-		}
+		w.events = append(w.events, messageEvent(typ, m, by))
 	}
 	if detailsChanged {
-		if err := st.Publish(ctx, messageEvent(domain.EventMessageUpdated, m, by)); err != nil {
-			return res, err
-		}
+		w.events = append(w.events, messageEvent(domain.EventMessageUpdated, m, by))
 	}
 	res.Status = UpsertUpdated
 	if revised {
 		res.Status = UpsertRevised
-		if err := st.AppendSourceRevision(ctx, rev); err != nil {
-			return res, err
-		}
-		if err := st.Publish(ctx, sourceRevisedEvent(m, oldRev, by)); err != nil {
-			return res, err
-		}
+		w.revisions = append(w.revisions, rev)
+		w.events = append(w.events, sourceRevisedEvent(m, oldRev, by))
 	}
 	return res, nil
 }
 
-func (s *Service) createFromUpsert(ctx context.Context, st Store, p domain.Project, it preparedItem, by domain.Author) (UpsertResult, error) {
+func (s *Service) createFromUpsert(p domain.Project, it preparedItem, by domain.Author, w *upsertWrites) (UpsertResult, error) {
 	res := UpsertResult{Key: it.Key}
 	d, ierr := it.details(domain.Details{Namespace: domain.DefaultNamespace})
 	if ierr != nil {
@@ -253,12 +281,8 @@ func (s *Service) createFromUpsert(ctx context.Context, st Store, p domain.Proje
 	if err != nil {
 		return res, err
 	}
-	if _, err := st.InsertMessage(ctx, m, first, by); err != nil {
-		return res, err
-	}
-	if err := st.Publish(ctx, messageEvent(domain.EventMessageCreated, m, by)); err != nil {
-		return res, err
-	}
+	w.inserts = append(w.inserts, MessageInsert{Message: m, First: first, By: by})
+	w.events = append(w.events, messageEvent(domain.EventMessageCreated, m, by))
 	res.Status, res.Message = UpsertCreated, &m
 	return res, nil
 }

@@ -13,7 +13,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -26,6 +25,7 @@ import (
 	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
 	integrationapp "go.klarlabs.de/glossa/platform/internal/integration/app"
 	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/buildinfo"
 	"go.klarlabs.de/glossa/platform/internal/kernel/config"
 	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 	"go.klarlabs.de/glossa/platform/internal/kernel/httpserver"
@@ -63,7 +63,7 @@ func run(ctx context.Context, args []string, lookup config.LookupFunc, stdout io
 		return err
 	}
 	logger := observability.NewLogger(stdout, cfg.LogLevel, tenantAttrs)
-	logger.InfoContext(ctx, "glossa-server starting", slog.String("version", version()), slog.String("config", cfg.String()))
+	logger.InfoContext(ctx, "glossa-server starting", slog.String("version", version()), slog.String("revision", buildinfo.Revision()), slog.String("config", cfg.String()))
 
 	if cfg.Migrate != config.MigrateOff {
 		if err := migrate(ctx, cfg, logger); err != nil || cfg.Migrate == config.MigrateOnly {
@@ -94,7 +94,7 @@ func parseFlags(args []string, lookup config.LookupFunc) (config.LookupFunc, boo
 }
 
 func migrate(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
-	m, err := db.NewMigrator(cfg.MigrationDatabaseURL.Reveal(), logger)
+	m, err := dbRetry(cfg, logger).NewMigrator(ctx, cfg.MigrationDatabaseURL.Reveal(), logger)
 	if err != nil {
 		return err
 	}
@@ -105,6 +105,13 @@ func migrate(ctx context.Context, cfg config.Config, logger *slog.Logger) error 
 	v, dirty, err := m.Version()
 	logger.InfoContext(ctx, "migrations applied", slog.Uint64("version", uint64(v)), slog.Bool("dirty", dirty))
 	return err
+}
+
+// dbRetry retries the first database connection for
+// GLOSSA_DB_CONNECT_TIMEOUT, so neither the server nor -migrate=only
+// fails on a database that is not reachable yet (#66).
+func dbRetry(cfg config.Config, logger *slog.Logger) db.Retry {
+	return db.Retry{Deadline: cfg.DBConnectTimeout, Logger: logger}
 }
 
 // app is everything serve starts and stops.
@@ -171,7 +178,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	if err != nil {
 		return nil, err
 	}
-	pool, err := db.OpenPool(ctx, cfg.DatabaseURL.Reveal(), "glossa-server")
+	pool, err := dbRetry(cfg, logger).OpenPool(ctx, cfg.DatabaseURL.Reveal(), "glossa-server")
 	if err != nil {
 		return nil, err
 	}
@@ -560,19 +567,5 @@ func tenantAttrs(ctx context.Context) []slog.Attr {
 	return nil
 }
 
-// version reports the module version or VCS revision from build info.
-func version() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "unknown"
-	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
-		return v
-	}
-	for _, s := range info.Settings {
-		if s.Key == "vcs.revision" && len(s.Value) >= 12 {
-			return s.Value[:12]
-		}
-	}
-	return "devel"
-}
+// version is the build's release version (see kernel/buildinfo).
+func version() string { return buildinfo.Version() }

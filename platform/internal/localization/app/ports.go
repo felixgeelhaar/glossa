@@ -166,4 +166,49 @@ type Store interface {
 	DeleteProjectData(ctx context.Context, project uuid.UUID) error
 
 	Publish(ctx context.Context, e outbox.Event) error
+
+	// The bulk forms of the projection and translation writes, for
+	// Catalog's bulk upsert (ProjectMessages) and bulk imports: one
+	// statement per call however many rows (#77).
+
+	// LockMessageStates locks the stored snapshots among ids, in key
+	// order, and returns them by message.
+	LockMessageStates(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]MessageState, error)
+	// SaveMessageStates stores each snapshot unless a higher version is
+	// stored; the messages must be distinct.
+	SaveMessageStates(ctx context.Context, ms []MessageState) error
+	// NewlyOutdatedFor is NewlyOutdated for several messages at once,
+	// in the order of rs, then by locale.
+	NewlyOutdatedFor(ctx context.Context, rs []RevisionRange) ([]domain.Translation, error)
+	// LockTranslations locks the stored translations among slots and
+	// returns them by slot.
+	LockTranslations(ctx context.Context, slots []TranslationSlot) (map[TranslationSlot]domain.Translation, error)
+	InsertTranslations(ctx context.Context, ts []domain.Translation) error
+	// UpdateTranslations saves each translation if its stored revision
+	// is still the expected one, and fails the call (ErrStaleVersion)
+	// otherwise.
+	UpdateTranslations(ctx context.Context, ts []TranslationUpdate) error
+	AppendRevisions(ctx context.Context, rs []domain.Revision) error
+	// PublishAll records events in order.
+	PublishAll(ctx context.Context, es []outbox.Event) error
+}
+
+// RevisionRange asks for a message's translations made against a
+// source revision in [Old, New).
+type RevisionRange struct {
+	MessageID uuid.UUID
+	Old, New  int
+}
+
+// TranslationSlot is where a translation lives: a message and a locale.
+type TranslationSlot struct {
+	MessageID uuid.UUID
+	Locale    bcp47.Tag
+}
+
+// TranslationUpdate is a translation for Store.UpdateTranslations, with
+// the revision it must still be stored at.
+type TranslationUpdate struct {
+	Translation domain.Translation
+	Expected    int
 }

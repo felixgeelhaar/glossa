@@ -157,6 +157,60 @@ func TestPublishValidatesEvent(t *testing.T) {
 	}
 }
 
+// PublishAll stores every event in one statement, in order, with the
+// same columns Publish fills; one invalid event stores none.
+func TestPublishAllStoresEveryEventInOrder(t *testing.T) {
+	f := setup(t)
+	events := make([]outbox.Event, 3)
+	for i := range events {
+		events[i] = outbox.Event{
+			Type: "catalog.source_revised", AggregateType: "message",
+			AggregateID: fmt.Sprintf("m%d", i), Actor: personActor, Payload: map[string]int{"revision": i},
+		}
+	}
+	var ids []uuid.UUID
+	err := f.uow.InTenantTx(f.ctx, func(ctx context.Context, tx *db.TenantTx) (err error) {
+		ids, err = outbox.PublishAll(ctx, tx, events)
+		return err
+	})
+	if err != nil || len(ids) != 3 {
+		t.Fatalf("PublishAll = %v, %v", ids, err)
+	}
+	rows, err := env.Super.Query(context.Background(),
+		"SELECT id, tenant_id, aggregate_id, actor, payload->>'revision', status FROM outbox_events ORDER BY id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	i := 0
+	for rows.Next() {
+		var (
+			id, tenant             uuid.UUID
+			agg, actor, rev, state string
+		)
+		if err := rows.Scan(&id, &tenant, &agg, &actor, &rev, &state); err != nil {
+			t.Fatal(err)
+		}
+		if id != ids[i] || tenant != f.tenant.UUID() || agg != fmt.Sprintf("m%d", i) || actor != string(personActor) ||
+			rev != fmt.Sprint(i) || state != "pending" {
+			t.Errorf("row %d = %s %s %s %s %s %s", i, id, tenant, agg, actor, rev, state)
+		}
+		i++
+	}
+	if i != 3 {
+		t.Fatalf("stored %d events, want 3", i)
+	}
+
+	events[1].Actor = ""
+	err = f.uow.InTenantTx(f.ctx, func(ctx context.Context, tx *db.TenantTx) error {
+		_, err := outbox.PublishAll(ctx, tx, events)
+		return err
+	})
+	if !errors.Is(err, outbox.ErrInvalidEvent) {
+		t.Errorf("PublishAll with an invalid event: err = %v, want ErrInvalidEvent", err)
+	}
+}
+
 // An event without an actor is refused by Publish, and the database
 // refuses it too: the column has no default, so a writer that bypassed
 // Publish could not file it under "unknown" either.

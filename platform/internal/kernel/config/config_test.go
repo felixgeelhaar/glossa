@@ -113,6 +113,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ShutdownTimeout != 25*time.Second {
 		t.Errorf("ShutdownTimeout = %v, want 25s", cfg.ShutdownTimeout)
 	}
+	if cfg.DBConnectTimeout != time.Minute {
+		t.Errorf("DBConnectTimeout = %v, want 1m", cfg.DBConnectTimeout)
+	}
 	if cfg.Migrate != config.MigrateOff {
 		t.Errorf("Migrate = %q, want off", cfg.Migrate)
 	}
@@ -136,6 +139,7 @@ func TestLoadOverrides(t *testing.T) {
 		"GLOSSA_HTTP_ADDR":            "127.0.0.1:9000",
 		"GLOSSA_LOG_LEVEL":            "debug",
 		"GLOSSA_SHUTDOWN_TIMEOUT":     "10s",
+		"GLOSSA_DB_CONNECT_TIMEOUT":   "2m",
 		"GLOSSA_OUTBOX_BATCH_SIZE":    "7",
 		"GLOSSA_OUTBOX_MAX_ATTEMPTS":  "4",
 		"GLOSSA_OUTBOX_ENABLED":       "false",
@@ -155,6 +159,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Errorf("ShutdownTimeout = %v", cfg.ShutdownTimeout)
+	}
+	if cfg.DBConnectTimeout != 2*time.Minute {
+		t.Errorf("DBConnectTimeout = %v, want 2m", cfg.DBConnectTimeout)
 	}
 	if cfg.Outbox.BatchSize != 7 || cfg.Outbox.MaxAttempts != 4 || cfg.Outbox.Enabled {
 		t.Errorf("Outbox = %+v", cfg.Outbox)
@@ -413,6 +420,22 @@ func TestLoadValidation(t *testing.T) {
 				"GLOSSA_SHUTDOWN_TIMEOUT": "0s",
 			},
 			wantErr: []string{"GLOSSA_SHUTDOWN_TIMEOUT: must be positive"},
+		},
+		{
+			name: "db connect timeout is bounded",
+			env: map[string]string{
+				"DATABASE_URL":              "postgres://app@db/glossa",
+				"GLOSSA_DB_CONNECT_TIMEOUT": "1h",
+			},
+			wantErr: []string{"GLOSSA_DB_CONNECT_TIMEOUT: must be at most 10m0s"},
+		},
+		{
+			name: "db connect timeout must be positive",
+			env: map[string]string{
+				"DATABASE_URL":              "postgres://app@db/glossa",
+				"GLOSSA_DB_CONNECT_TIMEOUT": "0s",
+			},
+			wantErr: []string{"GLOSSA_DB_CONNECT_TIMEOUT: must be positive"},
 		},
 	}
 	for _, tc := range tests {

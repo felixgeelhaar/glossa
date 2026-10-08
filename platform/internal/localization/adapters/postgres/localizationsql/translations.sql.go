@@ -287,6 +287,124 @@ func (q *Queries) InsertTranslationRevision(ctx context.Context, arg InsertTrans
 	return err
 }
 
+const insertTranslationRevisions = `-- name: InsertTranslationRevisions :exec
+INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
+                                                state, origin, origin_detail, author, source_revision,
+                                                findings, created_at)
+SELECT app_current_tenant(), u.translation_id, u.revision, u.kind, u.syntax, u.text, u.model, u.state,
+       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.created_at
+FROM (SELECT unnest($1::uuid[]) AS translation_id,
+        unnest($2::int[]) AS revision,
+        unnest($3::text[]) AS kind,
+        unnest($4::text[]) AS syntax,
+        unnest($5::text[]) AS text,
+        unnest($6::jsonb[]) AS model,
+        unnest($7::text[]) AS state,
+        unnest($8::text[]) AS origin,
+        unnest($9::jsonb[]) AS origin_detail,
+        unnest($10::text[]) AS author,
+        unnest($11::int[]) AS source_revision,
+        unnest($12::jsonb[]) AS findings,
+        unnest($13::timestamptz[]) AS created_at) AS u
+`
+
+type InsertTranslationRevisionsParams struct {
+	TranslationIds  []uuid.UUID
+	Revisions       []int32
+	Kinds           []string
+	Syntaxes        []string
+	Texts           []string
+	Models          []json.RawMessage
+	States          []string
+	Origins         []string
+	OriginDetails   []json.RawMessage
+	Authors         []string
+	SourceRevisions []int32
+	Findings        []json.RawMessage
+	CreatedAts      []time.Time
+}
+
+func (q *Queries) InsertTranslationRevisions(ctx context.Context, arg InsertTranslationRevisionsParams) error {
+	_, err := q.db.Exec(ctx, insertTranslationRevisions,
+		arg.TranslationIds,
+		arg.Revisions,
+		arg.Kinds,
+		arg.Syntaxes,
+		arg.Texts,
+		arg.Models,
+		arg.States,
+		arg.Origins,
+		arg.OriginDetails,
+		arg.Authors,
+		arg.SourceRevisions,
+		arg.Findings,
+		arg.CreatedAts,
+	)
+	return err
+}
+
+const insertTranslations = `-- name: InsertTranslations :exec
+INSERT INTO localization_translations (id, tenant_id, project_id, message_id, locale, syntax, text, model,
+                                       state, origin, author, source_revision, warnings, revision,
+                                       created_at, updated_at)
+SELECT u.id, app_current_tenant(), u.project_id, u.message_id, u.locale, u.syntax, u.text, u.model,
+       u.state, u.origin, u.author, u.source_revision, u.warnings, u.revision, u.created_at, u.updated_at
+FROM (SELECT unnest($1::uuid[]) AS id,
+        unnest($2::uuid[]) AS project_id,
+        unnest($3::uuid[]) AS message_id,
+        unnest($4::text[]) AS locale,
+        unnest($5::text[]) AS syntax,
+        unnest($6::text[]) AS text,
+        unnest($7::jsonb[]) AS model,
+        unnest($8::text[]) AS state,
+        unnest($9::text[]) AS origin,
+        unnest($10::text[]) AS author,
+        unnest($11::int[]) AS source_revision,
+        unnest($12::jsonb[]) AS warnings,
+        unnest($13::int[]) AS revision,
+        unnest($14::timestamptz[]) AS created_at,
+        unnest($15::timestamptz[]) AS updated_at) AS u
+`
+
+type InsertTranslationsParams struct {
+	Ids             []uuid.UUID
+	ProjectIds      []uuid.UUID
+	MessageIds      []uuid.UUID
+	Locales         []string
+	Syntaxes        []string
+	Texts           []string
+	Models          []json.RawMessage
+	States          []string
+	Origins         []string
+	Authors         []string
+	SourceRevisions []int32
+	Warnings        []json.RawMessage
+	Revisions       []int32
+	CreatedAts      []time.Time
+	UpdatedAts      []time.Time
+}
+
+func (q *Queries) InsertTranslations(ctx context.Context, arg InsertTranslationsParams) error {
+	_, err := q.db.Exec(ctx, insertTranslations,
+		arg.Ids,
+		arg.ProjectIds,
+		arg.MessageIds,
+		arg.Locales,
+		arg.Syntaxes,
+		arg.Texts,
+		arg.Models,
+		arg.States,
+		arg.Origins,
+		arg.Authors,
+		arg.SourceRevisions,
+		arg.Warnings,
+		arg.Revisions,
+		arg.CreatedAts,
+		arg.UpdatedAts,
+	)
+	return err
+}
+
 const leadTimeSamples = `-- name: LeadTimeSamples :many
 SELECT t.locale, m.updated_at AS source_changed_at, min(r.created_at)::timestamptz AS translated_at
 FROM localization_messages m
@@ -514,6 +632,45 @@ func (q *Queries) LockMessageState(ctx context.Context, messageID uuid.UUID) (Lo
 	return i, err
 }
 
+const lockMessageStates = `-- name: LockMessageStates :many
+SELECT tenant_id, message_id, project_id, key, namespace, state, source_revision, version, updated_at FROM localization_messages
+WHERE message_id = ANY ($1::uuid[])
+ORDER BY key, message_id
+FOR UPDATE
+`
+
+// The bulk form of LockMessageState, in key order: the order every bulk
+// writer locks in.
+func (q *Queries) LockMessageStates(ctx context.Context, messageIds []uuid.UUID) ([]LocalizationMessage, error) {
+	rows, err := q.db.Query(ctx, lockMessageStates, messageIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LocalizationMessage
+	for rows.Next() {
+		var i LocalizationMessage
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.MessageID,
+			&i.ProjectID,
+			&i.Key,
+			&i.Namespace,
+			&i.State,
+			&i.SourceRevision,
+			&i.Version,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockTranslation = `-- name: LockTranslation :one
 SELECT id, tenant_id, project_id, message_id, locale, syntax, text, model, state, origin, author, source_revision, warnings, revision, created_at, updated_at FROM localization_translations
 WHERE message_id = $1 AND locale = $2
@@ -547,6 +704,63 @@ func (q *Queries) LockTranslation(ctx context.Context, arg LockTranslationParams
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const lockTranslationsFor = `-- name: LockTranslationsFor :many
+
+SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text, t.model, t.state, t.origin, t.author, t.source_revision, t.warnings, t.revision, t.created_at, t.updated_at FROM localization_translations t
+JOIN (SELECT unnest($1::uuid[]) AS message_id,
+        unnest($2::text[]) AS locale) AS u
+  ON t.message_id = u.message_id AND t.locale = u.locale
+ORDER BY t.message_id, t.locale
+FOR UPDATE OF t
+`
+
+type LockTranslationsForParams struct {
+	MessageIds []uuid.UUID
+	Locales    []string
+}
+
+// ── bulk writes ────────────────────────────────────────────────────
+// A bulk import writes all its rows in one statement per table instead
+// of one round trip per item (#77); parallel arrays, one element per
+// row.
+// The bulk form of LockTranslation for (message, locale) pairs.
+func (q *Queries) LockTranslationsFor(ctx context.Context, arg LockTranslationsForParams) ([]LocalizationTranslation, error) {
+	rows, err := q.db.Query(ctx, lockTranslationsFor, arg.MessageIds, arg.Locales)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LocalizationTranslation
+	for rows.Next() {
+		var i LocalizationTranslation
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.MessageID,
+			&i.Locale,
+			&i.Syntax,
+			&i.Text,
+			&i.Model,
+			&i.State,
+			&i.Origin,
+			&i.Author,
+			&i.SourceRevision,
+			&i.Warnings,
+			&i.Revision,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const messagesMissingIn = `-- name: MessagesMissingIn :many
@@ -682,6 +896,63 @@ type NewlyOutdatedTranslationsParams struct {
 // new_revision.
 func (q *Queries) NewlyOutdatedTranslations(ctx context.Context, arg NewlyOutdatedTranslationsParams) ([]LocalizationTranslation, error) {
 	rows, err := q.db.Query(ctx, newlyOutdatedTranslations, arg.MessageID, arg.OldRevision, arg.NewRevision)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LocalizationTranslation
+	for rows.Next() {
+		var i LocalizationTranslation
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.ProjectID,
+			&i.MessageID,
+			&i.Locale,
+			&i.Syntax,
+			&i.Text,
+			&i.Model,
+			&i.State,
+			&i.Origin,
+			&i.Author,
+			&i.SourceRevision,
+			&i.Warnings,
+			&i.Revision,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const newlyOutdatedTranslationsFor = `-- name: NewlyOutdatedTranslationsFor :many
+SELECT t.id, t.tenant_id, t.project_id, t.message_id, t.locale, t.syntax, t.text, t.model, t.state, t.origin, t.author, t.source_revision, t.warnings, t.revision, t.created_at, t.updated_at FROM localization_translations t
+JOIN (SELECT unnest($1::uuid[]) AS message_id,
+        unnest($2::int[]) AS old_revision,
+        unnest($3::int[]) AS new_revision,
+        generate_series(1, cardinality($1::uuid[])) AS ord) AS u
+  ON t.message_id = u.message_id
+WHERE t.source_revision >= u.old_revision AND t.source_revision < u.new_revision
+ORDER BY u.ord, t.locale
+`
+
+type NewlyOutdatedTranslationsForParams struct {
+	MessageIds   []uuid.UUID
+	OldRevisions []int32
+	NewRevisions []int32
+}
+
+// The bulk form of NewlyOutdatedTranslations: per message, the
+// translations current at its old revision and behind its new one, in
+// the order of the arrays, then by locale.
+func (q *Queries) NewlyOutdatedTranslationsFor(ctx context.Context, arg NewlyOutdatedTranslationsForParams) ([]LocalizationTranslation, error) {
+	rows, err := q.db.Query(ctx, newlyOutdatedTranslationsFor, arg.MessageIds, arg.OldRevisions, arg.NewRevisions)
 	if err != nil {
 		return nil, err
 	}
@@ -1050,6 +1321,63 @@ func (q *Queries) UpdateTranslation(ctx context.Context, arg UpdateTranslationPa
 	return result.RowsAffected(), nil
 }
 
+const updateTranslations = `-- name: UpdateTranslations :execrows
+UPDATE localization_translations t
+SET syntax = u.syntax, text = u.text, model = u.model, state = u.state, origin = u.origin, author = u.author,
+    source_revision = u.source_revision, warnings = u.warnings, revision = u.revision, updated_at = u.updated_at
+FROM (SELECT unnest($1::uuid[]) AS id,
+        unnest($2::text[]) AS syntax,
+        unnest($3::text[]) AS text,
+        unnest($4::jsonb[]) AS model,
+        unnest($5::text[]) AS state,
+        unnest($6::text[]) AS origin,
+        unnest($7::text[]) AS author,
+        unnest($8::int[]) AS source_revision,
+        unnest($9::jsonb[]) AS warnings,
+        unnest($10::int[]) AS revision,
+        unnest($11::timestamptz[]) AS updated_at,
+        unnest($12::int[]) AS expected_revision) AS u
+WHERE t.id = u.id AND t.revision = u.expected_revision
+`
+
+type UpdateTranslationsParams struct {
+	Ids               []uuid.UUID
+	Syntaxes          []string
+	Texts             []string
+	Models            []json.RawMessage
+	States            []string
+	Origins           []string
+	Authors           []string
+	SourceRevisions   []int32
+	Warnings          []json.RawMessage
+	Revisions         []int32
+	UpdatedAts        []time.Time
+	ExpectedRevisions []int32
+}
+
+// Each row only if its stored revision is still the expected one; the
+// caller compares the count with the number of rows.
+func (q *Queries) UpdateTranslations(ctx context.Context, arg UpdateTranslationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateTranslations,
+		arg.Ids,
+		arg.Syntaxes,
+		arg.Texts,
+		arg.Models,
+		arg.States,
+		arg.Origins,
+		arg.Authors,
+		arg.SourceRevisions,
+		arg.Warnings,
+		arg.Revisions,
+		arg.UpdatedAts,
+		arg.ExpectedRevisions,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertMessageState = `-- name: UpsertMessageState :execrows
 INSERT INTO localization_messages (tenant_id, message_id, project_id, key, namespace, state,
                                    source_revision, version, updated_at)
@@ -1085,6 +1413,55 @@ func (q *Queries) UpsertMessageState(ctx context.Context, arg UpsertMessageState
 		arg.SourceRevision,
 		arg.Version,
 		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertMessageStates = `-- name: UpsertMessageStates :execrows
+INSERT INTO localization_messages (tenant_id, message_id, project_id, key, namespace, state,
+                                   source_revision, version, updated_at)
+SELECT app_current_tenant(), u.message_id, u.project_id, u.key, u.namespace, u.state,
+       u.source_revision, u.version, u.updated_at
+FROM (SELECT unnest($1::uuid[]) AS message_id,
+        unnest($2::uuid[]) AS project_id,
+        unnest($3::text[]) AS key,
+        unnest($4::text[]) AS namespace,
+        unnest($5::text[]) AS state,
+        unnest($6::int[]) AS source_revision,
+        unnest($7::int[]) AS version,
+        unnest($8::timestamptz[]) AS updated_at) AS u
+ON CONFLICT (message_id) DO UPDATE
+SET key = EXCLUDED.key, namespace = EXCLUDED.namespace, state = EXCLUDED.state,
+    source_revision = GREATEST(localization_messages.source_revision, EXCLUDED.source_revision),
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at
+WHERE localization_messages.version < EXCLUDED.version
+`
+
+type UpsertMessageStatesParams struct {
+	MessageIds      []uuid.UUID
+	ProjectIds      []uuid.UUID
+	Keys            []string
+	Namespaces      []string
+	States          []string
+	SourceRevisions []int32
+	Versions        []int32
+	UpdatedAts      []time.Time
+}
+
+// The bulk form of UpsertMessageState; message_ids must be distinct.
+func (q *Queries) UpsertMessageStates(ctx context.Context, arg UpsertMessageStatesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertMessageStates,
+		arg.MessageIds,
+		arg.ProjectIds,
+		arg.Keys,
+		arg.Namespaces,
+		arg.States,
+		arg.SourceRevisions,
+		arg.Versions,
+		arg.UpdatedAts,
 	)
 	if err != nil {
 		return 0, err

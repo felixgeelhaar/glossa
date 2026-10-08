@@ -99,3 +99,72 @@ LIMIT sqlc.arg(max_rows);
 -- name: GetSourceRevision :one
 SELECT * FROM catalog_source_revisions
 WHERE message_id = sqlc.arg(message_id) AND revision = sqlc.arg(revision);
+
+-- ── bulk writes ────────────────────────────────────────────────────
+-- A bulk upsert writes all its rows in one statement per table instead
+-- of one round trip per message (#77). Each takes parallel arrays, one
+-- element per row. max_lengths uses 0 for "no limit": the column only
+-- admits 1..100000.
+
+-- name: InsertMessages :execrows
+-- ON CONFLICT (id) as in InsertMessage.
+INSERT INTO catalog_messages (id, tenant_id, project_id, key, namespace, description, max_length,
+                              state, source_syntax, source_text, source_model, arguments, markup,
+                              source_revision, version, created_by, created_at, updated_at)
+SELECT u.id, app_current_tenant(), u.project_id, u.key, u.namespace, u.description, nullif(u.max_length, 0),
+       u.state, u.source_syntax, u.source_text, u.source_model, u.arguments, u.markup,
+       u.source_revision, u.version, u.created_by, u.created_at, u.updated_at
+FROM (SELECT unnest(sqlc.arg(ids)::uuid[]) AS id,
+        unnest(sqlc.arg(project_ids)::uuid[]) AS project_id,
+        unnest(sqlc.arg(keys)::text[]) AS key,
+        unnest(sqlc.arg(namespaces)::text[]) AS namespace,
+        unnest(sqlc.arg(descriptions)::text[]) AS description,
+        unnest(sqlc.arg(max_lengths)::int[]) AS max_length,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(source_syntaxes)::text[]) AS source_syntax,
+        unnest(sqlc.arg(source_texts)::text[]) AS source_text,
+        unnest(sqlc.arg(source_models)::jsonb[]) AS source_model,
+        unnest(sqlc.arg(arguments)::jsonb[]) AS arguments,
+        unnest(sqlc.arg(markups)::jsonb[]) AS markup,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(versions)::int[]) AS version,
+        unnest(sqlc.arg(created_bys)::text[]) AS created_by,
+        unnest(sqlc.arg(created_ats)::timestamptz[]) AS created_at,
+        unnest(sqlc.arg(updated_ats)::timestamptz[]) AS updated_at) AS u
+ON CONFLICT (id) DO NOTHING;
+
+-- name: UpdateMessages :execrows
+-- Each row only if its stored version is still the expected one; the
+-- caller compares the count with the number of rows.
+UPDATE catalog_messages m
+SET key = u.key, namespace = u.namespace, description = u.description, max_length = nullif(u.max_length, 0),
+    state = u.state, source_syntax = u.source_syntax, source_text = u.source_text,
+    source_model = u.source_model, arguments = u.arguments, markup = u.markup,
+    source_revision = u.source_revision, version = u.version, updated_at = u.updated_at
+FROM (SELECT unnest(sqlc.arg(ids)::uuid[]) AS id,
+        unnest(sqlc.arg(keys)::text[]) AS key,
+        unnest(sqlc.arg(namespaces)::text[]) AS namespace,
+        unnest(sqlc.arg(descriptions)::text[]) AS description,
+        unnest(sqlc.arg(max_lengths)::int[]) AS max_length,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(source_syntaxes)::text[]) AS source_syntax,
+        unnest(sqlc.arg(source_texts)::text[]) AS source_text,
+        unnest(sqlc.arg(source_models)::jsonb[]) AS source_model,
+        unnest(sqlc.arg(arguments)::jsonb[]) AS arguments,
+        unnest(sqlc.arg(markups)::jsonb[]) AS markup,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(versions)::int[]) AS version,
+        unnest(sqlc.arg(updated_ats)::timestamptz[]) AS updated_at,
+        unnest(sqlc.arg(expected_versions)::int[]) AS expected_version) AS u
+WHERE m.id = u.id AND m.version = u.expected_version;
+
+-- name: InsertSourceRevisions :exec
+INSERT INTO catalog_source_revisions (tenant_id, message_id, revision, syntax, text, model, author, created_at)
+SELECT app_current_tenant(), u.message_id, u.revision, u.syntax, u.text, u.model, u.author, u.created_at
+FROM (SELECT unnest(sqlc.arg(message_ids)::uuid[]) AS message_id,
+        unnest(sqlc.arg(revisions)::int[]) AS revision,
+        unnest(sqlc.arg(syntaxes)::text[]) AS syntax,
+        unnest(sqlc.arg(texts)::text[]) AS text,
+        unnest(sqlc.arg(models)::jsonb[]) AS model,
+        unnest(sqlc.arg(authors)::text[]) AS author,
+        unnest(sqlc.arg(created_ats)::timestamptz[]) AS created_at) AS u;

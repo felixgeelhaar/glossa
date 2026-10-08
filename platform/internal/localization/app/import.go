@@ -10,6 +10,7 @@ import (
 	"go.klarlabs.de/glossa/platform/internal/identity/authz"
 	"go.klarlabs.de/glossa/platform/internal/kernel/bcp47"
 	"go.klarlabs.de/glossa/platform/internal/kernel/mfcontent"
+	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 	"go.klarlabs.de/glossa/platform/internal/localization/domain"
 
 	"github.com/google/uuid"
@@ -120,12 +121,13 @@ func (s *Service) ImportTranslationsWith(ctx context.Context, project uuid.UUID,
 		for _, l := range locales {
 			known[l.Code] = true
 		}
-		seen := map[string]bool{}
+		seen := map[TranslationSlot]bool{}
+		var writes []int // indexes of the items that write
 		for i, cmd := range cmds {
 			if cmd == nil {
 				continue
 			}
-			slot := cmd.msg.ID.String() + "\x00" + cmd.locale.String()
+			slot := TranslationSlot{MessageID: cmd.msg.ID, Locale: cmd.locale}
 			switch {
 			case !known[cmd.locale]:
 				results[i].Error = &ItemError{Code: "locale_not_found", Detail: "the project has no locale " + cmd.locale.String()}
@@ -135,16 +137,10 @@ func (s *Service) ImportTranslationsWith(ctx context.Context, project uuid.UUID,
 				continue
 			}
 			seen[slot] = true
-			t, status, err := s.write(ctx, st, *cmd)
-			if ierr := importError(err); ierr != nil {
-				results[i].Error = ierr
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			results[i].Status = status
-			results[i].Translation = &TranslationView{Translation: t, CurrentSourceRevision: cmd.msg.Revision}
+			writes = append(writes, i)
+		}
+		if err := s.writeAll(ctx, st, cmds, writes, results); err != nil {
+			return err
 		}
 		if opts.DryRun {
 			return errDryRun
@@ -155,6 +151,77 @@ func (s *Service) ImportTranslationsWith(ctx context.Context, project uuid.UUID,
 		err = nil
 	}
 	return results, err
+}
+
+// writeAll is write for the items at writes, in a few statements
+// however many there are (#77): it brings the message projection up to
+// the sources the items read, locks their translations in one read,
+// decides each item in memory, and stores the outcome in one statement
+// per table and one outbox insert. A client error fails its item only.
+func (s *Service) writeAll(ctx context.Context, st Store, cmds []*writeCmd, writes []int, results []ImportResult) error {
+	if len(writes) == 0 {
+		return nil
+	}
+	// As write does, each message's projection first, sparing the locale
+	// of its first item: the translation this import brings current.
+	var states []MessageState
+	except := map[uuid.UUID]bcp47.Tag{}
+	slots := make([]TranslationSlot, len(writes))
+	for j, i := range writes {
+		cmd := cmds[i]
+		if _, ok := except[cmd.msg.ID]; !ok {
+			except[cmd.msg.ID] = cmd.locale
+			states = append(states, stateOf(cmd.msg))
+		}
+		slots[j] = TranslationSlot{MessageID: cmd.msg.ID, Locale: cmd.locale}
+	}
+	if err := s.applyMessageStates(ctx, st, states, except, projectionActor); err != nil {
+		return err
+	}
+	stored, err := st.LockTranslations(ctx, slots)
+	if err != nil {
+		return err
+	}
+	var (
+		inserts []domain.Translation
+		updates []TranslationUpdate
+		revs    []domain.Revision
+		events  []outbox.Event
+	)
+	for j, i := range writes {
+		cmd := *cmds[i]
+		policy := domain.WritePolicy{ReviewRequired: cmd.project.ReviewRequired, Flow: s.flow}
+		t, found := stored[slots[j]]
+		o, err := s.decide(cmd, policy, t, found)
+		if ierr := importError(err); ierr != nil {
+			results[i].Error = ierr
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if o.rev != nil {
+			if o.created {
+				inserts = append(inserts, o.t)
+			} else {
+				updates = append(updates, TranslationUpdate{Translation: o.t, Expected: o.expected})
+			}
+			revs = append(revs, *o.rev)
+			events = append(events, revisionEvent(o.t, *o.rev))
+		}
+		results[i].Status = o.status
+		results[i].Translation = &TranslationView{Translation: o.t, CurrentSourceRevision: cmd.msg.Revision}
+	}
+	if err := st.InsertTranslations(ctx, inserts); err != nil {
+		return err
+	}
+	if err := st.UpdateTranslations(ctx, updates); err != nil {
+		return err
+	}
+	if err := st.AppendRevisions(ctx, revs); err != nil {
+		return err
+	}
+	return st.PublishAll(ctx, events)
 }
 
 // prepareImport checks one item. Client mistakes become item errors;

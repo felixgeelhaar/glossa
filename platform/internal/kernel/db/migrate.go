@@ -23,15 +23,16 @@ type Migrator struct {
 	logger *slog.Logger
 }
 
-// NewMigrator connects to dsn and prepares the embedded migrations.
+// NewMigrator connects to dsn, once, and prepares the embedded
+// migrations. Retry.NewMigrator retries the connection.
 func NewMigrator(dsn string, logger *slog.Logger) (*Migrator, error) {
 	src, err := iofs.New(migrations.FS, ".")
 	if err != nil {
-		return nil, fmt.Errorf("db: load embedded migrations: %w", err)
+		return nil, permanent(fmt.Errorf("db: load embedded migrations: %w", err))
 	}
 	sqlDB, err := sql.Open("pgx/v5", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("db: open migration connection: %w", err)
+		return nil, permanent(fmt.Errorf("db: open migration connection: %w", err))
 	}
 	driver, err := pgxmigrate.WithInstance(sqlDB, &pgxmigrate.Config{})
 	if err != nil {
@@ -41,7 +42,7 @@ func NewMigrator(dsn string, logger *slog.Logger) (*Migrator, error) {
 	m, err := migrate.NewWithInstance("iofs", src, "pgx5", driver)
 	if err != nil {
 		_ = driver.Close()
-		return nil, fmt.Errorf("db: init migrator: %w", err)
+		return nil, permanent(fmt.Errorf("db: init migrator: %w", err))
 	}
 	m.Log = migrateLogger{logger}
 	return &Migrator{m: m, logger: logger}, nil
