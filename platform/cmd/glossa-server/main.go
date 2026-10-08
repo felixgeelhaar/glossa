@@ -13,7 +13,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -26,6 +25,7 @@ import (
 	identityapp "go.klarlabs.de/glossa/platform/internal/identity/app"
 	integrationapp "go.klarlabs.de/glossa/platform/internal/integration/app"
 	intelligenceapp "go.klarlabs.de/glossa/platform/internal/intelligence/app"
+	"go.klarlabs.de/glossa/platform/internal/kernel/buildinfo"
 	"go.klarlabs.de/glossa/platform/internal/kernel/config"
 	"go.klarlabs.de/glossa/platform/internal/kernel/db"
 	"go.klarlabs.de/glossa/platform/internal/kernel/httpserver"
@@ -63,7 +63,7 @@ func run(ctx context.Context, args []string, lookup config.LookupFunc, stdout io
 		return err
 	}
 	logger := observability.NewLogger(stdout, cfg.LogLevel, tenantAttrs)
-	logger.InfoContext(ctx, "glossa-server starting", slog.String("version", version()), slog.String("config", cfg.String()))
+	logger.InfoContext(ctx, "glossa-server starting", slog.String("version", version()), slog.String("revision", buildinfo.Revision()), slog.String("config", cfg.String()))
 
 	if cfg.Migrate != config.MigrateOff {
 		if err := migrate(ctx, cfg, logger); err != nil || cfg.Migrate == config.MigrateOnly {
@@ -560,19 +560,5 @@ func tenantAttrs(ctx context.Context) []slog.Attr {
 	return nil
 }
 
-// version reports the module version or VCS revision from build info.
-func version() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "unknown"
-	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
-		return v
-	}
-	for _, s := range info.Settings {
-		if s.Key == "vcs.revision" && len(s.Value) >= 12 {
-			return s.Value[:12]
-		}
-	}
-	return "devel"
-}
+// version is the build's release version (see kernel/buildinfo).
+func version() string { return buildinfo.Version() }

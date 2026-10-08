@@ -30,10 +30,18 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY messageformat/ /src/messageformat/
 COPY runtimes/go/ /src/runtimes/go/
 COPY platform/ /src/platform/
+# The release version and source revision, linked into the binary so
+# `-version` and the startup log report them (kernel/buildinfo, #65).
+# Declared here, not at the top of the stage, so a new version does not
+# invalidate the cached module download.
+ARG VERSION=dev
+ARG REVISION=unknown
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -buildvcs=false -ldflags="-s -w" -o /out/glossa-edge ./cmd/glossa-edge
+    go build -buildvcs=false \
+      -ldflags="-s -w -X go.klarlabs.de/glossa/platform/internal/kernel/buildinfo.version=${VERSION} -X go.klarlabs.de/glossa/platform/internal/kernel/buildinfo.revision=${REVISION}" \
+      -o /out/glossa-edge ./cmd/glossa-edge
 
 # ── Runtime ──────────────────────────────────────────────────────────
 # distroless/static, nonroot (65532), read-only root filesystem friendly:
