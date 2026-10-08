@@ -138,6 +138,7 @@ The server refuses to start if `DATABASE_URL` is a superuser or
 | `GLOSSA_HTTP_READ_HEADER_TIMEOUT` / `_READ_TIMEOUT` / `_WRITE_TIMEOUT` / `_IDLE_TIMEOUT` | `5s` / `30s` / `30s` / `120s` | Server timeouts. |
 | `GLOSSA_HTTP_MAX_BODY_BYTES` | `1048576` | Request body cap. |
 | `GLOSSA_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
+| `GLOSSA_DB_CONNECT_TIMEOUT` | `60s` | How long the server and `-migrate=only` retry the first database connection (exponential backoff, each attempt logged) before giving up. At most `10m`. |
 | `GLOSSA_SHUTDOWN_TIMEOUT` | `25s` | Drain budget after SIGTERM. Keep it below the pod's grace period. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Turns on OTLP/HTTP trace export. The other `OTEL_*` variables apply. |
 | `OTEL_SERVICE_NAME` | `glossa-server` | Trace resource name. |

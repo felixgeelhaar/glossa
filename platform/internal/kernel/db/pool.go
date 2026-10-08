@@ -17,12 +17,13 @@ import (
 // security does not bind (a superuser or a BYPASSRLS role).
 var ErrRLSBypassed = errors.New("db: application role bypasses row-level security")
 
-// OpenPool opens and pings a pgx pool. Pool sizing comes from the DSN
-// (pool_max_conns, pool_min_conns, …) so it stays 12-factor.
+// OpenPool opens and pings a pgx pool, once. Pool sizing comes from the
+// DSN (pool_max_conns, pool_min_conns, …) so it stays 12-factor.
+// Retry.OpenPool retries it.
 func OpenPool(ctx context.Context, dsn, applicationName string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("db: parse DSN: %w", err)
+		return nil, permanent(fmt.Errorf("db: parse DSN: %w", err))
 	}
 	if applicationName != "" {
 		cfg.ConnConfig.RuntimeParams["application_name"] = applicationName

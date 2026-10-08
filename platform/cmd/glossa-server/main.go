@@ -94,7 +94,7 @@ func parseFlags(args []string, lookup config.LookupFunc) (config.LookupFunc, boo
 }
 
 func migrate(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
-	m, err := db.NewMigrator(cfg.MigrationDatabaseURL.Reveal(), logger)
+	m, err := dbRetry(cfg, logger).NewMigrator(ctx, cfg.MigrationDatabaseURL.Reveal(), logger)
 	if err != nil {
 		return err
 	}
@@ -105,6 +105,13 @@ func migrate(ctx context.Context, cfg config.Config, logger *slog.Logger) error 
 	v, dirty, err := m.Version()
 	logger.InfoContext(ctx, "migrations applied", slog.Uint64("version", uint64(v)), slog.Bool("dirty", dirty))
 	return err
+}
+
+// dbRetry retries the first database connection for
+// GLOSSA_DB_CONNECT_TIMEOUT, so neither the server nor -migrate=only
+// fails on a database that is not reachable yet (#66).
+func dbRetry(cfg config.Config, logger *slog.Logger) db.Retry {
+	return db.Retry{Deadline: cfg.DBConnectTimeout, Logger: logger}
 }
 
 // app is everything serve starts and stops.
@@ -171,7 +178,7 @@ func build(ctx context.Context, cfg config.Config, logger *slog.Logger, lookup c
 	if err != nil {
 		return nil, err
 	}
-	pool, err := db.OpenPool(ctx, cfg.DatabaseURL.Reveal(), "glossa-server")
+	pool, err := dbRetry(cfg, logger).OpenPool(ctx, cfg.DatabaseURL.Reveal(), "glossa-server")
 	if err != nil {
 		return nil, err
 	}

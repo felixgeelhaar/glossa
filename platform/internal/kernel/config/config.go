@@ -85,6 +85,14 @@ type Outbox struct {
 	HandlerTimeout time.Duration
 }
 
+// DefaultDBConnectTimeout is GLOSSA_DB_CONNECT_TIMEOUT's default, and
+// MaxDBConnectTimeout its upper bound: past it, an orchestrator's
+// restart is the better retry.
+const (
+	DefaultDBConnectTimeout = 60 * time.Second
+	MaxDBConnectTimeout     = 10 * time.Minute
+)
+
 // Config is the complete, validated configuration.
 type Config struct {
 	// DatabaseURL is the application role's DSN (NOSUPERUSER,
@@ -94,23 +102,28 @@ type Config struct {
 	// migrations. Required when Migrate is up or only.
 	MigrationDatabaseURL Secret
 	Migrate              MigrateMode
-	HTTP                 HTTP
-	LogLevel             slog.Level
-	ShutdownTimeout      time.Duration
-	OTel                 OTel
-	Outbox               Outbox
-	Identity             Identity
-	Storage              Storage
-	Release              Release
-	Intelligence         Intelligence
-	Integration          Integration
-	Purge                Purge
-	Branches             Branches
-	Context              Context
-	GitHub               GitHub
-	MCP                  MCP
-	Audit                Audit
-	Workflow             Workflow
+	// DBConnectTimeout bounds the retry of the first database connection
+	// at startup and in -migrate=only (#66): a database that is still
+	// starting, or a pod whose network policy is not programmed yet,
+	// delays startup instead of failing it.
+	DBConnectTimeout time.Duration
+	HTTP             HTTP
+	LogLevel         slog.Level
+	ShutdownTimeout  time.Duration
+	OTel             OTel
+	Outbox           Outbox
+	Identity         Identity
+	Storage          Storage
+	Release          Release
+	Intelligence     Intelligence
+	Integration      Integration
+	Purge            Purge
+	Branches         Branches
+	Context          Context
+	GitHub           GitHub
+	MCP              MCP
+	Audit            Audit
+	Workflow         Workflow
 }
 
 // Workflow configures the Workflow context's housekeeping (RFC 0006
@@ -372,8 +385,8 @@ func decodeKey(s string) ([]byte, error) {
 // String renders the configuration with secrets redacted.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"database=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d purge=%s mcp=%t",
-		c.DatabaseURL, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
+		"database=%s db_connect_timeout=%s migrate=%s http=%s log=%s shutdown=%s otel=%q outbox=%t storage=%s ai_workers=%d purge=%s mcp=%t",
+		c.DatabaseURL, c.DBConnectTimeout, c.Migrate, c.HTTP.Addr, c.LogLevel, c.ShutdownTimeout,
 		c.OTel.Endpoint, c.Outbox.Enabled, c.Storage.Driver, c.aiWorkers(), c.purge(), c.MCP.Enabled,
 	)
 }
@@ -403,6 +416,7 @@ func Load(lookup LookupFunc) (Config, error) {
 		HTTP:                 r.http(":8080"),
 		LogLevel:             r.logLevel("GLOSSA_LOG_LEVEL"),
 		ShutdownTimeout:      r.duration("GLOSSA_SHUTDOWN_TIMEOUT", 25*time.Second),
+		DBConnectTimeout:     r.duration("GLOSSA_DB_CONNECT_TIMEOUT", DefaultDBConnectTimeout),
 		OTel: OTel{
 			Endpoint:    r.str("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 			ServiceName: r.str("OTEL_SERVICE_NAME", "glossa-server"),
@@ -522,6 +536,9 @@ func (c Config) validate(r *reader) {
 	}
 	if c.Outbox.Lease <= c.Outbox.HandlerTimeout {
 		r.fail("GLOSSA_OUTBOX_LEASE", "must be longer than GLOSSA_OUTBOX_HANDLER_TIMEOUT")
+	}
+	if c.DBConnectTimeout > MaxDBConnectTimeout {
+		r.fail("GLOSSA_DB_CONNECT_TIMEOUT", "must be at most %s", MaxDBConnectTimeout)
 	}
 	if c.Intelligence.Lease <= c.Intelligence.JobTimeout {
 		r.fail("GLOSSA_AI_JOB_LEASE", "must be longer than GLOSSA_AI_JOB_TIMEOUT")

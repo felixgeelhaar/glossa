@@ -47,8 +47,11 @@ spec:
       {{- with (include "gp.scheduling" (dict "root" $ "values" $v) | trim) }}{{ . | nindent 6 }}{{ end }}
       {{- if .Values.postgres.enabled }}
       # A new pod's first connections can be refused for a moment while
-      # its network policy is programmed (k3s), and the migration does not
-      # retry: wait until the in-namespace Postgres answers, at most 60 s.
+      # its network policy is programmed (k3s): wait until the in-namespace
+      # Postgres answers, at most 60 s. glossa-server retries the connection
+      # itself since #66 (GLOSSA_DB_CONNECT_TIMEOUT); this stays as belt and
+      # braces, because the chart can pin a server image older than that
+      # retry and a cold Postgres would otherwise burn the Job's attempts.
       initContainers:
         - name: wait-for-postgres
           image: {{ include "gp.externalImage" (dict "image" .Values.postgres.image) }}
