@@ -103,6 +103,12 @@ function virtualModules(values: Record<string, unknown>) {
   };
 }
 
+/** `requireRelease`, else the `GLOSSA_REQUIRE_RELEASE` environment variable (`1` or `true`), else off. */
+export function requireRelease(options: Pick<GlossaAstroOptions, "requireRelease">): boolean {
+  if (options.requireRelease !== undefined) return options.requireRelease;
+  return ["1", "true"].includes(process.env.GLOSSA_REQUIRE_RELEASE?.toLowerCase() ?? "");
+}
+
 export default function glossa(options: GlossaAstroOptions = {}): AstroIntegration {
   return {
     name: "@klarlabs-studio/glossa-astro",
@@ -131,6 +137,10 @@ export default function glossa(options: GlossaAstroOptions = {}): AstroIntegrati
         if (release) {
           const { id, version } = release.manifest.release;
           logger.info(`rendering with release ${id} (version ${version})`);
+        } else if (requireRelease(options)) {
+          throw new Error(
+            "@klarlabs-studio/glossa-astro: requireRelease is on but no release was loaded: set `release`, or `edge` and `deliveryKey` (is GLOSSA_DELIVERY_KEY unset in this build?). Pages would ship their inline defaults.",
+          );
         } else {
           logger.warn(
             "no release configured (release, or edge + deliveryKey): pages render their inline defaults",

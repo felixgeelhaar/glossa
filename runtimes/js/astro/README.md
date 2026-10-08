@@ -31,6 +31,7 @@ export default defineConfig({
 | `environment` | `production` | The release has to be for this environment. |
 | `publicKeys` | none | Trusted signing keys, `[{ keyId, key }]`. |
 | `release` | the edge's | A `glossa pull --release` directory (relative to the project root), or a `{ manifest, artifacts }` object. A directory holds `manifest.json` and `a/<sha256>.json`, which mirror the edge's paths. |
+| `requireRelease` | off; `GLOSSA_REQUIRE_RELEASE=1` turns it on when unset | Fails the build, instead of warning, when no release could be loaded (no `release`, and no `edge` + `deliveryKey`). See [Production builds](#production-builds). |
 | `locales`, `defaultLocale` | Astro's `i18n`, then the release | The locales the site renders. |
 | `prerender` | `"static"` | Controls rendering of `<glossa-*>` elements into the HTML: `"static"` does it on prerendered pages; `"all"` also does it on on-demand pages, which buffers them instead of streaming; `false` turns it off. |
 | `inline` | `"auto"` | Controls inlining of the page locale's release slice, the manifest plus that locale's fallback-chain artifacts, as `<script type="application/json" id="glossa-release">`: `"auto"` inlines it on pages that have islands or providers, `"always"` on every page, `"never"` nowhere. |
@@ -45,6 +46,27 @@ set, and every artifact's SHA-256. If the release can't be loaded completely,
 **the build fails**, because a static site must not quietly ship its inline
 defaults. With no release configured, the build logs a warning and pages
 render their inline defaults.
+
+### Production builds
+
+With no key, `glossa()` warns and builds with the inline defaults. That is right for local
+development, and wrong for an image built in CI whose `GLOSSA_DELIVERY_KEY` didn't arrive: it would
+ship its fallbacks in every locale with only a log line to show for it. Make the build fail instead:
+
+```js
+glossa({ edge: process.env.GLOSSA_EDGE, deliveryKey: process.env.GLOSSA_DELIVERY_KEY, requireRelease: true })
+```
+
+or leave the config alone and set the variable where the production build runs:
+
+```dockerfile
+ARG GLOSSA_DELIVERY_KEY
+ENV GLOSSA_REQUIRE_RELEASE=1
+RUN pnpm build   # fails here, not in production, if GLOSSA_DELIVERY_KEY is empty
+```
+
+An explicit `requireRelease: false` wins over the variable. A release that is configured but can't be
+loaded completely always fails the build, with or without this option.
 
 ## In `.astro` components: `@klarlabs-studio/glossa/astro/server`
 

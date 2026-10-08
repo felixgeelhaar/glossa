@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AstroIntegration } from "astro";
 
 import glossa, { resolveRouting } from "./index.js";
@@ -149,5 +149,29 @@ describe("glossa()", () => {
     expect(calls.logger.warn).toHaveBeenCalledWith(expect.stringContaining("inline defaults"));
     const plugin = calls.updateConfig.mock.calls[0]![0].vite.plugins[0];
     expect(plugin.load("\0virtual:glossa/release")).toBe("export default null;");
+  });
+
+  describe("requireRelease", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("fails the build instead of warning when no release could be loaded", async () => {
+      await expect(setup({ requireRelease: true })).rejects.toThrow(/requireRelease.*no release/s);
+      await expect(
+        setup({ requireRelease: true, edge: "https://edge.test" }), // key missing, as in a keyless CI build
+      ).rejects.toThrow(/GLOSSA_DELIVERY_KEY/);
+    });
+
+    it("builds when a release is loaded", async () => {
+      const calls = await setup({ requireRelease: true, release: r });
+      expect(calls.logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("is off by default, and GLOSSA_REQUIRE_RELEASE turns it on unless the option says otherwise", async () => {
+      vi.stubEnv("GLOSSA_REQUIRE_RELEASE", "");
+      await expect(setup({})).resolves.toBeDefined();
+      vi.stubEnv("GLOSSA_REQUIRE_RELEASE", "1");
+      await expect(setup({})).rejects.toThrow(/requireRelease/);
+      await expect(setup({ requireRelease: false })).resolves.toBeDefined();
+    });
   });
 });
