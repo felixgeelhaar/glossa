@@ -89,6 +89,27 @@ attribute to `message` there (a mechanical `key=` → `message=` on `glossa-*`
 tags in `.vue` files), or switch to `<GlossaText id>` from `@klarlabs-studio/glossa/vue`.
 `.astro` files and plain HTML keep `key`.
 
+## API errors (`resolveApiError`)
+
+`@felixgeelhaar/glossa-sdk`'s `resolveApiError(body, { messages, locale })` turned an `apierr`
+envelope into text from a messages map. The equivalent takes the runtime instead of a map, so the
+key is looked up in the release and formatted with the envelope's `params`:
+
+```ts
+// before
+import { resolveApiError } from "@felixgeelhaar/glossa-sdk";
+resolveApiError(body, { messages, locale: "de" });
+
+// after
+import { resolveApiError } from "@klarlabs-studio/glossa/apierr";
+resolveApiError(glossa, body); // glossa: any runtime; the locale is the runtime's
+```
+
+Same fallbacks as before: the server's English `message` when the key isn't in the release, then
+`"Unknown error"` (override with `{ unknown }`); the bare payload and the pre-apierr
+`{ "error": "text" }` are still accepted. `apiErrorMessage(body)` returns `{ id, args, fallback }`
+if you format the message yourself. A product that inlined its own envelope parser can delete it.
+
 ## Static pages (Astro)
 
 With `@klarlabs-studio/glossa/astro`, `<glossa-*>` elements are rendered at build time, so the

@@ -31,6 +31,7 @@ export default defineConfig({
 | `environment` | `production` | The release has to be for this environment. |
 | `publicKeys` | none | Trusted signing keys, `[{ keyId, key }]`. |
 | `release` | the edge's | A `glossa pull --release` directory (relative to the project root), or a `{ manifest, artifacts }` object. A directory holds `manifest.json` and `a/<sha256>.json`, which mirror the edge's paths. |
+| `requireRelease` | off; `GLOSSA_REQUIRE_RELEASE=1` turns it on when unset | Fails the build, instead of warning, when no release could be loaded (no `release`, and no `edge` + `deliveryKey`). See [Production builds](#production-builds). |
 | `locales`, `defaultLocale` | Astro's `i18n`, then the release | The locales the site renders. |
 | `prerender` | `"static"` | Controls rendering of `<glossa-*>` elements into the HTML: `"static"` does it on prerendered pages; `"all"` also does it on on-demand pages, which buffers them instead of streaming; `false` turns it off. |
 | `inline` | `"auto"` | Controls inlining of the page locale's release slice, the manifest plus that locale's fallback-chain artifacts, as `<script type="application/json" id="glossa-release">`: `"auto"` inlines it on pages that have islands or providers, `"always"` on every page, `"never"` nowhere. |
@@ -45,6 +46,27 @@ set, and every artifact's SHA-256. If the release can't be loaded completely,
 **the build fails**, because a static site must not quietly ship its inline
 defaults. With no release configured, the build logs a warning and pages
 render their inline defaults.
+
+### Production builds
+
+With no key, `glossa()` warns and builds with the inline defaults. That is right for local
+development, and wrong for an image built in CI whose `GLOSSA_DELIVERY_KEY` didn't arrive: it would
+ship its fallbacks in every locale with only a log line to show for it. Make the build fail instead:
+
+```js
+glossa({ edge: process.env.GLOSSA_EDGE, deliveryKey: process.env.GLOSSA_DELIVERY_KEY, requireRelease: true })
+```
+
+or leave the config alone and set the variable where the production build runs:
+
+```dockerfile
+ARG GLOSSA_DELIVERY_KEY
+ENV GLOSSA_REQUIRE_RELEASE=1
+RUN pnpm build   # fails here, not in production, if GLOSSA_DELIVERY_KEY is empty
+```
+
+An explicit `requireRelease: false` wins over the variable. A release that is configured but can't be
+loaded completely always fails the build, with or without this option.
 
 ## In `.astro` components: `@klarlabs-studio/glossa/astro/server`
 
@@ -93,6 +115,44 @@ const { t, locale, dir } = getGlossa(Astro);
   only prerendered with `prerender: "all"`. For streamed pages, use
   `getGlossa()` and Vue components instead.
 
+## Unit tests, and libraries outside Astro
+
+`/astro/client` and `/astro/server` import `virtual:glossa/config`, which only exists inside an Astro
+build. Two ways to keep that out of your way:
+
+**Test the code that imports them** with `@klarlabs-studio/glossa/astro/testing`. Add its Vite plugin
+to `vitest.config.ts`; no `vi.mock`, no alias, no `server.deps.inline` by hand:
+
+```ts
+import { defineConfig } from "vitest/config";
+import { glossaAstroTesting } from "@klarlabs-studio/glossa/astro/testing";
+
+export default defineConfig({ plugins: [glossaAstroTesting()] });
+```
+
+The plugin serves `virtual:glossa/config` (an inert stub: no edge, no key, English, `environment:
+"test"`) and `virtual:glossa/release` (`null`), and has Vitest process the package instead of loading
+it as an external. `getRuntime()` then works under Node (no `document`) and renders inline defaults.
+`glossaAstroTesting(overrides, release)` changes the stub config, or gives server-side code a
+`BundledRelease`; `stubConfig` is exported too. The package's own `test/unit-fixture.test.ts` is a
+helper that calls `getRuntime()`, tested this way.
+
+**Write shared helpers and libraries without `/astro/client`** with
+`@klarlabs-studio/glossa/astro/translate`. It imports no virtual module and no Astro code:
+
+```ts
+import { t } from "@klarlabs-studio/glossa/astro/translate";
+
+export const saveLabel = () => t("form.save", "Speichern");
+```
+
+`t(id, fallback, values?)` renders with the request's runtime on the server, or the page's in the
+browser (`getRuntime()` publishes it, which every island, provider and elements page already does),
+and returns `fallback` as written when there is none (tests, scripts). `has(id)`, `currentRuntime()`
+and `provideRuntime(runtime)` (for tests and hosts with their own runtime) are there too. A library
+that must not depend on globals at all takes a `Runtime` (or `{ t }`) as a parameter, which needs no
+Astro anywhere.
+
 ## Tests
 
 `pnpm test` runs the pure parts (routing, page rendering, streaming inline,
@@ -109,6 +169,6 @@ would.
 ## Size
 
 `@klarlabs-studio/glossa/astro/client`, the only part of this package that ships to
-browsers, is 0.56 kB brotli without the runtime (budget 0.75 kB). Islands also
+browsers, is 0.60 kB brotli without the runtime (budget 0.75 kB). Islands also
 load `@klarlabs-studio/glossa/vue` (1.2 kB) and the runtime (6 kB); elements load
 `@klarlabs-studio/glossa/elements`.

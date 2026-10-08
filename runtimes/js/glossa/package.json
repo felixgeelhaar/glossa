@@ -1,6 +1,6 @@
 {
   "name": "@klarlabs-studio/glossa",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Glossa for JavaScript, in one package: the runtime, web components, Vue, React and Astro bindings, the usages bundler plugin, capture, the in-product editor and the MessageFormat kernel, as subpath exports.",
   "keywords": [
     "i18n",
@@ -32,6 +32,10 @@
     "./idb": {
       "types": "./dist/runtime/idb.d.ts",
       "import": "./dist/runtime/idb.js"
+    },
+    "./apierr": {
+      "types": "./dist/runtime/apierr.d.ts",
+      "import": "./dist/runtime/apierr.js"
     },
     "./dev": {
       "types": "./dist/runtime/dev.d.ts",
@@ -80,6 +84,14 @@
     "./astro/middleware": {
       "types": "./dist/astro/middleware.d.ts",
       "import": "./dist/astro/middleware.js"
+    },
+    "./astro/testing": {
+      "types": "./dist/astro/test-support.d.ts",
+      "import": "./dist/astro/test-support.js"
+    },
+    "./astro/translate": {
+      "types": "./dist/astro/translate.d.ts",
+      "import": "./dist/astro/translate.js"
     },
     "./unplugin": {
       "types": "./dist/unplugin/index.d.ts",

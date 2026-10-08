@@ -80,6 +80,14 @@ export interface RuntimeOptions {
   bidiIsolation?: FormatOptions["bidiIsolation"];
   /** Custom MF2 functions, merged over the built-ins. */
   functions?: FormatOptions["functions"];
+  /**
+   * Opt-in: parse the inline `default` of `t()`/`parts()` as a message (e.g. `parseMF2` from
+   * `@klarlabs-studio/glossa/messageformat`) and format it with the call's values, so a
+   * fallback like `"Hello {$name}"` interpolates. Absent (the default), the inline default is
+   * rendered literally. A default that fails to parse or format renders literally and is
+   * reported on the error channel.
+   */
+  parseDefault?: (source: string) => Message;
   /** Error channel listener; more can be added with `onError()`. */
   onError?: (error: RuntimeError) => void;
   /** An identical error is reported at most once per this many ms. Default 60 s. */
@@ -178,6 +186,8 @@ export interface Runtime {
   t(id: string, values?: Record<string, unknown>, opts?: TranslateOptions): string;
   /** Render a message as parts (text, markup, bidi isolates, fallbacks, values). */
   parts(id: string, values?: Record<string, unknown>, opts?: TranslateOptions): Part[];
+  /** Whether the active release has `id` in its locale chain: no formatting, no error report, no `explain()` cost. */
+  has(id: string): boolean;
   /** How `id` resolves for the active (or the given) locales. Loads nothing. */
   explain(id: string, locales?: string | readonly string[]): Explanation;
   /** Switch the requested locales; the switch is atomic once their artifacts are loaded. */
@@ -561,30 +571,35 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
    * Resolve `id` along the active chain (SPEC §4.3) and format it. Missing,
    * failing and empty renders fall through to the inline default, then the ID.
    */
+  const fmt = (
+    m: Message,
+    locale: string | string[],
+    values?: Record<string, unknown>,
+    onError?: FormatOptions["onError"],
+  ) => formatToParts(m, locale, values, { bidiIsolation: o.bidiIsolation, functions: o.functions, onError });
+
+  const lookup = (id: string) =>
+    state?.catalogs.find(([l, messages]) => edits.has(l + " " + id) || Object.hasOwn(messages, id));
+
   const resolve = (id: string, values?: Record<string, unknown>, opts?: TranslateOptions) => {
     from = undefined;
     try {
       const st = state;
       if (st) {
         const releaseId = st.m.release.id;
-        const found = st.catalogs.find(
-          ([l, messages]) => edits.has(l + " " + id) || Object.hasOwn(messages, id),
-        );
+        const found = lookup(id);
         if (found) {
           const [locale, messages] = found;
           const message = edits.get(locale + " " + id) ?? messages[id]!;
-          const parts = formatToParts(message, locale, values, {
-            bidiIsolation: o.bidiIsolation,
-            functions: o.functions,
-            onError: (e) =>
-              emit({
-                type: "format",
-                detail: `${e.type} ${e.source}`,
-                messageId: id,
-                locale,
-                releaseId,
-              }),
-          });
+          const parts = fmt(message, locale, values, (e) =>
+            emit({
+              type: "format",
+              detail: `${e.type} ${e.source}`,
+              messageId: id,
+              locale,
+              releaseId,
+            }),
+          );
           if (partsToString(parts)) return (from = locale), parts;
         } else {
           const detail = `not in ${st.chain.join(", ")}`;
@@ -594,7 +609,16 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     } catch {
       // Fall through to the inline default.
     }
-    return [{ type: "text", value: opts?.default || id }] as Part[];
+    const d = opts?.default;
+    if (d && o.parseDefault) {
+      try {
+        const parts = fmt(o.parseDefault(d), state?.chain ?? requested, values);
+        if (partsToString(parts)) return parts;
+      } catch (e) {
+        emit({ type: "format", detail: String(e), messageId: id });
+      }
+    }
+    return [{ type: "text", value: d || id }] as Part[];
   };
 
   const explain = (id: string, locales?: string | readonly string[]): Explanation => {
@@ -676,6 +700,7 @@ export function createRuntime(o: RuntimeOptions = {}): Runtime {
     },
     t,
     parts: resolve,
+    has: (id) => !!lookup(id),
     explain,
     setLocales(locales) {
       requested = list(locales);

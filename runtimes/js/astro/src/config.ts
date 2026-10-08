@@ -19,6 +19,14 @@ export interface GlossaAstroOptions {
    * release, fetched once at build start.
    */
   release?: string | BundledRelease;
+  /**
+   * Fail the build instead of warning when no release could be loaded (no `release`, and no
+   * `edge` + `deliveryKey`, e.g. `GLOSSA_DELIVERY_KEY` unset in CI), so a production image can't
+   * ship inline defaults by accident. Default: off, so local development keeps warning; when
+   * unset, the `GLOSSA_REQUIRE_RELEASE=1` environment variable turns it on, which production
+   * Dockerfiles and CI can do without touching the config.
+   */
+  requireRelease?: boolean;
   /** The site's locales. Default: Astro's `i18n.locales`, else the release's. */
   locales?: Array<string | { path: string; codes: string[] }>;
   /** Default: Astro's `i18n.defaultLocale`, else the release's source locale. */
