@@ -28,7 +28,7 @@ const checks = [
     "name": "@klarlabs-studio/glossa, runtime + resolver chain",
     "path": "dist/runtime/index.js",
     "import": "{ createRuntime, resolveLocales, acceptLanguage }",
-    "limit": "6.8 KB"
+    "limit": "6.9 KB"
   },
   {
     "name": "@klarlabs-studio/glossa/idb",

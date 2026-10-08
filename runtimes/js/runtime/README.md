@@ -43,6 +43,7 @@ to the inline default, then to the message ID. Everything else is optional.
 | `refreshInterval` | `300000` | Background manifest refresh in ms; `0` turns it off. The default timer is `unref`'d, so it never keeps a server process alive. |
 | `timer` | `setInterval` | `(tick, ms) → cancel`, for tests or custom scheduling. |
 | `bidiIsolation`, `functions` | MF2 defaults | Passed to the interpreter. |
+| `parseDefault` | none | Opt-in: parses the inline `default` of `t()`/`parts()` as a message, so a fallback with placeholders is formatted with the call's values: `createRuntime({ parseDefault: parseMF2 })` (`parseMF2` from `@klarlabs-studio/glossa/messageformat`; the runtime itself carries no parser, which keeps it inside its budget). Unset, the default renders literally, as before. A default that fails to parse or format renders literally and is reported on the error channel (`format`). There is no ICU MF1 parser in the JS packages: write the default in MF2 syntax (`Hallo {$name}`). |
 | `onError` | none | Error channel listener (more with `runtime.onError`). |
 | `errorInterval` | `60000` | An identical error is reported at most once per interval. |
 | `rollout` | `true` | Staged rollout support (SPEC §1.4). `false` ignores a manifest's `rollout`: always the stable release, never a candidate fetch, `explain().rollout` is `null`. |
@@ -54,6 +55,7 @@ The `Runtime`:
 |---|---|
 | `t(id, values?, { default? }) → string` | Renders `id` along the active chain. |
 | `parts(id, values?, { default? }) → Part[]` | The same as parts (text, markup, bidi isolates, fallbacks, values), for adapters and typed accessors. |
+| `has(id) → boolean` | Whether the active release has `id` on its fallback chain. Cheap: no formatting, no error report, unlike `explain()`. Tells a missing message from one whose text equals its id (`t()` returns the id for both). `false` until a release is active. |
 | `explain(id, locales?) → Explanation` | SPEC §6, without side effects: `{ id, requested, locale, chain, resolvedFrom, release, source, steps, rollout }`. `rollout` is `{ id, percent, cohort, side }` under a staged rollout, else `null`. With `locales`, explains those instead of the active ones and loads nothing. |
 | `locale`, `dir`, `release` | The active locale, its direction from the manifest, and `{ id, version }`. |
 | `environment` | The active release's environment, from its manifest (covered by its signature when `publicKeys` are set); `undefined` until a release is active. The overlay loader reads it. |
@@ -259,8 +261,8 @@ line is what an app that imports only that pays:
 | Import | Size | Budget |
 |---|---|---|
 | `{ format, formatToParts }` (interpreter only) | 3.13 kB | 4 kB |
-| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.58 kB | 6.8 kB |
-| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.75 kB | 6.8 kB |
+| `{ createRuntime }` (interpreter, loader, verification, resolver, `explain`, staged rollout) | 6.69 kB | 6.8 kB |
+| `{ createRuntime, resolveLocales, acceptLanguage }` | 6.81 kB | 6.9 kB (was 6.8: `has()` and `parseDefault` cost ~110 B) |
 | `@klarlabs-studio/glossa/idb` | 0.26 kB | 0.5 kB |
 | `@klarlabs-studio/glossa/dev` (the overlay loader, never in production builds) | 0.98 kB | 1.25 kB |
 
