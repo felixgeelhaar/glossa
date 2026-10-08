@@ -162,6 +162,52 @@ func (q *Queries) InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventPa
 	return err
 }
 
+const insertOutboxEvents = `-- name: InsertOutboxEvents :exec
+INSERT INTO outbox_events (
+    id, tenant_id, event_type, aggregate_type, aggregate_id, actor,
+    payload, trace_context, occurred_at
+)
+SELECT u.id, $1, u.event_type, u.aggregate_type, u.aggregate_id, u.actor,
+       u.payload, u.trace_context, u.occurred_at
+FROM (SELECT unnest($2::uuid[]) AS id,
+        unnest($3::text[]) AS event_type,
+        unnest($4::text[]) AS aggregate_type,
+        unnest($5::text[]) AS aggregate_id,
+        unnest($6::text[]) AS actor,
+        unnest($7::jsonb[]) AS payload,
+        unnest($8::jsonb[]) AS trace_context,
+        unnest($9::timestamptz[]) AS occurred_at) AS u
+`
+
+type InsertOutboxEventsParams struct {
+	TenantID       uuid.UUID
+	Ids            []uuid.UUID
+	EventTypes     []string
+	AggregateTypes []string
+	AggregateIds   []string
+	Actors         []string
+	Payloads       []json.RawMessage
+	TraceContexts  []json.RawMessage
+	OccurredAts    []time.Time
+}
+
+// PublishAll's N events in one statement (#77), one element per event
+// in each array, all in the transaction's tenant.
+func (q *Queries) InsertOutboxEvents(ctx context.Context, arg InsertOutboxEventsParams) error {
+	_, err := q.db.Exec(ctx, insertOutboxEvents,
+		arg.TenantID,
+		arg.Ids,
+		arg.EventTypes,
+		arg.AggregateTypes,
+		arg.AggregateIds,
+		arg.Actors,
+		arg.Payloads,
+		arg.TraceContexts,
+		arg.OccurredAts,
+	)
+	return err
+}
+
 const markOutboxEventDelivered = `-- name: MarkOutboxEventDelivered :execrows
 UPDATE outbox_events
 SET status       = 'delivered',

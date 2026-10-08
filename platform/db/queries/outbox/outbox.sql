@@ -10,6 +10,24 @@ INSERT INTO outbox_events (
     sqlc.arg(aggregate_id), sqlc.arg(actor), sqlc.arg(payload), sqlc.arg(trace_context), sqlc.arg(occurred_at)
 );
 
+-- name: InsertOutboxEvents :exec
+-- PublishAll's N events in one statement (#77), one element per event
+-- in each array, all in the transaction's tenant.
+INSERT INTO outbox_events (
+    id, tenant_id, event_type, aggregate_type, aggregate_id, actor,
+    payload, trace_context, occurred_at
+)
+SELECT u.id, sqlc.arg(tenant_id), u.event_type, u.aggregate_type, u.aggregate_id, u.actor,
+       u.payload, u.trace_context, u.occurred_at
+FROM (SELECT unnest(sqlc.arg(ids)::uuid[]) AS id,
+        unnest(sqlc.arg(event_types)::text[]) AS event_type,
+        unnest(sqlc.arg(aggregate_types)::text[]) AS aggregate_type,
+        unnest(sqlc.arg(aggregate_ids)::text[]) AS aggregate_id,
+        unnest(sqlc.arg(actors)::text[]) AS actor,
+        unnest(sqlc.arg(payloads)::jsonb[]) AS payload,
+        unnest(sqlc.arg(trace_contexts)::jsonb[]) AS trace_context,
+        unnest(sqlc.arg(occurred_ats)::timestamptz[]) AS occurred_at) AS u;
+
 -- The remaining queries run in the relay's system scope (glossa_system).
 
 -- ClaimOutboxEvents leases up to batch_size due events. SKIP LOCKED lets

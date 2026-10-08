@@ -142,6 +142,36 @@ type Store interface {
 	LockOrphanedProposedMessages(ctx context.Context) ([]domain.Message, error)
 
 	Publish(ctx context.Context, e outbox.Event) error
+
+	// The bulk writes of UpsertMessages: one statement per call however
+	// many rows, so a 500-message push is a handful of round trips, not
+	// thousands (#77).
+
+	// InsertMessages stores new messages with their first source
+	// revisions; a message whose ID already exists fails the call
+	// (ErrIdempotencyBusy).
+	InsertMessages(ctx context.Context, ms []MessageInsert) error
+	// UpdateMessages saves each message if its stored version is still
+	// the expected one, and fails the call (ErrStaleVersion) otherwise.
+	UpdateMessages(ctx context.Context, ms []MessageUpdate) error
+	// AppendSourceRevisions adds to the append-only source log.
+	AppendSourceRevisions(ctx context.Context, rs []domain.SourceRevision) error
+	// PublishAll records events in order.
+	PublishAll(ctx context.Context, es []outbox.Event) error
+}
+
+// MessageInsert is a message for Store.InsertMessages.
+type MessageInsert struct {
+	Message domain.Message
+	First   domain.SourceRevision
+	By      domain.Author
+}
+
+// MessageUpdate is a message for Store.UpdateMessages, with the version
+// it must still be stored at.
+type MessageUpdate struct {
+	Message  domain.Message
+	Expected int
 }
 
 // Scanner finds Catalog's background work across tenants (system scope

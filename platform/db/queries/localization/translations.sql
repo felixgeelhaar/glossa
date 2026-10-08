@@ -19,6 +19,34 @@ SET key = EXCLUDED.key, namespace = EXCLUDED.namespace, state = EXCLUDED.state,
     version = EXCLUDED.version, updated_at = EXCLUDED.updated_at
 WHERE localization_messages.version < EXCLUDED.version;
 
+-- name: LockMessageStates :many
+-- The bulk form of LockMessageState, in key order: the order every bulk
+-- writer locks in.
+SELECT * FROM localization_messages
+WHERE message_id = ANY (sqlc.arg(message_ids)::uuid[])
+ORDER BY key, message_id
+FOR UPDATE;
+
+-- name: UpsertMessageStates :execrows
+-- The bulk form of UpsertMessageState; message_ids must be distinct.
+INSERT INTO localization_messages (tenant_id, message_id, project_id, key, namespace, state,
+                                   source_revision, version, updated_at)
+SELECT app_current_tenant(), u.message_id, u.project_id, u.key, u.namespace, u.state,
+       u.source_revision, u.version, u.updated_at
+FROM (SELECT unnest(sqlc.arg(message_ids)::uuid[]) AS message_id,
+        unnest(sqlc.arg(project_ids)::uuid[]) AS project_id,
+        unnest(sqlc.arg(keys)::text[]) AS key,
+        unnest(sqlc.arg(namespaces)::text[]) AS namespace,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(versions)::int[]) AS version,
+        unnest(sqlc.arg(updated_ats)::timestamptz[]) AS updated_at) AS u
+ON CONFLICT (message_id) DO UPDATE
+SET key = EXCLUDED.key, namespace = EXCLUDED.namespace, state = EXCLUDED.state,
+    source_revision = GREATEST(localization_messages.source_revision, EXCLUDED.source_revision),
+    version = EXCLUDED.version, updated_at = EXCLUDED.updated_at
+WHERE localization_messages.version < EXCLUDED.version;
+
 -- name: DeleteProjectMessages :exec
 DELETE FROM localization_messages WHERE project_id = sqlc.arg(project_id);
 
@@ -252,3 +280,92 @@ WHERE m.project_id = sqlc.arg(project_id) AND m.state = 'active'
 GROUP BY t.locale, m.message_id, m.updated_at
 ORDER BY m.updated_at DESC
 LIMIT sqlc.arg(max_rows);
+
+-- ── bulk writes ────────────────────────────────────────────────────
+-- A bulk import writes all its rows in one statement per table instead
+-- of one round trip per item (#77); parallel arrays, one element per
+-- row.
+
+-- name: LockTranslationsFor :many
+-- The bulk form of LockTranslation for (message, locale) pairs.
+SELECT t.* FROM localization_translations t
+JOIN (SELECT unnest(sqlc.arg(message_ids)::uuid[]) AS message_id,
+        unnest(sqlc.arg(locales)::text[]) AS locale) AS u
+  ON t.message_id = u.message_id AND t.locale = u.locale
+ORDER BY t.message_id, t.locale
+FOR UPDATE OF t;
+
+-- name: InsertTranslations :exec
+INSERT INTO localization_translations (id, tenant_id, project_id, message_id, locale, syntax, text, model,
+                                       state, origin, author, source_revision, warnings, revision,
+                                       created_at, updated_at)
+SELECT u.id, app_current_tenant(), u.project_id, u.message_id, u.locale, u.syntax, u.text, u.model,
+       u.state, u.origin, u.author, u.source_revision, u.warnings, u.revision, u.created_at, u.updated_at
+FROM (SELECT unnest(sqlc.arg(ids)::uuid[]) AS id,
+        unnest(sqlc.arg(project_ids)::uuid[]) AS project_id,
+        unnest(sqlc.arg(message_ids)::uuid[]) AS message_id,
+        unnest(sqlc.arg(locales)::text[]) AS locale,
+        unnest(sqlc.arg(syntaxes)::text[]) AS syntax,
+        unnest(sqlc.arg(texts)::text[]) AS text,
+        unnest(sqlc.arg(models)::jsonb[]) AS model,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(origins)::text[]) AS origin,
+        unnest(sqlc.arg(authors)::text[]) AS author,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(warnings)::jsonb[]) AS warnings,
+        unnest(sqlc.arg(revisions)::int[]) AS revision,
+        unnest(sqlc.arg(created_ats)::timestamptz[]) AS created_at,
+        unnest(sqlc.arg(updated_ats)::timestamptz[]) AS updated_at) AS u;
+
+-- name: UpdateTranslations :execrows
+-- Each row only if its stored revision is still the expected one; the
+-- caller compares the count with the number of rows.
+UPDATE localization_translations t
+SET syntax = u.syntax, text = u.text, model = u.model, state = u.state, origin = u.origin, author = u.author,
+    source_revision = u.source_revision, warnings = u.warnings, revision = u.revision, updated_at = u.updated_at
+FROM (SELECT unnest(sqlc.arg(ids)::uuid[]) AS id,
+        unnest(sqlc.arg(syntaxes)::text[]) AS syntax,
+        unnest(sqlc.arg(texts)::text[]) AS text,
+        unnest(sqlc.arg(models)::jsonb[]) AS model,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(origins)::text[]) AS origin,
+        unnest(sqlc.arg(authors)::text[]) AS author,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(warnings)::jsonb[]) AS warnings,
+        unnest(sqlc.arg(revisions)::int[]) AS revision,
+        unnest(sqlc.arg(updated_ats)::timestamptz[]) AS updated_at,
+        unnest(sqlc.arg(expected_revisions)::int[]) AS expected_revision) AS u
+WHERE t.id = u.id AND t.revision = u.expected_revision;
+
+-- name: InsertTranslationRevisions :exec
+INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
+                                                state, origin, origin_detail, author, source_revision,
+                                                findings, created_at)
+SELECT app_current_tenant(), u.translation_id, u.revision, u.kind, u.syntax, u.text, u.model, u.state,
+       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.created_at
+FROM (SELECT unnest(sqlc.arg(translation_ids)::uuid[]) AS translation_id,
+        unnest(sqlc.arg(revisions)::int[]) AS revision,
+        unnest(sqlc.arg(kinds)::text[]) AS kind,
+        unnest(sqlc.arg(syntaxes)::text[]) AS syntax,
+        unnest(sqlc.arg(texts)::text[]) AS text,
+        unnest(sqlc.arg(models)::jsonb[]) AS model,
+        unnest(sqlc.arg(states)::text[]) AS state,
+        unnest(sqlc.arg(origins)::text[]) AS origin,
+        unnest(sqlc.arg(origin_details)::jsonb[]) AS origin_detail,
+        unnest(sqlc.arg(authors)::text[]) AS author,
+        unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
+        unnest(sqlc.arg(findings)::jsonb[]) AS findings,
+        unnest(sqlc.arg(created_ats)::timestamptz[]) AS created_at) AS u;
+
+-- name: NewlyOutdatedTranslationsFor :many
+-- The bulk form of NewlyOutdatedTranslations: per message, the
+-- translations current at its old revision and behind its new one, in
+-- the order of the arrays, then by locale.
+SELECT t.* FROM localization_translations t
+JOIN (SELECT unnest(sqlc.arg(message_ids)::uuid[]) AS message_id,
+        unnest(sqlc.arg(old_revisions)::int[]) AS old_revision,
+        unnest(sqlc.arg(new_revisions)::int[]) AS new_revision,
+        generate_series(1, cardinality(sqlc.arg(message_ids)::uuid[])) AS ord) AS u
+  ON t.message_id = u.message_id
+WHERE t.source_revision >= u.old_revision AND t.source_revision < u.new_revision
+ORDER BY u.ord, t.locale;

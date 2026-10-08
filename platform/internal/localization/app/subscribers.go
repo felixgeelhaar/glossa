@@ -113,12 +113,7 @@ func (s *Service) ProjectMessages(ctx context.Context, ms []MessageState) error 
 		return err
 	}
 	return s.tx.InCurrent(ctx, func(ctx context.Context, st Store) error {
-		for _, m := range ms {
-			if err := s.applyMessageState(ctx, st, m, bcp47.Tag{}, by); err != nil {
-				return err
-			}
-		}
-		return nil
+		return s.applyMessageStates(ctx, st, ms, nil, by)
 	})
 }
 
@@ -154,6 +149,85 @@ func stateOf(m SourceMessage) MessageState {
 // writing `de` does not outdate `fr`.
 var projectionActor = authz.SystemEventActor("localization.track_message")
 
+// applyMessageStates is applyMessageState for many messages in a few
+// statements however many there are (#77): one locked read, one
+// upsert, one read of the translations the new source revisions leave
+// behind and one outbox insert. except names, per message, the locale
+// not to announce. The messages keep their order, and a message listed
+// twice is applied twice, as one at a time would.
+func (s *Service) applyMessageStates(ctx context.Context, st Store, ms []MessageState, except map[uuid.UUID]bcp47.Tag, by outbox.Actor) error {
+	if len(ms) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(ms))
+	for i, m := range ms {
+		ids[i] = m.MessageID
+	}
+	stored, err := st.LockMessageStates(ctx, ids)
+	if err != nil {
+		return err
+	}
+	var (
+		saves  []MessageState
+		saved  = map[uuid.UUID]int{} // message → index in saves
+		ranges []RevisionRange
+	)
+	for _, m := range ms {
+		if m.UpdatedAt.IsZero() {
+			m.UpdatedAt = s.now()
+		}
+		cur, found := stored[m.MessageID]
+		if found && cur.Version >= m.Version {
+			continue
+		}
+		if i, ok := saved[m.MessageID]; ok {
+			saves[i] = m
+		} else {
+			saved[m.MessageID] = len(saves)
+			saves = append(saves, m)
+		}
+		stored[m.MessageID] = m
+		if found && m.SourceRevision > cur.SourceRevision {
+			ranges = append(ranges, RevisionRange{MessageID: m.MessageID, Old: cur.SourceRevision, New: m.SourceRevision})
+		}
+	}
+	if err := st.SaveMessageStates(ctx, saves); err != nil {
+		return err
+	}
+	outdated, err := st.NewlyOutdatedFor(ctx, ranges)
+	if err != nil {
+		return err
+	}
+	byMessage := make(map[uuid.UUID][]RevisionRange, len(ranges))
+	for _, r := range ranges {
+		byMessage[r.MessageID] = append(byMessage[r.MessageID], r)
+	}
+	var events []outbox.Event
+	for _, t := range outdated {
+		if l, ok := except[t.MessageID]; ok && t.Locale == l {
+			continue
+		}
+		for _, r := range byMessage[t.MessageID] { // disjoint ranges: one matches
+			if t.SourceRevision >= r.Old && t.SourceRevision < r.New {
+				events = append(events, outdatedEvent(t, r.New, by))
+				break
+			}
+		}
+	}
+	return st.PublishAll(ctx, events)
+}
+
+func outdatedEvent(t domain.Translation, current int, by outbox.Actor) outbox.Event {
+	return outbox.Event{
+		Type: domain.EventTranslationOutdated, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
+		Actor: by,
+		Payload: domain.TranslationOutdated{
+			TranslationID: t.ID.String(), ProjectID: t.ProjectID.String(), MessageID: t.MessageID.String(),
+			Locale: t.Locale.String(), SourceRevision: t.SourceRevision, CurrentSourceRevision: current,
+		},
+	}
+}
+
 // applyMessageState stores a message snapshot unless a newer one is
 // stored, and announces the translations a source revision made
 // outdated — except in `except`, whose translation the caller is about
@@ -184,14 +258,7 @@ func (s *Service) applyMessageState(ctx context.Context, st Store, m MessageStat
 		if t.Locale == except {
 			continue
 		}
-		if err := st.Publish(ctx, outbox.Event{
-			Type: domain.EventTranslationOutdated, AggregateType: domain.AggregateTranslation, AggregateID: t.ID.String(),
-			Actor: by,
-			Payload: domain.TranslationOutdated{
-				TranslationID: t.ID.String(), ProjectID: t.ProjectID.String(), MessageID: t.MessageID.String(),
-				Locale: t.Locale.String(), SourceRevision: t.SourceRevision, CurrentSourceRevision: m.SourceRevision,
-			},
-		}); err != nil {
+		if err := st.Publish(ctx, outdatedEvent(t, m.SourceRevision, by)); err != nil {
 			return err
 		}
 	}
