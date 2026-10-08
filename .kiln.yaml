@@ -49,7 +49,7 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.2"}
+    args: {VERSION: "0.5.3"}
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-edge
@@ -57,7 +57,7 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.2"}
+    args: {VERSION: "0.5.3"}
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-studio
@@ -65,7 +65,7 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.2"}
+    args: {VERSION: "0.5.3"}
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-site
@@ -73,7 +73,7 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.2"}
+    args: {VERSION: "0.5.3"}
 
 watch:
   remote: origin
