@@ -16,6 +16,7 @@ var (
 	ErrInvalidReviewState = errors.New("localization: state must be draft, needs_review, approved or rejected")
 	ErrWriteCannotReject  = errors.New("localization: a write can't reject; review the translation instead")
 	ErrReviewForbidden    = errors.New("localization: approving or rejecting needs the review permission for this locale")
+	ErrOwnText            = errors.New("localization: the author of a text cannot approve or reject it; ask another reviewer")
 	ErrTransition         = errors.New("localization: that review state change is not allowed")
 	ErrInvalidSourceRev   = errors.New("localization: source_revision must be between 1 and the message's current revision")
 )

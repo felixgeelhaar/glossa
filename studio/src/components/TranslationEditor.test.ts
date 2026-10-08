@@ -180,6 +180,35 @@ describe("TranslationEditor", () => {
     w.unmount();
   });
 
+  it("withholds approve and reject from the author of the text, and explains why", async () => {
+    api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
+    const w = mount(TranslationEditor, {
+      props: { tenant: "t", project, message, locale: de, source: en, grant: grantFor({ roles: ["owner"], locales: [] }), selfId: "me" },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    const labels = w.findAll("button").map((b) => b.text());
+    expect(labels).not.toContain("Approve");
+    expect(labels).not.toContain("Reject");
+    expect(w.get("[data-testid=own-text-hint]").text()).toContain("Ask another reviewer");
+    await (w.vm as unknown as { save: (a?: boolean) => Promise<void> }).save(true);
+    await flushPromises();
+    expect(api.review).not.toHaveBeenCalled();
+    w.unmount();
+  });
+
+  it("keeps imported text reviewable by the person who imported it", async () => {
+    api.get.mockResolvedValue({ value: translation({ origin: "import" }), etag: '"e1"' });
+    const w = mount(TranslationEditor, {
+      props: { tenant: "t", project, message, locale: de, source: en, grant: grantFor({ roles: ["owner"], locales: [] }), selfId: "me" },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    expect(w.findAll("button").map((b) => b.text())).toContain("Approve");
+    expect(w.find("[data-testid=own-text-hint]").exists()).toBe(false);
+    w.unmount();
+  });
+
   it("hides review actions from translators and keeps them in their locales", async () => {
     api.get.mockResolvedValue({ value: translation(), etag: '"e1"' });
     const w = mountEditor(["translator"], ["fr"]);

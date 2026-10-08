@@ -95,6 +95,12 @@ func TestTranslationsReviewProblemCodes(t *testing.T) {
 		t.Errorf("forbidden = %+v", doc.Error)
 	}
 
+	srv.rv.problems["cart.items@ja"] = fakeProblem{403, "own_text"}
+	doc = wantError(t, w, ExitNetwork, "own_text", "translations", "review", "cart.items@ja", "--state", "approved")
+	if !strings.Contains(doc.Error.Message, "you wrote its current text") || !strings.Contains(doc.Error.Fix, "ask another reviewer") {
+		t.Errorf("own text = %+v", doc.Error)
+	}
+
 	doc = wantError(t, w, ExitNetwork, "invalid_transition", "translations", "review", "checkout.pay@de", "--state", "needs_review")
 	if doc.Error.Message != "checkout.pay@de can't move from needs_review to needs_review" {
 		t.Errorf("transition = %+v", doc.Error)

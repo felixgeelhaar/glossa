@@ -264,10 +264,23 @@ func (t *Translation) Review(to ReviewState, by string, flow ReviewFlow, canRevi
 	if flow.NeedsReviewer(to) && !canReview {
 		return Revision{}, ErrReviewForbidden
 	}
+	if t.isOwnText(to, by) {
+		return Revision{}, ErrOwnText
+	}
 	// The text's provenance stays; the log entry names the reviewer.
 	prov := Provenance{Origin: t.Origin, Detail: json.RawMessage(`{}`), By: by}
 	rev := t.apply(KindReview, t.Content, to, prov, t.SourceRevision, t.Warnings, now)
 	return rev, nil
+}
+
+// isOwnText is four-eyes (RFC 0006 §15 Q6): approving or rejecting is
+// refused for the principal who wrote the current text. Imports carry
+// the importer, not an author, so they stay open to review.
+func (t Translation) isOwnText(to ReviewState, by string) bool {
+	if to != StateApproved && to != StateRejected {
+		return false
+	}
+	return by != "" && by == t.By && t.Origin != OriginImport
 }
 
 func (t *Translation) apply(kind RevisionKind, c mfcontent.Content, state ReviewState, prov Provenance, sourceRev int, warnings []mf.Finding, now time.Time) Revision {

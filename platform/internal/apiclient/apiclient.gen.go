@@ -15652,8 +15652,12 @@ type ClientInterface interface {
 	// Moves the translation to `state` and appends a `review` revision
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
-	// states `translations.write`. Problem codes: `review_forbidden`
-	// (403), `invalid_transition` (409), `invalid_state` (400).
+	// states `translations.write`. An author never approves their own
+	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+	// wrote is refused with `own_text` (403); imported text is not
+	// authored by the reviewer and stays reviewable. Problem codes:
+	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+	// (409), `invalid_state` (400).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -15665,8 +15669,12 @@ type ClientInterface interface {
 	// Moves the translation to `state` and appends a `review` revision
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
-	// states `translations.write`. Problem codes: `review_forbidden`
-	// (403), `invalid_transition` (409), `invalid_state` (400).
+	// states `translations.write`. An author never approves their own
+	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+	// wrote is refused with `own_text` (403); imported text is not
+	// authored by the reviewer and stays reviewable. Problem codes:
+	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+	// (409), `invalid_state` (400).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -24073,8 +24081,12 @@ func (c *Client) ListUnitAISuggestions(ctx context.Context, tenant TenantPath, p
 // Moves the translation to `state` and appends a `review` revision
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
-// states `translations.write`. Problem codes: `review_forbidden`
-// (403), `invalid_transition` (409), `invalid_state` (400).
+// states `translations.write`. An author never approves their own
+// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+// wrote is refused with `own_text` (403); imported text is not
+// authored by the reviewer and stays reviewable. Problem codes:
+// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+// (409), `invalid_state` (400).
 //
 // Takes any type of body and a specified content type.
 //
@@ -24096,8 +24108,12 @@ func (c *Client) ReviewTranslationWithBody(ctx context.Context, tenant TenantPat
 // Moves the translation to `state` and appends a `review` revision
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
-// states `translations.write`. Problem codes: `review_forbidden`
-// (403), `invalid_transition` (409), `invalid_state` (400).
+// states `translations.write`. An author never approves their own
+// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+// wrote is refused with `own_text` (403); imported text is not
+// authored by the reviewer and stays reviewable. Problem codes:
+// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+// (409), `invalid_state` (400).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -48633,8 +48649,12 @@ type ClientWithResponsesInterface interface {
 	// Moves the translation to `state` and appends a `review` revision
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
-	// states `translations.write`. Problem codes: `review_forbidden`
-	// (403), `invalid_transition` (409), `invalid_state` (400).
+	// states `translations.write`. An author never approves their own
+	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+	// wrote is refused with `own_text` (403); imported text is not
+	// authored by the reviewer and stays reviewable. Problem codes:
+	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+	// (409), `invalid_state` (400).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -48646,8 +48666,12 @@ type ClientWithResponsesInterface interface {
 	// Moves the translation to `state` and appends a `review` revision
 	// naming the reviewer; the text and its provenance stay. Approving
 	// and rejecting need `translations.review` for the locale, other
-	// states `translations.write`. Problem codes: `review_forbidden`
-	// (403), `invalid_transition` (409), `invalid_state` (400).
+	// states `translations.write`. An author never approves their own
+	// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+	// wrote is refused with `own_text` (403); imported text is not
+	// authored by the reviewer and stays reviewable. Problem codes:
+	// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+	// (409), `invalid_state` (400).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -75798,8 +75822,12 @@ func (c *ClientWithResponses) ListUnitAISuggestionsWithResponse(ctx context.Cont
 // Moves the translation to `state` and appends a `review` revision
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
-// states `translations.write`. Problem codes: `review_forbidden`
-// (403), `invalid_transition` (409), `invalid_state` (400).
+// states `translations.write`. An author never approves their own
+// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+// wrote is refused with `own_text` (403); imported text is not
+// authored by the reviewer and stays reviewable. Problem codes:
+// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+// (409), `invalid_state` (400).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -75817,8 +75845,12 @@ func (c *ClientWithResponses) ReviewTranslationWithBodyWithResponse(ctx context.
 // Moves the translation to `state` and appends a `review` revision
 // naming the reviewer; the text and its provenance stay. Approving
 // and rejecting need `translations.review` for the locale, other
-// states `translations.write`. Problem codes: `review_forbidden`
-// (403), `invalid_transition` (409), `invalid_state` (400).
+// states `translations.write`. An author never approves their own
+// work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+// wrote is refused with `own_text` (403); imported text is not
+// authored by the reviewer and stays reviewable. Problem codes:
+// `review_forbidden` (403), `own_text` (403), `invalid_transition`
+// (409), `invalid_state` (400).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

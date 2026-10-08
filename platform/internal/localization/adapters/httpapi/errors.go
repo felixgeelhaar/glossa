@@ -30,6 +30,7 @@ var problems = []struct {
 	{app.ErrPreconditionFailed, 412, problem.CodePreconditionFailed, "the resource changed; fetch it and retry with its new ETag"},
 	{app.ErrPreconditionRequired, 428, problem.CodePreconditionRequired, "send If-Match with the resource's ETag"},
 	{domain.ErrReviewForbidden, 403, "review_forbidden", ""},
+	{domain.ErrOwnText, 403, "own_text", "the author of a text cannot approve or reject it; ask another reviewer"},
 	{app.ErrTooManyItems, 400, "too_many_items", "send 1 to 500 items"},
 	{app.ErrLocaleCount, 400, "too_many_locales", "list 1 to 20 locales"},
 	{app.ErrKeyCount, 400, "too_many_keys", "name at most 50 keys"},

@@ -2634,8 +2634,12 @@ paths:
         Moves the translation to `state` and appends a `review` revision
         naming the reviewer; the text and its provenance stay. Approving
         and rejecting need `translations.review` for the locale, other
-        states `translations.write`. Problem codes: `review_forbidden`
-        (403), `invalid_transition` (409), `invalid_state` (400).
+        states `translations.write`. An author never approves their own
+        work (RFC 0006 §15 Q6): approving or rejecting the text the caller
+        wrote is refused with `own_text` (403); imported text is not
+        authored by the reviewer and stays reviewable. Problem codes:
+        `review_forbidden` (403), `own_text` (403), `invalid_transition`
+        (409), `invalid_state` (400).
       security:
         - session: []
           csrf: []

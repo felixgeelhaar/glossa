@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reviewActions, stateTone } from "./review";
+import { isOwnText, reviewActions, stateTone } from "./review";
 
 describe("stateTone", () => {
   it("maps review states to tones", () => {
@@ -20,5 +20,18 @@ describe("reviewActions", () => {
   it("lets writers send drafts to review", () => {
     expect(reviewActions("draft", true, false)).toEqual(["request"]);
     expect(reviewActions(undefined, true, true)).toEqual([]);
+    expect(reviewActions("needs_review", true, true, true)).toEqual([]);
+    expect(reviewActions("rejected", true, true, true)).toEqual(["request"]);
+  });
+});
+
+describe("isOwnText", () => {
+  it("is true only for the person who wrote non-imported text", () => {
+    expect(isOwnText({ author: "person:me", origin: "human" }, "me")).toBe(true);
+    expect(isOwnText({ author: "person:x", origin: "human" }, "me")).toBe(false);
+    expect(isOwnText({ author: "token:me", origin: "ai" }, "me")).toBe(false);
+    expect(isOwnText({ author: "person:me", origin: "import" }, "me")).toBe(false);
+    expect(isOwnText({ author: "person:me", origin: "human" }, undefined)).toBe(false);
+    expect(isOwnText(null, "me")).toBe(false);
   });
 });

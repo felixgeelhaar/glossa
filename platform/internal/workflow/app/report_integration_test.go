@@ -47,10 +47,12 @@ func TestQualityFactsOfADeliveredUnit(t *testing.T) {
 		t.Fatalf("as delivered: %+v", got)
 	}
 
-	// The reviewer rewrites the delivered text, then approves it.
+	// The reviewer rewrites the delivered text; a second reviewer approves
+	// it (an author never approves their own text).
 	reviewer, _ := h.as([]string{"reviewer"}, "de")
 	edited := h.translate(t, reviewer, project, "Herzlich willkommen")
-	if _, err := h.localization.ReviewTranslation(reviewer, project, "home.title", "de", "approved", edited.Revision); err != nil {
+	approver, _ := h.as([]string{"reviewer"}, "de")
+	if _, err := h.localization.ReviewTranslation(approver, project, "home.title", "de", "approved", edited.Revision); err != nil {
 		t.Fatal(err)
 	}
 	got, err = facts.UnitQuality(reader, project, message, "de", completed)

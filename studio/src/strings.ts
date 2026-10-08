@@ -511,6 +511,7 @@ export const strings = {
     unchanged: "No changes to save.",
     unsaved: "Unsaved changes",
     noWrite: (l: string) => `You can't write ${l} translations in this workspace.`,
+    ownText: "You wrote this text, so you can't approve or reject it. Ask another reviewer.",
     noReview: (l: string) => `Only reviewers for ${l} can approve or reject.`,
     conflict: "Someone else saved this translation meanwhile. Their version is loaded; your text is kept in the editor.",
     qaTitle: "Structural QA",
