@@ -87,6 +87,17 @@ func (c *Client) Projects(ctx context.Context, tenant string) ([]Project, error)
 	})
 }
 
+// CreateProject creates a project. The Idempotency-Key makes a retried
+// request return the project the first one created.
+func (c *Client) CreateProject(ctx context.Context, tenant, slug, name, sourceLocale, idempotencyKey string) (Project, error) {
+	r, err := c.api.CreateProjectWithResponse(idempotent(ctx), tenant, &apiclient.CreateProjectParams{IdempotencyKey: optional(idempotencyKey)},
+		apiclient.CreateProject{Slug: slug, Name: name, SourceLocale: sourceLocale})
+	if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects", tenant)); err != nil {
+		return Project{}, err
+	}
+	return *r.JSON201, nil
+}
+
 // ErrProjectNotFound means no project has the slug or ID.
 type ErrProjectNotFound struct{ Ref, Tenant string }
 
@@ -292,8 +303,8 @@ func (c *Client) TranslationStats(ctx context.Context, s Scope) (TranslationStat
 // Results come back in item order.
 func (c *Client) UpsertMessages(ctx context.Context, s Scope, items []MessageUpsertItem) ([]MessageUpsertResult, error) {
 	var out []MessageUpsertResult
-	for start := 0; start < len(items); start += MaxBatch {
-		batch := items[start:min(start+MaxBatch, len(items))]
+	for size, start := batchSize(), 0; start < len(items); start += size {
+		batch := items[start:min(start+size, len(items))]
 		r, err := c.api.UpsertMessagesWithResponse(idempotent(ctx), s.Tenant, s.Project, apiclient.MessageUpsert{Items: batch})
 		if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/message-upserts", s.Tenant, s.Project)); err != nil {
 			return out, err
@@ -307,8 +318,8 @@ func (c *Client) UpsertMessages(ctx context.Context, s Scope, items []MessageUps
 // batches of MaxBatch. Results come back in item order.
 func (c *Client) ImportTranslations(ctx context.Context, s Scope, items []TranslationImportItem) ([]TranslationImportRes, error) {
 	var out []TranslationImportRes
-	for start := 0; start < len(items); start += MaxBatch {
-		batch := items[start:min(start+MaxBatch, len(items))]
+	for size, start := batchSize(), 0; start < len(items); start += size {
+		batch := items[start:min(start+size, len(items))]
 		r, err := c.api.ImportTranslationsWithResponse(idempotent(ctx), s.Tenant, s.Project, apiclient.TranslationImport{Items: batch})
 		if err := check(r, err, http.MethodPost, c.path("/v1/tenants/%s/projects/%s/translation-imports", s.Tenant, s.Project)); err != nil {
 			return out, err

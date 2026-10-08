@@ -138,24 +138,65 @@ func (inv *invocation) connectWith(ctx context.Context, cfg *config.Config) (*pr
 	if err != nil {
 		return nil, err
 	}
-	tenant := cfg.Tenant
-	if tenant == "" {
-		tenants, err := c.Tenants(ctx)
-		if err != nil {
-			return nil, inv.apiError(err, "can't find the token's tenant")
-		}
-		if len(tenants) != 1 {
-			return nil, &Error{Exit: ExitUsage, Code: "tenant_ambiguous", What: "which tenant?",
-				Where: cfg.Path + " (tenant)", Why: fmt.Sprintf("the credentials can act in %d tenants", len(tenants)),
-				Fix: "set tenant in glossa.yaml to the tenant's ID"}
-		}
-		tenant = tenants[0].Id
+	tenant, err := inv.resolveTenant(ctx, c, cfg)
+	if err != nil {
+		return nil, err
 	}
 	p, err := c.ResolveProject(ctx, tenant, cfg.Project)
 	if err != nil {
 		return nil, inv.projectError(err, cfg)
 	}
 	return &project{cfg: cfg, client: c, scope: remote.Scope{Tenant: tenant, Project: p.Id}, info: p}, nil
+}
+
+var tenantIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// resolveTenant is the ID of the tenant the config names: a UUID is used
+// as written, a slug (or any other ID) is looked up among the tenants the
+// credential can act in. No tenant in the config: the credential's only
+// tenant.
+func (inv *invocation) resolveTenant(ctx context.Context, c *remote.Client, cfg *config.Config) (string, error) {
+	if tenantIDPattern.MatchString(cfg.Tenant) {
+		return cfg.Tenant, nil
+	}
+	tenants, err := c.Tenants(ctx)
+	if err != nil {
+		return "", inv.apiError(err, "can't find the credential's tenants")
+	}
+	if cfg.Tenant == "" {
+		if len(tenants) == 1 {
+			return tenants[0].Id, nil
+		}
+		return "", &Error{Exit: ExitUsage, Code: "tenant_ambiguous", What: "which tenant?",
+			Where: cfg.Path + " (tenant)", Why: fmt.Sprintf("the credentials can act in %d tenants", len(tenants)),
+			Fix: "set tenant in glossa.yaml (or GLOSSA_TENANT) to a tenant's slug or ID" + tenantChoices(tenants)}
+	}
+	for _, t := range tenants {
+		if t.Id == cfg.Tenant || t.Slug == cfg.Tenant {
+			return t.Id, nil
+		}
+	}
+	return "", &Error{Exit: ExitUsage, Code: "tenant_not_found", What: fmt.Sprintf("tenant %q not found", cfg.Tenant),
+		Where: cfg.Path + " (tenant)", Why: "the credentials can't act in a tenant with that slug or ID",
+		Fix: "set tenant in glossa.yaml (or GLOSSA_TENANT) to a tenant's slug or ID" + tenantChoices(tenants)}
+}
+
+const maxTenantChoices = 10
+
+// tenantChoices lists tenants for an error's fix: "; one of: acme (id), …".
+func tenantChoices(ts []remote.Tenant) string {
+	if len(ts) == 0 {
+		return "; the credentials can act in none"
+	}
+	var parts []string
+	for i, t := range ts {
+		if i == maxTenantChoices {
+			parts = append(parts, fmt.Sprintf("… %d more (`glossa tenants`)", len(ts)-i))
+			break
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", t.Slug, t.Id))
+	}
+	return "; one of: " + strings.Join(parts, ", ")
 }
 
 func (inv *invocation) projectError(err error, cfg *config.Config) error {

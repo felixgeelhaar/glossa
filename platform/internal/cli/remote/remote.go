@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +61,7 @@ func New(server, token string, opts Options) (*Client, error) {
 	server = strings.TrimRight(server, "/")
 	hc := opts.HTTP
 	if hc == nil {
-		hc = &http.Client{Timeout: 30 * time.Second}
+		hc = &http.Client{Timeout: httpTimeout()}
 	}
 	rc := opts.Retry
 	if rc.MaxAttempts == 0 {
@@ -249,4 +251,23 @@ func (d *retryingDoer) Do(req *http.Request) (*http.Response, error) {
 		return se.resp, nil
 	}
 	return resp, err
+}
+
+// batchSize is how many items one message-upserts or translation-upserts
+// request carries: MaxBatch, or GLOSSA_BATCH_SIZE (1..MaxBatch) when the
+// server answers a full batch slower than the client waits (#77).
+func batchSize() int {
+	if n, err := strconv.Atoi(os.Getenv("GLOSSA_BATCH_SIZE")); err == nil && n >= 1 && n <= MaxBatch {
+		return n
+	}
+	return MaxBatch
+}
+
+// httpTimeout is how long one request may take: 30 s, or
+// GLOSSA_HTTP_TIMEOUT (a Go duration, at least 1 s).
+func httpTimeout() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("GLOSSA_HTTP_TIMEOUT")); err == nil && d >= time.Second {
+		return d
+	}
+	return 30 * time.Second
 }
