@@ -28,11 +28,15 @@ export const routes: RouteRecordRaw[] = [
   // above, and like it not public — an anonymous visitor signs in and
   // comes back to `/device?code=…` with the code still filled in.
   { path: "/device", name: "device", component: () => import("./views/device/DeviceView.vue"), meta: { title: "Sign in a device" } },
+  // The marketing site (site/) serves "/" in production; the ingress never
+  // sends it here. Under the dev server and the e2e suite it still lands in
+  // the app.
+  { path: "/", redirect: { name: "home" } },
   {
     path: "/",
     component: () => import("./components/AppShell.vue"),
     children: [
-      { path: "", name: "home", redirect: () => ({ name: "projects", params: { tenant: homeTenant() ?? "none" } }) },
+      { path: "app", name: "home", redirect: () => ({ name: "projects", params: { tenant: homeTenant() ?? "none" } }) },
       { path: "account", name: "account", component: () => import("./views/AccountView.vue"), meta: { title: "Account & security" } },
       { path: "organizations/new", name: "new-organization", component: () => import("./views/NewOrganizationView.vue"), meta: { title: "New organization" } },
       { path: "t/:tenant", name: "projects", component: () => import("./views/ProjectsView.vue"), meta: { title: "Projects" } },
@@ -113,7 +117,7 @@ export function installGuards(router: Router): void {
       if (signedIn && to.name === "sign-in" && !to.hash.includes("token=")) return { name: "home" };
       return true;
     }
-    if (!signedIn) return { name: "sign-in", query: to.fullPath === "/" ? {} : { next: to.fullPath } };
+    if (!signedIn) return { name: "sign-in", query: to.fullPath === "/app" ? {} : { next: to.fullPath } };
     const tenant = typeof to.params.tenant === "string" ? to.params.tenant : undefined;
     if (tenant) {
       if (!membershipFor(tenant)) {

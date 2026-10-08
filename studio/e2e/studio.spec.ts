@@ -8,7 +8,7 @@ test("sign in by magic link, set up a project, translate with the keyboard, fix 
   const email = `translator-${Date.now()}@example.com`;
 
   // ── sign in with the link the dev mailer captured ──────────────────
-  await page.goto("/");
+  await page.goto("/app");
   await expect(page.getByRole("heading", { name: "Sign in to Glossa" })).toBeVisible();
   await expect(page.getByText("Public Beta").first()).toBeVisible();
   await expectAccessible(page, "sign-in");
