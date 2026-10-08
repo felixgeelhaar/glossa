@@ -337,6 +337,24 @@ jobs:
       - name: in-product editor in Chromium (Playwright)
         run: pnpm --filter @klarlabs-studio/glossa-overlay test:browser
 
+  site:
+    name: Site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile=false
+      # Links @klarlabs-studio/ui (as Studio does), type-checks with
+      # `astro check` and builds the static page.
+      - name: build the site
+        run: pnpm --filter @glossa/site build
+      - name: check the built page
+        run: pnpm --filter @glossa/site test
+
   studio-e2e:
     name: Studio e2e
     runs-on: ubuntu-latest
