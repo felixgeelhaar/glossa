@@ -40,7 +40,13 @@ type pushItem struct {
 	Revision int        `json:"revision,omitempty"`
 	State    string     `json:"state,omitempty"`
 	Error    *itemError `json:"error,omitempty"`
+	// Note explains a dry-run status the server hasn't confirmed.
+	Note string `json:"note,omitempty"`
 }
+
+// noteWithSourcePush is a dry-run translation whose source message the
+// same push creates (issue #69).
+const noteWithSourcePush = "would be created with the source push"
 
 type pushJSON struct {
 	Schema       string         `json:"schema"`
@@ -95,7 +101,7 @@ func runPush(ctx context.Context, inv *invocation, args []string) error {
 		return inv.apiError(err, "push failed")
 	}
 	if *withTranslations {
-		if out.Translations, err = pushTranslations(ctx, p, local, *dryRun); err != nil {
+		if out.Translations, err = pushTranslations(ctx, p, local, *dryRun, createdKeys(out.Messages)); err != nil {
 			return inv.apiError(err, "importing translations failed")
 		}
 	}
@@ -300,7 +306,19 @@ func remoteModelJSON(m remote.Message) string {
 	return snapshot.ModelJSON(model)
 }
 
-func pushTranslations(ctx context.Context, p *project, local *snapshot.Snapshot, dryRun bool) ([]pushItem, error) {
+// createdKeys are the messages a (dry) push creates: a dry run treats
+// them as existing for the translation step.
+func createdKeys(msgs []pushItem) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range msgs {
+		if m.Status == statusCreated {
+			out[m.Key] = true
+		}
+	}
+	return out
+}
+
+func pushTranslations(ctx context.Context, p *project, local *snapshot.Snapshot, dryRun bool, newSources map[string]bool) ([]pushItem, error) {
 	syntax := remote.Syntax(p.cfg.SyntaxOrDefault())
 	var (
 		items []pushItem
@@ -327,7 +345,7 @@ func pushTranslations(ctx context.Context, p *project, local *snapshot.Snapshot,
 		}
 	}
 	if dryRun {
-		return items, planTranslations(ctx, p, local, items, index)
+		return items, planTranslations(ctx, p, local, items, index, newSources)
 	}
 	if len(send) == 0 {
 		return items, nil
@@ -355,20 +373,25 @@ func applyImportResult(it *pushItem, r remote.TranslationImportRes) {
 	}
 }
 
-func planTranslations(ctx context.Context, p *project, local *snapshot.Snapshot, items []pushItem, index []int) error {
+func planTranslations(ctx context.Context, p *project, local *snapshot.Snapshot, items []pushItem, index []int, newSources map[string]bool) error {
 	server, err := snapshot.FromServer(ctx, p.client, p.scope, p.info.SourceLocale, snapshot.Options{})
 	if err != nil {
 		return err
 	}
 	for _, i := range index {
 		it := &items[i]
-		if _, ok := server.Message(it.Key); !ok {
+		_, sourceKnown := server.Message(it.Key)
+		if !sourceKnown && !newSources[it.Key] {
 			it.Status, it.Error = statusFailed, &itemError{Code: "message_not_found", Detail: "no message with this key (push the source first)"}
 			continue
 		}
 		byKey, ok := server.Translations[it.Locale]
 		if !ok {
 			it.Status, it.Error = statusFailed, &itemError{Code: "locale_not_found", Detail: "the project has no locale " + it.Locale}
+			continue
+		}
+		if !sourceKnown {
+			it.Status, it.Note = statusCreated, noteWithSourcePush
 			continue
 		}
 		st, exists := byKey[it.Key]
@@ -420,10 +443,24 @@ func printItemCounts(pr *printer, what string, items []pushItem) {
 	counts := summarize(items)
 	pr.line("%s %s: %d created · %d revised · %d updated · %d unchanged", pr.pass(), what,
 		counts[statusCreated], counts[statusRevised], counts[statusUpdated]+counts[statusReviewed], counts[statusUnchanged])
+	if n := countNoted(items); n > 0 {
+		pr.line("  %s", pr.dim(fmt.Sprintf("%s: %s", plural(n, "of these", "of these"), noteWithSourcePush)))
+	}
 	if counts[statusFailed] == 0 {
 		return
 	}
 	printFailures(pr, items)
+}
+
+// countNoted counts the dry-run items that wait for a source this push creates.
+func countNoted(items []pushItem) int {
+	n := 0
+	for _, it := range items {
+		if it.Note != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // printFailures lists the items the server refused.
