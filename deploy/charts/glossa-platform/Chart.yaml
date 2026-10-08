@@ -6,7 +6,7 @@ version: 0.4.0
 # The release the images are tagged with: Kiln pushes :v<appVersion>, which
 # is the chart's default tag. Override per component with <component>.image.tag.
 # `ci/check-release-version.sh` keeps this, .kiln.yaml and the tag in step.
-appVersion: "0.5.2"
+appVersion: "0.5.3"
 kubeVersion: ">=1.27.0-0"
 home: https://github.com/klarlabs-studio/glossa
 sources:
