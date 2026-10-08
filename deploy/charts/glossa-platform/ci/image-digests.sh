@@ -103,7 +103,7 @@ echo "# What ${REGISTRY}/${OWNER}/glossa-*:v${semver} (or :${semver}) resolve to
 echo "image:"
 echo "  requireDigest: true"
 
-for component in server edge studio; do
+for component in server edge studio site; do
   repo="${REGISTRY}/${OWNER}/glossa-${component}"
   resolve_tag "$repo"
   ref="${repo}:${resolved_tag}"

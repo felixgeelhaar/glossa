@@ -44,7 +44,7 @@ async function render(view: Component, meta: Meta): Promise<VueWrapper> {
       { path: "/auth/sign-in", name: "sign-in", component: Empty },
       { path: "/auth/register", name: "register", component: Empty },
       { path: "/auth/reset-password", name: "reset-password", component: Empty },
-      { path: "/", name: "home", component: Empty },
+      { path: "/app", name: "home", component: Empty },
     ],
   });
   await router.push("/auth/sign-in");

@@ -4,6 +4,7 @@
 {{- $server := include "gp.componentName" (dict "root" $ "component" "server") -}}
 {{- $edge := include "gp.componentName" (dict "root" $ "component" "edge") -}}
 {{- $studio := include "gp.componentName" (dict "root" $ "component" "studio") -}}
+{{- $site := include "gp.componentName" (dict "root" $ "component" "site") -}}
 {{- $hosts := dict "studio" (include "gp.host.studio" .) "api" (include "gp.host.api" .) "cdn" (include "gp.host.cdn" .) -}}
 {{- $apiSeparate := include "gp.host.apiSeparate" . -}}
 {{- $keys := ternary (list "studio" "api" "cdn") (list "studio" "cdn") (not (empty $apiSeparate)) -}}
@@ -137,6 +138,20 @@ spec:
       {{- end }}
       services:
         - name: {{ $server }}
+          port: 8080
+    {{- end }}
+    {{- if $.Values.site.enabled }}
+    # The landing page: exactly "/" and its assets. Everything else on the
+    # host (Studio's /app, /auth/*, /t/*, /device, ...) stays with Studio.
+    - match: Host(`{{ $hosts.studio }}`) && (Path(`/`) || PathPrefix(`/_astro/`) || Path(`/favicon.svg`) || Path(`/og.png`))
+      kind: Rule
+      priority: 50
+      {{- with $mw.studio }}
+      middlewares:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - name: {{ $site }}
           port: 8080
     {{- end }}
     - match: Host(`{{ $hosts.studio }}`)

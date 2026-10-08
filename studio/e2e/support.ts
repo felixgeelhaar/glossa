@@ -36,7 +36,7 @@ export async function expectAccessibleInBothThemes(page: Page, screen: string): 
 
 /** Sign in through the magic link the log mailer captured; lands on Projects. */
 export async function signIn(page: Page, email: string): Promise<void> {
-  await page.goto("/");
+  await page.goto("/app");
   await page.getByLabel("Email address").fill(email);
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();

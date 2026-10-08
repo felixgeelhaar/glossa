@@ -17,7 +17,8 @@ The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
 ```text
                   ┌─────────────── traefik (websecure) ────────────────┐
 <studio>/v1/*     │→ glossa-server :8080 ──→ Postgres (glossa_app, RLS) │
-<studio>/*        │→ studio        :8080     object storage (read-write)│
+<studio>/ + /_astro/* │→ site      :8080     object storage (read-write)│
+<studio>/*        │→ studio        :8080                                │
 <api>/v1/* (opt.) │→ glossa-server :8080     SMTP (optional)            │
 <cdn>/v1/*        │→ glossa-edge   :8081 ──→ object storage (read-only) │
                   └─────────────────────────────────────────────────────┘
@@ -82,6 +83,7 @@ requests only build them (`.github/workflows/platform.yml`). The v0.3
 | `ghcr.io/klarlabs-studio/glossa-server` | `platform/Dockerfile.server` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8080 |
 | `ghcr.io/klarlabs-studio/glossa-edge` | `platform/Dockerfile.edge` | `gcr.io/distroless/static-debian12:nonroot` | 65532 | 8081 |
 | `ghcr.io/klarlabs-studio/glossa-studio` | `studio/Dockerfile` | `nginxinc/nginx-unprivileged:1.29-alpine` | 101 | 8080 |
+| `ghcr.io/klarlabs-studio/glossa-site` | `site/Dockerfile` | `nginxinc/nginx-unprivileged:1.29-alpine` | 101 | 8080 |
 
 All three build from the repository root, e.g.
 `docker build -f platform/Dockerfile.server .`. A release tags each one
@@ -974,6 +976,22 @@ the value until it is set.
 | `edge.autoscaling.enabled` | `false` | HPA on CPU. |
 | `edge.autoscaling.minReplicas` / `.maxReplicas` | `2` / `6` | |
 | `edge.autoscaling.targetCPUUtilizationPercentage` | `70` | |
+
+### Site
+
+The landing page (`site/`, static Astro behind nginx) shares the Studio
+host: the ingress sends the exact `/` and `/_astro/*` (plus `/favicon.svg`
+and `/og.png`) to it at priority 50, above Studio's catch-all, and
+Studio's home is `/app`. Everything else (`/auth/*`, `/t/*`, `/device`,
+`/v1`, `/mcp`, `/.well-known/*`) is unchanged. The site has no runtime
+configuration and no egress.
+
+| Key | Default | Notes |
+|---|---|---|
+| `site.enabled` | `true` | Off: no Deployment, Service, NetworkPolicy or route; `/` goes to Studio, which redirects to `/app`. |
+| `site.image.repository` / `.tag` / `.digest` | `klarlabs-studio/glossa-site` / `v<appVersion>` / `""` | With `image.requireDigest` the digest is required while `site.enabled`. |
+| `site.replicas`, `site.resources`, `site.pdb.*`, `site.nodeSelector`, `site.tolerations`, `site.affinity`, `site.topologySpreadConstraints`, `site.extraEnv` | as `studio.*` | Small defaults: 2 replicas, 64Mi limit. |
+| `networkPolicy.extraIngress.site` | `[]` | Extra `NetworkPolicyIngressRule`s. |
 
 ### Studio
 
