@@ -5,6 +5,8 @@ package app_test
 import (
 	"context"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"os"
 	"testing"
 	"time"
@@ -75,7 +77,8 @@ func harnessFor(t *testing.T, slug string) *harness {
 	}
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	svc := app.New(knowledgepg.NewTransactor(uow), sources.NewTranslations(loc, cat), sources.NewProjects(cat), app.WithMessages(sources.NewMessages(cat)))
 	reg := outbox.NewRegistry()
 	if err := loc.Subscribe(reg); err != nil {

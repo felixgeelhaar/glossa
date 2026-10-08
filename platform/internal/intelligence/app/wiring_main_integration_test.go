@@ -8,6 +8,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,7 +173,8 @@ func newWiring(t *testing.T, answers map[domain.Task][]answer) *wiring {
 	}
 	uow := db.NewUnitOfWork(wenv.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	cat.SetCoverage(coverage.New(loc))
 	cat.SetProjection(projection.New(loc))
 	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc, cat), knowledgesources.NewProjects(cat))

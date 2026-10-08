@@ -5,6 +5,8 @@ package app_test
 import (
 	"context"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"os"
 	"strings"
 	"testing"
@@ -78,7 +80,8 @@ func harnessFor(t *testing.T, slug string) *harness {
 	uow := db.NewUnitOfWork(env.App)
 	clk := newClock()
 	cat := catalogapp.New(catalogpg.NewTransactor(uow), catalogapp.WithClock(clk.now))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), localizationcatalog.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), localizationcatalog.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	// As the composition root wires it: a policy's required locales are
 	// validated against Localization through the port that answers to
 	// the write's own catalog.write, not to translations.read.

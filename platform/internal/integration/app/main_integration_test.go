@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"io"
 	"maps"
 	"os"
@@ -99,7 +101,8 @@ func newHarness(t *testing.T) *harness {
 	}
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	know := knowledgeapp.New(knowledgepg.NewTransactor(uow), knowledgesources.NewTranslations(loc, cat), knowledgesources.NewProjects(cat))
 	svc := app.New(app.Deps{
 		Tx: integrationpg.NewTransactor(uow), Catalog: sources.NewCatalog(cat), Localization: sources.NewLocalization(loc, cat),
