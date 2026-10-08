@@ -21,6 +21,7 @@ on:
       - "pnpm-workspace.yaml"
       - "deploy/charts/glossa-platform/**"
       - ".github/workflows/platform.yml"
+      - ".kiln.yaml"
   workflow_dispatch:
 
 permissions:
@@ -88,6 +89,8 @@ jobs:
             "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           echo "${KUBECONFORM_SHA256}  kubeconform.tar.gz" | sha256sum -c -
           tar xzf kubeconform.tar.gz kubeconform && sudo mv kubeconform /usr/local/bin/
+      - name: Release version agrees (.kiln.yaml VERSION, Chart appVersion)
+        run: bash "$CHART/ci/check-release-version.sh"
       - name: Required values fail the render
         run: |
           if helm template t "$CHART" > /dev/null 2>&1; then

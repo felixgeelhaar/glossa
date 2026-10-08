@@ -46,7 +46,7 @@ podAnnotations: {}
 server:
   image:
     repository: klarlabs-studio/glossa-server
-    # -- Defaults to .Chart.AppVersion.
+    # -- Defaults to v<.Chart.AppVersion>, the tag Kiln pushes.
     tag: ""
     # -- sha256:… pins the image by digest (tag is kept for readability).
     digest: ""

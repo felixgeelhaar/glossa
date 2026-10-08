@@ -85,7 +85,7 @@ requests only build them (`.github/workflows/platform.yml`). The v0.3
 
 All three build from the repository root, e.g.
 `docker build -f platform/Dockerfile.server .`. A release tags each one
-`<semver>`, `<major>.<minor>` and `latest` — but a deployment pins the
+`v<semver>`, `sha-…` and `latest` — but a deployment pins the
 **digest**, which is the only immutable reference and the one thing the
 three tags cannot give you. `image.requireDigest` makes the chart refuse
 to render an unpinned Glossa image at all.
@@ -112,15 +112,17 @@ JSON not at all. Nothing about a tenant is in either.
 
 A release is a tag. Everything else follows from it.
 
-1. **Agree the version.** `Chart.yaml`'s `appVersion` is the tag every
-   `<component>.image.tag` defaults to, so bump it to the version you are
-   about to cut (`0.4.0` for `v0.4.0`) and land that on `main`. The
-   release refuses to publish if the two disagree, so this is a check,
-   not a convention.
-2. **Tag and push it**, with the same version as `VERSION` in
-   [`.kiln.yaml`](../../../.kiln.yaml), which is bumped in the same commit:
+1. **Agree the version.** `Chart.yaml`'s `appVersion` is the version the
+   chart deploys: every `<component>.image.tag` defaults to
+   `v<appVersion>`, the tag Kiln pushes (`v0.4.0` for `appVersion:
+   "0.4.0"`). Bump `appVersion` and the `VERSION` build args in
+   [`.kiln.yaml`](../../../.kiln.yaml) in the same commit and land that on
+   `main`. [`ci/check-release-version.sh`](ci/check-release-version.sh)
+   fails when they disagree; CI runs it on every chart change.
+2. **Check, tag and push it:**
 
    ```sh
+   deploy/charts/glossa-platform/ci/check-release-version.sh v0.5.0
    git tag v0.5.0 && git push origin v0.5.0
    ```
 
@@ -142,9 +144,20 @@ A release is a tag. Everything else follows from it.
    `.github/workflows/release-platform.yml` no longer runs on tags; it stays
    as a manual (`workflow_dispatch`) fallback.
 
-4. **Take the digests** with [`ci/image-digests.sh`](ci/image-digests.sh),
-   which accepts both the `0.5.0` tags the GitHub workflow wrote and Kiln's
-   `v0.5.0`:
+4. **Make the packages public (first release to a new registry owner
+   only).** The first push to a GHCR owner creates `glossa-server`,
+   `glossa-edge` and `glossa-studio` as *internal* packages, and the
+   cluster pulls anonymously. For each package, in GitHub (the package's
+   settings; there is no API for this): set **Change package visibility**
+   to **Public**, and under **Manage Actions access** add
+   `klarlabs-studio/glossa` with the **Write** role (the
+   `workflow_dispatch` fallback needs it). Once per package, not per
+   release.
+5. **Take the digests** with [`ci/image-digests.sh`](ci/image-digests.sh).
+   It writes the tag that exists in the registry (Kiln's `v0.5.0`, falling
+   back to the bare `0.5.0` the GitHub workflow wrote) beside each digest,
+   so pod specs name a real tag, and it checks that each image pulls
+   **anonymously**, failing with the step above when one does not:
 
    ```sh
    ci/image-digests.sh v0.5.0 > values-images.yaml
@@ -155,7 +168,7 @@ A release is a tag. Everything else follows from it.
    `digest: ""` placeholders; the digests come on top of it, as a second
    `-f`.
 
-5. **Deploy.** The digests file goes last, so it wins:
+6. **Deploy.** The digests file goes last, so it wins:
 
    ```sh
    helm upgrade --install glossa-platform deploy/charts/glossa-platform \
@@ -300,7 +313,7 @@ creates the database, so on the first install they run post-install (see
 
    `values-images.yaml` pins the three images to the digests the release
    published ([Cutting a release](#cutting-a-release)); without it the
-   chart deploys `appVersion`'s tags.
+   chart deploys the `v<appVersion>` tags.
 
    Helm always waits for hook Jobs, so the command returns once
    postgres-init, the migration and postgres-app-login have succeeded.
@@ -880,7 +893,7 @@ the value until it is set.
 | `image.requireDigest` | `false` | Refuse to render unless server, edge and studio are each pinned by digest. The release's `values-images.yaml` sets it with the digests ([Cutting a release](#cutting-a-release)). |
 | `image.pullSecrets` | `[]` | `imagePullSecrets` for every pod. |
 | `<component>.image.repository` | `klarlabs-studio/glossa-{server,edge,studio}` | `<component>` is `server`, `edge` or `studio`. |
-| `<component>.image.tag` | `""` → `appVersion` | |
+| `<component>.image.tag` | `""` → `v<appVersion>` | Kiln's release tag. |
 | `<component>.image.digest` | `""` | `sha256:<64 hex>`; appended as `@digest`, and what is actually pulled. Anything else fails the render. |
 | `commonLabels` | `{}` | Labels on every resource. |
 | `deploymentAnnotations` | `{}` | Annotations on every Deployment. |
