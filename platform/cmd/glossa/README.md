@@ -945,7 +945,7 @@ glossa release requests withdraw rr_7Kq… [--reason R]
   in with `glossa login --device` it decides as you. Studio's approvals
   inbox is the other way.
 - **Four-eyes.** The requester never approves their own request, and an
-  author never approves their own text (`own_text`); a person who isn't
+  author never approves their own text while another reviewer exists for the locale (`own_text`; alone, they may, recorded as a self-approval); a person who isn't
   of the party asked is `not_eligible`. One person's repeated grant
   counts once.
 - **When the last grant lands**, the release-approval workflow deploys

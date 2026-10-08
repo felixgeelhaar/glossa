@@ -180,6 +180,7 @@ func (s *store) AppendRevisions(ctx context.Context, rs []domain.Revision) error
 		p.Authors = append(p.Authors, r.Provenance.By)
 		p.SourceRevisions = append(p.SourceRevisions, int32Of(r.SourceRevision))
 		p.Findings = append(p.Findings, findingsJSON(r.Findings))
+		p.SelfReviews = append(p.SelfReviews, r.SelfReview)
 		p.CreatedAts = append(p.CreatedAts, r.CreatedAt)
 	}
 	return storeError(s.q.InsertTranslationRevisions(ctx, p))

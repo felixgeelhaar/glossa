@@ -5,6 +5,8 @@ package app_test
 import (
 	"context"
 	"errors"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"maps"
 	"slices"
 	"testing"
@@ -51,7 +53,8 @@ func newBranchHarness(t *testing.T) *branchHarness {
 	uow := db.NewUnitOfWork(env.App)
 	h.svc = app.New(postgres.NewTransactor(uow), app.WithClock(func() time.Time { return h.now }),
 		app.WithScanner(postgres.NewScanner(uow)))
-	h.loc = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.svc))
+	h.loc = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.svc),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	h.svc.SetCoverage(coverage.New(h.loc))
 	h.svc.SetImpact(coverage.New(h.loc))
 	h.svc.SetProjection(projection.New(h.loc))

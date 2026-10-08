@@ -393,6 +393,7 @@ export class FakeApi {
       origin: translation.origin,
       origin_detail: body.origin_detail ?? {},
       author,
+      self_review: false,
       source_revision: 1,
       findings: [],
       created_at: NOW,

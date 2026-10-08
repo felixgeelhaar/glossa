@@ -30,6 +30,16 @@ var (
 	ErrTooManyItems         = errors.New("localization: a batch holds 1 to 500 items")
 )
 
+// Reviewers is Identity's read port as Localization uses it, for the
+// author rule of review (RFC 0006 §15 Q6).
+type Reviewers interface {
+	// OthersCanReview reports whether any active member of the tenant
+	// other than the principal excluding (as "person:<id>") holds
+	// translations.review for locale in project: through a role whose
+	// locale scope covers it, and a project scope that includes it.
+	OthersCanReview(ctx context.Context, project uuid.UUID, locale bcp47.Tag, excluding string) (bool, error)
+}
+
 // ProjectInfo is what Localization needs to know about a Catalog project.
 type ProjectInfo struct {
 	ID             uuid.UUID

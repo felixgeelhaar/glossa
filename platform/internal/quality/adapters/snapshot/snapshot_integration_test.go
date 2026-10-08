@@ -5,6 +5,8 @@ package snapshot_test
 import (
 	"context"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"os"
 	"testing"
 	"time"
@@ -65,7 +67,8 @@ func newWorld(t *testing.T) *world {
 	}
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	cat.SetCoverage(coverage.New(loc))
 	cat.SetLocales(coverage.NewPolicyLocales(loc))
 	cat.SetProjection(projection.New(loc))

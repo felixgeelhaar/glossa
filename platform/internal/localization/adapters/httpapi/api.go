@@ -161,6 +161,7 @@ func toTranslation(v app.TranslationView) apiv1.Translation {
 		Origin: apiv1.Origin(v.Origin), Author: v.By, SourceRevision: v.SourceRevision,
 		CurrentSourceRevision: max(v.CurrentSourceRevision, v.SourceRevision), Outdated: v.Outdated(),
 		Warnings: apiconv.Findings(warnings), Revision: v.Revision, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt,
+		ReviewByAuthorAllowed: v.ReviewByAuthorAllowed,
 	}
 }
 
@@ -355,7 +356,7 @@ func (a *API) ListTranslationRevisions(ctx context.Context, req apiv1.ListTransl
 			Revision: r.Number, Kind: apiv1.TranslationRevisionKind(r.Kind), Text: r.Content.Text,
 			Syntax: apiv1.Syntax(r.Content.Syntax), State: apiv1.ReviewState(r.State), Origin: apiv1.Origin(r.Provenance.Origin),
 			OriginDetail: originDetail, Author: r.Provenance.By, SourceRevision: r.SourceRevision,
-			Findings: apiconv.Findings(r.Findings), CreatedAt: r.CreatedAt,
+			Findings: apiconv.Findings(r.Findings), SelfReview: r.SelfReview, CreatedAt: r.CreatedAt,
 		}
 	}
 	return out, nil

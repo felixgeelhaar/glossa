@@ -76,7 +76,7 @@ var (
 	}
 	localizationTranslation = Projection{
 		Project: "project_id", Locale: "locale",
-		Selectors: []string{"translation_id", "project_id", "message_id", "locale", "state", "origin", "by"},
+		Selectors: []string{"translation_id", "project_id", "message_id", "locale", "state", "origin", "self_review", "by"},
 		By:        "by",
 	}
 	releasePointer = Projection{

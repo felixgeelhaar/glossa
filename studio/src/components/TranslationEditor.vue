@@ -22,7 +22,7 @@ import type {
   TranslationRevision,
 } from "../api/schemas";
 import { loadFormatter, MF1_PREVIEW_DELAY_MS, MF1_PREVIEW_RETRY_MS, parseMF2 } from "../lib/preview";
-import { reviewActions, stateTone } from "../lib/review";
+import { isOwnText, offersSaveApprove, reviewActions, stateTone } from "../lib/review";
 import { highlight } from "../lib/terms";
 import { keyLabel } from "../lib/shortcuts";
 import { allowsFor, type Grant } from "../session/permissions";
@@ -152,7 +152,7 @@ async function save(approve = false): Promise<void> {
     return;
   }
   if (!dirty.value) {
-    if (approve && translation.value && translation.value.state !== "approved") return review("approved");
+    if (approve && !ownText.value && translation.value && translation.value.state !== "approved") return review("approved");
     notice.value = s.unchanged;
     return;
   }
@@ -163,7 +163,7 @@ async function save(approve = false): Promise<void> {
     const r = await translations.put(path.value, body, etag.value);
     adopt(r.value, r.etag);
     draft.value = r.value.text;
-    notice.value = approve ? s.approved : s.saved;
+    notice.value = approve ? (r.value.state === "approved" ? s.approved : s.savedForReview) : s.saved;
     emit("changed", r.value);
     if (tab.value === "history") await loadHistory();
   } catch (e) {
@@ -288,7 +288,8 @@ const previewNotice = computed(() => {
   return undefined;
 });
 
-const actions = computed(() => reviewActions(translation.value?.state, canWrite.value, canReview.value));
+const ownText = computed(() => isOwnText(translation.value, props.selfId));
+const actions = computed(() => reviewActions(translation.value?.state, canWrite.value, canReview.value, ownText.value));
 const errorIds = computed(() =>
   [
     findings.value.length ? "qa-errors" : "",
@@ -449,7 +450,7 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
           <button type="button" class="btn btn-primary" :disabled="!canWrite || busy" @click="save(false)">
             {{ s.save }} <span class="kbd-hint">{{ keyLabel("Mod") }}{{ keyLabel("Enter").split(" ")[0] }}</span>
           </button>
-          <button v-if="canReview" type="button" class="btn btn-ok" :disabled="!canWrite || busy" @click="save(true)">
+          <button v-if="offersSaveApprove(canReview, translation)" type="button" class="btn btn-ok" :disabled="!canWrite || busy" @click="save(true)">
             {{ s.saveApprove }} <span class="kbd-hint">{{ keyLabel("Mod") }}{{ keyLabel("Shift") }}{{ keyLabel("Enter").split(" ")[0] }}</span>
           </button>
           <span class="spacer" />
@@ -458,6 +459,7 @@ defineExpose({ save, focusEditor, blurEditor, setDraft, reload, isEditing: () =>
           <button v-if="!dirty && actions.includes('request')" type="button" class="btn" :disabled="busy" @click="review('needs_review')">{{ s.requestReview }}</button>
         </div>
         <p v-if="!canReview && translation" class="hint">{{ s.noReview(locale.code) }}</p>
+        <p v-else-if="canReview && ownText && !dirty" class="hint" data-testid="own-text-hint">{{ s.ownText }}</p>
         <p class="notice" role="status" data-testid="editor-status">{{ notice }}</p>
         <p v-if="actionError" class="alert alert-error" role="alert">{{ problemText(actionError) }}</p>
       </section>

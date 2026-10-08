@@ -229,10 +229,10 @@ DELETE FROM localization_translations WHERE project_id = sqlc.arg(project_id);
 -- name: InsertTranslationRevision :exec
 INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
                                                 state, origin, origin_detail, author, source_revision,
-                                                findings, created_at)
+                                                findings, self_review, created_at)
 VALUES (app_current_tenant(), sqlc.arg(translation_id), sqlc.arg(revision), sqlc.arg(kind), sqlc.arg(syntax),
         sqlc.arg(text), sqlc.arg(model), sqlc.arg(state), sqlc.arg(origin), sqlc.arg(origin_detail),
-        sqlc.arg(author), sqlc.arg(source_revision), sqlc.arg(findings), sqlc.arg(created_at));
+        sqlc.arg(author), sqlc.arg(source_revision), sqlc.arg(findings), sqlc.arg(self_review), sqlc.arg(created_at));
 
 -- name: ListTranslationRevisions :many
 -- Newest first; before is exclusive.
@@ -340,9 +340,9 @@ WHERE t.id = u.id AND t.revision = u.expected_revision;
 -- name: InsertTranslationRevisions :exec
 INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
                                                 state, origin, origin_detail, author, source_revision,
-                                                findings, created_at)
+                                                findings, self_review, created_at)
 SELECT app_current_tenant(), u.translation_id, u.revision, u.kind, u.syntax, u.text, u.model, u.state,
-       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.created_at
+       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.self_review, u.created_at
 FROM (SELECT unnest(sqlc.arg(translation_ids)::uuid[]) AS translation_id,
         unnest(sqlc.arg(revisions)::int[]) AS revision,
         unnest(sqlc.arg(kinds)::text[]) AS kind,
@@ -355,6 +355,7 @@ FROM (SELECT unnest(sqlc.arg(translation_ids)::uuid[]) AS translation_id,
         unnest(sqlc.arg(authors)::text[]) AS author,
         unnest(sqlc.arg(source_revisions)::int[]) AS source_revision,
         unnest(sqlc.arg(findings)::jsonb[]) AS findings,
+        unnest(sqlc.arg(self_reviews)::boolean[]) AS self_review,
         unnest(sqlc.arg(created_ats)::timestamptz[]) AS created_at) AS u;
 
 -- name: NewlyOutdatedTranslationsFor :many

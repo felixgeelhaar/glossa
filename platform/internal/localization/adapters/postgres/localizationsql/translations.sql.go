@@ -246,10 +246,10 @@ func (q *Queries) InsertTranslation(ctx context.Context, arg InsertTranslationPa
 const insertTranslationRevision = `-- name: InsertTranslationRevision :exec
 INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
                                                 state, origin, origin_detail, author, source_revision,
-                                                findings, created_at)
+                                                findings, self_review, created_at)
 VALUES (app_current_tenant(), $1, $2, $3, $4,
         $5, $6, $7, $8, $9,
-        $10, $11, $12, $13)
+        $10, $11, $12, $13, $14)
 `
 
 type InsertTranslationRevisionParams struct {
@@ -265,6 +265,7 @@ type InsertTranslationRevisionParams struct {
 	Author         string
 	SourceRevision int32
 	Findings       json.RawMessage
+	SelfReview     bool
 	CreatedAt      time.Time
 }
 
@@ -282,6 +283,7 @@ func (q *Queries) InsertTranslationRevision(ctx context.Context, arg InsertTrans
 		arg.Author,
 		arg.SourceRevision,
 		arg.Findings,
+		arg.SelfReview,
 		arg.CreatedAt,
 	)
 	return err
@@ -290,9 +292,9 @@ func (q *Queries) InsertTranslationRevision(ctx context.Context, arg InsertTrans
 const insertTranslationRevisions = `-- name: InsertTranslationRevisions :exec
 INSERT INTO localization_translation_revisions (tenant_id, translation_id, revision, kind, syntax, text, model,
                                                 state, origin, origin_detail, author, source_revision,
-                                                findings, created_at)
+                                                findings, self_review, created_at)
 SELECT app_current_tenant(), u.translation_id, u.revision, u.kind, u.syntax, u.text, u.model, u.state,
-       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.created_at
+       u.origin, u.origin_detail, u.author, u.source_revision, u.findings, u.self_review, u.created_at
 FROM (SELECT unnest($1::uuid[]) AS translation_id,
         unnest($2::int[]) AS revision,
         unnest($3::text[]) AS kind,
@@ -305,7 +307,8 @@ FROM (SELECT unnest($1::uuid[]) AS translation_id,
         unnest($10::text[]) AS author,
         unnest($11::int[]) AS source_revision,
         unnest($12::jsonb[]) AS findings,
-        unnest($13::timestamptz[]) AS created_at) AS u
+        unnest($13::boolean[]) AS self_review,
+        unnest($14::timestamptz[]) AS created_at) AS u
 `
 
 type InsertTranslationRevisionsParams struct {
@@ -321,6 +324,7 @@ type InsertTranslationRevisionsParams struct {
 	Authors         []string
 	SourceRevisions []int32
 	Findings        []json.RawMessage
+	SelfReviews     []bool
 	CreatedAts      []time.Time
 }
 
@@ -338,6 +342,7 @@ func (q *Queries) InsertTranslationRevisions(ctx context.Context, arg InsertTran
 		arg.Authors,
 		arg.SourceRevisions,
 		arg.Findings,
+		arg.SelfReviews,
 		arg.CreatedAts,
 	)
 	return err
@@ -476,7 +481,7 @@ func (q *Queries) LeadTimeSamples(ctx context.Context, arg LeadTimeSamplesParams
 }
 
 const listTranslationRevisions = `-- name: ListTranslationRevisions :many
-SELECT tenant_id, translation_id, revision, kind, syntax, text, model, state, origin, origin_detail, author, source_revision, findings, created_at FROM localization_translation_revisions
+SELECT tenant_id, translation_id, revision, kind, syntax, text, model, state, origin, origin_detail, author, source_revision, findings, created_at, self_review FROM localization_translation_revisions
 WHERE translation_id = $1 AND revision < $2
 ORDER BY revision DESC
 LIMIT $3
@@ -513,6 +518,7 @@ func (q *Queries) ListTranslationRevisions(ctx context.Context, arg ListTranslat
 			&i.SourceRevision,
 			&i.Findings,
 			&i.CreatedAt,
+			&i.SelfReview,
 		); err != nil {
 			return nil, err
 		}

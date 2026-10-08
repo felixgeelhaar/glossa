@@ -177,8 +177,17 @@ func TestCoreLoopOverHTTP(t *testing.T) {
 	s.do(call{method: "PUT", path: p + "/messages/cart.items/translations/en", cookie: ada.cookie, csrf: ada.csrf,
 		body: map[string]string{"text": "x"}}).want(t, http.StatusConflict, "source_locale")
 
-	// A reviewer (the owner) approves.
-	r = s.do(call{method: "POST", path: tr + "/reviews", cookie: ada.cookie, csrf: ada.csrf,
+	// Once a second reviewer exists, the author never approves their own
+	// text, even as the owner (RFC 0006 Q6, amended 2026-10-08).
+	s.do(call{method: "POST", path: base + "/members", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"email": "rita@example.com", "roles": []string{"reviewer"}, "locales": []string{"de"}}}).
+		want(t, http.StatusCreated, "")
+	rita := s.signIn("rita@example.com")
+	s.do(call{method: "POST", path: tr + "/reviews", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]string{"state": "approved"}, headers: map[string]string{"If-Match": `"1"`}}).
+		want(t, http.StatusForbidden, "own_text")
+	// The second reviewer approves.
+	r = s.do(call{method: "POST", path: tr + "/reviews", cookie: rita.cookie, csrf: rita.csrf,
 		body: map[string]string{"state": "approved"}, headers: map[string]string{"If-Match": `"1"`}})
 	r.want(t, http.StatusOK, "")
 	r.decode(t, &de)

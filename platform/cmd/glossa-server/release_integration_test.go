@@ -174,6 +174,16 @@ func TestReleaseToRuntime(t *testing.T) {
 		return s.do(c)
 	}
 	write("POST", "/locales", map[string]string{"code": "de"}).want(t, http.StatusCreated, "")
+	// Ada writes the text; Bob reviews it (an author never approves their own).
+	s.do(call{method: "POST", path: "/v1/tenants/" + org.ID + "/members", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"email": "bob@example.com", "roles": []string{"reviewer"}, "locales": []string{"de"}}}).
+		want(t, http.StatusCreated, "")
+	bob := s.signIn("bob@example.com")
+	approve := func(key string) {
+		t.Helper()
+		s.do(call{method: "POST", path: p + "/messages/" + key + "/translations/de/reviews", cookie: bob.cookie, csrf: bob.csrf,
+			body: map[string]string{"state": "approved"}, headers: map[string]string{"If-Match": `"1"`}}).want(t, http.StatusOK, "")
+	}
 	write("PUT", "/fallback-graph", map[string]any{"fallback": map[string][]string{"*": {"en"}}}).want(t, http.StatusOK, "")
 	write("POST", "/message-upserts", map[string]any{"items": []map[string]any{
 		{"key": "checkout.pay", "text": "Pay {amount, number}"},
@@ -183,7 +193,8 @@ func TestReleaseToRuntime(t *testing.T) {
 	// checkout.pay is approved; cart.items waits for review.
 	write("PUT", "/messages/checkout.pay/translations/de", map[string]string{"text": "{amount, number} bezahlen"}).want(t, http.StatusCreated, "")
 	write("POST", "/messages/checkout.pay/translations/de/reviews", map[string]string{"state": "approved"}, "If-Match", `"1"`).
-		want(t, http.StatusOK, "")
+		want(t, http.StatusForbidden, "own_text")
+	approve("checkout.pay")
 	write("PUT", "/messages/cart.items/translations/de", map[string]string{"text": "{count, plural, one {# Artikel} other {# Artikel}}"}).
 		want(t, http.StatusCreated, "")
 
@@ -270,8 +281,7 @@ func TestReleaseToRuntime(t *testing.T) {
 		want(t, http.StatusConflict, "release_ineligible")
 
 	// Approve and publish again; the diff shows it; the runtime picks it up.
-	write("POST", "/messages/cart.items/translations/de/reviews", map[string]string{"state": "approved"}, "If-Match", `"1"`).
-		want(t, http.StatusOK, "")
+	approve("cart.items")
 	prod2 := publish("production", "prod-2")
 	if prod2.ParentID != prod1.ID || prod2.Counts.NewArtifacts != 0 {
 		// de/default equals preview's artifact: already stored.

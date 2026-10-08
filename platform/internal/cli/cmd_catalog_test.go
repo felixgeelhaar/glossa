@@ -61,6 +61,29 @@ func TestPushReportsInvalidMessagesAsPartialFailure(t *testing.T) {
 	}
 }
 
+// Issue #69: on an empty project the dry run treats the sources it would
+// create as existing for the translation step.
+func TestPushTranslationsDryRunCountsSourcesItWouldCreate(t *testing.T) {
+	srv := newFakeServer(t)
+	srv.locales = []string{"de", "en"}
+	w := newWorkspace(t).withProject(srv, map[string]string{"en": sourceEN,
+		"de": `{"cart.checkout": "Zur Kasse"}`})
+	var dry pushJSON
+	w.json(&dry, "push", "--translations", "--dry-run").want(t, ExitOK)
+	if srv.countRequests("POST") != 0 || dry.Summary["failed"] != 0 || len(dry.Translations) != 1 {
+		t.Fatalf("dry run = %+v (writes: %d)", dry, srv.countRequests("POST"))
+	}
+	if it := dry.Translations[0]; it.Status != "created" || it.Note != "would be created with the source push" {
+		t.Errorf("translation = %+v", it)
+	}
+	// The real run creates it, as the dry run said.
+	var out pushJSON
+	w.json(&out, "push", "--translations").want(t, ExitOK)
+	if out.Translations[0].Status != "created" {
+		t.Errorf("real run = %+v", out.Translations)
+	}
+}
+
 func TestPushTranslationsImportsLocalCatalogs(t *testing.T) {
 	srv := newFakeServer(t)
 	srv.locales = []string{"de", "en"}

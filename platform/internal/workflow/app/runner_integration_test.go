@@ -5,6 +5,8 @@ package app_test
 import (
 	"context"
 	"errors"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"sync"
 	"testing"
 	"time"
@@ -117,7 +119,8 @@ func runHarnessFor(t *testing.T, slug string) *runHarness {
 	h := &runHarness{tenant: tenant, clock: time.Now().UTC(),
 		actors: &fakeActors{principals: map[outbox.Actor]authz.Principal{}}, assignments: &fakeAssignments{}}
 	h.catalog = catalogapp.New(catalogpg.NewTransactor(uow))
-	h.localization = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.catalog))
+	h.localization = localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(h.catalog),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	quality := qualityapp.NewService(qualitypg.NewTransactor(uow), qualitycatalog.New(h.catalog))
 	h.defs = app.New(postgres.NewTransactor(uow), identity.Permissions{})
 	h.instances = postgres.NewInstances(uow)

@@ -21,10 +21,11 @@ import (
 
 // Service implements Localization's use cases.
 type Service struct {
-	tx      Transactor
-	catalog SourceCatalog
-	flow    domain.ReviewFlow
-	now     func() time.Time
+	tx        Transactor
+	catalog   SourceCatalog
+	flow      domain.ReviewFlow
+	reviewers Reviewers
+	now       func() time.Time
 }
 
 // Option configures a Service.
@@ -32,6 +33,20 @@ type Option func(*Service)
 
 // WithClock replaces time.Now (tests).
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithReviewers wires Identity's answer to "could anyone else review
+// this locale?". Without it the answer is always yes: the author of a
+// text never approves it (strict four-eyes).
+func WithReviewers(r Reviewers) Option { return func(s *Service) { s.reviewers = r } }
+
+// othersCanReview reports whether an active member other than the
+// principal by holds translations.review for locale in project.
+func (s *Service) othersCanReview(ctx context.Context, project uuid.UUID, locale bcp47.Tag, by string) (bool, error) {
+	if s.reviewers == nil {
+		return true, nil
+	}
+	return s.reviewers.OthersCanReview(ctx, project, locale, by)
+}
 
 // New returns the service.
 func New(tx Transactor, catalog SourceCatalog, opts ...Option) *Service {

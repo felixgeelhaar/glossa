@@ -7,6 +7,8 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	identitypg "go.klarlabs.de/glossa/platform/internal/identity/adapters/postgres"
+	localizationidentity "go.klarlabs.de/glossa/platform/internal/localization/adapters/identity"
 	"maps"
 	"os"
 	"slices"
@@ -98,7 +100,8 @@ func newHarness(t *testing.T) *harness {
 	}
 	uow := db.NewUnitOfWork(env.App)
 	cat := catalogapp.New(catalogpg.NewTransactor(uow))
-	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat))
+	loc := localizationapp.New(localizationpg.NewTransactor(uow), catalogport.New(cat),
+		localizationapp.WithReviewers(localizationidentity.NewReviewers(identitypg.NewTransactor(uow, nil))))
 	cat.SetCoverage(coverage.New(loc))
 	cat.SetProjection(projection.New(loc))
 	key, err := domain.ParseSigningKey("test-2026", base64.StdEncoding.EncodeToString(make([]byte, 32)))
