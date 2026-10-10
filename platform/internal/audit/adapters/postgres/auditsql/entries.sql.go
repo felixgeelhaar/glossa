@@ -470,6 +470,79 @@ func (q *Queries) AuditRecorded(ctx context.Context, arg AuditRecordedParams) ([
 	return items, nil
 }
 
+const insertAuditEntries = `-- name: InsertAuditEntries :exec
+INSERT INTO audit_entries (
+    tenant_id, sequence, event_id, source, action, actor, occurred_at,
+    aggregate_type, aggregate_id, project_id, locale, summary,
+    request_id, trace_id, prev_hash, hash
+)
+SELECT $1, u.sequence, u.event_id, u.source, u.action, u.actor, u.occurred_at,
+       u.aggregate_type, u.aggregate_id, nullif(u.project_id, '')::uuid, nullif(u.locale, ''), u.summary,
+       nullif(u.request_id, ''), nullif(u.trace_id, ''), u.prev_hash, u.hash
+FROM (SELECT unnest($2::bigint[]) AS sequence,
+        unnest($3::uuid[]) AS event_id,
+        unnest($4::text[]) AS source,
+        unnest($5::text[]) AS action,
+        unnest($6::text[]) AS actor,
+        unnest($7::timestamptz[]) AS occurred_at,
+        unnest($8::text[]) AS aggregate_type,
+        unnest($9::text[]) AS aggregate_id,
+        unnest($10::text[]) AS project_id,
+        unnest($11::text[]) AS locale,
+        unnest($12::jsonb[]) AS summary,
+        unnest($13::text[]) AS request_id,
+        unnest($14::text[]) AS trace_id,
+        unnest($15::bytea[]) AS prev_hash,
+        unnest($16::bytea[]) AS hash) AS u
+ORDER BY u.sequence
+`
+
+type InsertAuditEntriesParams struct {
+	TenantID       uuid.UUID
+	Sequences      []int64
+	EventIds       []uuid.UUID
+	Sources        []string
+	Actions        []string
+	Actors         []string
+	OccurredAts    []time.Time
+	AggregateTypes []string
+	AggregateIds   []string
+	ProjectIds     []string
+	Locales        []string
+	Summaries      []json.RawMessage
+	RequestIds     []string
+	TraceIds       []string
+	PrevHashes     [][]byte
+	Hashes         [][]byte
+}
+
+// InsertAuditEntries appends N consecutive entries in one statement
+// (#89), one element per entry in each array, in sequence order. The
+// link trigger runs per row in that order and sees the rows before it,
+// so it checks each link as N single inserts would. An empty string
+// stands for NULL in the optional columns (none of them allows one).
+func (q *Queries) InsertAuditEntries(ctx context.Context, arg InsertAuditEntriesParams) error {
+	_, err := q.db.Exec(ctx, insertAuditEntries,
+		arg.TenantID,
+		arg.Sequences,
+		arg.EventIds,
+		arg.Sources,
+		arg.Actions,
+		arg.Actors,
+		arg.OccurredAts,
+		arg.AggregateTypes,
+		arg.AggregateIds,
+		arg.ProjectIds,
+		arg.Locales,
+		arg.Summaries,
+		arg.RequestIds,
+		arg.TraceIds,
+		arg.PrevHashes,
+		arg.Hashes,
+	)
+	return err
+}
+
 const insertAuditEntry = `-- name: InsertAuditEntry :exec
 INSERT INTO audit_entries (
     tenant_id, sequence, event_id, source, action, actor, occurred_at,

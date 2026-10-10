@@ -22,6 +22,7 @@ const (
 var notProjectAddressed = map[string]string{
 	"audit.Service.Append":         background,
 	"audit.Service.Backfill":       background,
+	"audit.Service.HandleBatch":    background,
 	"audit.Service.HandleEvent":    background,
 	"audit.Service.Subscribe":      wiring,
 	"audit.Service.Metrics":        "returns the recorder wired at startup; it reads no data",

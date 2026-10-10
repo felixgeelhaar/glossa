@@ -6,8 +6,10 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -122,6 +124,39 @@ func (c *chain) Insert(ctx context.Context, e domain.Entry) error {
 	})
 	if err != nil {
 		return fmt.Errorf("audit: insert entry %d: %w", e.Sequence, err)
+	}
+	return nil
+}
+
+func (c *chain) InsertAll(ctx context.Context, es []domain.Entry) error {
+	switch len(es) {
+	case 0:
+		return nil
+	case 1:
+		return c.Insert(ctx, es[0])
+	}
+	n := len(es)
+	p := auditsql.InsertAuditEntriesParams{
+		TenantID: c.tenant, Sequences: make([]int64, n), EventIds: make([]uuid.UUID, n), Sources: make([]string, n),
+		Actions: make([]string, n), Actors: make([]string, n), OccurredAts: make([]time.Time, n),
+		AggregateTypes: make([]string, n), AggregateIds: make([]string, n), ProjectIds: make([]string, n),
+		Locales: make([]string, n), Summaries: make([]json.RawMessage, n), RequestIds: make([]string, n),
+		TraceIds: make([]string, n), PrevHashes: make([][]byte, n), Hashes: make([][]byte, n),
+	}
+	for i, e := range es {
+		if e.Tenant != c.tenant {
+			return fmt.Errorf("audit: entry %d is not in the chain's tenant", e.Sequence)
+		}
+		p.Sequences[i], p.EventIds[i], p.Sources[i], p.Actions[i] = e.Sequence, e.EventID, string(e.Source), e.Action
+		p.Actors[i], p.OccurredAts[i], p.AggregateTypes[i], p.AggregateIds[i] = e.Actor, e.OccurredAt, e.AggregateType, e.AggregateID
+		if e.Project.Valid {
+			p.ProjectIds[i] = e.Project.UUID.String()
+		}
+		p.Locales[i], p.Summaries[i], p.RequestIds[i], p.TraceIds[i] = e.Locale, summary(e.Summary), e.RequestID, e.TraceID
+		p.PrevHashes[i], p.Hashes[i] = e.PrevHash, e.Hash
+	}
+	if err := c.q.InsertAuditEntries(ctx, p); err != nil {
+		return fmt.Errorf("audit: insert entries %d–%d: %w", es[0].Sequence, es[n-1].Sequence, err)
 	}
 	return nil
 }

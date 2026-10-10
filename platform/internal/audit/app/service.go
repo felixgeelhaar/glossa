@@ -67,13 +67,41 @@ var _ Recorder = (*Service)(nil)
 // Subscribe subscribes the projection to every event type domain.
 // Projections names. The registry test in domain is what makes that
 // every event type there is.
+// It is a batch subscriber (#89): a claimed batch's events of one tenant
+// are appended in one transaction, with one chain lock and head read.
 func (s *Service) Subscribe(reg *outbox.Registry) error {
-	for _, typ := range domain.ProjectedTypes() {
-		if err := reg.Subscribe(typ, Subscriber, outbox.HandlerFunc(s.HandleEvent)); err != nil {
-			return err
+	return reg.SubscribeBatch(Subscriber, s, domain.ProjectedTypes()...)
+}
+
+var _ outbox.BatchHandler = (*Service)(nil)
+
+// HandleBatch projects a run of one tenant's delivered events into its
+// chain, in the order given, in one transaction: one entry per event,
+// none for an event already recorded. An event that cannot become an
+// entry fails alone and permanently; if the append fails, every other
+// event reports it, and the dispatcher delivers them one at a time.
+func (s *Service) HandleBatch(ctx context.Context, ds []outbox.Delivery) []error {
+	errs := make([]error, len(ds))
+	drafts := make([]domain.Draft, 0, len(ds))
+	var in []int // index in ds of each draft
+	for i, d := range ds {
+		draft, err := domain.FromEvent(d)
+		if err == nil {
+			err = draft.Validate()
+		}
+		if err != nil {
+			errs[i] = outbox.Permanent(err)
+			continue
+		}
+		drafts = append(drafts, draft)
+		in = append(in, i)
+	}
+	if _, err := s.Append(ctx, drafts...); err != nil {
+		for _, i := range in {
+			errs[i] = err
 		}
 	}
-	return nil
+	return errs
 }
 
 // HandleEvent projects one delivered event into the tenant's chain. It
@@ -113,7 +141,8 @@ func (s *Service) RecordToolCall(ctx context.Context, c domain.ToolCall) error {
 // Append records drafts, in order, at the end of the chain of ctx's
 // tenant, skipping any whose event id is already recorded. It returns
 // the entries it appended. Every draft is checked before anything is
-// written, and all are written in one transaction or none is.
+// written, and all are written in one transaction or none is: one lock,
+// one head read, the hashes chained in memory, one insert.
 func (s *Service) Append(ctx context.Context, drafts ...domain.Draft) ([]domain.Entry, error) {
 	if len(drafts) == 0 {
 		return nil, nil
@@ -144,14 +173,11 @@ func (s *Service) Append(ctx context.Context, drafts ...domain.Draft) ([]domain.
 			if err != nil {
 				return err
 			}
-			if err := c.Insert(ctx, e); err != nil {
-				return err
-			}
 			recorded[d.EventID] = true // a duplicate within one batch
 			head = e.Head()
 			appended = append(appended, e)
 		}
-		return nil
+		return c.InsertAll(ctx, appended)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("audit: append: %w", err)

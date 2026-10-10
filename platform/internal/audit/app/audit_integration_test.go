@@ -237,6 +237,51 @@ func TestARedeliveryRecordsNothingTwice(t *testing.T) {
 	h.verify(ctx, 1)
 }
 
+// TestABatchAppendsOneLinkedEntryPerEvent: the dispatcher hands the
+// projection a claimed batch at once (#89); each tenant's events land
+// in one append, gap-free and linked, interleaved with direct writes,
+// and handing the same batch over again — duplicates included —
+// records nothing twice.
+func TestABatchAppendsOneLinkedEntryPerEvent(t *testing.T) {
+	h := newHarness(t)
+	acme, globex := h.tenant("acme"), h.tenant("globex")
+	if err := h.svc.RecordSignIn(acme, domain.SignIn{
+		Attempt: uuid.Must(uuid.NewV7()), Person: uuid.Must(uuid.NewV7()), Method: "password", At: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	const n = 150 // more than one claimed batch of 100
+	for i := range n {
+		h.publish(acme, translationRevised(person))
+		if i%3 == 0 {
+			h.publish(globex, translationRevised(token))
+		}
+	}
+	h.dispatch()
+	h.verify(acme, n+1)
+	h.verify(globex, n/3)
+
+	page, err := outbox.NewHistory(h.uow).Page(acme, outbox.HistoryCursor{}, n)
+	if err != nil || len(page) != n {
+		t.Fatalf("history: %v, %d events", err, len(page))
+	}
+	again := append(page[:10:10], page[:10]...)
+	for i, err := range h.svc.HandleBatch(acme, again) {
+		if err != nil {
+			t.Errorf("redelivery %d: %v", i, err)
+		}
+	}
+	h.verify(acme, n+1)
+
+	broken := page[0]
+	broken.EventID, broken.Type = uuid.Must(uuid.NewV7()), "nobody.unmapped.happened"
+	errs := h.svc.HandleBatch(acme, []outbox.Delivery{broken, page[1]})
+	if !outbox.IsPermanent(errs[0]) || errs[1] != nil {
+		t.Errorf("results = %v, want the unmapped event alone to fail permanently", errs)
+	}
+	h.verify(acme, n+1)
+}
+
 func TestTwoTenantsKeepTheirOwnChainsAndSeeOnlyTheirOwn(t *testing.T) {
 	h := newHarness(t)
 	acme, globex := h.tenant("acme"), h.tenant("globex")

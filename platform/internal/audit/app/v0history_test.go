@@ -65,6 +65,11 @@ func (m *memStore) Insert(_ context.Context, e domain.Entry) error {
 	return nil
 }
 
+func (m *memStore) InsertAll(_ context.Context, es []domain.Entry) error {
+	m.entries = append(m.entries, es...)
+	return nil
+}
+
 func digestOf(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
