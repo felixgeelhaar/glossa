@@ -126,6 +126,9 @@ type Store interface {
 	// SaveProposal stores p, replacing the branch's proposal for its key.
 	SaveProposal(ctx context.Context, p domain.Proposal) error
 	DeleteProposal(ctx context.Context, branch domain.BranchID, key domain.MessageKey) error
+	// DeleteProposals deletes every proposal ps names (by branch and
+	// key) in one statement.
+	DeleteProposals(ctx context.Context, ps []domain.Proposal) error
 	// BranchProposals lists a branch's proposals in key order.
 	BranchProposals(ctx context.Context, branch domain.BranchID) ([]domain.Proposal, error)
 	// BranchProposalsPage lists one page of them, after the given key.

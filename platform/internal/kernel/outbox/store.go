@@ -72,3 +72,11 @@ type Store interface {
 	// Settle records a claim's outcome, or returns ErrLeaseLost.
 	Settle(ctx context.Context, s Settlement) error
 }
+
+// BatchSettler is a Store that can record a batch's settlements in one
+// round trip (#89). SettleAll returns one result per settlement, as
+// Settle would have: nil, ErrLeaseLost, or an error. A store that fails
+// as a whole returns nil, and the dispatcher settles one at a time.
+type BatchSettler interface {
+	SettleAll(ctx context.Context, ss []Settlement) []error
+}

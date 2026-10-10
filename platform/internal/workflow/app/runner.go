@@ -241,7 +241,7 @@ func (r *Runner) actingAs(ctx context.Context, actor outbox.Actor) (acting, erro
 		if r.d.Actors == nil {
 			return acting{permissions: none, why: "this deployment cannot resolve who the actor is"}, nil
 		}
-		p, ok, err := r.d.Actors.Principal(ctx, actor)
+		p, ok, err := r.principal(ctx, actor)
 		if err != nil {
 			return acting{}, err
 		}
@@ -263,7 +263,7 @@ func (r *Runner) handleSubject(ctx, reader context.Context, act acting, ev Event
 	start := slices.Contains(startEvents, ev.Name)
 	bound := start && s.Kind == domain.SubjectReleaseRequest
 	if start && !bound {
-		bs, err := r.d.Definitions.Bindings(reader, s.Project)
+		bs, err := r.bindings(reader, s.Project)
 		if err != nil {
 			return err
 		}

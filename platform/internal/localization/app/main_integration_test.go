@@ -53,7 +53,12 @@ type harness struct {
 	tenant     tenancy.ID
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *harness { return newHarnessProjecting(t, true) }
+
+// newHarnessProjecting is newHarness, but without Catalog's synchronous
+// projection when project is false: only the outbox subscriber then
+// brings Localization's message projection up to date.
+func newHarnessProjecting(t *testing.T, project bool) *harness {
 	t.Helper()
 	ctx := context.Background()
 	if err := env.Reset(ctx); err != nil {
@@ -68,7 +73,9 @@ func newHarness(t *testing.T) *harness {
 	svc := app.New(postgres.NewTransactor(uow), catalogport.New(cat))
 	cat.SetCoverage(coverage.New(svc))
 	cat.SetLocales(coverage.NewPolicyLocales(svc))
-	cat.SetProjection(projection.New(svc))
+	if project {
+		cat.SetProjection(projection.New(svc))
+	}
 	reg := outbox.NewRegistry()
 	if err := svc.Subscribe(reg); err != nil {
 		t.Fatal(err)

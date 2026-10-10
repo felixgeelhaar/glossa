@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/google/uuid"
@@ -61,15 +62,16 @@ type projectDeleted struct {
 // idempotent — jobs are unique per message, locale, source revision and
 // knowledge fingerprint, a locale's fill per event — and act as the
 // background principal intelligence.auto_translate.
+//
+// The triggers are one batch subscriber (#89): see autoTranslateBatch.
 func (s *Service) Subscribe(r *outbox.Registry) error {
-	for typ, h := range map[string]outbox.HandlerFunc{
+	b := autoTranslateBatch{byType: map[string]outbox.HandlerFunc{
 		catalogMessageCreated:          s.handleMessageCreated,
 		localizationTranslationOutdate: s.handleTranslationOutdated,
 		localizationLocaleAdded:        s.handleLocaleAdded,
-	} {
-		if err := r.Subscribe(typ, subscriberAutoTranslate, h); err != nil {
-			return err
-		}
+	}}
+	if err := r.SubscribeBatch(subscriberAutoTranslate, b, slices.Sorted(maps.Keys(b.byType))...); err != nil {
+		return err
 	}
 	return r.Subscribe(catalogProjectDeleted, subscriberDropProject, outbox.HandlerFunc(s.handleProjectDeleted))
 }
@@ -114,7 +116,7 @@ func (s *Service) handleTranslationOutdated(ctx context.Context, d outbox.Delive
 // project locale) that have auto-translate on. A message in a
 // sensitive namespace is never queued.
 func (s *Service) autoTranslate(ctx context.Context, project, message uuid.UUID, only []string, trigger domain.Trigger) error {
-	ps, err := s.projectSettings(ctx, project)
+	ps, err := s.triggerSettings(ctx, project)
 	if err != nil || len(ps.AutoTranslateLocales) == 0 {
 		return err
 	}

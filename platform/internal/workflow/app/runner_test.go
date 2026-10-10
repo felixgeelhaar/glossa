@@ -362,9 +362,13 @@ func TestConcurrentEventsOnOneSubjectSerialize(t *testing.T) {
 
 // ── fakes ───────────────────────────────────────────────────────────
 
-type fakeBindings struct{ res *app.Resolution }
+type fakeBindings struct {
+	res   *app.Resolution
+	reads int
+}
 
 func (f *fakeBindings) Bindings(context.Context, uuid.UUID) ([]domain.Binding, error) {
+	f.reads++
 	if f.res == nil {
 		return nil, nil
 	}
@@ -451,9 +455,11 @@ func (f *fakeAssignments) Approvers(context.Context, uuid.UUID, domain.ApprovalS
 
 type fakeActors struct {
 	principals map[outbox.Actor]authz.Principal
+	reads      int
 }
 
 func (f *fakeActors) Principal(_ context.Context, a outbox.Actor) (authz.Principal, bool, error) {
+	f.reads++
 	p, ok := f.principals[a]
 	return p, ok, nil
 }

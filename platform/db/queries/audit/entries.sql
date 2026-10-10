@@ -39,6 +39,37 @@ INSERT INTO audit_entries (
     sqlc.arg(prev_hash), sqlc.arg(hash)
 );
 
+-- InsertAuditEntries appends N consecutive entries in one statement
+-- (#89), one element per entry in each array, in sequence order. The
+-- link trigger runs per row in that order and sees the rows before it,
+-- so it checks each link as N single inserts would. An empty string
+-- stands for NULL in the optional columns (none of them allows one).
+-- name: InsertAuditEntries :exec
+INSERT INTO audit_entries (
+    tenant_id, sequence, event_id, source, action, actor, occurred_at,
+    aggregate_type, aggregate_id, project_id, locale, summary,
+    request_id, trace_id, prev_hash, hash
+)
+SELECT sqlc.arg(tenant_id), u.sequence, u.event_id, u.source, u.action, u.actor, u.occurred_at,
+       u.aggregate_type, u.aggregate_id, nullif(u.project_id, '')::uuid, nullif(u.locale, ''), u.summary,
+       nullif(u.request_id, ''), nullif(u.trace_id, ''), u.prev_hash, u.hash
+FROM (SELECT unnest(sqlc.arg(sequences)::bigint[]) AS sequence,
+        unnest(sqlc.arg(event_ids)::uuid[]) AS event_id,
+        unnest(sqlc.arg(sources)::text[]) AS source,
+        unnest(sqlc.arg(actions)::text[]) AS action,
+        unnest(sqlc.arg(actors)::text[]) AS actor,
+        unnest(sqlc.arg(occurred_ats)::timestamptz[]) AS occurred_at,
+        unnest(sqlc.arg(aggregate_types)::text[]) AS aggregate_type,
+        unnest(sqlc.arg(aggregate_ids)::text[]) AS aggregate_id,
+        unnest(sqlc.arg(project_ids)::text[]) AS project_id,
+        unnest(sqlc.arg(locales)::text[]) AS locale,
+        unnest(sqlc.arg(summaries)::jsonb[]) AS summary,
+        unnest(sqlc.arg(request_ids)::text[]) AS request_id,
+        unnest(sqlc.arg(trace_ids)::text[]) AS trace_id,
+        unnest(sqlc.arg(prev_hashes)::bytea[]) AS prev_hash,
+        unnest(sqlc.arg(hashes)::bytea[]) AS hash) AS u
+ORDER BY u.sequence;
+
 -- AuditEntriesAfter reads the chain in order from after a sequence.
 -- name: AuditEntriesAfter :many
 SELECT tenant_id, sequence, event_id, source, action, actor, occurred_at,

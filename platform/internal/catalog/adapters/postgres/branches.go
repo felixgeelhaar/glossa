@@ -167,6 +167,18 @@ func (s *store) DeleteProposal(ctx context.Context, b domain.BranchID, key domai
 	return storeError(s.q.DeleteProposal(ctx, catalogsql.DeleteProposalParams{BranchID: b.UUID(), Key: string(key)}))
 }
 
+// DeleteProposals implements app.Store.
+func (s *store) DeleteProposals(ctx context.Context, ps []domain.Proposal) error {
+	if len(ps) == 0 {
+		return nil
+	}
+	p := catalogsql.DeleteProposalsParams{BranchIds: make([]uuid.UUID, len(ps)), Keys: make([]string, len(ps))}
+	for i, pr := range ps {
+		p.BranchIds[i], p.Keys[i] = pr.BranchID.UUID(), string(pr.Key)
+	}
+	return storeError(s.q.DeleteProposals(ctx, p))
+}
+
 func proposals(rows []catalogsql.CatalogProposal) ([]domain.Proposal, error) {
 	out := make([]domain.Proposal, 0, len(rows))
 	for _, r := range rows {

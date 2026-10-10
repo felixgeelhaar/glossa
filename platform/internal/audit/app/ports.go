@@ -37,6 +37,9 @@ type Chain interface {
 	Recorded(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 	// Insert appends e, which must be the head's successor.
 	Insert(ctx context.Context, e domain.Entry) error
+	// InsertAll appends es, consecutive successors of the head, in one
+	// statement.
+	InsertAll(ctx context.Context, es []domain.Entry) error
 }
 
 // History is the outbox's record of past events (outbox.History).

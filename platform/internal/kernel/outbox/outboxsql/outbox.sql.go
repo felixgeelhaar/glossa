@@ -236,20 +236,24 @@ const releaseOutboxEvent = `-- name: ReleaseOutboxEvent :execrows
 UPDATE outbox_events
 SET attempts     = greatest(attempts - 1, 0),
     available_at = now(),
+    delivered_to = coalesce($1::text[], delivered_to),
     claim_token  = NULL
-WHERE id = $1 AND claim_token = $2::uuid
+WHERE id = $2 AND claim_token = $3::uuid
 `
 
 type ReleaseOutboxEventParams struct {
-	ID         uuid.UUID
-	ClaimToken uuid.UUID
+	DeliveredTo []string
+	ID          uuid.UUID
+	ClaimToken  uuid.UUID
 }
 
 // ReleaseOutboxEvent hands back a claim that was never attempted (the
 // dispatcher is shutting down or ran out of lease) without charging it
-// an attempt.
+// an attempt. A dispatcher that delivered to some subscribers before it
+// had to stop records them (#89), so they are not run again; NULL keeps
+// delivered_to as it was.
 func (q *Queries) ReleaseOutboxEvent(ctx context.Context, arg ReleaseOutboxEventParams) (int64, error) {
-	result, err := q.db.Exec(ctx, releaseOutboxEvent, arg.ID, arg.ClaimToken)
+	result, err := q.db.Exec(ctx, releaseOutboxEvent, arg.DeliveredTo, arg.ID, arg.ClaimToken)
 	if err != nil {
 		return 0, err
 	}

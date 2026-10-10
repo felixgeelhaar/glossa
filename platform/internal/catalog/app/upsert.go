@@ -303,16 +303,13 @@ func settleProposals(ctx context.Context, st Store, changed []domain.Message) er
 	if err != nil {
 		return err
 	}
+	var merged []domain.Proposal
 	for _, pr := range all {
 		m := byID[pr.MessageID]
-		merged := m.State == domain.MessageActive &&
-			(pr.Kind == domain.ProposalNewKey || pr.Kind == domain.ProposalSourceChange && pr.Matches(m))
-		if !merged {
-			continue
-		}
-		if err := st.DeleteProposal(ctx, pr.BranchID, pr.Key); err != nil {
-			return err
+		if m.State == domain.MessageActive &&
+			(pr.Kind == domain.ProposalNewKey || pr.Kind == domain.ProposalSourceChange && pr.Matches(m)) {
+			merged = append(merged, pr)
 		}
 	}
-	return nil
+	return st.DeleteProposals(ctx, merged) // one statement however many (#89)
 }

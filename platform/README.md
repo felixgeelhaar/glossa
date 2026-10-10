@@ -379,7 +379,22 @@ events.Subscribe("catalog.message.source_revised", "localization.mark_outdated",
   event is dead-lettered (`status = 'dead'`). Wrap an error in
   `outbox.Permanent` to dead-letter it immediately.
 - Handlers run under the publisher's trace and the event's tenant.
-  There's no ordering guarantee.
+  There's no ordering guarantee across dispatchers or retries. Within
+  one claimed batch, each subscriber sees the events in claim order
+  (a delivery that fails is retried after the rest).
+- **A hot subscriber takes batches** (#89). `events.SubscribeBatch(name,
+  h, types...)` registers an `outbox.BatchHandler`: the dispatcher hands
+  `HandleBatch` a claimed batch's deliveries of one tenant at once, and
+  it reports one error per delivery. Whatever it reports unhandled is
+  delivered again through `HandleEvent`, alone, with the usual retries;
+  a `Permanent` error dead-letters only its own delivery. When the whole
+  batch fails (its transaction rolled back), report
+  `outbox.BatchFailure(err)` for each, so a permanent error one delivery
+  caused does not dead-letter the rest. Audit, Localization's message
+  projection, Knowledge's TM derivation, the workflow runner and the
+  auto-translate triggers are batch subscribers: a 500-item push or
+  import costs them a few transactions, not 500. The dispatcher also
+  settles a batch in one transaction.
 - A handler has a tenant but no principal. To read (or write) another
   context through its application service — which checks permissions
   like any use case — act as a named background principal with exactly

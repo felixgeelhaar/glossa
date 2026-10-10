@@ -20,7 +20,19 @@
 //     so db.UnitOfWork.InTenantTx works as it does in a request.
 //   - Traced. The publisher's trace context travels with the event, so
 //     one trace spans API write → outbox → handler.
-//   - No ordering guarantee, not even per aggregate.
+//   - No ordering guarantee, not even per aggregate. Replicas claim
+//     disjoint batches concurrently, a failed delivery is retried after
+//     later events, and a claim's rows come back in no defined order.
+//     Within one claimed batch a dispatcher does keep claim order: a
+//     per-event subscriber sees the claims one by one in that order,
+//     and a batch subscriber ([BatchHandler]) gets each tenant's
+//     deliveries in that order, handled before the per-event
+//     subscribers. Handlers that need an order carry a version (the
+//     message projection keeps the highest) rather than rely on it.
+//   - Batched or not. A subscriber registered with
+//     [Registry.SubscribeBatch] gets a batch's deliveries together, in
+//     as few transactions as it likes; whatever it reports unhandled is
+//     delivered again one at a time, so a batch adds no failure mode.
 //
 // # Failure handling
 //
@@ -143,6 +155,24 @@ func Permanent(err error) error {
 		return nil
 	}
 	return permanentError{err}
+}
+
+// batchFailure is a whole batch's failure, reported for each delivery
+// in it. It deliberately does not unwrap: a permanent error one
+// delivery caused must not dead-letter the rest.
+type batchFailure struct{ msg string }
+
+func (b batchFailure) Error() string { return b.msg }
+
+// BatchFailure is what a [BatchHandler] reports for each delivery when
+// the batch failed as a whole (its transaction rolled back): never
+// permanent, so the dispatcher delivers each one again on its own, and
+// the delivery at fault then fails alone.
+func BatchFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	return batchFailure{"batch failed: " + err.Error()}
 }
 
 // IsPermanent reports whether err was marked with Permanent.
