@@ -54,10 +54,9 @@ type projectEvent struct {
 // Subscribe registers Localization's subscribers. Their names are stored
 // with each event; never rename them.
 func (s *Service) Subscribe(r *outbox.Registry) error {
-	for _, typ := range catalogMessageEvents {
-		if err := r.Subscribe(typ, "localization.track_message", outbox.HandlerFunc(s.handleMessageEvent)); err != nil {
-			return err
-		}
+	track := outbox.BatchHandlerFuncs{Event: s.handleMessageEvent, Batch: s.handleMessageEvents}
+	if err := r.SubscribeBatch("localization.track_message", track, catalogMessageEvents...); err != nil {
+		return err
 	}
 	if err := r.Subscribe(catalogProjectCreated, "localization.add_source_locale", outbox.HandlerFunc(s.handleProjectCreated)); err != nil {
 		return err
@@ -71,19 +70,58 @@ func (s *Service) Subscribe(r *outbox.Registry) error {
 // leaves behind are now outdated, and each gets a
 // localization.translation.outdated event.
 func (s *Service) handleMessageEvent(ctx context.Context, d outbox.Delivery) error {
-	var e struct {
-		Message messageSnapshot `json:"message"`
-	}
-	if err := d.Decode(&e); err != nil {
-		return err
-	}
-	state, err := e.Message.state(s.now)
+	state, err := s.messageStateOf(d)
 	if err != nil {
-		return outbox.Permanent(err)
+		return err
 	}
 	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
 		return s.applyMessageState(ctx, st, state, bcp47.Tag{}, projectionActor)
 	})
+}
+
+// handleMessageEvents is handleMessageEvent for a delivered batch
+// (#89): one transaction and applyMessageStates' few statements for
+// all of them. The snapshots are applied in the order delivered; as
+// one at a time, the highest version wins whatever that order.
+func (s *Service) handleMessageEvents(ctx context.Context, ds []outbox.Delivery) []error {
+	errs := make([]error, len(ds))
+	states := make([]MessageState, 0, len(ds))
+	var in []int
+	for i, d := range ds {
+		state, err := s.messageStateOf(d)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		states = append(states, state)
+		in = append(in, i)
+	}
+	if len(states) == 0 {
+		return errs
+	}
+	err := s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		return s.applyMessageStates(ctx, st, states, nil, projectionActor)
+	})
+	if err != nil {
+		for _, i := range in {
+			errs[i] = err
+		}
+	}
+	return errs
+}
+
+func (s *Service) messageStateOf(d outbox.Delivery) (MessageState, error) {
+	var e struct {
+		Message messageSnapshot `json:"message"`
+	}
+	if err := d.Decode(&e); err != nil {
+		return MessageState{}, err
+	}
+	state, err := e.Message.state(s.now)
+	if err != nil {
+		return MessageState{}, outbox.Permanent(err)
+	}
+	return state, nil
 }
 
 // ProjectMessages brings the message projection up to date with

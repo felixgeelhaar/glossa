@@ -24,6 +24,47 @@ func keysOf(t *testing.T, h *harness, p catalogdomain.ProjectID, q catalogapp.Me
 	return keys
 }
 
+// The outbox subscriber catches the projection up with a whole batch at
+// once (#89): several pushes' events, two revisions of one message
+// among them, delivered together, outdate each translation once, and
+// the projection ends at the highest version whatever the order.
+func TestTheSubscriberCatchesUpABatchOfMessageEvents(t *testing.T) {
+	h := newHarnessProjecting(t, false)
+	keys := []string{"a.one", "a.two", "a.three"}
+	p := catalogdomain.ProjectID(h.setup(t, false, []string{"de"}, map[string]string{
+		keys[0]: "One", keys[1]: "Two", keys[2]: "Three",
+	}))
+	ctx := h.developer()
+	for _, k := range keys {
+		if _, _, err := h.svc.PutTranslation(ctx, p.UUID(), k, "de", app.TranslationInput{Text: "Übersetzt"}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.drain(t)
+
+	push := func(items ...catalogapp.UpsertItem) {
+		t.Helper()
+		if _, err := h.catalog.UpsertMessages(ctx, p, items); err != nil {
+			t.Fatal(err)
+		}
+	}
+	push(catalogapp.UpsertItem{Key: keys[0], Text: "One!"}, catalogapp.UpsertItem{Key: keys[1], Text: "Two!"})
+	push(catalogapp.UpsertItem{Key: keys[0], Text: "One!!"}, catalogapp.UpsertItem{Key: keys[2], Text: "Three!"})
+	if got := keysOf(t, h, p, catalogapp.MessageQuery{OutdatedIn: "de"}); len(got) != 0 {
+		t.Fatalf("outdated_in before delivery = %v: the projection is synchronous", got)
+	}
+	h.drain(t)
+	if got := keysOf(t, h, p, catalogapp.MessageQuery{OutdatedIn: "de"}); len(got) != 3 {
+		t.Errorf("outdated_in after the batch = %v, want all three", got)
+	}
+	if n := count(t, "SELECT count(*) FROM outbox_events WHERE event_type = 'localization.translation.outdated'"); n != 3 {
+		t.Errorf("%d outdated events, want one per translation", n)
+	}
+	if n := count(t, "SELECT count(*) FROM localization_messages WHERE key = $1 AND source_revision = 3", keys[0]); n != 1 {
+		t.Errorf("a.one not projected at its last source revision")
+	}
+}
+
 // A bulk upsert brings Localization's projection up to date in its own
 // transaction: missing_in and outdated_in see the push at once, before
 // any event is delivered, and the outbox catch-up later changes nothing
