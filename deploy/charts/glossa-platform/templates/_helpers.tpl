@@ -32,6 +32,22 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 app.kubernetes.io/component: {{ .component }}
 {{- end -}}
 
+{{/* The pod template labels of a stateful component (Postgres, MinIO):
+     gp.componentLabels without the version and chart labels. Those change
+     with every release, and a changed pod template rolls the pod, so on
+     a StatefulSet they would restart the database for nothing (#106).
+     (dict "root" $ "component" "postgres") */}}
+{{- define "gp.statefulPodLabels" -}}
+app.kubernetes.io/name: {{ include "gp.name" .root }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+app.kubernetes.io/managed-by: {{ .root.Release.Service }}
+app.kubernetes.io/part-of: glossa
+{{- with .root.Values.commonLabels }}
+{{ toYaml . }}
+{{- end }}
+app.kubernetes.io/component: {{ .component }}
+{{- end -}}
+
 {{/* (dict "root" $ "component" "server") */}}
 {{- define "gp.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "gp.name" .root }}

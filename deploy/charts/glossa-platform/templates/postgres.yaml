@@ -63,7 +63,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "gp.componentLabels" (dict "root" $ "component" "postgres") | nindent 8 }}
+        {{- include "gp.statefulPodLabels" (dict "root" $ "component" "postgres") | nindent 8 }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

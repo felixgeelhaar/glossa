@@ -108,6 +108,10 @@ jobs:
                   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
             echo "::endgroup::"
           done
+      - name: A release bump leaves the StatefulSets' pod templates alone
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user pyyaml
+          "$CHART"/ci/check-stateful-rollout.sh
 
   # The chart's database scripts, as rendered, against real containers:
   # Postgres bootstrap around the real migrations, the helm test, the
