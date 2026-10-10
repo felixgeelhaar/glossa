@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -41,12 +42,11 @@ type projectEvent struct {
 // Translation memory is derived from both translation events: a review
 // approves or takes back an approval (reviewed), and new text either
 // arrives approved — a project without required review — or replaces
-// approved text (revised).
+// approved text (revised). Derivation is a batch subscriber (#89).
 func (s *Service) Subscribe(r *outbox.Registry) error {
-	for _, typ := range []string{localizationTranslationRevised, localizationTranslationReviewed} {
-		if err := r.Subscribe(typ, subscriberDeriveTM, outbox.HandlerFunc(s.handleTranslationEvent)); err != nil {
-			return err
-		}
+	derive := outbox.BatchHandlerFuncs{Event: s.handleTranslationEvent, Batch: s.handleTranslationEvents}
+	if err := r.SubscribeBatch(subscriberDeriveTM, derive, localizationTranslationRevised, localizationTranslationReviewed); err != nil {
+		return err
 	}
 	return r.Subscribe(catalogProjectDeleted, subscriberDropProject, outbox.HandlerFunc(s.handleProjectDeleted))
 }
@@ -58,30 +58,87 @@ func (s *Service) Subscribe(r *outbox.Registry) error {
 // state older than one already applied changes nothing. So duplicates
 // and reordering converge.
 func (s *Service) handleTranslationEvent(ctx context.Context, d outbox.Delivery) error {
+	return s.deriveFor(ctx, []outbox.Delivery{d}, func(err error) error { return err })[0]
+}
+
+// handleTranslationEvents is handleTranslationEvent for a delivered
+// batch: each translation's current state is read as before, then every
+// derivation is applied in one transaction, in translation order (the
+// order the derivation locks are taken in, whoever takes them). Since
+// the current state decides, the order of the events does not matter.
+// A failed transaction fails every derivation in it, never permanently
+// (outbox.BatchFailure), so each is delivered again alone.
+func (s *Service) handleTranslationEvents(ctx context.Context, ds []outbox.Delivery) []error {
+	return s.deriveFor(ctx, ds, outbox.BatchFailure)
+}
+
+// deriveFor derives the TM for ds' translations in one transaction. A
+// delivery that cannot be read fails alone; if the transaction fails,
+// every delivery in it reports failed(err).
+func (s *Service) deriveFor(ctx context.Context, ds []outbox.Delivery, failed func(error) error) []error {
+	errs := make([]error, len(ds))
+	bg, err := authz.Background(ctx, subscriberDeriveTM, authz.TranslationsRead, authz.CatalogRead)
+	if err != nil {
+		for i := range errs {
+			errs[i] = outbox.Permanent(err)
+		}
+		return errs
+	}
+	type pending struct {
+		at  int
+		cur CurrentTranslation
+	}
+	var todo []pending
+	for i, d := range ds {
+		project, translation, err := translationOf(d)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		cur, err := s.translations.Current(bg, project, translation)
+		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrProjectNotFound) {
+			continue // deleted with its project; knowledge.drop_project erases the rest
+		}
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		todo = append(todo, pending{at: i, cur: cur})
+	}
+	if len(todo) == 0 {
+		return errs
+	}
+	slices.SortStableFunc(todo, func(a, b pending) int {
+		return slices.Compare(a.cur.TranslationID[:], b.cur.TranslationID[:])
+	})
+	p, _ := authz.From(bg)
+	err = s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
+		for _, t := range todo {
+			if err := s.derive(ctx, st, t.cur, p.Actor.String()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		for _, t := range todo {
+			errs[t.at] = failed(err)
+		}
+	}
+	return errs
+}
+
+func translationOf(d outbox.Delivery) (project, translation uuid.UUID, err error) {
 	var e translationEvent
 	if err := d.Decode(&e); err != nil {
-		return err
+		return uuid.Nil, uuid.Nil, err
 	}
 	translation, err1 := uuid.Parse(e.TranslationID)
 	project, err2 := uuid.Parse(e.ProjectID)
 	if err := errors.Join(err1, err2); err != nil {
-		return outbox.Permanent(fmt.Errorf("knowledge: translation event %s: %w", d.EventID, err))
+		return uuid.Nil, uuid.Nil, outbox.Permanent(fmt.Errorf("knowledge: translation event %s: %w", d.EventID, err))
 	}
-	bg, err := authz.Background(ctx, subscriberDeriveTM, authz.TranslationsRead, authz.CatalogRead)
-	if err != nil {
-		return outbox.Permanent(err)
-	}
-	cur, err := s.translations.Current(bg, project, translation)
-	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrProjectNotFound) {
-		return nil // deleted with its project; knowledge.drop_project erases the rest
-	}
-	if err != nil {
-		return err
-	}
-	p, _ := authz.From(bg)
-	return s.tx.InTenant(ctx, func(ctx context.Context, st Store) error {
-		return s.derive(ctx, st, cur, p.Actor.String())
-	})
+	return project, translation, nil
 }
 
 // derive applies domain.Reconcile under the translation's derivation
