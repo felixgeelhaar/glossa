@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -78,11 +80,11 @@ var vocabulary = func() map[string]domain.EventName {
 
 // Subscribe registers the runner for every vocabulary event, and the
 // default definition's seeding for every new tenant.
+// The runner is a batch subscriber (#89): see handleDeliveries.
 func (r *Runner) Subscribe(reg *outbox.Registry) error {
-	for typ := range vocabulary {
-		if err := reg.Subscribe(typ, subscriberRunner, outbox.HandlerFunc(r.handleDelivery)); err != nil {
-			return err
-		}
+	runner := outbox.BatchHandlerFuncs{Event: r.handleDelivery, Batch: r.handleDeliveries}
+	if err := reg.SubscribeBatch(subscriberRunner, runner, slices.Sorted(maps.Keys(vocabulary))...); err != nil {
+		return err
 	}
 	return reg.Subscribe(identityTenantCreated, subscriberSeed, outbox.HandlerFunc(func(ctx context.Context, _ outbox.Delivery) error {
 		return r.EnsureDefault(ctx)
