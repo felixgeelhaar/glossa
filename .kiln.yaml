@@ -3,11 +3,13 @@
 # checks live in .warden.yaml — Kiln builds, signs with the operator's
 # cosign key and pushes, and RollOps is the only thing that ships.
 #
-# VERSION is a fixed build argument, not read from the tag: Kiln takes no
-# passthrough args, so a build is reproducible from its commit. Bump it
-# with deploy/charts/glossa-platform/Chart.yaml's appVersion, in the same
-# commit the release tag points at. The commit itself is in the
-# provenance, so REVISION keeps the Dockerfiles' default.
+# VERSION and REVISION come from the commit Kiln builds (kiln >= 0.7.0):
+# ${kiln.version} is the release tag's semver without the leading v and
+# ${kiln.sha} the commit, so nothing here is bumped by hand and every
+# binary reports the release and commit it was built from. Both are
+# derived from the commit, not the environment, so a build stays
+# reproducible from it. The one version bumped by hand is Chart.yaml's
+# appVersion; ci/check-release-version.sh checks the tag against it.
 apiVersion: kiln.klarlabs.de/v1
 kind: Pipeline
 
@@ -49,7 +51,8 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.3"}
+    args: {VERSION: "${kiln.version}", REVISION: "${kiln.sha}"}
+    on: [tag]
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-edge
@@ -57,7 +60,8 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.3"}
+    args: {VERSION: "${kiln.version}", REVISION: "${kiln.sha}"}
+    on: [tag]
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-studio
@@ -65,7 +69,8 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.3"}
+    args: {VERSION: "${kiln.version}", REVISION: "${kiln.sha}"}
+    on: [tag]
 
   - kind: image
     image: ghcr.io/klarlabs-studio/glossa-site
@@ -73,7 +78,8 @@ publish:
     context: .
     platforms: [linux/amd64]
     tags: [sha, semver, latest]
-    args: {VERSION: "0.5.3"}
+    args: {VERSION: "${kiln.version}", REVISION: "${kiln.sha}"}
+    on: [tag]
 
 watch:
   remote: origin
