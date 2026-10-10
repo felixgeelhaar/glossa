@@ -13,10 +13,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@felixgeelhaar/glossa-cli",
     "@felixgeelhaar/glossa-format",
-    "@felixgeelhaar/glossa-sdk",
-    "@felixgeelhaar/glossa-ui",
     "@glossa/react-test-react-18",
     "@glossa/studio",
     "@klarlabs-studio/glossa-astro",

@@ -1,6 +1,6 @@
 # Runbook: retire Glossa v0.3
 
-RFC 0006 §7.4. v0.3 is `apps/api`, `apps/admin`, `packages/*` and the `glossa` namespace serving `glossa.felixgeelhaar.de`. This runbook carries each v0.3 project to the platform, proves it renders the same, switches its product to the edge, watches it, and only then retires v0.3. Run **steps 1–9 once per former v0.3 project** and **step 10 once, after the last one**.
+RFC 0006 §7.4. v0.3 was `apps/api`, `apps/admin`, `packages/*` and the `glossa` namespace serving `glossa.felixgeelhaar.de`. This runbook carries each v0.3 project to the platform, proves it renders the same, switches its product to the edge, watches it, and only then retires v0.3. Run **steps 1–9 once per former v0.3 project** and **step 10 once, after the last one**.
 
 Every command below exists as written (`glossa` is `platform/cmd/glossa`; flags are those in `platform/internal/cli`). Until step 7, v0.3 still serves the product, so every earlier rollback is "stop and leave the product on v0.3".
 
@@ -155,11 +155,13 @@ Rollback: point the product back at v0.3 (step 7's rollback). Nothing is lost.
 
 ## 10. After the last project (owner only)
 
-1. Confirm no v0.3 API key is left unrevoked in any project (step 9), then archive a final v0.3 dump (step 2's command) for one year, immutable; keep its SHA-256 with the evidence.
-2. `kubectl -n glossa scale deploy/api deploy/admin --replicas=0` and leave it for 30 days.
-3. Remove the IngressRoute and the DNS record for `glossa.felixgeelhaar.de`; delete the `glossa` namespace.
-4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`).
-5. Merge the deletion PR (branch `m5/retire-v0`; it must not merge before steps 1–9 have run for every former v0.3 project). Afterwards the exit test's v0.3 half (`apps/api` build, `packages/format`) is gone: see the PR description for what replaces it.
-6. Export the organisation's audit trail as an owner and verify it offline: `glossa audit verify <export> --public-key glossa-audit-keys.json --json` (the key document is served at `/.well-known/glossa-audit-keys.json`).
+Status: steps 9 and 10.1–10.3 were done on 2026-10-09 (v0.3 retired in production). Remaining: DNS record removal and `npm deprecate` (owner), and 10.6 (audit export verification).
 
-Rollback: before 3, `kubectl -n glossa scale deploy/api deploy/admin --replicas=1`. After 3, rebuild from the archived dump with `platform/scripts/v0-restore.sh` and the git history of the deletion PR; that is why the dump is kept for a year.
+1. Confirm no v0.3 API key is left unrevoked in any project (step 9), then archive a final v0.3 dump (step 2's command) for one year, immutable; keep its SHA-256 with the evidence. **Done 2026-10-09:** final archive `storagebox:archive/glossa-v0/glossa-v0-final-glossa-20261009T060220Z.sql.gz`, sha256 `8f814b088f8f7dccc56a1a47143acbcb789f4e29dda891aefe7eed95b563adde`, kept to 2027-10-09.
+2. `kubectl -n glossa scale deploy/api deploy/admin --replicas=0` and leave it for 30 days. **Done 2026-10-09:** Helm release uninstalled, RollOps watch entry removed (the `.rollops/` manifests are deleted in the repository).
+3. Remove the IngressRoute and the DNS record for `glossa.felixgeelhaar.de`; delete the `glossa` namespace. **Done 2026-10-09:** namespace, volume and PV deleted. DNS record removal is still the owner's.
+4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`). **Open (owner).**
+5. Merge the deletion PR (branch `m5/retire-v0`; it must not merge before steps 1–9 have run for every former v0.3 project). Afterwards the exit test's v0.3 half (`apps/api` build, `packages/format`) is gone: see the PR description for what replaces it.
+6. **Open.** Export the organisation's audit trail as an owner and verify it offline: `glossa audit verify <export> --public-key glossa-audit-keys.json --json` (the key document is served at `/.well-known/glossa-audit-keys.json`).
+
+Rollback (historical; step 3 is done): before 3, `kubectl -n glossa scale deploy/api deploy/admin --replicas=1`. After 3, rebuild from the archived dump with `platform/scripts/v0-restore.sh` and the git history of the deletion PR; that is why the dump is kept for a year.

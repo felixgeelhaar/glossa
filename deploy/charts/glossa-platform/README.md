@@ -12,7 +12,7 @@ namespace (see [In-namespace MinIO](#in-namespace-minio)). With
 remote outside the cluster every night and restore the newest dump every
 week (see [Backups](#backups)).
 
-The v0.3 chart (`deploy/charts/glossa`) is separate and unchanged.
+The v0.3 chart was deleted with v0.3 (retired 2026-10-09).
 
 ```text
                   ┌─────────────── traefik (websecure) ────────────────┐
@@ -74,9 +74,7 @@ and a writable root filesystem).
 Built and pushed to GHCR by
 [`.github/workflows/release-platform.yml`](../../../.github/workflows/release-platform.yml)
 on a `v*.*.*` tag (see [Cutting a release](#cutting-a-release)); pull
-requests only build them (`.github/workflows/platform.yml`). The v0.3
-`glossa-api` and `glossa-admin` images are separate — they live in
-`release.yml` and still publish from `main`.
+requests only build them (`.github/workflows/platform.yml`).
 
 | Image | Dockerfile | Base (pinned by digest) | User | Port |
 |---|---|---|---|---|
@@ -570,8 +568,8 @@ by mistake are under `…/deleted/<timestamp>/`.
 
 ## Deploying with RollOps
 
-Klarlabs rolls Glossa out with RollOps, as it does v0.3 (`.rollops/*.yaml`
-at the repository root); the chart carries no Keel or other rollout-tool
+Klarlabs rolls Glossa out with RollOps, as it did v0.3 (whose `.rollops/*.yaml`
+were deleted with it); the chart carries no Keel or other rollout-tool
 annotations. RollOps RolloutConfigs are **generated from `helm template`
 output**, one per rendered resource, each embedding the manifest as
 `spec.target.spec.manifest` (and `spec.target.spec.image` for workloads),

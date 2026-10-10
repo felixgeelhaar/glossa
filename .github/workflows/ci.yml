@@ -313,14 +313,10 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile=false
       # Workspace deps need to be built before consumers can lint.
-      # Legacy v0.3 packages that still build on main (v0.3 maintenance and the
-      # admin/elements live on release/v0.3). cli depends on sdk.
-      - name: build packages (in dep order)
-        run: |
-          pnpm --filter @felixgeelhaar/glossa-format build
-          pnpm --filter @felixgeelhaar/glossa-sdk build
-          pnpm --filter @felixgeelhaar/glossa-ui build
-          pnpm --filter @felixgeelhaar/glossa-cli build
+      # v0.3's formatter is the one v0.3 package left: `glossa import --from
+      # v0 --verify` and the M5 exit test render with it (RFC 0006 §7.3).
+      - name: build v0.3's formatter
+        run: pnpm --filter @felixgeelhaar/glossa-format build
       - name: build rewrite packages (topological)
         run: pnpm -r --filter "./messageformat/js" --filter "./runtimes/js/*" build
       - name: lint (tsc --noEmit)

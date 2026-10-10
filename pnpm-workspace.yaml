@@ -1,6 +1,5 @@
 packages:
-  - "packages/*"
-  - "!packages/elements"
+  - "packages/format"
   - "messageformat/js"
   - "runtimes/js/*"
   - "runtimes/js/react/react-18"

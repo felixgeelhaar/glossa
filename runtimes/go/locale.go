@@ -99,7 +99,7 @@ func lookup(requested, available []string) (string, bool) {
 
 // rtlScripts lists the ISO 15924 scripts whose characters are
 // right-to-left (Unicode bidi class R or AL). Keep in sync with the
-// platform's locale package and packages/sdk/src/locale.ts.
+// platform's locale package and the retired v0.3 SDK's locale.ts.
 var rtlScripts = map[string]bool{
 	"Adlm": true, "Arab": true, "Aran": true, "Armi": true, "Avst": true,
 	"Chrs": true, "Cprt": true, "Elym": true, "Hatr": true, "Hebr": true,
