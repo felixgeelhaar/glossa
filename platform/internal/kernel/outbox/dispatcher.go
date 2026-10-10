@@ -160,6 +160,12 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 
 // ProcessBatch claims one batch and settles every claim in it. It
 // returns the number of events claimed.
+//
+// Batch subscribers (Registry.SubscribeBatch) go first: their pending
+// deliveries are grouped per subscriber and tenant, in claim order, and
+// handed over together. Every other subscriber then gets each claim in
+// claim order, one delivery at a time, as before. Each claim is settled
+// on its own, in claim order, from what its subscribers did.
 func (d *Dispatcher) ProcessBatch(ctx context.Context) (int, error) {
 	leaseEnd := d.now().Add(d.cfg.Lease - d.cfg.Lease/10) // keep a margin for settling
 	claims, err := d.store.Claim(ctx, d.cfg.BatchSize, d.cfg.Lease)
@@ -167,24 +173,217 @@ func (d *Dispatcher) ProcessBatch(ctx context.Context) (int, error) {
 		d.metrics.claimErrors.Inc()
 		return 0, fmt.Errorf("outbox: claim: %w", err)
 	}
-	for _, c := range claims {
-		s := d.settlementFor(ctx, c, leaseEnd)
-		d.settle(ctx, c, s)
+	runs := make([]*claimRun, len(claims))
+	for i, c := range claims {
+		runs[i] = &claimRun{Claim: c, delivered: slices.Clone(c.DeliveredTo)}
+	}
+	d.deliverBatches(ctx, runs, leaseEnd)
+	for _, r := range runs {
+		d.deliverEach(ctx, r, leaseEnd)
+	}
+	for _, r := range runs {
+		d.settle(ctx, r.Claim, d.settlementOf(r))
 	}
 	return len(claims), nil
 }
 
-// settlementFor delivers c unless the dispatcher must hand it back.
-func (d *Dispatcher) settlementFor(ctx context.Context, c Claim, leaseEnd time.Time) Settlement {
-	if ctx.Err() != nil || !d.now().Before(leaseEnd) {
-		return Settlement{EventID: c.EventID, ClaimToken: c.ClaimToken, Outcome: OutcomeRelease}
-	}
-	return d.deliver(ctx, c)
+// claimRun is one claim's progress through a batch.
+type claimRun struct {
+	Claim
+	// delivered starts as the claim's DeliveredTo and gains every
+	// subscriber that succeeds.
+	delivered []string
+	failures  []error
+	// deferred is set when a subscriber was not attempted (shutdown,
+	// lease exhausted): the claim is handed back, not charged.
+	deferred bool
 }
 
-// deliver runs every pending subscriber of c in the event's tenant scope
-// and under the publisher's trace.
-func (d *Dispatcher) deliver(ctx context.Context, c Claim) Settlement {
+func (r *claimRun) pending(sub subscription) bool { return !slices.Contains(r.delivered, sub.name) }
+
+func (r *claimRun) record(sub subscription, err error) {
+	if err != nil {
+		r.failures = append(r.failures, fmt.Errorf("%s: %w", sub.name, err))
+		return
+	}
+	r.delivered = append(r.delivered, sub.name)
+}
+
+// canStart reports whether there is time left to start a delivery.
+func (d *Dispatcher) canStart(ctx context.Context, leaseEnd time.Time) bool {
+	return ctx.Err() == nil && d.now().Before(leaseEnd)
+}
+
+// settlementOf turns a run into its settlement: a failure retries or
+// dead-letters as decide says, a deferred subscriber hands the claim
+// back keeping what succeeded, and otherwise it is delivered.
+func (d *Dispatcher) settlementOf(r *claimRun) Settlement {
+	if len(r.failures) == 0 && r.deferred {
+		return Settlement{EventID: r.EventID, ClaimToken: r.ClaimToken, Outcome: OutcomeRelease, DeliveredTo: r.delivered}
+	}
+	return d.decide(r.Claim, r.delivered, r.failures)
+}
+
+// batchGroup is one batch subscriber's pending deliveries for one
+// tenant, in claim order.
+type batchGroup struct {
+	sub  subscription
+	runs []*claimRun
+}
+
+// deliverBatches hands each batch subscriber its pending deliveries,
+// one call per subscriber and tenant.
+func (d *Dispatcher) deliverBatches(ctx context.Context, runs []*claimRun, leaseEnd time.Time) {
+	type key struct {
+		sub    string
+		tenant tenancy.ID
+	}
+	groups := map[key]*batchGroup{}
+	var order []key
+	for _, r := range runs {
+		for _, sub := range d.registry.subscribers(r.Type) {
+			if sub.batch == nil || !r.pending(sub) {
+				continue
+			}
+			k := key{sub.name, r.TenantID}
+			g, ok := groups[k]
+			if !ok {
+				g = &batchGroup{sub: sub}
+				groups[k] = g
+				order = append(order, k)
+			}
+			g.runs = append(g.runs, r)
+		}
+	}
+	for _, k := range order {
+		g := groups[k]
+		if !d.canStart(ctx, leaseEnd) {
+			for _, r := range g.runs {
+				r.deferred = true
+			}
+			continue
+		}
+		d.deliverBatch(ctx, g, leaseEnd)
+	}
+}
+
+// deliverBatch calls one batch subscriber with a group's deliveries.
+// What it did not handle is delivered again one at a time, with inline
+// retries, so a delivery the batch failed is neither lost nor applied
+// twice by the dispatcher: handled ones are never redelivered here, and
+// the rest are retried exactly as a per-event subscriber would be.
+func (d *Dispatcher) deliverBatch(ctx context.Context, g *batchGroup, leaseEnd time.Time) {
+	ds := make([]Delivery, len(g.runs))
+	links := make([]trace.Link, 0, len(g.runs))
+	for i, r := range g.runs {
+		ds[i] = r.Delivery
+		pub := propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier(r.TraceContext))
+		if sc := trace.SpanContextFromContext(pub); sc.IsValid() {
+			links = append(links, trace.Link{SpanContext: sc})
+		}
+	}
+	tenant := g.runs[0].TenantID
+	bctx, span := d.tracer.Start(tenancy.ContextWithTenant(ctx, tenant), "outbox deliver batch "+g.sub.name,
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithLinks(links...),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "glossa.outbox"),
+			attribute.Int("messaging.batch.message_count", len(ds)),
+			attribute.String("glossa.outbox.subscriber", g.sub.name),
+			attribute.String("glossa.tenant.id", tenant.String()),
+		))
+	start := time.Now()
+	errs := d.callBatch(bctx, g.sub.batch, ds)
+	share := time.Since(start) / time.Duration(len(ds))
+	var redeliver []*claimRun
+	for i, r := range g.runs {
+		switch err := errs[i]; {
+		case err == nil, IsPermanent(err):
+			d.metrics.observeHandler(r.Type, g.sub.name, err, share)
+			if err != nil {
+				d.logHandlerFailure(bctx, g.sub, r.Delivery, err)
+			}
+			r.record(g.sub, err)
+		default:
+			redeliver = append(redeliver, r)
+		}
+	}
+	if len(redeliver) > 0 {
+		span.SetStatus(codes.Error, fmt.Sprintf("%d of %d deliveries failed in the batch", len(redeliver), len(ds)))
+		d.logger.WarnContext(bctx, "outbox: batch handler failed; delivering one at a time",
+			slog.String("subscriber", g.sub.name), slog.Int("failed", len(redeliver)), slog.Int("batch", len(ds)))
+	}
+	span.End()
+	for _, r := range redeliver {
+		if !d.canStart(ctx, leaseEnd) {
+			r.deferred = true
+			continue
+		}
+		ectx, span := d.startDelivery(ctx, r.Claim)
+		err := d.invoke(ectx, g.sub, r.Delivery)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+		r.record(g.sub, err)
+	}
+}
+
+// callBatch calls h with the handler timeout and panic isolation, and
+// always returns one result per delivery.
+func (d *Dispatcher) callBatch(ctx context.Context, h BatchHandler, ds []Delivery) (errs []error) {
+	ctx, cancel := context.WithTimeout(ctx, d.cfg.HandlerTimeout)
+	defer cancel()
+	all := func(err error) []error {
+		out := make([]error, len(ds))
+		for i := range out {
+			out[i] = err
+		}
+		return out
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			errs = all(fmt.Errorf("batch handler panicked: %v\n%s", p, debug.Stack()))
+		}
+	}()
+	errs = h.HandleBatch(ctx, ds)
+	if len(errs) != len(ds) {
+		return all(fmt.Errorf("batch handler returned %d results for %d deliveries", len(errs), len(ds)))
+	}
+	return errs
+}
+
+// deliverEach runs the claim's pending per-event subscribers in the
+// event's tenant scope and under the publisher's trace, unless the
+// dispatcher must hand the claim back.
+func (d *Dispatcher) deliverEach(ctx context.Context, r *claimRun, leaseEnd time.Time) {
+	var subs []subscription
+	for _, sub := range d.registry.subscribers(r.Type) {
+		if sub.batch == nil && r.pending(sub) {
+			subs = append(subs, sub)
+		}
+	}
+	if len(subs) == 0 {
+		return
+	}
+	if !d.canStart(ctx, leaseEnd) {
+		r.deferred = true
+		return
+	}
+	ctx, span := d.startDelivery(ctx, r.Claim)
+	defer span.End()
+	before := len(r.failures)
+	for _, sub := range subs {
+		r.record(sub, d.invoke(ctx, sub, r.Delivery))
+	}
+	if len(r.failures) > before {
+		span.SetStatus(codes.Error, joinErrors(r.failures[before:]))
+	}
+}
+
+// startDelivery scopes ctx to c's tenant and continues the publisher's
+// trace with a consumer span.
+func (d *Dispatcher) startDelivery(ctx context.Context, c Claim) (context.Context, trace.Span) {
 	ctx = propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier(c.TraceContext))
 	ctx, span := d.tracer.Start(ctx, "outbox deliver "+c.Type,
 		trace.WithSpanKind(trace.SpanKindConsumer),
@@ -195,27 +394,7 @@ func (d *Dispatcher) deliver(ctx context.Context, c Claim) Settlement {
 			attribute.String("glossa.tenant.id", c.TenantID.String()),
 			attribute.Int("glossa.event.attempt", c.Attempt),
 		))
-	defer span.End()
-	ctx = tenancy.ContextWithTenant(ctx, c.TenantID)
-
-	delivered := slices.Clone(c.DeliveredTo)
-	var failures []error
-	for _, sub := range d.registry.subscribers(c.Type) {
-		if slices.Contains(delivered, sub.name) {
-			continue
-		}
-		if err := d.invoke(ctx, sub, c.Delivery); err != nil {
-			failures = append(failures, fmt.Errorf("%s: %w", sub.name, err))
-			continue
-		}
-		delivered = append(delivered, sub.name)
-	}
-	s := d.decide(c, delivered, failures)
-	if len(failures) > 0 {
-		span.SetStatus(codes.Error, s.LastError)
-	}
-	span.SetAttributes(attribute.String("glossa.outbox.outcome", s.Outcome.String()))
-	return s
+	return tenancy.ContextWithTenant(ctx, c.TenantID), span
 }
 
 // invoke calls one subscriber with inline retries, a timeout and panic
@@ -229,11 +408,15 @@ func (d *Dispatcher) invoke(ctx context.Context, sub subscription, del Delivery)
 	})
 	d.metrics.observeHandler(del.Type, sub.name, err, time.Since(start))
 	if err != nil {
-		d.logger.WarnContext(ctx, "outbox: handler failed",
-			slog.String("event_type", del.Type), slog.String("event_id", del.EventID.String()),
-			slog.String("subscriber", sub.name), slog.Int("attempt", del.Attempt), slog.Any("error", err))
+		d.logHandlerFailure(ctx, sub, del, err)
 	}
 	return err
+}
+
+func (d *Dispatcher) logHandlerFailure(ctx context.Context, sub subscription, del Delivery, err error) {
+	d.logger.WarnContext(ctx, "outbox: handler failed",
+		slog.String("event_type", del.Type), slog.String("event_id", del.EventID.String()),
+		slog.String("subscriber", sub.name), slog.Int("attempt", del.Attempt), slog.Any("error", err))
 }
 
 func callSafely(ctx context.Context, h Handler, del Delivery) (err error) {

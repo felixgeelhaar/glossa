@@ -107,7 +107,7 @@ func settle(ctx context.Context, q *outboxsql.Queries, st Settlement) (int64, er
 		})
 	case OutcomeRelease:
 		return q.ReleaseOutboxEvent(ctx, outboxsql.ReleaseOutboxEventParams{
-			ID: st.EventID, ClaimToken: st.ClaimToken,
+			ID: st.EventID, ClaimToken: st.ClaimToken, DeliveredTo: st.DeliveredTo, // nil keeps it
 		})
 	}
 	return 0, fmt.Errorf("unknown outcome %d", st.Outcome)

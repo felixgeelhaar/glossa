@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -452,6 +453,17 @@ func TestReleaseDoesNotChargeAnAttempt(t *testing.T) {
 	}
 	again, err := f.store.Claim(ctx, 1, time.Minute)
 	if err != nil || len(again) != 1 {
-		t.Errorf("released event not claimable again: %v, %v", again, err)
+		t.Fatalf("released event not claimable again: %v, %v", again, err)
+	}
+
+	// A dispatcher that delivered to some subscribers before it had to
+	// stop keeps them on release; they are not run again (#89).
+	rel = outbox.Settlement{EventID: again[0].EventID, ClaimToken: again[0].ClaimToken, Outcome: outbox.OutcomeRelease,
+		DeliveredTo: []string{"audit.record"}}
+	if err := f.store.Settle(ctx, rel); err != nil {
+		t.Fatal(err)
+	}
+	if s := state(t, ids[0]); s.status != "pending" || s.attempts != 0 || !slices.Equal(s.deliveredTo, []string{"audit.record"}) {
+		t.Errorf("after a partial release: %+v", s)
 	}
 }

@@ -20,7 +20,19 @@
 //     so db.UnitOfWork.InTenantTx works as it does in a request.
 //   - Traced. The publisher's trace context travels with the event, so
 //     one trace spans API write → outbox → handler.
-//   - No ordering guarantee, not even per aggregate.
+//   - No ordering guarantee, not even per aggregate. Replicas claim
+//     disjoint batches concurrently, a failed delivery is retried after
+//     later events, and a claim's rows come back in no defined order.
+//     Within one claimed batch a dispatcher does keep claim order: a
+//     per-event subscriber sees the claims one by one in that order,
+//     and a batch subscriber ([BatchHandler]) gets each tenant's
+//     deliveries in that order, handled before the per-event
+//     subscribers. Handlers that need an order carry a version (the
+//     message projection keeps the highest) rather than rely on it.
+//   - Batched or not. A subscriber registered with
+//     [Registry.SubscribeBatch] gets a batch's deliveries together, in
+//     as few transactions as it likes; whatever it reports unhandled is
+//     delivered again one at a time, so a batch adds no failure mode.
 //
 // # Failure handling
 //
