@@ -435,6 +435,37 @@ func TestExpiredLeaseFencesTheOldHolder(t *testing.T) {
 	}
 }
 
+// SettleAll settles a batch in one transaction, each settlement still
+// fenced by its own claim token (#89).
+func TestSettleAllFencesEachSettlement(t *testing.T) {
+	f := setup(t)
+	ids := f.publish(t, f.ctx, 3)
+	ctx := context.Background()
+	claims, err := f.store.Claim(ctx, 3, time.Minute)
+	if err != nil || len(claims) != 3 {
+		t.Fatalf("claim = %v, %v", claims, err)
+	}
+	ss := make([]outbox.Settlement, len(claims))
+	for i, c := range claims {
+		ss[i] = outbox.Settlement{EventID: c.EventID, ClaimToken: c.ClaimToken, Outcome: outbox.OutcomeDelivered, DeliveredTo: []string{"x"}}
+	}
+	ss[1].ClaimToken = uuid.New() // a lease another dispatcher took over
+	ss[2].Outcome, ss[2].RetryAfter, ss[2].LastError = outbox.OutcomeRetry, time.Minute, "boom"
+	errs := f.store.SettleAll(ctx, ss)
+	if len(errs) != 3 || errs[0] != nil || !errors.Is(errs[1], outbox.ErrLeaseLost) || errs[2] != nil {
+		t.Fatalf("SettleAll = %v, want only the second lease lost", errs)
+	}
+	want := map[uuid.UUID]string{ss[0].EventID: "delivered", ss[1].EventID: "pending", ss[2].EventID: "pending"}
+	for _, id := range ids {
+		if s := state(t, id); s.status != want[id] {
+			t.Errorf("%s: %+v, want %s", id, s, want[id])
+		}
+	}
+	if s := state(t, ss[2].EventID); s.lastError == nil || *s.lastError != "boom" {
+		t.Errorf("retry not recorded: %+v", s)
+	}
+}
+
 func TestReleaseDoesNotChargeAnAttempt(t *testing.T) {
 	f := setup(t)
 	ids := f.publish(t, f.ctx, 1)

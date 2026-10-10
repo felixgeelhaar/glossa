@@ -3,8 +3,14 @@
 package main
 
 import (
+	"cmp"
+	"io"
+	"maps"
 	"net/http"
 	"os"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,6 +63,38 @@ func TestOutboxDrainThroughput(t *testing.T) {
 		t.Errorf("%d events dead-lettered", dead)
 	}
 	s.checkAuditChains(t)
+	s.logHandlerTime(t)
+}
+
+// logHandlerTime logs the time each subscriber spent handling events,
+// from the dispatcher's metrics, so a slow drain names its cause.
+func (s *server) logHandlerTime(t *testing.T) {
+	t.Helper()
+	resp, err := http.Get(s.base + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := map[string]float64{}
+	const metric = "glossa_outbox_handler_duration_seconds_sum{"
+	for line := range strings.Lines(string(body)) {
+		if !strings.HasPrefix(line, metric) {
+			continue
+		}
+		labels, value, _ := strings.Cut(strings.TrimPrefix(line, metric), "} ")
+		_, sub, _ := strings.Cut(labels, `subscriber="`)
+		sub, _, _ = strings.Cut(sub, `"`)
+		v, _ := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		total[sub] += v
+	}
+	subs := slices.SortedFunc(maps.Keys(total), func(a, b string) int { return cmp.Compare(total[b], total[a]) })
+	for _, sub := range subs {
+		t.Logf("handler time %-36s %8.2fs", sub, total[sub])
+	}
 }
 
 // pendingEvents counts the events not yet delivered.

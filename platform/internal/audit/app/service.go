@@ -98,7 +98,7 @@ func (s *Service) HandleBatch(ctx context.Context, ds []outbox.Delivery) []error
 	}
 	if _, err := s.Append(ctx, drafts...); err != nil {
 		for _, i := range in {
-			errs[i] = err
+			errs[i] = outbox.BatchFailure(err)
 		}
 	}
 	return errs

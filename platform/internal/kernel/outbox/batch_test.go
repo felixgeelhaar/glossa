@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"go.klarlabs.de/glossa/platform/internal/kernel/outbox"
 	"go.klarlabs.de/glossa/platform/internal/kernel/tenancy"
@@ -279,6 +280,75 @@ func TestShutdownBeforeABatchReleasesItsClaims(t *testing.T) {
 	_, _ = newDispatcher(t, store, reg, outbox.DispatcherOptions{}).ProcessBatch(ctx)
 	if s := onlySettlement(t, store); s.Outcome != outbox.OutcomeRelease || !slices.Equal(s.DeliveredTo, []string{"earlier"}) || len(b.batches) != 0 {
 		t.Errorf("settlement %+v after %d batches, want released untouched", s, len(b.batches))
+	}
+}
+
+// batchStore settles a batch at once; broken makes it fail as a whole.
+type batchStore struct {
+	fakeStore
+	calls  int
+	broken bool
+	lost   uuid.UUID
+}
+
+func (b *batchStore) SettleAll(_ context.Context, ss []outbox.Settlement) []error {
+	b.calls++
+	if b.broken {
+		return nil
+	}
+	errs := make([]error, len(ss))
+	for i, s := range ss {
+		if s.EventID == b.lost {
+			errs[i] = outbox.ErrLeaseLost
+			continue
+		}
+		b.settlements = append(b.settlements, s)
+	}
+	return errs
+}
+
+func settlementCount(t *testing.T, g prometheus.Gatherer, outcome string) float64 {
+	t.Helper()
+	families, err := g.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range families {
+		if f.GetName() != "glossa_outbox_settlements_total" {
+			continue
+		}
+		for _, m := range f.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetValue() == outcome {
+					return m.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func TestABatchIsSettledInOneRoundTrip(t *testing.T) {
+	reg := outbox.NewRegistry()
+	c1, c2, c3 := newClaim("a.happened", 1), newClaim("a.happened", 1), newClaim("a.happened", 1)
+	metrics := prometheus.NewRegistry()
+	store := &batchStore{fakeStore: fakeStore{queue: []outbox.Claim{c1, c2, c3}}, lost: c2.EventID}
+	if _, err := newDispatcher(t, store, reg, outbox.DispatcherOptions{Registerer: metrics}).ProcessBatch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.settled(); store.calls != 1 || len(got) != 2 || got[0].EventID != c1.EventID || got[1].EventID != c3.EventID {
+		t.Errorf("%d SettleAll calls, settled %+v", store.calls, got)
+	}
+	if n := settlementCount(t, metrics, "lease_lost"); n != 1 {
+		t.Errorf("lease_lost settlements = %v, want 1", n)
+	}
+
+	broken := &batchStore{fakeStore: fakeStore{queue: []outbox.Claim{newClaim("a.happened", 1), newClaim("a.happened", 1)}}, broken: true}
+	if _, err := newDispatcher(t, broken, reg, outbox.DispatcherOptions{}).ProcessBatch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := broken.settled(); len(got) != 2 {
+		t.Errorf("after a failed SettleAll, settled one at a time: %+v", got)
 	}
 }
 

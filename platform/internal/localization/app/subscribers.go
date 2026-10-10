@@ -104,7 +104,7 @@ func (s *Service) handleMessageEvents(ctx context.Context, ds []outbox.Delivery)
 	})
 	if err != nil {
 		for _, i := range in {
-			errs[i] = err
+			errs[i] = outbox.BatchFailure(err)
 		}
 	}
 	return errs

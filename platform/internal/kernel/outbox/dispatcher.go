@@ -181,9 +181,7 @@ func (d *Dispatcher) ProcessBatch(ctx context.Context) (int, error) {
 	for _, r := range runs {
 		d.deliverEach(ctx, r, leaseEnd)
 	}
-	for _, r := range runs {
-		d.settle(ctx, r.Claim, d.settlementOf(r))
-	}
+	d.settleAll(ctx, runs)
 	return len(claims), nil
 }
 
@@ -467,12 +465,36 @@ func retryDelay(attempt int, base, max time.Duration) time.Duration {
 	return min(delay, max)
 }
 
-// settle records s even when ctx is cancelled (shutdown), so finished
-// work isn't redelivered needlessly.
-func (d *Dispatcher) settle(ctx context.Context, c Claim, s Settlement) {
+// settleAll records each run's settlement even when ctx is cancelled
+// (shutdown), so finished work isn't redelivered needlessly: in one
+// round trip when the store settles batches, else one at a time.
+func (d *Dispatcher) settleAll(ctx context.Context, runs []*claimRun) {
+	if len(runs) == 0 {
+		return
+	}
 	sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
-	err := d.store.Settle(sctx, s)
+	ss := make([]Settlement, len(runs))
+	for i, r := range runs {
+		ss[i] = d.settlementOf(r)
+	}
+	var errs []error
+	if bs, ok := d.store.(BatchSettler); ok {
+		errs = bs.SettleAll(sctx, ss)
+	}
+	if len(errs) != len(ss) {
+		errs = make([]error, len(ss))
+		for i, s := range ss {
+			errs[i] = d.store.Settle(sctx, s)
+		}
+	}
+	for i, r := range runs {
+		d.settled(ctx, r.Claim, ss[i], errs[i])
+	}
+}
+
+// settled accounts for one settlement's result.
+func (d *Dispatcher) settled(ctx context.Context, c Claim, s Settlement, err error) {
 	switch {
 	case errors.Is(err, ErrLeaseLost):
 		d.metrics.settlements.WithLabelValues("lease_lost").Inc()

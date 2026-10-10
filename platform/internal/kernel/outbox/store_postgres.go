@@ -86,6 +86,33 @@ func (s *PostgresStore) Settle(ctx context.Context, st Settlement) error {
 	return nil
 }
 
+var _ BatchSettler = (*PostgresStore)(nil)
+
+// SettleAll implements BatchSettler: every settlement in one
+// transaction, each still fenced by its own claim token. Each is one
+// UPDATE as Settle's is; the batch saves the commits. On a database
+// error it returns nil, and the dispatcher settles one at a time.
+func (s *PostgresStore) SettleAll(ctx context.Context, ss []Settlement) []error {
+	errs := make([]error, len(ss))
+	err := s.uow.InSystemTx(ctx, s.scope, func(ctx context.Context, tx *db.SystemTx) error {
+		q := outboxsql.New(tx)
+		for i, st := range ss {
+			affected, err := settle(ctx, q, st)
+			if err != nil {
+				return fmt.Errorf("outbox: settle %s as %s: %w", st.EventID, st.Outcome, err)
+			}
+			if affected == 0 {
+				errs[i] = ErrLeaseLost
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+	return errs
+}
+
 func settle(ctx context.Context, q *outboxsql.Queries, st Settlement) (int64, error) {
 	delivered := st.DeliveredTo
 	if delivered == nil {

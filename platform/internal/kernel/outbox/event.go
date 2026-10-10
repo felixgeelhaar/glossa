@@ -157,6 +157,24 @@ func Permanent(err error) error {
 	return permanentError{err}
 }
 
+// batchFailure is a whole batch's failure, reported for each delivery
+// in it. It deliberately does not unwrap: a permanent error one
+// delivery caused must not dead-letter the rest.
+type batchFailure struct{ msg string }
+
+func (b batchFailure) Error() string { return b.msg }
+
+// BatchFailure is what a [BatchHandler] reports for each delivery when
+// the batch failed as a whole (its transaction rolled back): never
+// permanent, so the dispatcher delivers each one again on its own, and
+// the delivery at fault then fails alone.
+func BatchFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	return batchFailure{"batch failed: " + err.Error()}
+}
+
 // IsPermanent reports whether err was marked with Permanent.
 func IsPermanent(err error) bool {
 	var p permanentError
