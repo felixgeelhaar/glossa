@@ -17,9 +17,11 @@ import (
 
 // drainBudget is how long the outbox may take to deliver everything one
 // 500-item write left behind, against a local Postgres. Delivered one
-// event per transaction per subscriber, a push took tens of seconds to
-// drain (#89); batched it takes a few. The bound is generous for slow CI
-// runners. GLOSSA_DRAIN_BUDGET overrides it.
+// event per transaction per subscriber, a step took 5–19 s to drain
+// (#89, ~35 s for the four); batched, 0.7–7.6 s (~12–18 s). The bound
+// is generous for slow CI runners; the timings are logged, and a batch
+// that silently fell back to single deliveries fails the test on its
+// own. GLOSSA_DRAIN_BUDGET overrides it.
 func drainBudget(t *testing.T) time.Duration {
 	if v := os.Getenv("GLOSSA_DRAIN_BUDGET"); v != "" {
 		d, err := time.ParseDuration(v)
@@ -28,13 +30,15 @@ func drainBudget(t *testing.T) time.Duration {
 		}
 		return d
 	}
-	return 60 * time.Second
+	return 30 * time.Second
 }
 
 // TestOutboxDrainThroughput pushes and imports full batches through the
 // real server and measures how long the dispatcher takes to deliver
 // every event they left, then checks nothing was dead-lettered and the
-// audit chain recorded each delivered event once, gap-free and linked.
+// audit chain recorded each delivered event once, gap-free and linked,
+// and that no handler failed (so no batch fell back to single
+// deliveries). It logs each subscriber's handler time.
 func TestOutboxDrainThroughput(t *testing.T) {
 	s := startServer(t)
 	p, secret := perfProject(t, s)
@@ -64,6 +68,15 @@ func TestOutboxDrainThroughput(t *testing.T) {
 	}
 	s.checkAuditChains(t)
 	s.logHandlerTime(t)
+	var fallbacks []string
+	for line := range strings.Lines(s.logs.String()) {
+		if strings.Contains(line, "handler failed") {
+			fallbacks = append(fallbacks, line)
+		}
+	}
+	if len(fallbacks) > 0 {
+		t.Errorf("%d handler failures, first: %s", len(fallbacks), fallbacks[0])
+	}
 }
 
 // logHandlerTime logs the time each subscriber spent handling events,
