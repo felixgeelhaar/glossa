@@ -28,6 +28,25 @@ func (q *Queries) DeleteProposal(ctx context.Context, arg DeleteProposalParams) 
 	return err
 }
 
+const deleteProposals = `-- name: DeleteProposals :exec
+DELETE FROM catalog_proposals p
+USING (SELECT unnest($1::uuid[]) AS branch_id,
+              unnest($2::text[]) AS key) AS d
+WHERE p.branch_id = d.branch_id AND p.key = d.key
+`
+
+type DeleteProposalsParams struct {
+	BranchIds []uuid.UUID
+	Keys      []string
+}
+
+// DeleteProposals deletes many branches' proposals in one statement
+// (#89), one (branch_id, key) pair per array element.
+func (q *Queries) DeleteProposals(ctx context.Context, arg DeleteProposalsParams) error {
+	_, err := q.db.Exec(ctx, deleteProposals, arg.BranchIds, arg.Keys)
+	return err
+}
+
 const getBranch = `-- name: GetBranch :one
 SELECT id, tenant_id, project_id, name, pr_number, head_commit, state, preview_url, closed_at, removed_keys, version, created_by, created_at, updated_at, invalid_items FROM catalog_branches WHERE project_id = $1 AND name = $2
 `

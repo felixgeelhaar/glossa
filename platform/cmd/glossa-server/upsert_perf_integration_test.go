@@ -33,47 +33,12 @@ func upsertBudget(t *testing.T) time.Duration {
 // request finishes within the budget and did the work.
 func TestBulkUpsertPerformance(t *testing.T) {
 	s := startServer(t)
-	ada := s.signIn("ada@example.com")
-	var org struct{ ID string }
-	s.do(call{method: "POST", path: "/v1/tenants", cookie: ada.cookie, csrf: ada.csrf,
-		body: map[string]string{"slug": "acme", "name": "Acme"}}).decode(t, &org)
-	base := "/v1/tenants/" + org.ID
-	var project struct{ ID string }
-	s.do(call{method: "POST", path: base + "/projects", cookie: ada.cookie, csrf: ada.csrf,
-		body: map[string]any{"slug": "shop", "name": "Shop", "source_locale": "en"}}).decode(t, &project)
-	p := base + "/projects/" + project.ID
-	s.do(call{method: "POST", path: p + "/locales", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"code": "de"}}).
-		want(t, http.StatusCreated, "")
-	var tok struct {
-		Secret string `json:"secret"`
-	}
-	s.do(call{method: "POST", path: base + "/tokens", cookie: ada.cookie, csrf: ada.csrf,
-		body: map[string]any{"name": "cli", "scopes": []string{"write"}}}).decode(t, &tok)
+	p, secret := perfProject(t, s)
 
 	const n = 500
 	budget := upsertBudget(t)
-	messages := func(round int) []map[string]any {
-		items := make([]map[string]any, n)
-		for i := range items {
-			items[i] = map[string]any{
-				"key":         fmt.Sprintf("screen%02d.label%03d", i%20, i),
-				"text":        fmt.Sprintf("{count, plural, one {# item %d} other {# items %d}} r%d", i, i, round),
-				"description": "perf",
-			}
-		}
-		return items
-	}
-	translations := func(round int) []map[string]any {
-		items := make([]map[string]any, n)
-		for i := range items {
-			items[i] = map[string]any{
-				"key":    fmt.Sprintf("screen%02d.label%03d", i%20, i),
-				"locale": "de",
-				"text":   fmt.Sprintf("{count, plural, one {# Artikel %d} other {# Artikel %d}} r%d", i, i, round),
-			}
-		}
-		return items
-	}
+	messages := func(round int) []map[string]any { return perfMessages(n, round) }
+	translations := func(round int) []map[string]any { return perfTranslations(n, round) }
 	type results struct {
 		Results []struct {
 			Status string `json:"status"`
@@ -86,7 +51,7 @@ func TestBulkUpsertPerformance(t *testing.T) {
 	timed := func(name, path string, items []map[string]any, wantStatus string) {
 		t.Helper()
 		start := time.Now()
-		r := s.do(call{method: "POST", path: path, bearer: tok.Secret, body: map[string]any{"items": items}})
+		r := s.do(call{method: "POST", path: path, bearer: secret, body: map[string]any{"items": items}})
 		took := time.Since(start)
 		r.want(t, http.StatusOK, "")
 		var out results
@@ -110,4 +75,56 @@ func TestBulkUpsertPerformance(t *testing.T) {
 	timed("translation-imports create", p+"/translation-imports", translations(1), "created")
 	timed("message-upserts revise (translations go outdated)", p+"/message-upserts", messages(3), "revised")
 	timed("translation-imports revise", p+"/translation-imports", translations(2), "revised")
+}
+
+// perfMessages is a full batch of message upserts; round changes every
+// source text.
+func perfMessages(n, round int) []map[string]any {
+	items := make([]map[string]any, n)
+	for i := range items {
+		items[i] = map[string]any{
+			"key":         fmt.Sprintf("screen%02d.label%03d", i%20, i),
+			"text":        fmt.Sprintf("{count, plural, one {# item %d} other {# items %d}} r%d", i, i, round),
+			"description": "perf",
+		}
+	}
+	return items
+}
+
+// perfTranslations is a full batch of "de" translation imports for
+// perfMessages' keys; round changes every text.
+func perfTranslations(n, round int) []map[string]any {
+	items := make([]map[string]any, n)
+	for i := range items {
+		items[i] = map[string]any{
+			"key":    fmt.Sprintf("screen%02d.label%03d", i%20, i),
+			"locale": "de",
+			"text":   fmt.Sprintf("{count, plural, one {# Artikel %d} other {# Artikel %d}} r%d", i, i, round),
+		}
+	}
+	return items
+}
+
+// perfProject creates a tenant with a project in "en" with "de" added,
+// and a write token. It returns the project's path and the token.
+func perfProject(t *testing.T, s *server) (string, string) {
+	t.Helper()
+	ada := s.signIn("ada@example.com")
+	var org struct{ ID string }
+	s.do(call{method: "POST", path: "/v1/tenants", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]string{"slug": "acme", "name": "Acme"}}).decode(t, &org)
+	base := "/v1/tenants/" + org.ID
+	var project struct{ ID string }
+	s.do(call{method: "POST", path: base + "/projects", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"slug": "shop", "name": "Shop", "source_locale": "en"}}).decode(t, &project)
+	p := base + "/projects/" + project.ID
+	s.do(call{method: "POST", path: p + "/locales", cookie: ada.cookie, csrf: ada.csrf, body: map[string]string{"code": "de"}}).
+		want(t, http.StatusCreated, "")
+	var tok struct {
+		Secret string `json:"secret"`
+	}
+	s.do(call{method: "POST", path: base + "/tokens", cookie: ada.cookie, csrf: ada.csrf,
+		body: map[string]any{"name": "cli", "scopes": []string{"write"}}}).decode(t, &tok)
+
+	return p, tok.Secret
 }

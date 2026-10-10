@@ -58,6 +58,14 @@ SET message_id = EXCLUDED.message_id, kind = EXCLUDED.kind, syntax = EXCLUDED.sy
 -- name: DeleteProposal :exec
 DELETE FROM catalog_proposals WHERE branch_id = sqlc.arg(branch_id) AND key = sqlc.arg(key);
 
+-- DeleteProposals deletes many branches' proposals in one statement
+-- (#89), one (branch_id, key) pair per array element.
+-- name: DeleteProposals :exec
+DELETE FROM catalog_proposals p
+USING (SELECT unnest(sqlc.arg(branch_ids)::uuid[]) AS branch_id,
+              unnest(sqlc.arg(keys)::text[]) AS key) AS d
+WHERE p.branch_id = d.branch_id AND p.key = d.key;
+
 -- name: ListBranchProposals :many
 SELECT * FROM catalog_proposals WHERE branch_id = sqlc.arg(branch_id) ORDER BY key;
 
