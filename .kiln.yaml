@@ -28,10 +28,7 @@ prove:
   materialize:
     - node_modules
     - messageformat/js/node_modules
-    - packages/cli/node_modules
     - packages/format/node_modules
-    - packages/sdk/node_modules
-    - packages/ui/node_modules
     - runtimes/js/astro/node_modules
     - runtimes/js/capture/node_modules
     - runtimes/js/elements/node_modules

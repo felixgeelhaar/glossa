@@ -2,7 +2,7 @@ name: Platform deploy artifacts
 
 # Pull-request checks for the RFC 0002 platform's deployment artifacts:
 # the three images (built, never pushed) and deploy/charts/glossa-platform
-# (lint, render, schema validation). release.yml pushes the images.
+# (lint, render, schema validation). release-platform.yml pushes the images.
 #
 # A workflow of its own rather than jobs in ci.yml: three image builds
 # (~2 min each, the Studio one fetches the design system) are only worth

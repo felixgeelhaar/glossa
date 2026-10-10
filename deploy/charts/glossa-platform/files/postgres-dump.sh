@@ -3,7 +3,7 @@
 # "dump" of <fullname>-postgres-backup, postgres image): a plain-SQL
 # pg_dump of the application database, gzipped into the Job's scratch
 # volume and verified before the "upload" container ships it. As in v0.3
-# (deploy/k3s/glossa/backup-cronjob.yaml), what gets uploaded is checked
+# (its backup CronJob, deleted with v0.3), what gets uploaded is checked
 # first: a pg_dump that dies after the header still exits 0 through a
 # pipe, and a job that ships 20 bytes every night reports success until
 # the day it is needed.

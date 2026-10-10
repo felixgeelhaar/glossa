@@ -95,11 +95,11 @@ if err != nil {
 
 ## Client-side resolution
 
-The `@felixgeelhaar/glossa-sdk` npm package exposes `resolveApiError`
-that takes the envelope and returns the localised string:
+The `resolveApiError` helper of the retired v0.3 `@felixgeelhaar/glossa-sdk`
+(see `runtimes/js/elements/MIGRATION.md`) took the envelope and returned the localised string:
 
 ```ts
-import { resolveApiError } from "@felixgeelhaar/glossa-sdk";
+import { resolveApiError } from "<your resolver>";
 
 const res = await fetch("/api/v1/admin/projects", { ... });
 if (!res.ok) {
@@ -129,6 +129,5 @@ throws.
 
 ## Sibling packages
 
-- **Frontend resolver** — `@felixgeelhaar/glossa-sdk` re-exports
-  `resolveApiError` + the matching TypeScript types.
+- **Frontend resolver** — was `@felixgeelhaar/glossa-sdk` (retired with v0.3).
 - **Gin adapter** — `github.com/klarlabs-studio/glossa/apierr/ginerr`.

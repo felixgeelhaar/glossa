@@ -22,7 +22,7 @@ name: Release packages
 #   Packages (each needs its own trusted-publisher entry; the first
 #   publish of a new name is made once by hand, or the entry is
 #   created on the "Publishing access" page before it exists):
-#     v0.3 line (unchanged): glossa-format, glossa-sdk, glossa-ui, glossa-cli
+#     v0.3 line (retired; only glossa-format remains): glossa-format
 #     RFC 0002 rewrite (0.4.0): @klarlabs-studio/glossa (only; the nine
 #       source packages under runtimes/js and messageformat/js are
 #       private, and `changeset publish` skips private packages)
@@ -104,10 +104,7 @@ jobs:
       - name: Build workspace packages
         run: |
           pnpm --filter @felixgeelhaar/glossa-format build
-          pnpm --filter @felixgeelhaar/glossa-sdk build
-          pnpm --filter @felixgeelhaar/glossa-ui build
           pnpm -r --filter ./messageformat/js --filter "./runtimes/js/*" build
-          pnpm --filter @felixgeelhaar/glossa-cli build
 
       - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         id: changesets

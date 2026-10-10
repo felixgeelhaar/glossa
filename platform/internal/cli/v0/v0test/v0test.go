@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	image = "postgres:16-alpine" // v0.3's server major (deploy/k3s/glossa)
+	image = "postgres:16-alpine" // v0.3's server major (the retired v0.3 k3s manifests)
 	// LiveDB is the database v0.3 itself would use: migrated and seeded,
 	// never marked.
 	LiveDB   = "glossa"

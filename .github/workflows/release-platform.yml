@@ -22,7 +22,7 @@ name: Release platform images
 # Triggers: a v*.*.* tag push, or workflow_dispatch naming an existing
 # tag. Never a branch push — the images a deployment pins must come from
 # a tag. Pull requests build the same images without pushing
-# (.github/workflows/platform.yml); the v0.3 images live in release.yml.
+# (.github/workflows/platform.yml).
 #
 # Cut a release: bump deploy/charts/glossa-platform/Chart.yaml's
 # appVersion, then `git tag v0.4.0 && git push origin v0.4.0`.
@@ -179,7 +179,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
           # Written out rather than type=semver so a workflow_dispatch of
           # v0.4.0 produces exactly what pushing the tag would. `latest`
-          # on a release tag matches the v0.3 images in release.yml.
+          # on a release tag matches the release tag.
           tags: |
             type=raw,value=${{ steps.version.outputs.semver }}
             type=raw,value=${{ steps.version.outputs.majorminor }}

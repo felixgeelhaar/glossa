@@ -2,7 +2,7 @@
 
 > **For product teams who want every new language to be configuration, not an engineering project, Glossa is open-source localization infrastructure: one typed message model for web and backend, AI translation grounded in your terminology and translation memory, and immutable releases delivered to every runtime.** Unlike file-centric translation tools, Glossa treats translations as versioned product data you own: self-hosted, with your own LLM keys.
 
-**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. The feature list below describes what ships today (v0.3).
+**Build once. Speak everywhere.** Where Glossa is going and why: [`docs/product-intent.md`](./docs/product-intent.md). How it gets there: [RFC 0002 — Platform architecture](./docs/rfcs/0002-platform-architecture.md), a rewrite. v0.3, the service this repository started as, was retired on 2026-10-09.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
@@ -13,169 +13,40 @@ Glossa is the localization backbone for [Brotwerk](https://brotwerk.felixgeelhaa
 
 ---
 
-## Features
-
-- **Multi-tenant from day one.** Row-Level Security on every queryable table — a buggy handler that forgets `WHERE tenant_id = …` still cannot read across tenants. Tenancy is enforced via `SET LOCAL app.current_tenant` in a tx per request.
-- **REST + SSE.** Consumers fetch bundles over HTTP and subscribe to live updates over Server-Sent Events. Edit a key in the admin → connected clients render the new string within ~1s.
-- **Editorial lifecycle.** Translations move through `pending → ai_translated → needs_review → approved`. Status pills in the UI; status filter in the editor.
-- **AI translator agents (optional).** Configure OpenAI / Anthropic / Gemini / OpenAI-compatible endpoints per tenant. When a source-locale write lands, every other enabled locale gets an `ai_translated` row for reviewer approval. Existing approved / needs_review rows are never overwritten. API keys are AES-GCM encrypted at rest with `GLOSSA_SECRETS_KEY`.
-- **Email-first auth.** Login takes (email, password) — the tenant is inferred. Translators are scoped to specific locales; admins can do everything.
-- **Audit log.** Every translation mutation is recorded with before/after value, actor (`user` / `ai` / `system`), and timestamp.
-- **Design system.** `@felixgeelhaar/glossa-ui` ships Lit primitives (`gl-button`, `gl-input`, `gl-select`, `gl-table`, `gl-badge`, …) with light/dark/system theming. The admin UI is built from those primitives.
-- **Bulk import / export.** Atomic upsert of full `{key: value}` bundles; per-row failures reported alongside successes.
-- **Diff view.** Per-locale untranslated + needs-review counts at a glance.
-
----
-
-## Architecture
-
-```
-┌─ Glossa Service ──────────────────────────────────────┐
-│                                                        │
-│  apps/api  (Go + pgx/v5 + sqlc + gin)                  │
-│   ├── REST: projects / locales / keys / translations   │
-│   ├── SSE: live translation updates per (project,tnt)  │
-│   ├── Auth: JWT (admin SPA) + API key (consumer SDK)   │
-│   └── AI fan-out: source-locale write → N targets      │
-│                                                        │
-│  apps/admin  (Lit + Vite + @felixgeelhaar/glossa-ui)                 │
-│   ├── Editor / Bulk / Diff / Locales / Users           │
-│   ├── AI translation (provider config + test)          │
-│   └── Audit log                                        │
-│                                                        │
-│  packages/ui  (Lit primitives + tokens)                │
-│                                                        │
-└────────────────────────────────────────────────────────┘
-                       │
-                       │ HTTPS + SSE
-                       ▼
-        ┌─────────────┬──────────────┬─────────────┐
-        │  Brotwerk   │     IRI      │  Kraftsport │
-        │   Astro     │  Astro+Vue   │     TBD     │
-        └─────────────┴──────────────┴─────────────┘
-```
-
----
-
-## Quick start (Docker)
-
-```bash
-git clone https://github.com/klarlabs-studio/glossa
-cd glossa
-docker compose up --build
-```
-
-Boots Postgres 16, runs migrations, starts the API, and serves the admin at <http://localhost:5173>. The first run bootstraps a `demo` tenant with admin `felix@example.com` / `hunter2hunter2`.
-
-To enable the AI translator, the dev compose file already provides a non-secret `GLOSSA_SECRETS_KEY`. Add a provider in the **AI translation** tab and any source-locale (project default) write will fan out.
-
-## Install on Kubernetes (Helm)
-
-```bash
-helm install glossa oci://ghcr.io/felixgeelhaar/charts/glossa \
-  --version 0.1.0 \
-  --namespace glossa --create-namespace \
-  --values my-values.yaml
-```
-
-The chart serves one Glossa instance behind any number of hostnames — each gets its own cert-manager `Certificate` and `IngressRoute`. Tenants are inferred per-request from the API key or JWT, so the host is purely routing / branding:
-
-```yaml
-ingress:
-  hosts:
-    - host: glossa.example.com
-      tls: { secretName: glossa-example-com-tls }
-    - host: glossa.other-tenant.com
-      tls: { secretName: glossa-other-tenant-com-tls }
-```
-
-Full chart docs: [`deploy/charts/glossa/README.md`](./deploy/charts/glossa/README.md). Raw kustomize manifests for a hand-rolled install live in [`deploy/k3s/glossa/`](./deploy/k3s/glossa/).
-
----
-
 ## Project layout
 
 ```
 glossa/
-├── apps/
-│   ├── api/                    # Go service: hex arch (domain → app → interfaces → infra)
-│   │   ├── cmd/api/            # binary entry
-│   │   ├── db/migrations/      # numbered SQL migrations (run via `migrate`)
-│   │   ├── db/queries/         # sqlc input
-│   │   └── internal/
-│   │       ├── domain/         # aggregates + repository ports
-│   │       ├── app/            # use cases (per-feature subpackage)
-│   │       ├── interfaces/     # gin handlers
-│   │       └── infra/          # sqlc adapter, AES-GCM secrets, AI clients
-│   └── admin/                  # Lit SPA, served by nginx in compose
-├── packages/
-│   ├── format/                 # @felixgeelhaar/glossa-format — ICU MessageFormat
-│   ├── sdk/                    # @felixgeelhaar/glossa-sdk — fetch + cache + SSE
-│   ├── elements/               # @felixgeelhaar/glossa-elements — Lit web components (v0.3)
-│   ├── cli/                    # @felixgeelhaar/glossa-cli — init / scan / pull / push
-│   └── ui/                     # @felixgeelhaar/glossa-ui — design system primitives
-├── deploy/k3s/                 # k3s manifests + Helm-free kustomize bases
-├── docs/                       # product intent, positioning, design doc, RFCs
-└── docker-compose.yml          # one-command dev stack
+├── platform/                   # Go platform: /v1 API, workers, CLI (`glossa`), edge
+├── messageformat/              # MessageFormat 2 kernel (Go + TS) and conformance suite
+├── runtimes/                   # Go and JS runtimes: web components, Vue, React, Astro, capture, overlay
+├── studio/                     # Studio, the Vue admin UI
+├── site/                       # landing site
+├── deploy/charts/glossa-platform/  # Helm chart
+├── apps/api/                   # what is left of v0.3 (Go service); see below
+├── packages/format/            # what is left of v0.3 (ICU MessageFormat renderer); see below
+└── docs/                       # product intent, positioning, RFCs, runbooks
 ```
 
----
-
-## API surface (v1)
-
-### Consumer (API-key Bearer)
-| Method | Path | Purpose |
-|---|---|---|
-| `GET`  | `/api/v1/projects/:slug/locales/:locale/messages` | Bundle export |
-| `GET`  | `/api/v1/projects/:slug/sse` | Live updates |
-| `PATCH`| `/api/v1/projects/:slug/locales/:locale/keys/:key` | Update a translation |
-| `POST` | `/api/v1/projects/:slug/keys:scan` | Idempotent key seeding |
-
-### Admin (JWT)
-| Method | Path | Role |
-|---|---|---|
-| `GET / POST`   | `/api/v1/admin/projects` | admin |
-| `GET / PATCH`  | `/api/v1/admin/projects/:slug/locales/...` | translator + admin |
-| `POST`         | `/api/v1/admin/projects/:slug/locales/:locale/bulk` | admin |
-| `GET / POST / PATCH / DELETE` | `/api/v1/admin/users` | admin |
-| `GET / POST / PATCH / DELETE` | `/api/v1/admin/ai-providers` | admin |
-| `POST`         | `/api/v1/admin/ai-providers/:id/test` | admin |
-| `GET`          | `/api/v1/admin/audit` | admin |
-
----
-
-## Security
-
-- API keys (tenant-scoped) are stored as SHA-256 hashes; comparison is constant-time at the driver level (Postgres byte equality on fixed-length BYTEA).
-- AI provider credentials are AES-256-GCM encrypted per-row with a fresh 12-byte nonce. The master key (`GLOSSA_SECRETS_KEY`, 64-char hex) lives in env only; plaintext lives in process memory just long enough to call the upstream LLM.
-- Login is rate-limited (5 req/min per IP, burst 10) to defend bcrypt against brute force.
-- All authed requests run inside a transaction with `SET LOCAL app.current_tenant` — RLS policies on every table enforce isolation.
+`apps/api` and `packages/format` are the only v0.3 code kept. They are fixtures, not a product: the M5 exit test builds v0.3 from `apps/api`, the importer's tests apply its migrations, and `glossa import --from v0 --verify` renders with `packages/format`. They get no other work.
 
 ---
 
 ## Development
 
 ```bash
-# Backend
-cd apps/api
-go test ./...
-sqlc generate
-
-# Admin SPA
-cd apps/admin
-pnpm install
-pnpm dev   # http://localhost:5173 against running compose api
-
-# Design system
-cd packages/ui
-pnpm build
+make platform-test      # Go modules of the rewrite
+make packages           # build the JS packages (topological order)
+make lint && make test  # what the warden gate runs
 ```
+
+See [`platform/README.md`](./platform/README.md) for the platform itself.
 
 ---
 
 ## Roadmap
 
-Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 (this README's feature list, `apps/` and `packages/`) keeps serving its current consumers until they've moved, and only receives security and data-loss fixes. Moving a project off v0.3 and retiring it: [`docs/runbooks/retire-v0.md`](./docs/runbooks/retire-v0.md).
+Glossa is being **rewritten** as the platform the [product intent](./docs/product-intent.md) describes, and the Klarlabs products are the first users. Architecture, milestones and adoption waves: [RFC 0002](./docs/rfcs/0002-platform-architecture.md). v0.3 is retired (production shut down 2026-10-09; its code is deleted except `apps/api` and `packages/format`, below). How projects moved off it: [`docs/runbooks/retire-v0.md`](./docs/runbooks/retire-v0.md).
 
 | Milestone | Delivers | Done when |
 |---|---|---|
