@@ -117,10 +117,13 @@ A release is a tag. Everything else follows from it.
 1. **Agree the version.** `Chart.yaml`'s `appVersion` is the version the
    chart deploys: every `<component>.image.tag` defaults to
    `v<appVersion>`, the tag Kiln pushes (`v0.4.0` for `appVersion:
-   "0.4.0"`). Bump `appVersion` and the `VERSION` build args in
-   [`.kiln.yaml`](../../../.kiln.yaml) in the same commit and land that on
-   `main`. [`ci/check-release-version.sh`](ci/check-release-version.sh)
-   fails when they disagree; CI runs it on every chart change.
+   "0.4.0"`). Bump `appVersion` and land that on `main`; it is the only
+   version bumped by hand. The images take theirs from the tag:
+   [`.kiln.yaml`](../../../.kiln.yaml) passes `VERSION: "${kiln.version}"`
+   and `REVISION: "${kiln.sha}"` (kiln ≥ 0.7.0), so every binary reports
+   the release and commit it was built from.
+   [`ci/check-release-version.sh`](ci/check-release-version.sh) checks those
+   args, and the tag against `appVersion`; CI runs it on every chart change.
 2. **Check, tag and push it:**
 
    ```sh
