@@ -155,12 +155,12 @@ Rollback: point the product back at v0.3 (step 7's rollback). Nothing is lost.
 
 ## 10. After the last project (owner only)
 
-Status: steps 9 and 10.1–10.3 were done on 2026-10-09 (v0.3 retired in production), 10.5 and 10.6 on 2026-10-10. Remaining: `npm deprecate` (10.4, needs the owner's npm login).
+Status: steps 9 and 10.1–10.3 were done on 2026-10-09 (v0.3 retired in production), 10.4–10.6 on 2026-10-10. The retirement is complete.
 
 1. Confirm no v0.3 API key is left unrevoked in any project (step 9), then archive a final v0.3 dump (step 2's command) for one year, immutable; keep its SHA-256 with the evidence. **Done 2026-10-09:** final archive `storagebox:archive/glossa-v0/glossa-v0-final-glossa-20261009T060220Z.sql.gz`, sha256 `8f814b088f8f7dccc56a1a47143acbcb789f4e29dda891aefe7eed95b563adde`, kept to 2027-10-09.
 2. `kubectl -n glossa scale deploy/api deploy/admin --replicas=0` and leave it for 30 days. **Done 2026-10-09:** Helm release uninstalled, RollOps watch entry removed (the `.rollops/` manifests are deleted in the repository).
 3. Remove the IngressRoute and the DNS record for `glossa.felixgeelhaar.de`; delete the `glossa` namespace. **Done 2026-10-09:** namespace, volume and PV deleted. The `glossa` CNAME in the `felixgeelhaar.de` zone (Hetzner Cloud DNS) was deleted on 2026-10-10.
-4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`). **Open (owner):** `@felixgeelhaar/glossa-{cli,elements,sdk,ui,format}` on npmjs.
+4. Deprecate the npm packages with a pointer to the new ones (`npm deprecate`). **Done 2026-10-10:** `@felixgeelhaar/glossa-{cli,elements,sdk,ui,format}` on npmjs deprecated with a pointer to `@klarlabs-studio/glossa`.
 5. Merge the deletion PR (branch `m5/retire-v0`; it must not merge before steps 1–9 have run for every former v0.3 project). Afterwards the exit test's v0.3 half (`apps/api` build, `packages/format`) is gone: see the PR description for what replaces it. **Done 2026-10-10:** #100, which superseded #51.
 6. Export the organisation's audit trail as an owner and verify it offline: `glossa audit verify <export> --public-key glossa-audit-keys.json --json` (the key document is served at `/.well-known/glossa-audit-keys.json`). **Done 2026-10-10** for the Klarlabs tenant: `glossa audit export --first-sequence 1`, verified offline against key `a1`: sequences 1–12,912, 12,912 entries, `ok: true`, last hash `ec727a4bd29b9bc88291b2ac5a9013c3b2a7c4e91889b52aa3ab422eea1c6ce8`.
 
